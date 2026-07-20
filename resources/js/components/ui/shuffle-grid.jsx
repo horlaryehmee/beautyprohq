@@ -73,14 +73,31 @@ export function ShuffleHero({ providers = [], className }) {
     return (
         <section className={cn('bg-[#f4efe9] text-[#34231c]', className)}>
             <div className="page-container grid grid-cols-1 items-center gap-5 pb-7 pt-7 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
-                <div>
+                <motion.div
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                >
                     <p className="text-center text-[10px] font-black uppercase tracking-[.18em] text-[#7d2e3c] md:hidden">The home for beauty professionals</p>
+                    <motion.div
+                        animate={{ y: [0, -6, 0] }}
+                        className="mx-auto mb-4 hidden w-fit items-center gap-2 rounded-full border border-[#e0b3a8] bg-[#fff7f2] px-4 py-2 text-[11px] font-black uppercase tracking-[.16em] text-[#b4543f] shadow-[0_14px_28px_rgba(126,46,60,.08)] md:flex md:mx-0"
+                        transition={{ duration: 4, ease: 'easeInOut', repeat: Infinity }}
+                    >
+                        <span className="size-2 rounded-full bg-[#15816f]" />
+                        The home for beauty professionals
+                    </motion.div>
                     <h1 className="mt-2 max-w-[620px] text-center font-display text-[2.55rem] font-normal leading-[.94] text-[#34231c] md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
-                        The Beauty Service Ecosystem
+                        <span>The Beauty Service </span>
+                        <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
                     </h1>
-                    <p className="mt-3 text-center font-display text-xl font-normal text-[#4b3328] md:text-left sm:text-3xl">
+                    <motion.p
+                        animate={{ color: ['#4b3328', '#7d2e3c', '#15816f', '#4b3328'] }}
+                        className="mt-3 text-center font-display text-xl font-normal md:text-left sm:text-3xl"
+                        transition={{ duration: 8, ease: 'easeInOut', repeat: Infinity }}
+                    >
                         Connect. Discover. Grow.
-                    </p>
+                    </motion.p>
                     <p className="mx-auto mt-3 max-w-xl text-center text-sm font-normal leading-6 text-[#5a4d46] md:mx-0 md:text-left md:text-lg md:leading-7">
                         Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.
                     </p>
@@ -106,7 +123,7 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
-                </div>
+                </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
                 <div className="grid w-full overflow-hidden rounded-xl border border-[#ded2c7] bg-[#fbf7f1]/78 shadow-[0_16px_45px_rgba(64,42,32,.06)] backdrop-blur grid-cols-2 sm:grid-cols-4 md:col-span-2">
                     {[
