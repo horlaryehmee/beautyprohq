@@ -6,6 +6,7 @@ import VerifiedBadge from '../../components/ui/VerifiedBadge';
 const normalize = (value) => Array.isArray(value) ? value : value?.providers ?? value?.data ?? [];
 
 export default function AdminDirectoryPage() {
+    const [activeTab, setActiveTab] = useState('list');
     const [query, setQuery] = useState('');
     const [proOfWeekQuery, setProOfWeekQuery] = useState('');
     const [filter, setFilter] = useState('all');
@@ -132,7 +133,25 @@ export default function AdminDirectoryPage() {
             <PageHeader description="Approve listings, manage provider categories, and track the total providers in each category." eyebrow="Marketplace" title="Directory listings" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
             {categoriesResource.error && <ErrorState message={categoriesResource.error} onRetry={categoriesResource.reload} />}
-            <Card>
+            <Card className="p-2">
+                <div className="flex gap-2 overflow-x-auto">
+                    {[
+                        ['list', 'Directory list'],
+                        ['categories', 'Provider categories'],
+                        ['pro_of_week', 'Pro of the week'],
+                    ].map(([key, label]) => (
+                        <button
+                            className={`whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-black transition ${activeTab === key ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}
+                            key={key}
+                            onClick={() => setActiveTab(key)}
+                            type="button"
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </Card>
+            {activeTab === 'categories' && <Card>
                 <div className="grid gap-5 xl:grid-cols-[1fr_0.85fr]">
                     <div>
                         <div className="flex items-center justify-between gap-3">
@@ -178,8 +197,8 @@ export default function AdminDirectoryPage() {
                         </div>
                     </form>
                 </div>
-            </Card>
-            <Card>
+            </Card>}
+            {activeTab === 'pro_of_week' && <Card>
                 <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                     <div>
                         <h2 className="text-lg font-black text-slate-950">Pro of the week</h2>
@@ -215,8 +234,8 @@ export default function AdminDirectoryPage() {
                         </div>
                     </div>
                 </div>
-            </Card>
-            <Card>
+            </Card>}
+            {activeTab === 'list' && <Card>
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
                     <SearchInput onChange={(event) => setQuery(event.target.value)} placeholder="Search provider, profession or location" value={query} />
                     <select className={inputClass} onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
@@ -271,7 +290,7 @@ export default function AdminDirectoryPage() {
                 ) : (
                     <EmptyState description="No provider profiles match your filters." icon="profile" title="No listings found" />
                 )}
-            </Card>
+            </Card>}
 
             {editing && (
                 <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setEditing(null)}>
