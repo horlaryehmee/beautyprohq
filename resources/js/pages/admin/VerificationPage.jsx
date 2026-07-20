@@ -89,7 +89,7 @@ export default function AdminVerificationPage() {
                                                     <p className="truncate text-sm font-bold text-slate-950">{user.name}</p>
                                                     <StatusBadge status={request.status} />
                                                 </div>
-                                                <p className="truncate text-xs text-slate-400">{provider.profession} Â· {provider.location}</p>
+                                                <p className="truncate text-xs text-slate-400">{provider.profession} · {provider.country ?? provider.location}</p>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 text-xs">
@@ -150,3 +150,6 @@ export default function AdminVerificationPage() {
         </div>
     );
 }
+
+
+

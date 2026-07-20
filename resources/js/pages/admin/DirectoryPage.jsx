@@ -217,7 +217,7 @@ export default function AdminDirectoryPage() {
                                 <Avatar name={currentProOfWeek.user?.name} size="lg" src={currentProOfWeek.profile_photo} />
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-black text-slate-950">{currentProOfWeek.user?.name}</p>
-                                    <p className="truncate text-xs font-semibold text-slate-500">{currentProOfWeek.profession} Â· {currentProOfWeek.location}</p>
+                                    <p className="truncate text-xs font-semibold text-slate-500">{currentProOfWeek.profession} · {currentProOfWeek.country ?? currentProOfWeek.location}</p>
                                 </div>
                                 <StatusBadge status="featured" />
                             </div>
@@ -234,7 +234,7 @@ export default function AdminDirectoryPage() {
                                         <Avatar name={user.name} size="md" src={provider.profile_photo} />
                                         <div className="min-w-0 flex-1">
                                             <p className="truncate text-sm font-black text-slate-950">{user.name}</p>
-                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession} Â· {provider.location}</p>
+                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession} · {provider.country ?? provider.location}</p>
                                         </div>
                                         {selected ? <StatusBadge status="featured" /> : <span className="text-xs font-black uppercase tracking-wide text-fuchsia-700">Select</span>}
                                     </button>
@@ -348,3 +348,5 @@ export default function AdminDirectoryPage() {
         </div>
     );
 }
+
+

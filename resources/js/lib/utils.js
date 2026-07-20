@@ -45,6 +45,9 @@ export function providerIdentity(provider = {}) {
     const profile = provider.provider_profile ?? provider.profile ?? provider;
     const user = provider.user ?? profile.user ?? {};
 
+    const country = profile.country ?? provider.country ?? '';
+    const location = profile.location ?? provider.location ?? 'Location not added';
+
     return {
         raw: provider,
         profile,
@@ -54,7 +57,9 @@ export function providerIdentity(provider = {}) {
         slug: profile.slug ?? provider.slug ?? profile.id ?? provider.id,
         name: user.name ?? provider.name ?? profile.name ?? 'Beauty professional',
         profession: profile.profession ?? provider.profession ?? 'Beauty professional',
-        location: profile.location ?? provider.location ?? 'Location not added',
+        location,
+        country,
+        cardLocation: country || location,
         bio: profile.bio ?? provider.bio ?? '',
         photo: mediaUrl(profile.profile_photo_url ?? profile.profile_photo ?? provider.profile_photo_url ?? provider.profile_photo),
         verified: Boolean(profile.verified ?? provider.verified),

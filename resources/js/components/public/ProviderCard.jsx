@@ -77,7 +77,7 @@ export default function ProviderCard({ provider, featured = false }) {
                             <VerifiedBadge show={pro.verified} size="sm" className="shrink-0" />
                         </h3>
                         <p className="mt-1.5 truncate text-[11px] font-semibold text-[#241711]/80">{pro.profession}</p>
-                        <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-[#241711]/72"><Icon name="map" size={12} />{pro.location}</p>
+                        <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-[#241711]/72"><Icon name="map" size={12} />{pro.cardLocation}</p>
                         {hasRating && <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-[#241711]">
                             <Icon name="star" size={12} fill="currentColor" strokeWidth={0} className="text-[#d39331]" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}
                         </p>}
@@ -102,7 +102,7 @@ export default function ProviderCard({ provider, featured = false }) {
                 <div className="flex items-start justify-between gap-3">
                     <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]">
                         <Icon name="map" size={12} />
-                        <span className="truncate">{pro.location}</span>
+                        <span className="truncate">{pro.cardLocation}</span>
                     </span>
                     <button type="button" onClick={toggleSaved} disabled={saving} className={`pointer-events-auto ml-auto grid size-8 place-items-center rounded-sm border transition ${saved ? 'border-white bg-white text-[#7d2e3c]' : 'border-white/55 text-white/80 hover:bg-white/12'}`} aria-label={saveLabel}>
                         <Icon name="heart" size={15} fill={saved ? 'currentColor' : 'none'} />

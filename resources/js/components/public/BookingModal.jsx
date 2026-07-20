@@ -112,7 +112,7 @@ function ProviderSummary({ pro }) {
             <div className="min-w-0">
                 <p className="truncate font-bold text-[#34231c]">{pro.name}</p>
                 <p className="truncate text-sm text-stone-500">{pro.profession}</p>
-                {pro.location && <p className="mt-0.5 truncate text-xs font-bold text-stone-400">{pro.location}</p>}
+                {pro.cardLocation && <p className="mt-0.5 truncate text-xs font-bold text-stone-400">{pro.cardLocation}</p>}
             </div>
         </div>
     );

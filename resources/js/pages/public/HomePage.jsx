@@ -264,7 +264,7 @@ function VerifiedProfessionalCard({ provider }) {
                 <div className="flex items-start justify-between gap-3">
                     <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]">
                         <Icon name="map" size={12} />
-                        <span className="truncate">{pro.location}</span>
+                        <span className="truncate">{pro.cardLocation}</span>
                     </span>
                     <SaveProviderButton provider={provider} />
                 </div>
@@ -408,7 +408,7 @@ export default function HomePage() {
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500 md:mt-2">
                                         <span>{pro.profession}</span>
-                                        <span className="inline-flex items-center gap-1"><Icon name="map" size={13} />{pro.location}</span>
+                                        <span className="inline-flex items-center gap-1"><Icon name="map" size={13} />{pro.cardLocation}</span>
                                         {pro.rating ? <span className="inline-flex items-center gap-1"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating.toFixed(1)}</span> : null}
                                     </div>
                                     {summary && <p className="mt-4 line-clamp-2 max-w-xl text-sm font-semibold leading-6 text-stone-600">{summary}</p>}
