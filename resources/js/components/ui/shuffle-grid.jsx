@@ -106,21 +106,9 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
-                    <div className="mx-auto mt-7 max-w-full overflow-x-auto pb-1 md:mx-0 md:overflow-visible">
-                        <div className="flex w-max items-baseline gap-6 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:w-auto md:flex-wrap md:gap-x-8 md:gap-y-2">
-                            {[
-                                ['500+', 'Beauty Pros'],
-                                ['50+', 'Cities'],
-                                ['100+', 'Resources'],
-                                ['25+', 'Events'],
-                            ].map(([value, label]) => (
-                                <span className="inline-flex items-baseline gap-2" key={label}>
-                                    <span className="font-display text-xl font-semibold normal-case tracking-normal text-[#34231c]">{value}</span>
-                                    {label}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
+                    <p className="mx-auto mt-7 max-w-xl text-center text-[12px] font-black uppercase leading-6 tracking-[.13em] text-[#7b6b61] md:mx-0 md:text-left">
+                        Trusted by <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#34231c]">500+</span> beauty pros across <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#34231c]">50+</span> cities, with <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#d96f53]">100+</span> resources and <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#d96f53]">25+</span> events.
+                    </p>
                 </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
             </div>
