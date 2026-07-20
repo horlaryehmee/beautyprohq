@@ -254,11 +254,11 @@ function VerifiedProfessionalCard({ provider }) {
                         <VerifiedBadge show={pro.verified} size="md" className="shrink-0" />
                     </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
-                    <div className={`mt-3 flex items-center gap-3 ${hasRating ? 'justify-between' : 'justify-end'}`}>
-                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span>}
+                    <div className="mt-3 flex items-center justify-between gap-3">
                         <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
                             View Profile
                         </Link>
+                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span>}
                     </div>
                 </div>
             </div>
