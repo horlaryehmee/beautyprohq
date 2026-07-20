@@ -268,40 +268,39 @@ export default function HomePage() {
 
             {proOfWeek && (() => {
                 const pro = providerIdentity(proOfWeek);
-                const quote = pro.raw?.spotlight_quote ?? pro.raw?.quote ?? pro.bio;
+                const summary = pro.raw?.spotlight_quote ?? pro.raw?.quote ?? pro.bio;
                 return (
-                    <section className="bg-[linear-gradient(#f4efe9_0%_50%,#fff_50%_100%)] py-12 sm:py-16">
-                        <div className="page-container overflow-hidden rounded-xl bg-white shadow-[0_18px_55px_rgba(60,38,29,.08)] ring-1 ring-stone-200/70">
-                            <div className="grid md:grid-cols-[1fr_1fr]">
-                                <div className="relative min-h-72 bg-[#e8d9cf] md:min-h-[360px]">
+                    <section className="bg-[linear-gradient(#f4efe9_0%_45%,#fff_45%_100%)] py-10 sm:py-14">
+                        <div className="page-container">
+                            <article className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-[0_18px_50px_rgba(60,38,29,.08)]">
+                            <div className="grid md:grid-cols-[.78fr_1fr]">
+                                <div className="relative min-h-60 bg-[#e8d9cf] md:min-h-[310px]">
                                     {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
-                                </div>
-                                <div className="flex flex-col justify-center px-7 py-9 sm:px-10 lg:px-14">
-                                    <p className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[.16em] text-[#8b4b59]">
-                                        <span className="h-px w-12 bg-[#b98a92]" /> Pro of the week
-                                    </p>
-                                    <div className="mt-5 flex flex-wrap items-center gap-2">
-                                        <h2 className="font-display text-3xl font-semibold leading-tight text-[#3b2921] sm:text-4xl">{pro.name}</h2>
-                                        {pro.verified && <Icon name="shield" size={18} className="text-amber-500" />}
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
+                                        <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
+                                        <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
                                     </div>
-                                    {false && (
-                                    <p className="mt-2 text-sm font-bold text-rose-200">{pro.profession} · {pro.location}</p>
-                                    )}
-                                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500">
+                                </div>
+                                <div className="flex flex-col justify-center px-5 py-6 sm:px-7 md:px-8 lg:px-10">
+                                    <p className="hidden items-center gap-3 text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59] md:flex">
+                                        <span className="h-px w-10 bg-[#b98a92]" /> Pro of the week
+                                    </p>
+                                    <div className="mt-0 hidden flex-wrap items-center gap-2 md:mt-4 md:flex">
+                                        <h2 className="font-display text-3xl font-semibold leading-tight text-[#3b2921] lg:text-4xl">{pro.name}</h2>
+                                        <VerifiedBadge show={pro.verified} size="md" />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500 md:mt-2">
                                         <span>{pro.profession}</span>
                                         <span className="inline-flex items-center gap-1"><Icon name="map" size={13} />{pro.location}</span>
+                                        {pro.rating ? <span className="inline-flex items-center gap-1"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating.toFixed(1)}</span> : null}
                                     </div>
-                                    {quote && <p className="mt-6 border-l border-rose-200 pl-5 font-display text-xl font-semibold italic leading-snug text-[#9b4e5d] sm:text-2xl">"{quote}"</p>}
-                                    <div className="mt-8 flex flex-wrap gap-3">
-                                        <Link to={`/providers/${pro.slug}#about`} className="inline-flex min-h-11 items-center justify-center gap-2 bg-[#7d2e3c] px-7 text-xs font-black text-white transition hover:bg-[#682533]">
-                                            Read Story <Icon name="arrow" size={14} />
-                                        </Link>
-                                        <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-11 items-center justify-center border border-rose-200 bg-white px-7 text-xs font-black text-[#8b4b59] transition hover:bg-rose-50">
-                                            View Profile
-                                        </Link>
-                                    </div>
+                                    {summary && <p className="mt-4 line-clamp-3 max-w-xl text-sm font-semibold leading-6 text-stone-600">{summary}</p>}
+                                    <Link to={`/providers/${pro.slug}`} className="mt-6 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md bg-[#7d2e3c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#682533]">
+                                        View Profile <Icon name="arrow" size={14} />
+                                    </Link>
                                 </div>
                             </div>
+                            </article>
                         </div>
                     </section>
                 );

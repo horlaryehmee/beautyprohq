@@ -163,7 +163,11 @@ class DashboardController extends Controller
             ->when($request->filled('verified'), fn ($q) => $q->where('verified', $request->boolean('verified')))
             ->when($request->filled('is_listed'), fn ($q) => $q->where('is_listed', $request->boolean('is_listed')))
             ->when($request->filled('category_id'), fn ($q) => $q->where('provider_category_id', $request->integer('category_id')))
-            ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x->where('profession', 'like', "%{$search}%")->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"))))
+            ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x
+                ->where('profession', 'like', "%{$search}%")
+                ->orWhere('location', 'like', "%{$search}%")
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
+            ))
             ->latest()->paginate($request->integer('per_page', 20));
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [

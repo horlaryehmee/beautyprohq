@@ -7,6 +7,7 @@ const normalize = (value) => Array.isArray(value) ? value : value?.providers ?? 
 
 export default function AdminDirectoryPage() {
     const [query, setQuery] = useState('');
+    const [proOfWeekQuery, setProOfWeekQuery] = useState('');
     const [filter, setFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [editing, setEditing] = useState(null);
@@ -15,13 +16,17 @@ export default function AdminDirectoryPage() {
     const [saving, setSaving] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
     const search = useDebouncedValue(query);
+    const proOfWeekSearch = useDebouncedValue(proOfWeekQuery);
     const resource = useApiResource('/admin/directory', [], { params: { search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
+    const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, is_listed: 1, per_page: 8 } });
     const categoriesResource = useApiResource('/admin/provider-categories', []);
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();
 
     const providers = useMemo(() => normalize(resource.data), [resource.data]);
+    const proOfWeekProviders = useMemo(() => normalize(proOfWeekResource.data), [proOfWeekResource.data]);
     const categories = useMemo(() => normalize(categoriesResource.data), [categoriesResource.data]);
+    const currentProOfWeek = useMemo(() => proOfWeekProviders.find((provider) => provider.is_pro_of_week) ?? providers.find((provider) => provider.is_pro_of_week), [proOfWeekProviders, providers]);
 
     const toggle = (provider) => run(provider.id, async () => {
         const current = provider.is_listed ?? provider.listed ?? true;
@@ -29,6 +34,17 @@ export default function AdminDirectoryPage() {
             await apiRequest('patch', `/admin/providers/${provider.id}`, { is_listed: !current });
             resource.reload(true);
             notify(!current ? 'Provider added to directory.' : 'Provider removed from directory.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    });
+
+    const selectProOfWeek = (provider) => run(`pro-week-${provider.id}`, async () => {
+        try {
+            await apiRequest('patch', `/admin/providers/${provider.id}`, { is_pro_of_week: true });
+            resource.reload(true);
+            proOfWeekResource.reload(true);
+            notify(`${provider.user?.name ?? provider.name ?? 'Provider'} is now Pro of the week.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -163,6 +179,43 @@ export default function AdminDirectoryPage() {
                             </div>
                         </div>
                     </form>
+                </div>
+            </Card>
+            <Card>
+                <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+                    <div>
+                        <h2 className="text-lg font-black text-slate-950">Pro of the week</h2>
+                        <p className="mt-1 text-sm leading-6 text-slate-500">Search listed providers and choose who appears in the homepage feature card.</p>
+                        {currentProOfWeek && (
+                            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-3">
+                                <Avatar name={currentProOfWeek.user?.name} size="lg" src={currentProOfWeek.profile_photo} />
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-slate-950">{currentProOfWeek.user?.name}</p>
+                                    <p className="truncate text-xs font-semibold text-slate-500">{currentProOfWeek.profession} · {currentProOfWeek.location}</p>
+                                </div>
+                                <StatusBadge status="featured" />
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <SearchInput onChange={(event) => setProOfWeekQuery(event.target.value)} placeholder="Search provider users" value={proOfWeekQuery} />
+                        <div className="mt-3 grid gap-2">
+                            {proOfWeekResource.loading ? <LoadingBlock rows={3} /> : proOfWeekProviders.length ? proOfWeekProviders.map((provider) => {
+                                const user = provider.user ?? provider;
+                                const selected = Boolean(provider.is_pro_of_week);
+                                return (
+                                    <button className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${selected ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`} key={provider.id} onClick={() => selectProOfWeek(provider)} type="button">
+                                        <Avatar name={user.name} size="md" src={provider.profile_photo} />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-black text-slate-950">{user.name}</p>
+                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession} · {provider.location}</p>
+                                        </div>
+                                        {selected ? <StatusBadge status="featured" /> : <span className="text-xs font-black uppercase tracking-wide text-fuchsia-700">Select</span>}
+                                    </button>
+                                );
+                            }) : <EmptyState description="Try another provider name, profession, or location." icon="search" title="No providers found" />}
+                        </div>
+                    </div>
                 </div>
             </Card>
             <Card>

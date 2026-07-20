@@ -15,6 +15,7 @@ const statusStyles = {
     suspended: 'bg-rose-50 text-rose-700 ring-rose-600/10',
     failed: 'bg-rose-50 text-rose-700 ring-rose-600/10',
     unread: 'bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-600/10',
+    featured: 'bg-amber-50 text-amber-700 ring-amber-600/10',
 };
 
 export const cx = (...values) => values.filter(Boolean).join(' ');
