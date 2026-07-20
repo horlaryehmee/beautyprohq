@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { cn, mediaUrl } from '../../lib/utils';
 import Icon from './Icon';
@@ -23,19 +23,6 @@ const fallbackSquares = [
     { id: 'fallback-16', src: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=80' },
 ];
 
-function shuffle(array) {
-    const copy = [...array];
-    let currentIndex = copy.length;
-
-    while (currentIndex !== 0) {
-        const randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
-        [copy[currentIndex], copy[randomIndex]] = [copy[randomIndex], copy[currentIndex]];
-    }
-
-    return copy;
-}
-
 function providerSquares(providers = []) {
     const photos = providers
         .map((provider) => ({
@@ -47,43 +34,37 @@ function providerSquares(providers = []) {
     return [...photos, ...fallbackSquares].slice(0, 16);
 }
 
-function generateSquares(data) {
-    return shuffle(data).map((square) => (
-        <motion.div
-            key={square.id}
-            layout
-            transition={{ duration: 1.25, type: 'spring' }}
-            className="h-full w-full overflow-hidden rounded-md bg-[#ddd3c8]"
-            style={{
-                backgroundImage: `url(${square.src})`,
-                backgroundPosition: 'center',
-                backgroundSize: 'cover',
-            }}
-        />
-    ));
-}
-
-function ShuffleGrid({ providers }) {
-    const timeoutRef = useRef(null);
+function HeroImageMarquee({ providers }) {
     const squareData = useMemo(() => providerSquares(providers), [providers]);
-    const [squares, setSquares] = useState(() => generateSquares(squareData));
+    const leftColumn = [...squareData.filter((_, index) => index % 2 === 0), ...squareData.filter((_, index) => index % 2 === 0)];
+    const rightColumn = [...squareData.filter((_, index) => index % 2 !== 0), ...squareData.filter((_, index) => index % 2 !== 0)];
+    const columns = [
+        { id: 'left', items: leftColumn, direction: -1, className: 'pt-12 md:pt-20' },
+        { id: 'right', items: rightColumn, direction: 1, className: '-mt-20 md:-mt-28' },
+    ];
 
-    useEffect(() => {
-        function shuffleSquares() {
-            setSquares(generateSquares(squareData));
-            timeoutRef.current = setTimeout(shuffleSquares, 3000);
-        }
-
-        shuffleSquares();
-
-        return () => {
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        };
-    }, [squareData]);
+    if (!squareData.length) return null;
 
     return (
-        <div className="grid aspect-square w-full max-w-[320px] grid-cols-4 grid-rows-4 gap-1.5 justify-self-center md:max-w-[360px] lg:max-w-[380px]">
-            {squares}
+        <div className="relative mx-auto h-[430px] w-full max-w-[500px] overflow-hidden rounded-[2rem] md:h-[540px] lg:h-[620px]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-[#f4efe9] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#f4efe9] to-transparent" />
+            <div className="grid h-full grid-cols-2 gap-3 sm:gap-4">
+                {columns.map((column) => (
+                    <motion.div
+                        animate={{ y: column.direction === -1 ? ['0%', '-50%'] : ['-50%', '0%'] }}
+                        className={cn('flex flex-col gap-3 sm:gap-4', column.className)}
+                        key={column.id}
+                        transition={{ duration: 34, ease: 'linear', repeat: Infinity }}
+                    >
+                        {column.items.map((item, index) => (
+                            <div className="h-44 shrink-0 overflow-hidden rounded-[1.35rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 md:h-64" key={`${column.id}-${item.id}-${index}`}>
+                                <img src={item.src} alt="" className="size-full object-cover" loading={index > 3 ? 'lazy' : 'eager'} />
+                            </div>
+                        ))}
+                    </motion.div>
+                ))}
+            </div>
         </div>
     );
 }
@@ -126,7 +107,7 @@ export function ShuffleHero({ providers = [], className }) {
                         </Link>
                     </div>
                 </div>
-                <div className="mx-auto w-full max-w-[220px] md:max-w-none"><ShuffleGrid providers={providers} /></div>
+                <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
                 <div className="grid w-full overflow-hidden rounded-xl border border-[#ded2c7] bg-[#fbf7f1]/78 shadow-[0_16px_45px_rgba(64,42,32,.06)] backdrop-blur grid-cols-2 sm:grid-cols-4 md:col-span-2">
                     {[
                         ['users', '500+', 'Beauty Professionals'],
