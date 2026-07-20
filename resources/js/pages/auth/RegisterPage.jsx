@@ -46,6 +46,64 @@ function money(amount, code) {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: code, maximumFractionDigits: Number(amount) % 1 === 0 ? 0 : 2 }).format(Number(amount ?? 0));
 }
 
+function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSelect }) {
+    return (
+        <div className="rounded-[1.75rem] border border-stone-200 bg-white p-3 shadow-[0_18px_45px_rgba(45,29,22,.08)]">
+            <div className="px-2 pb-3 pt-1">
+                <h2 className="text-2xl font-black tracking-tight text-plum-950">Select a plan</h2>
+                <p className="mt-1 text-sm font-medium text-stone-500">Choose how you want to start on BeautyPro HQ.</p>
+            </div>
+
+            <div className="grid gap-3">
+                {plans.map((plan) => {
+                    const isSelected = selectedPlan === plan.key;
+                    const price = convertedPrice(plan.price, plan.currency ?? 'NGN', displayCurrency, currencies);
+                    const description = plan.key === 'free' ? 'directory presence' : 'booking and business tools';
+
+                    return (
+                        <button
+                            className={`relative overflow-hidden rounded-2xl border text-left transition duration-300 ${isSelected ? 'border-plum-950 bg-[#241711] text-white shadow-[0_18px_35px_rgba(36,23,17,.18)]' : 'border-stone-200 bg-[#fffdf9] text-plum-950 hover:border-stone-300 hover:bg-white'}`}
+                            key={plan.key}
+                            onClick={() => onSelect(plan.key)}
+                            type="button"
+                        >
+                            <div className="p-4 sm:p-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex min-w-0 gap-3">
+                                        <span className={`mt-1 grid size-6 shrink-0 place-items-center rounded-full border-2 transition ${isSelected ? 'border-white' : 'border-stone-300'}`}>
+                                            <span className={`size-3 rounded-full transition ${isSelected ? 'scale-100 bg-white' : 'scale-0 bg-transparent'}`} />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <h3 className="text-lg font-black leading-tight">{plan.name}</h3>
+                                            <p className={`mt-1 text-sm font-semibold lowercase ${isSelected ? 'text-white/70' : 'text-stone-500'}`}>{description}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="shrink-0 text-right">
+                                        <p className="text-xl font-black leading-none">{money(price, displayCurrency)}</p>
+                                        <p className={`mt-1 text-[11px] font-bold capitalize ${isSelected ? 'text-white/55' : 'text-stone-400'}`}>{plan.billing_period}</p>
+                                    </div>
+                                </div>
+
+                                <div className={`mt-5 grid gap-3 overflow-hidden transition-all duration-300 ${isSelected ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
+                                    {(plan.features ?? []).slice(0, 6).map((feature) => (
+                                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${isSelected ? 'text-white/82' : 'text-stone-600'}`} key={feature}>
+                                            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${isSelected ? 'bg-white/12 text-white' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                <Icon name="check" size={12} />
+                                            </span>
+                                            {feature}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function RegisterPage() {
     const { register } = useAuth();
     const navigate = useNavigate();
@@ -157,30 +215,7 @@ export default function RegisterPage() {
                         )}
                     </div>
 
-                    <div className="grid gap-3">
-                        {visiblePlans.map((plan) => {
-                            const price = convertedPrice(plan.price, plan.currency ?? 'NGN', displayCurrency, currencies);
-                            return (
-                                <button
-                                    className={`rounded-2xl border p-5 text-left transition ${form.plan === plan.key ? 'border-plum-900 bg-plum-950 text-white shadow-lg shadow-plum-950/10' : 'border-stone-200 bg-white text-plum-950 hover:bg-cream-100'}`}
-                                    key={plan.key}
-                                    onClick={() => update('plan', plan.key)}
-                                    type="button"
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <p className="text-base font-black">{plan.name}</p>
-                                            <p className={`mt-1 text-xs font-semibold ${form.plan === plan.key ? 'text-plum-100' : 'text-stone-500'}`}>{plan.key === 'free' ? 'For basic directory presence' : 'For booking and business tools'}</p>
-                                        </div>
-                                        <p className="shrink-0 text-right text-lg font-black">{money(price, displayCurrency)}<span className="block text-[10px] opacity-70">/{plan.billing_period}</span></p>
-                                    </div>
-                                    <div className="mt-4 flex flex-wrap gap-1.5">
-                                        {(plan.features ?? []).slice(0, 6).map((feature) => <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${form.plan === plan.key ? 'bg-white/10 text-white' : 'bg-cream-100 text-stone-500'}`} key={feature}>{feature}</span>)}
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <PlanSelector plans={visiblePlans} selectedPlan={form.plan} displayCurrency={displayCurrency} currencies={currencies} onSelect={(plan) => update('plan', plan)} />
 
                     <Button className="w-full" onClick={() => setStep(2)} size="lg" type="button">Continue <Icon name="arrow" size={17} /></Button>
                 </div>
