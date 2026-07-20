@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 
 const emptyForm = {
@@ -21,6 +21,63 @@ function plainText(value) {
 function contactFrom(item = {}) {
     const info = item.contact_info ?? {};
     return typeof info === 'object' ? info : { text: info };
+}
+
+function FormattingEditor({ label, value, onChange }) {
+    const textareaRef = useRef(null);
+
+    const replaceSelection = (before, after = '', fallback = 'Text') => {
+        const node = textareaRef.current;
+        if (!node) return;
+        const start = node.selectionStart ?? value.length;
+        const end = node.selectionEnd ?? value.length;
+        const selected = value.slice(start, end) || fallback;
+        onChange(`${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`);
+        requestAnimationFrame(() => {
+            node.focus();
+            node.setSelectionRange(start + before.length, start + before.length + selected.length);
+        });
+    };
+
+    const insertBlock = (block) => {
+        const node = textareaRef.current;
+        const start = node?.selectionStart ?? value.length;
+        const prefix = value && !value.endsWith('\n') ? '\n\n' : '';
+        onChange(`${value.slice(0, start)}${prefix}${block}${value.slice(start)}`);
+        requestAnimationFrame(() => node?.focus());
+    };
+
+    const tools = [
+        ['H1', () => insertBlock('# Main heading')],
+        ['H2', () => insertBlock('## Section heading')],
+        ['H3', () => insertBlock('### Subheading')],
+        ['H4', () => insertBlock('#### Small heading')],
+        ['H5', () => insertBlock('##### Label heading')],
+        ['H6', () => insertBlock('###### Minor heading')],
+        ['Paragraph', () => insertBlock('Write paragraph text here.')],
+        ['Bold', () => replaceSelection('**', '**')],
+        ['Quote', () => insertBlock('> Important note or quote')],
+        ['List', () => insertBlock('- First point\n- Second point\n- Third point')],
+        ['Numbered', () => insertBlock('1. First step\n2. Second step\n3. Third step')],
+        ['Link', () => replaceSelection('[', '](https://example.com)', 'Link text')],
+    ];
+
+    return (
+        <div>
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-slate-700">{label}</span>
+                <span className="text-xs font-semibold text-slate-400">Plain text formatting</span>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
+                    {tools.map(([toolLabel, action]) => (
+                        <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
+                    ))}
+                </div>
+                <textarea ref={textareaRef} className={`${inputClass} min-h-[420px] resize-y rounded-none border-0 leading-7 shadow-none focus:ring-0`} onChange={(event) => onChange(event.target.value)} placeholder="Write the full opportunity details here. Use the toolbar for headings, bold text, lists, quotes, and links." required value={value} />
+            </div>
+        </div>
+    );
 }
 
 function formFrom(item) {
@@ -122,7 +179,7 @@ export default function AdminOpportunitiesPage() {
                             </div>
                             <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
                             <Field label="Short card description" hint="This is what appears on homepage and opportunity cards. Keep it short, clear, and direct."><textarea className={`${inputClass} min-h-24 resize-y leading-7`} maxLength={600} onChange={(event) => setForm((current) => ({ ...current, short_description: event.target.value }))} value={form.short_description} /></Field>
-                            <Field label="Full opportunity details" hint="Plain text only. Add 100–200 words or more. You can type headings like Requirements, Responsibilities, How to apply, etc."><textarea className={`${inputClass} min-h-72 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Write the full opportunity details here. Example: About the opportunity, requirements, responsibilities, compensation, timeline, how to apply." required value={form.description} /></Field>
+                            <FormattingEditor label="Full opportunity details" onChange={(value) => setForm((current) => ({ ...current, description: value }))} value={form.description} />
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>
                                 <Field label="Contact email"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, contact_email: event.target.value }))} type="email" value={form.contact_email} /></Field>

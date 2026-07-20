@@ -37,12 +37,87 @@ function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function stripHtml(value) {
+    return String(value ?? '').replace(/<[^>]*>/g, ' ');
+}
+
+function InlineFormat({ value }) {
+    const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+    return String(value ?? '').split(pattern).filter(Boolean).map((part, index) => {
+        const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (link) return <a key={index} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a>;
+        if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
+        return <span key={index}>{part}</span>;
+    });
+}
+
 function TextContent({ value }) {
     if (!value) return null;
+    const lines = stripHtml(value).replace(/\r\n/g, '\n').split('\n');
+    const blocks = [];
+    let list = null;
+
+    const flushList = () => {
+        if (list) {
+            blocks.push(list);
+            list = null;
+        }
+    };
+
+    lines.forEach((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) {
+            flushList();
+            return;
+        }
+
+        const heading = line.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+            flushList();
+            blocks.push({ type: `h${heading[1].length}`, text: heading[2] });
+            return;
+        }
+
+        const quote = line.match(/^>\s+(.+)$/);
+        if (quote) {
+            flushList();
+            blocks.push({ type: 'quote', text: quote[1] });
+            return;
+        }
+
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet) {
+            if (!list || list.type !== 'ul') list = { type: 'ul', items: [] };
+            list.items.push(bullet[1]);
+            return;
+        }
+
+        const numbered = line.match(/^\d+\.\s+(.+)$/);
+        if (numbered) {
+            if (!list || list.type !== 'ol') list = { type: 'ol', items: [] };
+            list.items.push(numbered[1]);
+            return;
+        }
+
+        flushList();
+        blocks.push({ type: 'p', text: line });
+    });
+    flushList();
 
     return (
         <div className="content-prose">
-            {plainText(value).split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+            {blocks.map((block, index) => {
+                if (block.type === 'h1') return <h1 key={index}><InlineFormat value={block.text} /></h1>;
+                if (block.type === 'h2') return <h2 key={index}><InlineFormat value={block.text} /></h2>;
+                if (block.type === 'h3') return <h3 key={index}><InlineFormat value={block.text} /></h3>;
+                if (block.type === 'h4') return <h4 key={index}><InlineFormat value={block.text} /></h4>;
+                if (block.type === 'h5') return <h5 key={index}><InlineFormat value={block.text} /></h5>;
+                if (block.type === 'h6') return <h6 key={index}><InlineFormat value={block.text} /></h6>;
+                if (block.type === 'quote') return <blockquote key={index}><InlineFormat value={block.text} /></blockquote>;
+                if (block.type === 'ul') return <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><InlineFormat value={item} /></li>)}</ul>;
+                if (block.type === 'ol') return <ol key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><InlineFormat value={item} /></li>)}</ol>;
+                return <p key={index}><InlineFormat value={block.text} /></p>;
+            })}
         </div>
     );
 }
