@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn, mediaUrl } from '../../lib/utils';
 import Icon from './Icon';
@@ -32,6 +32,28 @@ function providerSquares(providers = []) {
         .filter((item) => item.src);
 
     return [...photos, ...fallbackSquares].slice(0, 16);
+}
+
+function CountUp({ end, suffix = '+' }) {
+    const [value, setValue] = useState(0);
+
+    useEffect(() => {
+        let frame;
+        const duration = 1200;
+        const startedAt = performance.now();
+
+        function tick(now) {
+            const progress = Math.min((now - startedAt) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setValue(Math.round(end * eased));
+            if (progress < 1) frame = requestAnimationFrame(tick);
+        }
+
+        frame = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(frame);
+    }, [end]);
+
+    return <>{value.toLocaleString()}{suffix}</>;
 }
 
 function HeroImageMarquee({ providers }) {
@@ -106,9 +128,26 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
-                    <p className="mx-auto mt-7 max-w-xl text-center text-[12px] font-black uppercase leading-6 tracking-[.13em] text-[#7b6b61] md:mx-0 md:text-left">
-                        Trusted by <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#34231c]">500+</span> beauty pros across <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#34231c]">50+</span> cities, with <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#d96f53]">100+</span> resources and <span className="font-display text-2xl font-semibold normal-case tracking-normal text-[#d96f53]">25+</span> events.
-                    </p>
+                    <div className="mx-auto mt-7 flex max-w-full items-center overflow-x-auto pb-1 md:mx-0 md:overflow-visible">
+                        <div className="flex w-max items-center whitespace-nowrap">
+                            {[
+                                [500, 'Beauty Pros'],
+                                [50, 'Cities'],
+                                [100, 'Resources'],
+                                [25, 'Events'],
+                            ].map(([value, label], index) => (
+                                <div className="flex items-center" key={label}>
+                                    {index > 0 && <span className="mx-5 h-8 w-px bg-gradient-to-b from-transparent via-[#cbb9ab] to-transparent" />}
+                                    <span className="inline-flex flex-col gap-1">
+                                        <span className="font-display text-2xl font-semibold leading-none text-[#34231c]">
+                                            <CountUp end={value} />
+                                        </span>
+                                        <span className="text-[10px] font-black uppercase tracking-[.15em] text-[#7b6b61]">{label}</span>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
             </div>
