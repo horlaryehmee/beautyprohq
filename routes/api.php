@@ -47,6 +47,7 @@ Route::get('/news/{news:slug}', [PublicContentController::class, 'showNews']);
 Route::get('/events', [PublicContentController::class, 'events']);
 Route::get('/events/{event:slug}', [PublicContentController::class, 'showEvent']);
 Route::get('/opportunities', [PublicContentController::class, 'opportunities']);
+Route::get('/opportunities/{opportunity}', [PublicContentController::class, 'showOpportunity']);
 Route::get('/community-posts', [PublicContentController::class, 'community']);
 Route::get('/community-posts/{communityPost}', [PublicContentController::class, 'showCommunity']);
 Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:10,1');

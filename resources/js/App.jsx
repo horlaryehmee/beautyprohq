@@ -10,6 +10,7 @@ import HomePage from './pages/public/HomePage';
 import DirectoryPage from './pages/public/DirectoryPage';
 import NewsEventsPage from './pages/public/NewsEventsPage';
 import OpportunitiesPage from './pages/public/OpportunitiesPage';
+import OpportunityDetailPage from './pages/public/OpportunityDetailPage';
 import CommunityPage from './pages/public/CommunityPage';
 import ContentDetailPage from './pages/public/ContentDetailPage';
 import ProviderProfilePage from './pages/public/ProviderProfilePage';
@@ -94,6 +95,7 @@ export default function App() {
                         <Route path="news-events/news/:slug" element={<ContentDetailPage type="news" />} />
                         <Route path="news-events/events/:slug" element={<ContentDetailPage type="event" />} />
                         <Route path="opportunities" element={<OpportunitiesPage />} />
+                        <Route path="opportunities/:id" element={<OpportunityDetailPage />} />
                         <Route path="community" element={<CommunityPage />} />
                         <Route path="community/:id" element={<ContentDetailPage type="community" />} />
                         <Route path="providers/:provider" element={<ProviderProfilePage />} />

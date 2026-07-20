@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api, { collectionFrom } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
-import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
 import Seo from '../../components/Seo';
 import { shortDate } from '../../lib/utils';
 
@@ -38,7 +38,7 @@ function daysUntil(value) {
     return Math.ceil((deadline - today) / 86400000);
 }
 
-function OpportunityCard({ item, index, onSelect }) {
+function OpportunityCard({ item, index }) {
     const remaining = daysUntil(item.deadline);
     const urgent = remaining != null && remaining <= 7;
 
@@ -59,9 +59,9 @@ function OpportunityCard({ item, index, onSelect }) {
                 <h2 className="mt-2 font-display text-2xl font-normal leading-tight text-[#34231c] sm:text-3xl">{item.title ?? labelFor(item.type)}</h2>
                 <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#6f625b]">{item.description}</p>
             </div>
-            <Button onClick={() => onSelect(item)} className="rounded-full bg-[#34231c] px-6 hover:bg-[#4a2f26] lg:justify-self-end">
-                Get In Touch <Icon name="arrow" size={15} />
-            </Button>
+            <Link to={`/opportunities/${item.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#34231c] px-6 text-sm font-black text-white transition hover:bg-[#4a2f26] lg:justify-self-end">
+                View Details <Icon name="arrow" size={15} />
+            </Link>
         </article>
     );
 }
@@ -81,8 +81,6 @@ function TypeTile({ type, active, onClick }) {
 export default function OpportunitiesPage() {
     const [items, setItems] = useState([]);
     const [activeType, setActiveType] = useState('all');
-    const [selected, setSelected] = useState(null);
-    const [contactOpen, setContactOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -138,9 +136,9 @@ export default function OpportunitiesPage() {
                             <Button onClick={() => chooseType('all')} className="rounded-full bg-[#34231c] px-7 hover:bg-[#4a2f26]">
                                 Browse opportunities <Icon name="arrow" size={15} />
                             </Button>
-                            <button type="button" onClick={() => { setSelected(null); setContactOpen(true); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#c9bdb2] bg-white/75 px-6 text-sm font-bold text-[#34231c] transition hover:bg-white">
-                                Get In Touch <Icon name="mail" size={15} />
-                            </button>
+                            <Link to="/opportunities#opportunity-list" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#c9bdb2] bg-white/75 px-6 text-sm font-bold text-[#34231c] transition hover:bg-white">
+                                View open calls <Icon name="briefcase" size={15} />
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -172,7 +170,7 @@ export default function OpportunitiesPage() {
                             </div>
                         ) : filtered.length ? (
                             <div className="grid gap-4">
-                                {filtered.map((item, index) => <OpportunityCard key={item.id} item={item} index={index} onSelect={(entry) => { setSelected(entry); setContactOpen(true); }} />)}
+                                {filtered.map((item, index) => <OpportunityCard key={item.id} item={item} index={index} />)}
                             </div>
                         ) : !error && (
                             <EmptyState icon="briefcase" title="No opportunities in this category" message="Try another type or check back when new approved opportunities are published." />
@@ -189,14 +187,12 @@ export default function OpportunitiesPage() {
                             <h2 className="mt-3 font-display text-4xl font-normal leading-tight">Have an opportunity for beauty professionals?</h2>
                             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">Brand collaborations, speaking slots, media features, and partnership requests can be reviewed and surfaced through BPHQ.</p>
                         </div>
-                        <button type="button" onClick={() => { setSelected(null); setContactOpen(true); }} className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-black uppercase tracking-wide text-[#34231c] lg:mt-0">
+                        <Link to="/#contact" className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-black uppercase tracking-wide text-[#34231c] lg:mt-0">
                             Get In Touch <Icon name="mail" size={16} />
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </section>
-
-            {contactOpen && <OpportunityEnquiryModal opportunity={selected} onClose={() => { setContactOpen(false); setSelected(null); }} />}
         </>
     );
 }

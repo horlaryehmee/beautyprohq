@@ -43,6 +43,13 @@ class PublicContentController extends Controller
         return $this->paginated(Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->paginate($request->integer('per_page', 12)));
     }
 
+    public function showOpportunity(Opportunity $opportunity): JsonResponse
+    {
+        abort_unless($opportunity->published_at?->isPast(), 404);
+
+        return $this->success($opportunity);
+    }
+
     public function community(Request $request): JsonResponse
     {
         return $this->paginated(CommunityPost::published()->with('provider.user:id,name')->latest('published_at')->paginate($request->integer('per_page', 12)));
