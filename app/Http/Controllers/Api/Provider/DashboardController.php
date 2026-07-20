@@ -76,7 +76,7 @@ class DashboardController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        return $this->success($request->user()->providerProfile->load(['user:id,name,email', 'category', 'services', 'portfolioItems', 'digitalProducts']));
+        return $this->success($request->user()->providerProfile->load(['user:id,name,email,phone', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]));
     }
 
     public function updateProfile(Request $request): JsonResponse
@@ -84,35 +84,72 @@ class DashboardController extends Controller
         $photoRules = $request->hasFile('profile_photo')
             ? ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120']
             : ['url:http,https', 'max:1000'];
+        $coverRules = $request->hasFile('cover_image')
+            ? ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192']
+            : ['url:http,https', 'max:1000'];
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'provider_category_id' => ['sometimes', 'nullable', 'integer', 'exists:provider_categories,id'],
             'profession' => ['sometimes', 'nullable', 'string', 'max:120'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'location' => ['sometimes', 'nullable', 'string', 'max:180'],
+            'country' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'city' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'contact_email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'contact_phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'website' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
+            'base_price' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999'],
             'default_currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
             'profile_photo' => ['sometimes', 'nullable', ...$photoRules],
+            'cover_image' => ['sometimes', 'nullable', ...$coverRules],
             'social_links' => ['sometimes', 'nullable', 'array'],
             'social_links.*' => ['nullable', 'url', 'max:500'],
             'portfolio_links' => ['sometimes', 'nullable', 'array'],
             'portfolio_links.*' => ['url', 'max:500'],
             'digital_product_links' => ['sometimes', 'nullable', 'array'],
             'digital_product_links.*' => ['url', 'max:500'],
+            'availability' => ['sometimes', 'array'],
+            'availability.*.day_of_week' => ['required_with:availability', 'integer', 'between:0,6'],
+            'availability.*.start_time' => ['required_with:availability', 'date_format:H:i'],
+            'availability.*.end_time' => ['required_with:availability', 'date_format:H:i', 'after:start_time'],
         ]);
 
         $provider = $request->user()->providerProfile;
         if (array_key_exists('name', $validated)) {
-            $request->user()->update(['name' => $validated['name']]);
+            $request->user()->update([
+                'name' => $validated['name'],
+                'phone' => $validated['contact_phone'] ?? $request->user()->phone,
+            ]);
             unset($validated['name']);
+        } elseif (array_key_exists('contact_phone', $validated)) {
+            $request->user()->update(['phone' => $validated['contact_phone']]);
         }
         if ($request->hasFile('profile_photo')) {
             $validated['profile_photo'] = $request->file('profile_photo')->store('providers', 'public');
         } elseif (isset($validated['profile_photo']) && ! is_string($validated['profile_photo'])) {
             unset($validated['profile_photo']);
         }
-        $provider->update($validated);
+        if ($request->hasFile('cover_image')) {
+            $validated['cover_image'] = $request->file('cover_image')->store('providers/covers', 'public');
+        } elseif (isset($validated['cover_image']) && ! is_string($validated['cover_image'])) {
+            unset($validated['cover_image']);
+        }
 
-        return $this->success($provider->fresh()->load(['user:id,name,email', 'category', 'services', 'portfolioItems', 'digitalProducts']), 'Profile updated.');
+        $availability = $validated['availability'] ?? null;
+        unset($validated['availability']);
+
+        DB::transaction(function () use ($provider, $validated, $availability): void {
+            $provider->update($validated);
+
+            if (is_array($availability)) {
+                $provider->availability()->delete();
+                foreach ($availability as $slot) {
+                    $provider->availability()->create($slot + ['is_active' => true]);
+                }
+            }
+        });
+
+        return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');
     }
 
     public function completeOnboarding(Request $request): JsonResponse
