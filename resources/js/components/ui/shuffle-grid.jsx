@@ -106,26 +106,29 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
+                    <div className="mx-auto mt-7 grid max-w-md grid-cols-2 gap-3 md:mx-0">
+                        {[
+                            ['users', '500+', 'Beauty Pros'],
+                            ['map', '50+', 'Cities'],
+                            ['heart', '100+', 'Resources'],
+                            ['calendar', '25+', 'Events'],
+                        ].map(([icon, value, label], index) => (
+                            <motion.div
+                                animate={{ y: [0, index % 2 === 0 ? -4 : 4, 0] }}
+                                className="rounded-2xl border border-[#e2d4c8] bg-white/55 p-3 text-left shadow-[0_14px_32px_rgba(64,42,32,.07)] backdrop-blur"
+                                key={label}
+                                transition={{ duration: 5 + index, ease: 'easeInOut', repeat: Infinity }}
+                            >
+                                <span className="mb-3 grid size-8 place-items-center rounded-full bg-[#f4efe9] text-[#8d7668] ring-1 ring-[#e2d4c8]">
+                                    <Icon name={icon} size={16} strokeWidth={1.55} />
+                                </span>
+                                <p className="font-display text-2xl font-semibold leading-none text-[#34231c]">{value}</p>
+                                <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-[#7b6b61]">{label}</p>
+                            </motion.div>
+                        ))}
+                    </div>
                 </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
-                <div className="grid w-full overflow-hidden rounded-xl border border-[#ded2c7] bg-[#fbf7f1]/78 shadow-[0_16px_45px_rgba(64,42,32,.06)] backdrop-blur grid-cols-2 sm:grid-cols-4 md:col-span-2">
-                    {[
-                        ['users', '500+', 'Beauty Professionals'],
-                        ['map', '50+', 'Cities'],
-                        ['heart', '100+', 'Resources'],
-                        ['calendar', '25+', 'Industry Events'],
-                    ].map(([icon, value, label]) => (
-                        <div key={label} className="flex items-center gap-3 border-[#ded2c7] px-4 py-4 odd:border-r sm:border-r sm:last:border-r-0 lg:px-6">
-                            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[#9b8f87] ring-1 ring-[#ded2c7]">
-                                <Icon name={icon} size={19} strokeWidth={1.45} />
-                            </span>
-                            <div>
-                                <p className="font-display text-xl font-semibold leading-none text-[#34231c]">{value}</p>
-                                <p className="mt-1 max-w-24 text-[10px] font-bold leading-tight text-[#6f625b]">{label}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
             </div>
         </section>
     );
