@@ -54,12 +54,6 @@ export default function ProviderCard({ provider, featured = false }) {
                     <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]">
                         <Icon name="map" size={12} />
                         <span className="truncate">{pro.location}</span>
-                        {pro.verified && (
-                            <>
-                                <span className="mx-1 h-3 w-px bg-[#34231c]/25" />
-                                <span>Verified</span>
-                            </>
-                        )}
                     </span>
                     <span className="ml-auto rounded-sm border border-white/55 p-1.5 text-white/80">
                         <Icon name="heart" size={15} />

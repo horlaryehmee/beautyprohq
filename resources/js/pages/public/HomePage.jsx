@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
+import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
 import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
@@ -150,11 +151,14 @@ function VerifiedProfessionalCard({ provider }) {
             <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/12 to-black/78" />
             <div className="relative z-10 flex min-h-[330px] flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
-                    {pro.verified && <span className="inline-flex items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]"><Icon name="shield" size={12} />Verified</span>}
+                    <VerifiedBadge show={pro.verified} size="md" className="rounded-full bg-white/90 p-0.5 shadow-sm" />
                     <span className="ml-auto rounded-sm border border-white/55 p-1.5 text-white/80"><Icon name="heart" size={15} /></span>
                 </div>
                 <div className="mt-auto">
-                    <h3 className="font-display text-2xl font-normal leading-tight">{pro.name}</h3>
+                    <h3 className="flex min-w-0 items-center gap-2 font-display text-2xl font-normal leading-tight">
+                        <span className="truncate">{pro.name}</span>
+                        <VerifiedBadge show={pro.verified} size="md" className="shrink-0" />
+                    </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
                     <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-white/78"><Icon name="map" size={13} />{pro.location}</p>
                     <div className="mt-3 flex items-center justify-between gap-3">
