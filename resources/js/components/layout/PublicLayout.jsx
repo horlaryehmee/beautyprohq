@@ -24,6 +24,7 @@ function dashboardPath(role) {
 }
 
 export default function PublicLayout() {
+    const [open, setOpen] = useState(false);
     const [contactOpen, setContactOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const location = useLocation();
@@ -32,6 +33,7 @@ export default function PublicLayout() {
     const hideFooter = /^\/providers\/[^/]+\/?$/.test(location.pathname);
 
     useEffect(() => {
+        setOpen(false);
         if (location.hash) {
             window.requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' }));
         } else {
@@ -52,6 +54,7 @@ export default function PublicLayout() {
     }
 
     function openContact() {
+        setOpen(false);
         setContactOpen(true);
     }
 
@@ -80,7 +83,9 @@ export default function PublicLayout() {
         <div className="min-h-screen bg-cream-50 text-plum-950">
             <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#fbf8f4]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden">
                 <div className="flex h-16 items-center justify-between px-4">
-                    <span className="size-10" aria-hidden="true" />
+                    <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
+                        <Icon name="menu" size={26} />
+                    </button>
                     <Link to="/" className="text-center text-[#26211e]" aria-label="BeautyPro HQ home">
                         <span className="block font-display text-3xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
                         <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[.28em] text-stone-500">BeautyProHQ</span>
@@ -90,6 +95,51 @@ export default function PublicLayout() {
                     </Link>
                 </div>
             </header>
+
+            <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
+                <button type="button" className={`absolute inset-0 bg-[#1f1510]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
+                <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#fbf8f4] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
+                        <Link to="/" className="text-[#26211e]" aria-label="BeautyPro HQ home">
+                            <span className="block font-display text-4xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
+                            <span className="mt-1 block text-[9px] font-black uppercase tracking-[.3em] text-stone-500">BeautyProHQ</span>
+                        </Link>
+                        <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#26211e] shadow-sm" aria-label="Close navigation">
+                            <Icon name="x" size={20} />
+                        </button>
+                    </div>
+
+                    <nav className="flex-1 overflow-y-auto px-4 py-5" aria-label="Full mobile navigation">
+                        <div className="grid gap-1">
+                            {links.map((link) => link.action === 'contact' ? (
+                                <button key={link.label} type="button" onClick={openContact} className="flex min-h-12 items-center justify-between rounded-2xl px-4 text-left text-sm font-black text-[#26211e] transition hover:bg-white">
+                                    <span>{link.label}</span>
+                                    <Icon name="chevronRight" size={15} />
+                                </button>
+                            ) : (
+                                <NavLink key={link.label} to={link.to} end={link.end} className={({ isActive }) => `flex min-h-12 items-center justify-between rounded-2xl px-4 text-sm font-black transition ${isActive ? 'bg-[#241711] text-white' : 'text-[#26211e] hover:bg-white'}`}>
+                                    <span>{link.label}</span>
+                                    <Icon name="chevronRight" size={15} />
+                                </NavLink>
+                            ))}
+                        </div>
+                    </nav>
+
+                    <div className="border-t border-stone-200 p-4">
+                        {user ? (
+                            <div className="grid gap-2">
+                                <Link to={dashboardPath(user.role)} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Dashboard</Link>
+                                <button type="button" onClick={handleLogout} className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Log out</button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                <Link to="/login" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Login</Link>
+                                <Link to="/register" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Join BPHQ</Link>
+                            </div>
+                        )}
+                    </div>
+                </aside>
+            </div>
 
             <nav aria-label="Mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] lg:hidden">
                 <ExpandableTabs
