@@ -106,26 +106,23 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
-                    <div className="mx-auto mt-7 max-w-full overflow-hidden md:mx-0 md:max-w-xl">
-                        <motion.div
-                            animate={{ x: ['0%', '-50%'] }}
-                            className="flex w-max items-center gap-4 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:gap-5"
-                            transition={{ duration: 18, ease: 'linear', repeat: Infinity }}
-                        >
-                            {[0, 1].map((set) => (
-                                [
-                                    ['500+', 'Beauty Pros'],
-                                    ['50+', 'Cities'],
-                                    ['100+', 'Resources'],
-                                    ['25+', 'Events'],
-                                ].map(([value, label]) => (
-                                    <span className="inline-flex items-baseline gap-1.5" key={`${set}-${label}`}>
+                    <div className="mx-auto mt-7 max-w-full overflow-x-auto pb-1 md:mx-0 md:overflow-visible">
+                        <div className="flex w-max items-center gap-3 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:w-auto md:flex-wrap">
+                            {[
+                                ['500+', 'Beauty Pros'],
+                                ['50+', 'Cities'],
+                                ['100+', 'Resources'],
+                                ['25+', 'Events'],
+                            ].map(([value, label], index) => (
+                                <span className="inline-flex items-center gap-3" key={label}>
+                                    {index > 0 && <span className="size-1.5 rounded-full bg-[#d96f53]" />}
+                                    <span className="inline-flex items-baseline gap-2">
                                         <span className="font-display text-xl font-semibold normal-case tracking-normal text-[#34231c]">{value}</span>
                                         {label}
                                     </span>
-                                ))
+                                </span>
                             ))}
-                        </motion.div>
+                        </div>
                     </div>
                 </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
