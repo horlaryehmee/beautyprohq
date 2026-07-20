@@ -110,7 +110,7 @@ export default function RegisterPage() {
     const [step, setStep] = useState(1);
     const [displayCurrency, setDisplayCurrency] = useState('NGN');
     const [currencyOpen, setCurrencyOpen] = useState(false);
-    const [form, setForm] = useState({ name: '', email: '', role: 'provider', plan: 'free', password: '', password_confirmation: '' });
+    const [form, setForm] = useState({ name: '', email: '', role: 'provider', plan: 'paid', password: '', password_confirmation: '' });
     const [plans, setPlans] = useState([]);
     const [currencies, setCurrencies] = useState(fallbackCurrencies);
     const [accepted, setAccepted] = useState(false);
@@ -127,7 +127,7 @@ export default function RegisterPage() {
     }, []);
 
     const visiblePlans = plans.length ? plans : fallbackPlans;
-    const selectedPlan = useMemo(() => visiblePlans.find((plan) => plan.key === form.plan) ?? visiblePlans[0], [form.plan, visiblePlans]);
+    const selectedPlan = useMemo(() => visiblePlans.find((plan) => plan.key === form.plan) ?? visiblePlans.find((plan) => plan.key === 'paid') ?? visiblePlans[0], [form.plan, visiblePlans]);
 
     function update(key, value) {
         setForm((current) => ({ ...current, [key]: value }));
