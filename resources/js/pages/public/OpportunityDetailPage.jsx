@@ -41,18 +41,39 @@ function stripHtml(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ');
 }
 
-function InlineFormat({ value }) {
-    const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
-    return String(value ?? '').split(pattern).filter(Boolean).map((part, index) => {
-        const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (link) return <a key={index} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a>;
-        if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
-        return <span key={index}>{part}</span>;
+function sanitizeHtml(value) {
+    const allowedTags = new Set(['A', 'B', 'BLOCKQUOTE', 'BR', 'DIV', 'EM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'LI', 'OL', 'P', 'STRONG', 'U', 'UL']);
+    const template = document.createElement('template');
+    template.innerHTML = String(value ?? '');
+    template.content.querySelectorAll('*').forEach((node) => {
+        if (!allowedTags.has(node.tagName)) {
+            node.replaceWith(document.createTextNode(node.textContent ?? ''));
+            return;
+        }
+        [...node.attributes].forEach((attribute) => {
+            const name = attribute.name.toLowerCase();
+            if (node.tagName === 'A' && name === 'href') {
+                const href = attribute.value;
+                if (/^(https?:|mailto:|tel:)/i.test(href)) {
+                    node.setAttribute('target', '_blank');
+                    node.setAttribute('rel', 'noreferrer');
+                } else {
+                    node.removeAttribute('href');
+                }
+            } else {
+                node.removeAttribute(attribute.name);
+            }
+        });
     });
+    return template.innerHTML;
 }
 
 function TextContent({ value }) {
     if (!value) return null;
+    if (/<[a-z][\s\S]*>/i.test(value)) {
+        return <div className="content-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />;
+    }
+
     const lines = stripHtml(value).replace(/\r\n/g, '\n').split('\n');
     const blocks = [];
     let list = null;
@@ -107,16 +128,16 @@ function TextContent({ value }) {
     return (
         <div className="content-prose">
             {blocks.map((block, index) => {
-                if (block.type === 'h1') return <h1 key={index}><InlineFormat value={block.text} /></h1>;
-                if (block.type === 'h2') return <h2 key={index}><InlineFormat value={block.text} /></h2>;
-                if (block.type === 'h3') return <h3 key={index}><InlineFormat value={block.text} /></h3>;
-                if (block.type === 'h4') return <h4 key={index}><InlineFormat value={block.text} /></h4>;
-                if (block.type === 'h5') return <h5 key={index}><InlineFormat value={block.text} /></h5>;
-                if (block.type === 'h6') return <h6 key={index}><InlineFormat value={block.text} /></h6>;
-                if (block.type === 'quote') return <blockquote key={index}><InlineFormat value={block.text} /></blockquote>;
-                if (block.type === 'ul') return <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><InlineFormat value={item} /></li>)}</ul>;
-                if (block.type === 'ol') return <ol key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><InlineFormat value={item} /></li>)}</ol>;
-                return <p key={index}><InlineFormat value={block.text} /></p>;
+                if (block.type === 'h1') return <h1 key={index}>{block.text}</h1>;
+                if (block.type === 'h2') return <h2 key={index}>{block.text}</h2>;
+                if (block.type === 'h3') return <h3 key={index}>{block.text}</h3>;
+                if (block.type === 'h4') return <h4 key={index}>{block.text}</h4>;
+                if (block.type === 'h5') return <h5 key={index}>{block.text}</h5>;
+                if (block.type === 'h6') return <h6 key={index}>{block.text}</h6>;
+                if (block.type === 'quote') return <blockquote key={index}>{block.text}</blockquote>;
+                if (block.type === 'ul') return <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>;
+                if (block.type === 'ol') return <ol key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ol>;
+                return <p key={index}>{block.text}</p>;
             })}
         </div>
     );
