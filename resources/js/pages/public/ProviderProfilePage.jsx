@@ -215,8 +215,9 @@ export default function ProviderProfilePage() {
         return digitalLinks.slice(start, start + digitalPerPage);
     }, [digitalLinks, digitalPage]);
     const portfolioLinks = useMemo(() => normalizeLinks(pro.profile.portfolio_links), [pro.profile]);
-    const profileCtaUrl = pro.profile.profile_cta_url ?? provider?.profile_cta_url ?? digitalLinks[0]?.url ?? '';
-    const profileCtaLabel = pro.profile.profile_cta_label ?? provider?.profile_cta_label ?? digitalLinks[0]?.label ?? 'Digital product';
+    const websiteUrl = pro.profile.website ?? provider?.website ?? pro.profile.social_links?.website ?? provider?.social_links?.website ?? '';
+    const profileCtaUrl = websiteUrl;
+    const profileCtaLabel = pro.profile.profile_cta_label ?? provider?.profile_cta_label ?? 'Website';
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
@@ -376,7 +377,7 @@ export default function ProviderProfilePage() {
                         </div>
                         {profileCtaUrl && (
                             <a href={safeUrl(profileCtaUrl)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[#26211e] px-5 text-xs font-black text-white shadow-[0_14px_30px_rgba(52,35,28,.16)] transition hover:bg-[#7d2e3c] sm:min-h-12 sm:px-6 sm:text-sm lg:mb-1">
-                                {profileCtaLabel || 'Digital product'} <Icon name="external" size={15} />
+                                {profileCtaLabel || 'Website'} <Icon name="external" size={15} />
                             </a>
                         )}
                     </div>
