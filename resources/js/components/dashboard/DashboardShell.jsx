@@ -86,7 +86,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
             <div className="flex h-20 items-center justify-between px-5">
                 <div>
                     <Logo />
-                    <span className="ml-[3.25rem] mt-0.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
+                    <span className="mt-1 block text-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
                 </div>
                 <button className="grid size-10 place-items-center rounded-xl text-slate-500 lg:hidden" onClick={() => setMobileOpen(false)} type="button"><Icon name="close" /></button>
             </div>
