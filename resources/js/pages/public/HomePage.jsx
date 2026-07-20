@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
+import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
 import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
@@ -250,11 +251,11 @@ function VerifiedProfessionalCard({ provider }) {
                 <div className="mt-auto">
                     <h3 className="flex min-w-0 items-center gap-2 font-display text-2xl font-normal leading-tight">
                         <span className="truncate">{pro.name}</span>
+                        <VerifiedBadge show={pro.verified} size="md" className="shrink-0" />
                     </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
-                    <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-white/78"><Icon name="map" size={13} />{pro.location}</p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                        {hasRating ? <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span> : <span />}
+                    <div className={`mt-3 flex items-center gap-3 ${hasRating ? 'justify-between' : 'justify-end'}`}>
+                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span>}
                         <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
                             View Profile
                         </Link>
@@ -375,7 +376,7 @@ export default function HomePage() {
                                     {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
                                         <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
-                                        <h2 className="mt-1 font-display text-3xl font-semibold leading-none text-white">{pro.name}</h2>
+                                        <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
                                     </div>
                                 </div>
                                 <div className="flex flex-col justify-center px-5 py-6 sm:px-7 md:px-8 lg:px-10">
@@ -384,6 +385,7 @@ export default function HomePage() {
                                     </p>
                                     <div className="mt-0 hidden flex-wrap items-center gap-2 md:mt-4 md:flex">
                                         <h2 className="font-display text-3xl font-semibold leading-tight text-[#3b2921] lg:text-4xl">{pro.name}</h2>
+                                        <VerifiedBadge show={pro.verified} size="md" />
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500 md:mt-2">
                                         <span>{pro.profession}</span>

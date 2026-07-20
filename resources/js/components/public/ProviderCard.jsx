@@ -4,6 +4,7 @@ import api, { apiError, ensureCsrfCookie } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Icon from '../ui/Icon';
+import VerifiedBadge from '../ui/VerifiedBadge';
 import { providerIdentity } from '../../lib/utils';
 
 export default function ProviderCard({ provider, featured = false }) {
@@ -73,6 +74,7 @@ export default function ProviderCard({ provider, featured = false }) {
                     <div className="min-w-0 pb-10 pr-8">
                         <h3 className="flex min-w-0 items-center gap-1.5 font-display text-[1.45rem] font-normal leading-none tracking-[-.03em]">
                             <span className="truncate">{pro.name}</span>
+                            <VerifiedBadge show={pro.verified} size="sm" className="shrink-0" />
                         </h3>
                         <p className="mt-1.5 truncate text-[11px] font-semibold text-[#241711]/80">{pro.profession}</p>
                         <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-[#241711]/72"><Icon name="map" size={12} />{pro.location}</p>
@@ -110,12 +112,13 @@ export default function ProviderCard({ provider, featured = false }) {
                 <div className="mt-auto">
                     <h3 className="flex min-w-0 items-center gap-2 font-display text-2xl font-normal leading-tight">
                         <span className="truncate">{pro.name}</span>
+                        <VerifiedBadge show={pro.verified} size="md" className="shrink-0" />
                     </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                        {hasRating ? <span className="inline-flex items-center gap-1 text-xs font-black text-white">
+                    <div className={`mt-3 flex items-center gap-3 ${hasRating ? 'justify-between' : 'justify-end'}`}>
+                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-black text-white">
                             <Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}
-                        </span> : <span />}
+                        </span>}
                         <Link to={`/providers/${pro.slug}`} className="pointer-events-auto inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
                             View Profile
                         </Link>
