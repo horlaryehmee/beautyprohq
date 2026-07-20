@@ -79,14 +79,6 @@ export function ShuffleHero({ providers = [], className }) {
                     transition={{ duration: 0.7, ease: 'easeOut' }}
                 >
                     <p className="text-center text-[10px] font-black uppercase tracking-[.18em] text-[#7d2e3c] md:hidden">The home for beauty professionals</p>
-                    <motion.div
-                        animate={{ y: [0, -6, 0] }}
-                        className="mx-auto mb-4 hidden w-fit items-center gap-2 rounded-full border border-[#e0b3a8] bg-[#fff7f2] px-4 py-2 text-[11px] font-black uppercase tracking-[.16em] text-[#b4543f] shadow-[0_14px_28px_rgba(126,46,60,.08)] md:flex md:mx-0"
-                        transition={{ duration: 4, ease: 'easeInOut', repeat: Infinity }}
-                    >
-                        <span className="size-2 rounded-full bg-[#15816f]" />
-                        The home for beauty professionals
-                    </motion.div>
                     <h1 className="mt-2 max-w-[620px] text-center font-display text-[2.55rem] font-normal leading-[.94] text-[#34231c] md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
                         <span>The Beauty Service </span>
                         <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
