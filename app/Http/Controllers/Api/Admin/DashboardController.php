@@ -77,6 +77,8 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'preferred_currency' => ['sometimes', 'nullable', 'string', 'max:10'],
             'role' => ['sometimes', Rule::in(['provider', 'customer', 'admin'])],
             'is_active' => ['sometimes', 'boolean'],
             'email_verified' => ['sometimes', 'boolean'],
@@ -97,7 +99,7 @@ class DashboardController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $user, $validated): void {
-            $userData = collect($validated)->only(['name', 'email', 'role', 'is_active'])->all();
+            $userData = collect($validated)->only(['name', 'email', 'phone', 'preferred_currency', 'role', 'is_active'])->all();
             if (array_key_exists('email_verified', $validated)) {
                 $userData['email_verified_at'] = $validated['email_verified'] ? ($user->email_verified_at ?? now()) : null;
             }

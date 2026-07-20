@@ -79,6 +79,8 @@ export default function AdminUserDetailPage() {
             setForm({
                 name: data.name ?? '',
                 email: data.email ?? '',
+                phone: data.phone ?? '',
+                preferred_currency: data.preferred_currency ?? '',
                 role: data.role ?? 'customer',
                 is_active: Boolean(data.is_active ?? true),
                 email_verified: Boolean(data.email_verified_at),
@@ -184,6 +186,8 @@ export default function AdminUserDetailPage() {
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
                             <Field label="Name"><input className={inputClass} onChange={(event) => update({ name: event.target.value })} required value={form.name} /></Field>
                             <Field label="Email"><input className={inputClass} onChange={(event) => update({ email: event.target.value })} required type="email" value={form.email} /></Field>
+                            <Field label="Phone"><input className={inputClass} onChange={(event) => update({ phone: event.target.value })} value={form.phone ?? ''} /></Field>
+                            <Field label="Preferred currency"><input className={inputClass} onChange={(event) => update({ preferred_currency: event.target.value })} placeholder="NGN" value={form.preferred_currency ?? ''} /></Field>
                             <Field label="Role">
                                 <select className={inputClass} onChange={(event) => update({ role: event.target.value })} value={form.role}>
                                     <option value="customer">Customer</option>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Avatar, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, SearchInput, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
+import { Avatar, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.providers ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
 
 export default function AdminDirectoryPage() {
     const [activeTab, setActiveTab] = useState('list');
@@ -11,6 +12,7 @@ export default function AdminDirectoryPage() {
     const [proOfWeekQuery, setProOfWeekQuery] = useState('');
     const [filter, setFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [page, setPage] = useState(1);
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, verified: false, is_pro_of_week: false });
     const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', sort_order: 0, is_active: true });
@@ -18,16 +20,23 @@ export default function AdminDirectoryPage() {
     const [categorySaving, setCategorySaving] = useState(false);
     const search = useDebouncedValue(query);
     const proOfWeekSearch = useDebouncedValue(proOfWeekQuery);
-    const resource = useApiResource('/admin/directory', [], { params: { search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
+    const resource = useApiResource('/admin/directory', [], { params: { page, per_page: 12, search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
     const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, is_listed: 1, per_page: 8 } });
     const categoriesResource = useApiResource('/admin/provider-categories', []);
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();
 
     const providers = useMemo(() => normalize(resource.data), [resource.data]);
+    const meta = metaFrom(resource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
     const proOfWeekProviders = useMemo(() => normalize(proOfWeekResource.data), [proOfWeekResource.data]);
     const categories = useMemo(() => normalize(categoriesResource.data), [categoriesResource.data]);
     const currentProOfWeek = useMemo(() => proOfWeekProviders.find((provider) => provider.is_pro_of_week) ?? providers.find((provider) => provider.is_pro_of_week), [proOfWeekProviders, providers]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, filter, categoryFilter]);
 
     const toggle = (provider) => run(provider.id, async () => {
         const current = provider.is_listed ?? provider.listed ?? true;
@@ -252,41 +261,51 @@ export default function AdminDirectoryPage() {
                 {resource.loading ? (
                     <div className="mt-5"><LoadingBlock rows={5} /></div>
                 ) : providers.length ? (
-                    <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {providers.map((provider) => {
-                            const user = provider.user ?? provider;
-                            const listed = provider.is_listed ?? provider.listed ?? true;
-                            return (
-                                <article className="rounded-2xl border border-slate-100 p-4" key={provider.id}>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar name={user.name} size="lg" src={provider.profile_photo} />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="truncate font-bold text-slate-950">{user.name}</p>
-                                                <VerifiedBadge show={Boolean(provider.verified)} />
-                                            </div>
-                                            <p className="truncate text-sm text-slate-500">{provider.profession}</p>
-                                            <p className="mt-1 truncate text-xs text-slate-400">{provider.category?.name ?? 'No category'} · {provider.location}</p>
-                                        </div>
-                                        <StatusBadge status={listed ? 'active' : 'suspended'} />
-                                    </div>
-                                    <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                                        <span>{provider.verified ? 'Verified' : 'Not verified'}</span>
-                                        <span>Rating {Number(provider.rating ?? 0).toFixed(1)}</span>
-                                    </div>
-                                    <div className="mt-4 grid grid-cols-3 gap-2">
-                                        <Button busy={isBusy(provider.id)} onClick={() => toggle(provider)} type="button" variant={listed ? 'danger' : 'soft'}>
-                                            {listed ? 'Remove' : 'List'}
-                                        </Button>
-                                        <Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button>
-                                        <Link to={`/admin/users/${user.id ?? provider.user_id}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
-                                            Manage
-                                        </Link>
-                                    </div>
-                                </article>
-                            );
-                        })}
-                    </div>
+                    <>
+                        <div className="mt-5 overflow-x-auto">
+                            <table className="w-full min-w-[980px] text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                                        <th className="pb-3 font-bold">Provider</th>
+                                        <th className="pb-3 font-bold">Category</th>
+                                        <th className="pb-3 font-bold">Location</th>
+                                        <th className="pb-3 font-bold">Rating</th>
+                                        <th className="pb-3 font-bold">Status</th>
+                                        <th className="pb-3 text-right font-bold">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {providers.map((provider) => {
+                                        const user = provider.user ?? provider;
+                                        const listed = provider.is_listed ?? provider.listed ?? true;
+                                        return (
+                                            <tr className="border-b border-slate-50 last:border-0" key={provider.id}>
+                                                <td className="py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar name={user.name} size="sm" src={provider.profile_photo} />
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="truncate font-bold text-slate-950">{user.name}</p>
+                                                                <VerifiedBadge show={Boolean(provider.verified)} size="sm" />
+                                                            </div>
+                                                            <p className="truncate text-xs text-slate-400">{user.email}</p>
+                                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 text-slate-600">{provider.category?.name ?? 'No category'}</td>
+                                                <td className="py-3 text-slate-600">{provider.location ?? 'No location'}</td>
+                                                <td className="py-3 text-slate-600">{Number(provider.rating ?? 0).toFixed(1)}</td>
+                                                <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status={listed ? 'active' : 'suspended'} /><StatusBadge status={provider.verified ? 'verified' : 'pending'} /></div></td>
+                                                <td className="py-3"><div className="flex justify-end gap-2"><Button busy={isBusy(provider.id)} onClick={() => toggle(provider)} type="button" variant={listed ? 'danger' : 'soft'}>{listed ? 'Remove' : 'List'}</Button><Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button><Link to={`/admin/users/${user.id ?? provider.user_id}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Manage</Link></div></td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+                    </>
                 ) : (
                     <EmptyState description="No provider profiles match your filters." icon="profile" title="No listings found" />
                 )}
