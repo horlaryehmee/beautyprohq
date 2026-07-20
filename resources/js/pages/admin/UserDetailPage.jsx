@@ -4,7 +4,17 @@ import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, api
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 
-const socialKeys = ['instagram', 'tiktok', 'website', 'whatsapp'];
+const socialKeys = ['instagram', 'tiktok', 'facebook', 'youtube', 'linkedin', 'whatsapp', 'website'];
+const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
+const days = [
+    [1, 'Monday'],
+    [2, 'Tuesday'],
+    [3, 'Wednesday'],
+    [4, 'Thursday'],
+    [5, 'Friday'],
+    [6, 'Saturday'],
+    [0, 'Sunday'],
+];
 
 function verifiedState(user) {
     const profile = user?.provider_profile ?? user?.providerProfile;
@@ -91,12 +101,25 @@ export default function AdminUserDetailPage() {
                     profession: profile.profession ?? '',
                     bio: profile.bio ?? '',
                     location: profile.location ?? '',
+                    country: profile.country ?? '',
+                    city: profile.city ?? '',
                     profile_photo: profile.profile_photo ?? '',
+                    cover_image: profile.cover_image ?? '',
+                    contact_email: profile.contact_email ?? '',
+                    contact_phone: profile.contact_phone ?? '',
+                    website: profile.website ?? profile.social_links?.website ?? '',
+                    default_currency: profile.default_currency ?? 'NGN',
+                    base_price: profile.base_price ?? '',
                     verified: Boolean(profile.verified),
                     is_listed: Boolean(profile.is_listed ?? true),
                     is_pro_of_week: Boolean(profile.is_pro_of_week),
                     social_links: profile.social_links ?? {},
                     portfolio_links: profile.portfolio_links ?? [],
+                    availability: (profile.availability ?? []).map((slot) => ({
+                        day_of_week: Number(slot.day_of_week),
+                        start_time: String(slot.start_time ?? '09:00').slice(0, 5),
+                        end_time: String(slot.end_time ?? '18:00').slice(0, 5),
+                    })),
                 },
             });
         } catch (requestError) {
@@ -115,6 +138,18 @@ export default function AdminUserDetailPage() {
 
     const update = (patch) => setForm((current) => ({ ...current, ...patch }));
     const updateProfile = (patch) => setForm((current) => ({ ...current, provider_profile: { ...current.provider_profile, ...patch } }));
+    const toggleAvailabilityDay = (day) => {
+        updateProfile({
+            availability: (profile.availability ?? []).some((slot) => Number(slot.day_of_week) === Number(day))
+                ? (profile.availability ?? []).filter((slot) => Number(slot.day_of_week) !== Number(day))
+                : [...(profile.availability ?? []), { day_of_week: Number(day), start_time: '09:00', end_time: '18:00' }].sort((a, b) => Number(a.day_of_week) - Number(b.day_of_week)),
+        });
+    };
+    const updateAvailabilitySlot = (day, patch) => {
+        updateProfile({
+            availability: (profile.availability ?? []).map((slot) => Number(slot.day_of_week) === Number(day) ? { ...slot, ...patch } : slot),
+        });
+    };
 
     const save = async (event) => {
         event.preventDefault();
@@ -125,6 +160,8 @@ export default function AdminUserDetailPage() {
                 payload.provider_profile = {
                     ...payload.provider_profile,
                     provider_category_id: payload.provider_profile.provider_category_id || null,
+                    base_price: payload.provider_profile.base_price || null,
+                    default_currency: payload.provider_profile.default_currency || null,
                 };
             }
             if (!hasProviderControls) {
@@ -222,6 +259,7 @@ export default function AdminUserDetailPage() {
                             </div>
                             <div className="mt-5 space-y-4">
                                 <ImageUpload value={profile.profile_photo} onChange={(profile_photo) => updateProfile({ profile_photo })} />
+                                <Field label="Cover image URL"><input className={inputClass} onChange={(event) => updateProfile({ cover_image: event.target.value })} placeholder="https://..." type="url" value={profile.cover_image ?? ''} /></Field>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Provider category">
                                         <select className={inputClass} onChange={(event) => updateProfile({ provider_category_id: event.target.value })} value={profile.provider_category_id ?? ''}>
@@ -231,6 +269,19 @@ export default function AdminUserDetailPage() {
                                     </Field>
                                     <Field label="Profession"><input className={inputClass} onChange={(event) => updateProfile({ profession: event.target.value })} value={profile.profession ?? ''} /></Field>
                                     <Field label="Location"><input className={inputClass} onChange={(event) => updateProfile({ location: event.target.value })} value={profile.location ?? ''} /></Field>
+                                    <Field label="Country"><input className={inputClass} onChange={(event) => updateProfile({ country: event.target.value })} value={profile.country ?? ''} /></Field>
+                                    <Field label="City"><input className={inputClass} onChange={(event) => updateProfile({ city: event.target.value })} value={profile.city ?? ''} /></Field>
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field label="Contact email"><input className={inputClass} onChange={(event) => updateProfile({ contact_email: event.target.value })} type="email" value={profile.contact_email ?? ''} /></Field>
+                                    <Field label="Contact phone"><input className={inputClass} onChange={(event) => updateProfile({ contact_phone: event.target.value })} value={profile.contact_phone ?? ''} /></Field>
+                                    <Field label="Website"><input className={inputClass} onChange={(event) => updateProfile({ website: event.target.value, social_links: { ...(profile.social_links ?? {}), website: event.target.value } })} placeholder="https://..." type="url" value={profile.website ?? ''} /></Field>
+                                    <Field label="Default currency">
+                                        <select className={inputClass} onChange={(event) => updateProfile({ default_currency: event.target.value })} value={profile.default_currency ?? 'NGN'}>
+                                            {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                                        </select>
+                                    </Field>
+                                    <Field label="Base price"><input className={inputClass} min="0" onChange={(event) => updateProfile({ base_price: event.target.value })} type="number" value={profile.base_price ?? ''} /></Field>
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -262,6 +313,28 @@ export default function AdminUserDetailPage() {
                             <Field className="mt-4" label="Portfolio links" hint="One link per line.">
                                 <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateProfile({ portfolio_links: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })} value={(profile.portfolio_links ?? []).join('\n')} />
                             </Field>
+                        </Card>
+                    )}
+
+                    {hasProviderControls && (
+                        <Card>
+                            <h2 className="text-lg font-bold text-slate-950">Work hours</h2>
+                            <p className="mt-1 text-sm text-slate-500">Matches the availability questions from provider onboarding.</p>
+                            <div className="mt-5 space-y-3">
+                                {days.map(([day, label]) => {
+                                    const slot = (profile.availability ?? []).find((item) => Number(item.day_of_week) === Number(day));
+                                    return (
+                                        <div className="grid gap-3 rounded-2xl border border-slate-100 p-3 sm:grid-cols-[1fr_150px_150px]" key={day}>
+                                            <label className="flex items-center gap-3 text-sm font-bold text-slate-800">
+                                                <input checked={Boolean(slot)} className="size-4 accent-fuchsia-700" onChange={() => toggleAvailabilityDay(day)} type="checkbox" />
+                                                {label}
+                                            </label>
+                                            <input className={inputClass} disabled={!slot} onChange={(event) => updateAvailabilitySlot(day, { start_time: event.target.value })} type="time" value={slot?.start_time ?? '09:00'} />
+                                            <input className={inputClass} disabled={!slot} onChange={(event) => updateAvailabilitySlot(day, { end_time: event.target.value })} type="time" value={slot?.end_time ?? '18:00'} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </Card>
                     )}
                 </div>

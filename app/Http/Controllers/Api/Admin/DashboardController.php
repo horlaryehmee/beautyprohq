@@ -78,6 +78,7 @@ class DashboardController extends Controller
         return $this->success($user->load([
             'providerProfile.category',
             'providerProfile.services',
+            'providerProfile.availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'),
             'providerProfile.verificationRequests' => fn ($query) => $query->latest(),
             'customerBookings.service:id,name',
             'customerBookings.provider.user:id,name',
@@ -99,13 +100,25 @@ class DashboardController extends Controller
             'provider_profile.profession' => ['nullable', 'string', 'max:120'],
             'provider_profile.bio' => ['nullable', 'string', 'max:5000'],
             'provider_profile.location' => ['nullable', 'string', 'max:180'],
+            'provider_profile.country' => ['nullable', 'string', 'max:100'],
+            'provider_profile.city' => ['nullable', 'string', 'max:100'],
             'provider_profile.profile_photo' => ['nullable', 'string', 'max:500'],
+            'provider_profile.cover_image' => ['nullable', 'string', 'max:1000'],
+            'provider_profile.contact_email' => ['nullable', 'email', 'max:255'],
+            'provider_profile.contact_phone' => ['nullable', 'string', 'max:40'],
+            'provider_profile.website' => ['nullable', 'url:http,https', 'max:500'],
+            'provider_profile.default_currency' => ['nullable', Rule::in(array_keys(config('currencies.supported', [])))],
+            'provider_profile.base_price' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'provider_profile.verified' => ['sometimes', 'boolean'],
             'provider_profile.is_listed' => ['sometimes', 'boolean'],
             'provider_profile.is_pro_of_week' => ['sometimes', 'boolean'],
             'provider_profile.social_links' => ['nullable', 'array'],
             'provider_profile.portfolio_links' => ['nullable', 'array'],
             'provider_profile.digital_product_links' => ['nullable', 'array'],
+            'provider_profile.availability' => ['nullable', 'array'],
+            'provider_profile.availability.*.day_of_week' => ['required_with:provider_profile.availability', 'integer', 'between:0,6'],
+            'provider_profile.availability.*.start_time' => ['required_with:provider_profile.availability', 'date_format:H:i'],
+            'provider_profile.availability.*.end_time' => ['required_with:provider_profile.availability', 'date_format:H:i', 'after:start_time'],
             'verification_status' => ['sometimes', Rule::in(['approved', 'rejected', 'pending'])],
             'verification_notes' => ['nullable', 'string', 'max:5000'],
         ]);
@@ -139,7 +152,16 @@ class DashboardController extends Controller
                 if (($validated['provider_profile']['is_pro_of_week'] ?? false) === true) {
                     ProviderProfile::where('id', '!=', $user->providerProfile->id)->update(['is_pro_of_week' => false]);
                 }
-                $user->providerProfile->update($validated['provider_profile']);
+                $availability = $validated['provider_profile']['availability'] ?? null;
+                $profileData = $validated['provider_profile'];
+                unset($profileData['availability']);
+                $user->providerProfile->update($profileData);
+                if (is_array($availability)) {
+                    $user->providerProfile->availability()->delete();
+                    foreach ($availability as $slot) {
+                        $user->providerProfile->availability()->create($slot + ['is_active' => true]);
+                    }
+                }
             }
 
             if (isset($validated['verification_status']) && $user->providerProfile) {
@@ -166,7 +188,7 @@ class DashboardController extends Controller
             }
         });
 
-        return $this->success($user->fresh()->load(['providerProfile.category', 'providerProfile.verificationRequests' => fn ($query) => $query->latest()]), 'User updated.');
+        return $this->success($user->fresh()->load(['providerProfile.category', 'providerProfile.availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'), 'providerProfile.verificationRequests' => fn ($query) => $query->latest()]), 'User updated.');
     }
 
     public function directory(Request $request): JsonResponse
