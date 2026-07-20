@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { CalendarDays, Home, MessageCircle, Newspaper, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { buttonClass } from '../ui/Button';
+import ExpandableTabs from '../ui/ExpandableTabs';
 import OpportunityEnquiryModal from '../public/OpportunityEnquiryModal';
 import Icon from '../ui/Icon';
 import Logo from './Logo';
@@ -22,7 +24,6 @@ function dashboardPath(role) {
 }
 
 export default function PublicLayout() {
-    const [open, setOpen] = useState(false);
     const [contactOpen, setContactOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const location = useLocation();
@@ -31,7 +32,6 @@ export default function PublicLayout() {
     const hideFooter = /^\/providers\/[^/]+\/?$/.test(location.pathname);
 
     useEffect(() => {
-        setOpen(false);
         if (location.hash) {
             window.requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' }));
         } else {
@@ -52,17 +52,35 @@ export default function PublicLayout() {
     }
 
     function openContact() {
-        setOpen(false);
         setContactOpen(true);
+    }
+
+    const mobileTabs = [
+        { title: 'Home', icon: Home, to: '/' },
+        { title: 'News', icon: Newspaper, to: '/news' },
+        { title: 'Events', icon: CalendarDays, to: '/events' },
+        { title: 'Directory', icon: Search, to: '/directory' },
+        { title: 'Contact', icon: MessageCircle, action: 'contact' },
+    ];
+    const activeMobileTab = mobileTabs.findIndex((tab) => (
+        tab.to === '/'
+            ? location.pathname === '/'
+            : tab.to && location.pathname.startsWith(tab.to)
+    ));
+
+    function handleMobileTabChange(index, tab) {
+        if (tab.action === 'contact') {
+            openContact();
+            return;
+        }
+        navigate(tab.to);
     }
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
             <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#fbf8f4]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden">
                 <div className="flex h-16 items-center justify-between px-4">
-                    <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
-                        <Icon name="menu" size={26} />
-                    </button>
+                    <span className="size-10" aria-hidden="true" />
                     <Link to="/" className="text-center text-[#26211e]" aria-label="BeautyPro HQ home">
                         <span className="block font-display text-3xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
                         <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[.28em] text-stone-500">BeautyProHQ</span>
@@ -73,50 +91,14 @@ export default function PublicLayout() {
                 </div>
             </header>
 
-            <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
-                <button type="button" className={`absolute inset-0 bg-[#1f1510]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
-                <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#fbf8f4] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-                    <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
-                        <Link to="/" className="text-[#26211e]" aria-label="BeautyPro HQ home">
-                            <span className="block font-display text-4xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
-                            <span className="mt-1 block text-[9px] font-black uppercase tracking-[.3em] text-stone-500">BeautyProHQ</span>
-                        </Link>
-                        <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#26211e] shadow-sm" aria-label="Close navigation">
-                            <Icon name="x" size={20} />
-                        </button>
-                    </div>
-
-                    <nav className="flex-1 overflow-y-auto px-4 py-5">
-                        <div className="grid gap-1">
-                            {links.map((link) => link.action === 'contact' ? (
-                                <button key={link.label} type="button" onClick={openContact} className="flex min-h-12 items-center justify-between rounded-2xl px-4 text-left text-sm font-black text-[#26211e] transition hover:bg-white">
-                                    <span>{link.label}</span>
-                                    <Icon name="chevronRight" size={15} />
-                                </button>
-                            ) : (
-                                <NavLink key={link.label} to={link.to} end={link.end} className={({ isActive }) => `flex min-h-12 items-center justify-between rounded-2xl px-4 text-sm font-black transition ${isActive ? 'bg-[#241711] text-white' : 'text-[#26211e] hover:bg-white'}`}>
-                                    <span>{link.label}</span>
-                                    <Icon name="chevronRight" size={15} />
-                                </NavLink>
-                            ))}
-                        </div>
-                    </nav>
-
-                    <div className="border-t border-stone-200 p-4">
-                        {user ? (
-                            <div className="grid gap-2">
-                                <Link to={dashboardPath(user.role)} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Dashboard</Link>
-                                <button type="button" onClick={handleLogout} className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Log out</button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                <Link to="/login" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Login</Link>
-                                <Link to="/register" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Join BPHQ</Link>
-                            </div>
-                        )}
-                    </div>
-                </aside>
-            </div>
+            <nav aria-label="Mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] lg:hidden">
+                <ExpandableTabs
+                    activeIndex={activeMobileTab >= 0 ? activeMobileTab : null}
+                    className="mx-auto w-fit max-w-full"
+                    onChange={handleMobileTabChange}
+                    tabs={mobileTabs}
+                />
+            </nav>
 
             <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
                 <div className="page-container flex h-18 items-center justify-between gap-5">
@@ -146,36 +128,10 @@ export default function PublicLayout() {
                         )}
                     </div>
 
-                    <button type="button" className="grid size-11 place-items-center rounded-xl border border-stone-200 bg-white text-plum-900 lg:hidden" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Toggle navigation">
-                        <Icon name={open ? 'x' : 'menu'} />
-                    </button>
                 </div>
-
-                {open && (
-                    <div className="border-t border-stone-100 bg-white px-4 pb-5 pt-3 shadow-xl lg:hidden">
-                        <nav className="mx-auto flex max-w-7xl flex-col gap-1">
-                            {links.map((link) => link.action === 'contact'
-                                ? <button key={link.label} type="button" onClick={openContact} className="rounded-xl px-3.5 py-3 text-left text-sm font-bold text-plum-900 hover:bg-rose-50">{link.label}</button>
-                                : <Link key={link.label} to={link.to} className="rounded-xl px-3.5 py-3 text-sm font-bold text-plum-900 hover:bg-rose-50">{link.label}</Link>)}
-                            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-stone-100 pt-4">
-                                {user ? (
-                                    <>
-                                        <Link to={dashboardPath(user.role)} className={buttonClass({ variant: 'secondary' })}>Dashboard</Link>
-                                        <button type="button" onClick={handleLogout} className={buttonClass({ variant: 'ghost' })}>Log out</button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Link to="/login" className={buttonClass({ variant: 'secondary' })}>Login</Link>
-                                        <Link to="/register" className={buttonClass()}>Join BPHQ</Link>
-                                    </>
-                                )}
-                            </div>
-                        </nav>
-                    </div>
-                )}
             </header>
 
-            <main><Outlet /></main>
+            <main className="pb-20 lg:pb-0"><Outlet /></main>
 
             {contactOpen && <OpportunityEnquiryModal onClose={() => setContactOpen(false)} />}
 
