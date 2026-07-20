@@ -66,6 +66,19 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
         () => navigation.filter((item) => (!item.verifiedOnly || verified) && (!item.paidOnly || paid)),
         [navigation, paid, verified],
     );
+    const mobileDockItems = useMemo(() => {
+        const preferred = {
+            provider: ['/provider', '/provider/profile', '/provider/bookings', '/provider/calendar'],
+            customer: ['/customer', '/customer/bookings', '/customer/saved-providers', '/customer/notifications'],
+            admin: ['/admin', '/admin/users', '/admin/directory', '/admin/content'],
+        }[role] ?? [];
+        const ordered = preferred
+            .map((path) => visibleNavigation.find((item) => item.to === path))
+            .filter(Boolean);
+        const fallback = visibleNavigation.filter((item) => !ordered.some((selected) => selected.to === item.to));
+
+        return [...ordered, ...fallback].slice(0, 4);
+    }, [role, visibleNavigation]);
 
     const logout = async () => {
         try {
@@ -138,10 +151,36 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                         <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
                     </div>
                 </header>
-                <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
+                <main className="mx-auto max-w-[1500px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8">
                     <Outlet context={{ role, user, refreshUser: userResource.reload }} />
                 </main>
             </div>
+
+            <nav aria-label="Dashboard mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-40 lg:hidden">
+                <div className="mx-auto flex w-fit max-w-full items-center gap-1 rounded-[1.65rem] border border-slate-200/80 bg-white/95 p-2 shadow-[0_18px_55px_rgba(15,23,42,.16)] backdrop-blur-xl">
+                    {mobileDockItems.map((item) => (
+                        <NavLink
+                            className={({ isActive }) => cx(
+                                'flex min-h-12 items-center justify-center gap-2 rounded-[1.15rem] px-3 text-slate-500 transition',
+                                isActive ? 'bg-fuchsia-50 text-fuchsia-700' : 'hover:bg-slate-50 hover:text-slate-900',
+                            )}
+                            end={item.end}
+                            key={item.to}
+                            to={item.to}
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <Icon className="size-5 shrink-0" name={item.icon} />
+                                    <span className={cx('max-w-0 overflow-hidden whitespace-nowrap text-sm font-black transition-all', isActive ? 'max-w-28' : '')}>{item.label}</span>
+                                </>
+                            )}
+                        </NavLink>
+                    ))}
+                    <button type="button" onClick={() => setMobileOpen(true)} className="grid size-12 shrink-0 place-items-center rounded-[1.15rem] text-slate-500 transition hover:bg-slate-50 hover:text-slate-900" aria-label="Open full dashboard menu">
+                        <Icon className="size-5" name="menu" />
+                    </button>
+                </div>
+            </nav>
         </div>
     );
 }
