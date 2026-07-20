@@ -29,18 +29,21 @@ function contactText(value) {
     return value.text ?? value.email ?? value.url ?? '';
 }
 
-function contactInfo(value) {
-    return typeof value === 'object' && value ? value : {};
+function plainText(value) {
+    return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function DetailSection({ children, title }) {
-    if (!children) return null;
+function RichContent({ value }) {
+    if (!value) return null;
+
+    if (/<[a-z][\s\S]*>/i.test(value)) {
+        return <div className="content-prose" dangerouslySetInnerHTML={{ __html: value }} />;
+    }
 
     return (
-        <section className="rounded-[1.5rem] border border-stone-200 bg-[#fffdf8] p-5 sm:p-6">
-            <h2 className="font-display text-2xl font-normal text-[#34231c]">{title}</h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#5f524b]">{children}</p>
-        </section>
+        <div className="content-prose">
+            {String(value).split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+        </div>
     );
 }
 
@@ -72,8 +75,7 @@ export default function OpportunityDetailPage() {
     if (error || !opportunity) return <div className="page-container py-20"><EmptyState icon="briefcase" title="Opportunity unavailable" message={error} action={<Link to="/opportunities"><Button variant="secondary">Back to opportunities</Button></Link>} /></div>;
 
     const contact = contactText(opportunity.contact_info);
-    const info = contactInfo(opportunity.contact_info);
-    const intro = opportunity.short_description || opportunity.description;
+    const intro = opportunity.short_description || plainText(opportunity.description);
 
     return (
         <>
@@ -95,15 +97,9 @@ export default function OpportunityDetailPage() {
                 <div className="page-container grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
                     <article className="rounded-[2rem] border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
                         <p className="px-2 text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Full opportunity details</p>
-                        <div className="mt-5 grid gap-4">
-                            <DetailSection title="Overview">{opportunity.description}</DetailSection>
-                            <DetailSection title="Responsibilities">{info.responsibilities}</DetailSection>
-                            <DetailSection title="Deliverables">{info.deliverables}</DetailSection>
-                            <DetailSection title="Requirements">{info.requirements}</DetailSection>
-                            <DetailSection title="Compensation / benefits">{info.compensation}</DetailSection>
-                            <DetailSection title="Timeline">{info.timeline}</DetailSection>
-                            <DetailSection title="Selection process">{info.selection_process}</DetailSection>
-                            <DetailSection title="How to apply">{info.application_notes || contact}</DetailSection>
+                        <div className="mt-5 rounded-[1.5rem] border border-stone-200 bg-[#fffdf8] p-5 sm:p-7">
+                            <RichContent value={opportunity.description} />
+                            {contact && <p className="mt-7 rounded-2xl bg-white p-4 text-sm font-bold text-[#5f524b]">Contact: {contact}</p>}
                         </div>
                     </article>
 

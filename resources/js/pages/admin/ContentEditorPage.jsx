@@ -109,7 +109,7 @@ function EditorToolbar({ textareaRef, value, onChange }) {
     );
 }
 
-function RichEditor({ label, value, onChange }) {
+export function RichEditor({ label, value, onChange }) {
     const textareaRef = useRef(null);
     const [mode, setMode] = useState('write');
 
