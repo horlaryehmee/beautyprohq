@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\CommunityPost;
-use App\Models\HomepageSetting;
 use App\Models\Opportunity;
 use App\Models\ProviderProfile;
 use Illuminate\Database\Seeder;
@@ -23,8 +22,6 @@ class LiveContentSeeder extends Seeder
                 ],
                 'location' => 'Lagos',
                 'deadline' => now()->addDays(21)->toDateString(),
-                'show_on_homepage' => true,
-                'homepage_order' => 1,
             ],
             [
                 'title' => 'Beauty Educator Masterclass Partnership',
@@ -36,8 +33,6 @@ class LiveContentSeeder extends Seeder
                 ],
                 'location' => 'Remote',
                 'deadline' => now()->addMonth()->toDateString(),
-                'show_on_homepage' => true,
-                'homepage_order' => 2,
             ],
             [
                 'title' => 'Nail Technicians for Pop-up Studio',
@@ -49,8 +44,6 @@ class LiveContentSeeder extends Seeder
                 ],
                 'location' => 'Abuja',
                 'deadline' => now()->addDays(14)->toDateString(),
-                'show_on_homepage' => true,
-                'homepage_order' => 3,
             ],
         ];
 
@@ -59,10 +52,6 @@ class LiveContentSeeder extends Seeder
                 ['title' => $opportunity['title']],
                 $opportunity + ['published_at' => now()],
             );
-        }
-
-        foreach (['news', 'events', 'opportunities'] as $section) {
-            HomepageSetting::updateOrCreate(['section' => $section], ['sort_mode' => 'custom']);
         }
 
         $providers = ProviderProfile::query()

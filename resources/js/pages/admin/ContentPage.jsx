@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, cx, formatDate, inputClass, useApiResource, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
+import { Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, cx, formatDate, inputClass, useApiResource, useDebouncedValue } from '../../components/dashboard';
 
 const contentTypes = {
     news: { label: 'News', singular: 'article', endpoint: '/admin/news', editBase: '/admin/content/news', bodyKey: 'content' },
@@ -12,14 +12,6 @@ const normalize = (value) => Array.isArray(value) ? value : value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
 const plain = (value) => String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 const statusFor = (item) => item?.status ?? (item?.published_at ? 'published' : 'draft');
-const sortOptions = [
-    ['custom', 'Custom order'],
-    ['random', 'Randomize'],
-    ['az', 'A-Z'],
-    ['za', 'Z-A'],
-    ['newest', 'Newest first'],
-    ['oldest', 'Oldest first'],
-];
 
 const typeFilters = {
     news: [],
@@ -34,7 +26,7 @@ const typeFilters = {
     ],
 };
 
-function ContentRow({ item, active, onHomepageUpdate, curationReady }) {
+function ContentRow({ item, active }) {
     const config = contentTypes[active];
     const summary = active === 'events'
         ? `${formatDate(item.date)} · ${item.location ?? 'No location'}`
@@ -54,18 +46,6 @@ function ContentRow({ item, active, onHomepageUpdate, curationReady }) {
                 <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{summary || 'No summary yet.'}</p>
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
-                {active !== 'community' && (
-                    <div className="grid min-w-48 gap-2 rounded-2xl bg-slate-50 p-3">
-                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                            <input checked={Boolean(item.show_on_homepage)} disabled={!curationReady} onChange={(event) => onHomepageUpdate(item, { show_on_homepage: event.target.checked })} type="checkbox" />
-                            Show on homepage
-                        </label>
-                        <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
-                            <span>Order</span>
-                            <input className={`${inputClass} min-h-9 py-1 text-sm`} disabled={!curationReady} min="0" onChange={(event) => onHomepageUpdate(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
-                        </label>
-                    </div>
-                )}
                 <Link to={`${config.editBase}/${item.id}/edit`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
                     Edit
                 </Link>
@@ -80,7 +60,6 @@ export default function AdminContentPage() {
     const [status, setStatus] = useState('all');
     const [type, setType] = useState('all');
     const [page, setPage] = useState(1);
-    const { notify } = useDashboardToast();
     const search = useDebouncedValue(query, 350);
     const params = {
         page,
@@ -92,13 +71,10 @@ export default function AdminContentPage() {
     const news = useApiResource('/admin/news', [], { params: active === 'news' ? params : { page: 1, per_page: 8 } });
     const events = useApiResource('/admin/events', [], { params: active === 'events' ? params : { page: 1, per_page: 8 } });
     const community = useApiResource('/admin/community-posts', [], { params: active === 'community' ? params : { page: 1, per_page: 8 } });
-    const homepageSettings = useApiResource('/admin/homepage-settings', {});
     const resources = { news, events, community };
     const resource = resources[active];
     const config = contentTypes[active];
     const error = news.error || events.error || community.error;
-    const curationReady = Boolean(homepageSettings.data?.ready);
-    const sortModes = homepageSettings.data?.sort_modes ?? homepageSettings.data ?? {};
 
     const items = useMemo(() => normalize(resource.data), [resource.data]);
     const meta = metaFrom(resource.data);
@@ -115,30 +91,6 @@ export default function AdminContentPage() {
         setType('all');
     };
 
-    const updateHomepageSort = async (sortMode) => {
-        try {
-            const saved = await apiRequest('put', '/admin/homepage-settings', { section: active, sort_mode: sortMode });
-            homepageSettings.setData(saved);
-            notify('Homepage sort updated.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        }
-    };
-
-    const updateItemHomepage = async (item, patch) => {
-        if (active === 'community') return;
-        try {
-            const saved = await apiRequest('put', `${config.endpoint}/${item.id}`, patch);
-            resource.setData((current) => ({
-                ...current,
-                data: normalize(current).map((entry) => entry.id === item.id ? { ...entry, ...saved } : entry),
-            }));
-            notify('Homepage selection updated.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        }
-    };
-
     return (
         <div className="space-y-6">
             <PageHeader
@@ -149,7 +101,6 @@ export default function AdminContentPage() {
             />
 
             {error && <ErrorState message={error} onRetry={() => { news.reload(); events.reload(); community.reload(); }} />}
-            {!curationReady && <ErrorState message="Homepage curation needs the latest database migration before you can manually select or order homepage items." />}
 
             <Card>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -163,14 +114,6 @@ export default function AdminContentPage() {
                     <SearchInput className="lg:w-80" onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${config.label.toLowerCase()}`} value={query} />
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {active !== 'community' && (
-                        <label className="block">
-                            <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">Homepage sort</span>
-                            <select className={inputClass} disabled={!curationReady} onChange={(event) => updateHomepageSort(event.target.value)} value={sortModes?.[active] ?? 'custom'}>
-                                {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                            </select>
-                        </label>
-                    )}
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">Status</span>
                         <select className={inputClass} onChange={(event) => setStatus(event.target.value)} value={status}>
@@ -206,7 +149,7 @@ export default function AdminContentPage() {
                 ) : items.length ? (
                     <>
                         <div className="space-y-3">
-                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} curationReady={curationReady} onHomepageUpdate={updateItemHomepage} />)}
+                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} />)}
                         </div>
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>

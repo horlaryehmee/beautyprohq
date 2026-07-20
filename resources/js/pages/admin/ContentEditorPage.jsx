@@ -9,7 +9,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/news',
         publicPath: (item) => item?.slug ? `/news-events/news/${item.slug}` : null,
-        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: true, homepage_order: 0 },
+        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '' },
         bodyKey: 'content',
     },
     events: {
@@ -17,7 +17,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/events',
         publicPath: (item) => item?.slug ? `/news-events/events/${item.slug}` : null,
-        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: true, homepage_order: 0 },
+        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', seo_title: '', seo_description: '' },
         bodyKey: 'description',
     },
     community: {
@@ -370,22 +370,6 @@ export default function AdminContentEditorPage() {
                             {!isNew && editing?.published_at && <p className="text-xs font-semibold text-slate-400">Current publish date: {formatDate(editing.published_at)}</p>}
                         </div>
                     </Card>
-
-                    {type !== 'community' && (
-                        <Card>
-                            <h2 className="font-bold text-slate-950">Homepage display</h2>
-                            <p className="mt-1 text-sm text-slate-500">Choose whether this item appears on the homepage and where it sits when the section uses custom order.</p>
-                            <div className="mt-5 space-y-4">
-                                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                    <input checked={Boolean(form.show_on_homepage)} onChange={(event) => updateForm({ show_on_homepage: event.target.checked })} type="checkbox" />
-                                    <span className="text-sm font-bold text-slate-700">Show on homepage</span>
-                                </label>
-                                <Field label="Homepage order">
-                                    <input className={inputClass} min="0" onChange={(event) => updateForm({ homepage_order: Number(event.target.value || 0) })} type="number" value={form.homepage_order ?? 0} />
-                                </Field>
-                            </div>
-                        </Card>
-                    )}
 
                     <Card>
                         <h2 className="font-bold text-slate-950">Featured image</h2>

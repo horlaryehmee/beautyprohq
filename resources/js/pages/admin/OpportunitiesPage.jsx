@@ -10,19 +10,9 @@ const emptyForm = {
     contact_url: '',
     location: '',
     deadline: '',
-    show_on_homepage: true,
-    homepage_order: 0,
     status: 'published',
 };
 const normalize = (value) => Array.isArray(value) ? value : value?.opportunities ?? value?.data ?? [];
-const sortOptions = [
-    ['custom', 'Custom order'],
-    ['random', 'Randomize'],
-    ['az', 'A-Z'],
-    ['za', 'Z-A'],
-    ['newest', 'Newest first'],
-    ['oldest', 'Oldest first'],
-];
 
 function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -125,9 +115,6 @@ export default function AdminOpportunitiesPage() {
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
-    const homepageSettings = useApiResource('/admin/homepage-settings', {});
-    const curationReady = Boolean(homepageSettings.data?.ready);
-    const sortModes = homepageSettings.data?.sort_modes ?? homepageSettings.data ?? {};
     const items = normalize(resource.data).map((item) => ({ ...item, status: item.status ?? (item.published_at ? 'published' : 'draft') }));
 
     const show = (item = null) => {
@@ -151,8 +138,6 @@ export default function AdminOpportunitiesPage() {
                 },
                 location: form.location || null,
                 deadline: form.deadline || null,
-                show_on_homepage: Boolean(form.show_on_homepage),
-                homepage_order: Number(form.homepage_order || 0),
                 status: form.status,
             };
             const saved = await apiRequest(editing ? 'put' : 'post', editing ? `/admin/opportunities/${editing.id}` : '/admin/opportunities', payload);
@@ -177,44 +162,10 @@ export default function AdminOpportunitiesPage() {
         }
     };
 
-    const updateHomepageSort = async (sortMode) => {
-        try {
-            const saved = await apiRequest('put', '/admin/homepage-settings', { section: 'opportunities', sort_mode: sortMode });
-            homepageSettings.setData(saved);
-            notify('Homepage sort updated.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        }
-    };
-
-    const updateItemHomepage = async (item, patch) => {
-        try {
-            const saved = await apiRequest('put', `/admin/opportunities/${item.id}`, patch);
-            resource.setData((current) => normalize(current).map((entry) => entry.id === item.id ? { ...entry, ...saved } : entry));
-            notify('Homepage selection updated.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        }
-    };
-
     return (
         <div className="space-y-6">
             <PageHeader actions={<Button onClick={() => show()} type="button">Add opportunity</Button>} description="Publish jobs, collaborations, vendor calls, and training opportunities with clear application instructions." eyebrow="Growth" title="Opportunities" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
-            {!curationReady && <ErrorState message="Homepage curation needs the latest database migration before you can manually select or order homepage items." />}
-            <Card>
-                <div className="grid gap-3 sm:grid-cols-[1fr_260px] sm:items-end">
-                    <div>
-                        <h2 className="font-bold text-slate-950">Homepage opportunity order</h2>
-                        <p className="mt-1 text-sm text-slate-500">Choose how selected opportunities are arranged on the public homepage.</p>
-                    </div>
-                    <Field label="Homepage sort">
-                        <select className={inputClass} disabled={!curationReady} onChange={(event) => updateHomepageSort(event.target.value)} value={sortModes?.opportunities ?? 'custom'}>
-                            {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                        </select>
-                    </Field>
-                </div>
-            </Card>
             <Card>
                 {resource.loading ? <LoadingBlock rows={5} /> : items.length ? (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -223,16 +174,6 @@ export default function AdminOpportunitiesPage() {
                                     <div className="flex items-start justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span><StatusBadge status={item.status ?? 'published'} /></div>
                                     <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
                                     <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
-                                    <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3">
-                                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                                            <input checked={Boolean(item.show_on_homepage)} disabled={!curationReady} onChange={(event) => updateItemHomepage(item, { show_on_homepage: event.target.checked })} type="checkbox" />
-                                            Show on homepage
-                                        </label>
-                                        <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
-                                            <span>Order</span>
-                                            <input className={`${inputClass} min-h-9 py-1 text-sm`} disabled={!curationReady} min="0" onChange={(event) => updateItemHomepage(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
-                                        </label>
-                                    </div>
                                     <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
                                     <div className="mt-4 flex gap-2"><Button className="flex-1" onClick={() => show(item)} type="button" variant="secondary">Edit</Button><Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button></div>
                                 </article>
@@ -254,16 +195,6 @@ export default function AdminOpportunitiesPage() {
                             <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
                             <Field label="Short card description" hint="This is what appears on homepage and opportunity cards. Keep it short, clear, and direct."><textarea className={`${inputClass} min-h-24 resize-y leading-7`} maxLength={600} onChange={(event) => setForm((current) => ({ ...current, short_description: event.target.value }))} value={form.short_description} /></Field>
                             <ClassicEditor label="Full opportunity details" onChange={(value) => setForm((current) => ({ ...current, description: value }))} value={form.description} />
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <h3 className="text-sm font-bold text-slate-800">Homepage display</h3>
-                                <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
-                                    <label className="flex items-center gap-3 rounded-xl bg-white p-3">
-                                        <input checked={Boolean(form.show_on_homepage)} onChange={(event) => setForm((current) => ({ ...current, show_on_homepage: event.target.checked }))} type="checkbox" />
-                                        <span className="text-sm font-bold text-slate-700">Show on homepage</span>
-                                    </label>
-                                    <Field label="Order"><input className={inputClass} min="0" onChange={(event) => setForm((current) => ({ ...current, homepage_order: Number(event.target.value || 0) }))} type="number" value={form.homepage_order ?? 0} /></Field>
-                                </div>
-                            </div>
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>
                                 <Field label="Contact email"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, contact_email: event.target.value }))} type="email" value={form.contact_email} /></Field>
