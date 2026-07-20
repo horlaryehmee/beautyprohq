@@ -257,19 +257,19 @@ export default function ProviderProfilePage() {
             <PageHeader description="Edit the same information you answered during provider setup." eyebrow="Your listing" title="Profile" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
-            <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
-                <aside className="xl:sticky xl:top-24 xl:self-start">
-                    <Card className="p-3">
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_320px] xl:gap-5">
+                <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
+                    <Card className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto p-2 xl:mx-0 xl:block xl:space-y-1 xl:p-3">
                         {sections.map(([title, subtitle], index) => (
-                            <button className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
-                                <span className={`grid size-7 place-items-center rounded-full text-xs font-black ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
-                                <span><span className="block text-sm font-black">{title}</span><span className="block text-xs opacity-70">{subtitle}</span></span>
+                            <button className={`flex min-w-[132px] shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition xl:w-full xl:min-w-0 xl:gap-3 xl:py-3 ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
+                                <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
+                                <span className="min-w-0"><span className="block truncate text-xs font-black xl:text-sm">{title}</span><span className="hidden text-xs opacity-70 xl:block">{subtitle}</span></span>
                             </button>
                         ))}
                     </Card>
                 </aside>
 
-                <Card>
+                <Card className="min-w-0 p-4 sm:p-6">
                     {step === 0 && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Business name"><input className={inputClass} onChange={change('name')} required value={form.name} /></Field>
@@ -297,7 +297,7 @@ export default function ProviderProfilePage() {
                     {step === 3 && (
                         <div className="space-y-3">
                             {form.social_links.map((item, index) => (
-                                <div className="grid gap-3 sm:grid-cols-[180px_1fr_auto]" key={index}>
+                                <div className="grid min-w-0 gap-3 sm:grid-cols-[180px_1fr_auto]" key={index}>
                                     <select className={inputClass} onChange={(event) => updateSocial(index, { platform: event.target.value })} value={item.platform}>{socialOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select>
                                     <input className={inputClass} onChange={(event) => updateSocial(index, { url: event.target.value })} placeholder="https://..." type="url" value={item.url} />
                                     <Button onClick={() => removeSocial(index)} type="button" variant="secondary">Remove</Button>
@@ -327,7 +327,7 @@ export default function ProviderProfilePage() {
                             {days.map(([value, label]) => {
                                 const slot = form.availability.find((item) => Number(item.day_of_week) === Number(value));
                                 return (
-                                    <div className="grid gap-3 rounded-2xl border border-slate-100 p-3 sm:grid-cols-[1fr_150px_150px]" key={value}>
+                                    <div className="grid min-w-0 gap-3 rounded-2xl border border-slate-100 p-3 sm:grid-cols-[1fr_150px_150px]" key={value}>
                                         <label className="flex items-center gap-3 text-sm font-black text-slate-800"><input checked={Boolean(slot)} className="size-4 accent-fuchsia-700" onChange={() => toggleDay(value)} type="checkbox" />{label}</label>
                                         <input className={inputClass} disabled={!slot} onChange={(event) => updateSlot(value, { start_time: event.target.value })} type="time" value={slot?.start_time ?? '09:00'} />
                                         <input className={inputClass} disabled={!slot} onChange={(event) => updateSlot(value, { end_time: event.target.value })} type="time" value={slot?.end_time ?? '18:00'} />
@@ -340,7 +340,7 @@ export default function ProviderProfilePage() {
                     {step === 7 && (
                         <div>
                             <CardHeader description="Add links to your best work. These can also support verification." title="Portfolio" />
-                            <div className="flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="https://instagram.com/p/... or image URL" type="url" value={portfolioUrl} /><Button onClick={addPortfolioLink} type="button" variant="secondary">Add link</Button></div>
+                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="https://instagram.com/p/... or image URL" type="url" value={portfolioUrl} /><Button onClick={addPortfolioLink} type="button" variant="secondary">Add link</Button></div>
                             <LinkList items={form.portfolio_links} onRemove={removePortfolioLink} />
                         </div>
                     )}
@@ -351,24 +351,24 @@ export default function ProviderProfilePage() {
                             {verified ? <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-emerald-600">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-700"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
                                 <Field label="Professional information" hint="Include experience, training, specialties, licenses held, and any business registration detail."><textarea className={`${inputClass} min-h-36 resize-y`} onChange={change('professional_info')} value={form.professional_info} /></Field>
                                 <div className="grid gap-4 lg:grid-cols-2">
-                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">Certification links/files</p><div className="mt-3 flex gap-2"><input className={inputClass} onChange={(event) => setCertificationUrl(event.target.value)} placeholder="https://certificate-link..." type="url" value={certificationUrl} /><Button onClick={() => addVerificationLink('certification_files', certificationUrl, setCertificationUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} /></div>
-                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">License links/files</p><div className="mt-3 flex gap-2"><input className={inputClass} onChange={(event) => setLicenseUrl(event.target.value)} placeholder="https://license-link..." type="url" value={licenseUrl} /><Button onClick={() => addVerificationLink('license_files', licenseUrl, setLicenseUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.license_files} onRemove={(index) => removeVerificationLink('license_files', index)} /></div>
+                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">Certification links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setCertificationUrl(event.target.value)} placeholder="https://certificate-link..." type="url" value={certificationUrl} /><Button onClick={() => addVerificationLink('certification_files', certificationUrl, setCertificationUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} /></div>
+                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">License links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setLicenseUrl(event.target.value)} placeholder="https://license-link..." type="url" value={licenseUrl} /><Button onClick={() => addVerificationLink('license_files', licenseUrl, setLicenseUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.license_files} onRemove={(index) => removeVerificationLink('license_files', index)} /></div>
                                 </div>
                                 <Button busy={saving} disabled={!form.portfolio_links.length || !form.professional_info.trim()} onClick={submitVerification} type="button" variant="soft">Submit for verification</Button>
                             </>}
                         </div>
                     )}
 
-                    <div className="mt-8 flex justify-between gap-3 border-t border-slate-100 pt-5">
+                    <div className="mt-8 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-between">
                         <Button disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button" variant="secondary">Back</Button>
-                        <div className="flex gap-2">
+                        <div className="grid gap-2 sm:flex">
                             {step < sections.length - 1 && <Button onClick={() => setStep((current) => Math.min(sections.length - 1, current + 1))} type="button" variant="secondary">Continue</Button>}
                             <Button busy={saving} type="submit">Save profile</Button>
                         </div>
                     </div>
                 </Card>
 
-                <aside className="space-y-5 xl:sticky xl:top-24 xl:h-fit">
+                <aside className="hidden space-y-5 xl:sticky xl:top-24 xl:block xl:h-fit">
                     <Card>
                         <div className="flex items-center gap-4">
                             <Avatar name={form.name} size="lg" src={form.profile_photo} />
