@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Button,
     Card,
@@ -8,6 +8,7 @@ import {
     Field,
     LoadingBlock,
     PageHeader,
+    Pagination,
     SearchInput,
     StatusBadge,
     apiErrorMessage,
@@ -28,6 +29,8 @@ const emptyForm = {
 };
 
 const normalize = (value) => Array.isArray(value) ? value : value?.announcements ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
+const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
 
 function statusFor(item) {
     const now = Date.now();
@@ -52,22 +55,31 @@ export default function AdminAnnouncementsPage() {
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [page, setPage] = useState(1);
     const search = useDebouncedValue(query);
     const resource = useApiResource('/admin/announcements', [], {
         params: {
+            page,
             search: search || undefined,
             audience: audience === 'all' ? undefined : audience,
-            per_page: 30,
+            per_page: 12,
         },
     });
     const { notify } = useDashboardToast();
     const announcements = normalize(resource.data);
+    const meta = metaFrom(resource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
 
     const counts = useMemo(() => ({
         all: announcements.length,
         active: announcements.filter((item) => statusFor(item) === 'published').length,
         scheduled: announcements.filter((item) => statusFor(item) === 'scheduled').length,
     }), [announcements]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, audience]);
 
     const startCreate = () => {
         setEditing(null);
@@ -97,9 +109,9 @@ export default function AdminAnnouncementsPage() {
                 expires_at: form.expires_at || null,
             };
             const saved = await apiRequest(editing ? 'put' : 'post', editing ? `/admin/announcements/${editing.id}` : '/admin/announcements', payload);
-            resource.setData((current) => editing
+            resource.setData((current) => updateResourceData(current, editing
                 ? normalize(current).map((item) => item.id === saved.id ? saved : item)
-                : [saved, ...normalize(current)]);
+                : [saved, ...normalize(current)]));
             setOpen(false);
             notify(editing ? 'Announcement updated.' : 'Announcement created.');
         } catch (error) {
@@ -113,7 +125,7 @@ export default function AdminAnnouncementsPage() {
         if (!window.confirm(`Delete "${item.title}"?`)) return;
         try {
             await apiRequest('delete', `/admin/announcements/${item.id}`);
-            resource.setData((current) => normalize(current).filter((entry) => entry.id !== item.id));
+            resource.setData((current) => updateResourceData(current, normalize(current).filter((entry) => entry.id !== item.id)));
             notify('Announcement deleted.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -191,6 +203,7 @@ export default function AdminAnnouncementsPage() {
                                 ))}
                             </tbody>
                         </table>
+                        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </div>
                 ) : (
                     <EmptyState action={<Button onClick={startCreate} type="button" variant="soft">Create message</Button>} description="Announcements you create will appear here." icon="megaphone" title="No announcements found" />

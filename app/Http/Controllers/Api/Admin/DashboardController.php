@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\VerificationRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -45,9 +46,20 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'type' => ['nullable', Rule::in(['all', 'users', 'bookings', 'payments', 'subscriptions', 'listings', 'content', 'announcements'])],
             'per_page' => ['nullable', 'integer', 'between:5,100'],
+            'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        return $this->success($this->activityFeed($validated['per_page'] ?? 50, $validated['type'] ?? 'all'));
+        $perPage = $validated['per_page'] ?? 20;
+        $page = $validated['page'] ?? 1;
+        $items = collect($this->activityFeed(500, $validated['type'] ?? 'all'));
+        $paginator = new LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page
+        );
+
+        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
     }
 
     public function users(Request $request): JsonResponse
@@ -253,7 +265,15 @@ class DashboardController extends Controller
 
     public function subscriptions(Request $request): JsonResponse
     {
-        $subscriptions = Subscription::with(['user:id,name,email,role', 'planDefinition'])->latest()->paginate($request->integer('per_page', 20));
+        $subscriptions = Subscription::with(['user:id,name,email,role', 'planDefinition'])
+            ->when($request->search, fn ($query, $search) => $query->where(fn ($searchQuery) => $searchQuery
+                ->where('plan', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%")
+                ->orWhereHas('user', fn ($userQuery) => $userQuery
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%"))))
+            ->latest()
+            ->paginate($request->integer('per_page', 20));
 
         return $this->success($subscriptions->items(), meta: $this->paginationMeta($subscriptions));
     }

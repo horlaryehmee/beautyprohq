@@ -1,23 +1,30 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Avatar, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, SearchInput, StatusBadge, inputClass, useApiResource, useDebouncedValue } from '../../components/dashboard';
+import { Avatar, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, inputClass, useApiResource, useDebouncedValue } from '../../components/dashboard';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.users ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
 
 export default function AdminUsersPage() {
     const [query, setQuery] = useState('');
     const [role, setRole] = useState('all');
     const [state, setState] = useState('all');
     const [verification, setVerification] = useState('all');
+    const [page, setPage] = useState(1);
     const search = useDebouncedValue(query);
     const resource = useApiResource('/admin/users', [], {
         params: {
+            page,
+            per_page: 12,
             search: search || undefined,
             role: role === 'all' ? undefined : role,
             is_active: state === 'all' ? undefined : state === 'active' ? 1 : 0,
         },
     });
+    const meta = metaFrom(resource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
 
     const users = useMemo(() => normalize(resource.data).filter((user) => {
         const profile = user.provider_profile ?? user.providerProfile;
@@ -25,6 +32,10 @@ export default function AdminUsersPage() {
         if (verification === 'unverified' && profile?.verified) return false;
         return true;
     }), [resource.data, verification]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, role, state, verification]);
 
     return (
         <div className="space-y-6">
@@ -103,6 +114,7 @@ export default function AdminUsersPage() {
                                 })}
                             </tbody>
                         </table>
+                        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </div>
                 ) : (
                     <EmptyState description="Try changing your search or filters." icon="users" title="No users found" />

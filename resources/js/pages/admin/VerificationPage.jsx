@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Avatar, Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast } from '../../components/dashboard';
+import { useEffect, useMemo, useState } from 'react';
+import { Avatar, Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast } from '../../components/dashboard';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.verifications ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
+const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
 
 function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
     const color = tone === 'sky' ? 'bg-sky-50 text-sky-700' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-700' : 'bg-fuchsia-50 text-fuchsia-700';
@@ -21,18 +23,32 @@ function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
 }
 
 export default function AdminVerificationPage() {
-    const resource = useApiResource('/admin/verifications', []);
     const [filter, setFilter] = useState('pending');
+    const [page, setPage] = useState(1);
+    const resource = useApiResource('/admin/verifications', [], {
+        params: {
+            page,
+            per_page: 10,
+            status: filter === 'all' ? undefined : filter,
+        },
+    });
     const [selected, setSelected] = useState(null);
     const [notes, setNotes] = useState('');
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();
     const requests = useMemo(() => normalize(resource.data).filter((request) => filter === 'all' || request.status === filter), [filter, resource.data]);
+    const meta = metaFrom(resource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
+
+    useEffect(() => {
+        setPage(1);
+    }, [filter]);
 
     const decide = (request, status) => run(`${request.id}-${status}`, async () => {
         try {
             const updated = await apiRequest('patch', `/admin/verifications/${request.id}`, { status, admin_notes: notes || undefined });
-            resource.setData((current) => normalize(current).map((item) => item.id === request.id ? { ...item, ...(updated ?? {}), status, admin_notes: notes } : item));
+            resource.setData((current) => updateResourceData(current, normalize(current).map((item) => item.id === request.id ? { ...item, ...(updated ?? {}), status, admin_notes: notes } : item)));
             setSelected(null);
             setNotes('');
             notify(status === 'approved' ? 'Provider verified. Badge is now active.' : 'Verification rejected.');
@@ -89,6 +105,7 @@ export default function AdminVerificationPage() {
                         })}
                     </div>
                 ) : <EmptyState description="There are no requests in this status." icon="shield" title="No verification requests" />}
+                <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
             </Card>
 
             {selected && (

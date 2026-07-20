@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Card,
     CardHeader,
@@ -6,6 +6,7 @@ import {
     ErrorState,
     LoadingBlock,
     PageHeader,
+    Pagination,
     StatusBadge,
     formatDate,
     useApiResource,
@@ -34,14 +35,22 @@ const tone = {
 
 export default function AdminActivityPage() {
     const [type, setType] = useState('all');
-    const resource = useApiResource('/admin/activity', [], { params: { type, per_page: 80 }, refreshInterval: 30000 });
+    const [page, setPage] = useState(1);
+    const resource = useApiResource('/admin/activity', [], { params: { type, page, per_page: 20 }, refreshInterval: 30000 });
     const items = Array.isArray(resource.data) ? resource.data : resource.data?.data ?? [];
+    const meta = resource.data?.meta ?? {};
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
 
     const grouped = useMemo(() => items.reduce((acc, item) => {
         const day = formatDate(item.created_at);
         acc[day] = acc[day] ? [...acc[day], item] : [item];
         return acc;
     }, {}), [items]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [type]);
 
     return (
         <div className="space-y-6">
@@ -88,6 +97,7 @@ export default function AdminActivityPage() {
                                 </div>
                             </section>
                         ))}
+                        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </div>
                 ) : (
                     <EmptyState description="No activity exists for this filter yet." icon="analytics" title="No activity found" />

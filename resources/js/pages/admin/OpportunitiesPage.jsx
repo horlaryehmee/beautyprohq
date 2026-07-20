@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 
 const emptyForm = {
     type: 'job',
@@ -13,6 +13,8 @@ const emptyForm = {
     status: 'published',
 };
 const normalize = (value) => Array.isArray(value) ? value : value?.opportunities ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
+const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
 
 function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -109,13 +111,17 @@ function formFrom(item) {
 }
 
 export default function AdminOpportunitiesPage() {
-    const resource = useApiResource('/admin/opportunities', []);
+    const [page, setPage] = useState(1);
+    const resource = useApiResource('/admin/opportunities', [], { params: { page, per_page: 12 } });
     const [form, setForm] = useState(emptyForm);
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const items = normalize(resource.data).map((item) => ({ ...item, status: item.status ?? (item.published_at ? 'published' : 'draft') }));
+    const meta = metaFrom(resource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
 
     const show = (item = null) => {
         setEditing(item);
@@ -141,7 +147,7 @@ export default function AdminOpportunitiesPage() {
                 status: form.status,
             };
             const saved = await apiRequest(editing ? 'put' : 'post', editing ? `/admin/opportunities/${editing.id}` : '/admin/opportunities', payload);
-            resource.setData((current) => editing ? normalize(current).map((item) => item.id === editing.id ? { ...item, ...saved } : item) : [saved, ...normalize(current)]);
+            resource.setData((current) => updateResourceData(current, editing ? normalize(current).map((item) => item.id === editing.id ? { ...item, ...saved } : item) : [saved, ...normalize(current)]));
             setOpen(false);
             notify('Opportunity saved.');
         } catch (error) {
@@ -155,7 +161,7 @@ export default function AdminOpportunitiesPage() {
         if (!window.confirm(`Delete this ${item.type} opportunity?`)) return;
         try {
             await apiRequest('delete', `/admin/opportunities/${item.id}`);
-            resource.setData((current) => normalize(current).filter((entry) => entry.id !== item.id));
+            resource.setData((current) => updateResourceData(current, normalize(current).filter((entry) => entry.id !== item.id)));
             notify('Opportunity deleted.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -180,6 +186,7 @@ export default function AdminOpportunitiesPage() {
                         ))}
                     </div>
                 ) : <EmptyState action={<Button onClick={() => show()} type="button" variant="soft">Post an opportunity</Button>} description="Create a detailed listing with clear requirements and application guidance." icon="opportunity" title="No opportunities yet" />}
+                <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
             </Card>
 
             {open && (

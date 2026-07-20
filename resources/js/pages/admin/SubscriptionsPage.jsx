@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Avatar,
     Button,
@@ -10,6 +10,7 @@ import {
     Field,
     LoadingBlock,
     PageHeader,
+    Pagination,
     SearchInput,
     StatCard,
     StatusBadge,
@@ -24,10 +25,9 @@ import {
 import { useCurrency } from '../../context/CurrencyContext';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.subscriptions ?? value?.data ?? [];
+const metaFrom = (value) => value?.meta ?? {};
 
 export default function AdminSubscriptionsPage() {
-    const subscriptionsResource = useApiResource('/admin/subscriptions', []);
-    const plansResource = useApiResource('/admin/subscription-plans', []);
     const [query, setQuery] = useState('');
     const [editingPlan, setEditingPlan] = useState(null);
     const [form, setForm] = useState({ name: '', price: '', currency: 'NGN', billing_period: 'monthly', features: '' });
@@ -35,12 +35,22 @@ export default function AdminSubscriptionsPage() {
     const { notify } = useDashboardToast();
     const { supported } = useCurrency();
     const search = useDebouncedValue(query);
+    const [page, setPage] = useState(1);
+    const subscriptionsResource = useApiResource('/admin/subscriptions', [], { params: { page, per_page: 12, search: search || undefined } });
+    const plansResource = useApiResource('/admin/subscription-plans', []);
     const subscriptions = normalize(subscriptionsResource.data);
     const plans = normalize(plansResource.data);
+    const meta = metaFrom(subscriptionsResource.data);
+    const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
 
-    const visible = useMemo(() => subscriptions.filter((item) => `${item.user?.name ?? ''} ${item.user?.email ?? item.email ?? ''} ${item.plan ?? ''}`.toLowerCase().includes(search.toLowerCase())), [search, subscriptions]);
+    const visible = subscriptions;
     const active = subscriptions.filter((item) => item.status === 'active').length;
     const monthlyRevenue = subscriptions.filter((item) => item.status === 'active' && ['paid', 'pro'].includes(item.plan)).reduce((sum, item) => sum + Number(item.amount ?? item.plan_amount ?? 0), 0);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search]);
 
     const startEdit = (plan) => {
         setEditingPlan(plan);
@@ -142,6 +152,7 @@ export default function AdminSubscriptionsPage() {
                                 </tr>
                             ))}</tbody>
                         </table>
+                        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </div>
                 ) : <EmptyState description="Subscription records will appear when members choose a plan." icon="subscription" title="No subscriptions found" />}
             </Card>

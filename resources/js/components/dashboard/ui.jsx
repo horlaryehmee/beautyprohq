@@ -178,12 +178,40 @@ export function formatDate(value, options = {}) {
 
 export function Pagination({ page, pageCount, onPageChange }) {
     if (pageCount <= 1) return null;
+    const currentPage = Number(page) || 1;
+    const totalPages = Number(pageCount) || 1;
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+    const end = Math.min(totalPages, start + 4);
+    const pages = Array.from({ length: end - start + 1 }, (_, index) => start + index);
+
     return (
-        <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
-            <span className="text-slate-500">Page {page} of {pageCount}</span>
-            <div className="flex gap-2">
-                <Button disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button" variant="secondary">Previous</Button>
-                <Button disabled={page >= pageCount} onClick={() => onPageChange(page + 1)} type="button" variant="secondary">Next</Button>
+        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-slate-500">Page {currentPage} of {totalPages}</span>
+            <div className="flex flex-wrap gap-2">
+                <Button disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} type="button" variant="secondary">Previous</Button>
+                {start > 1 && (
+                    <>
+                        <button className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50" onClick={() => onPageChange(1)} type="button">1</button>
+                        {start > 2 && <span className="grid min-h-10 place-items-center px-1 text-slate-400">...</span>}
+                    </>
+                )}
+                {pages.map((item) => (
+                    <button
+                        className={`min-h-10 rounded-xl px-3 text-sm font-bold transition ${item === currentPage ? 'bg-slate-950 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                        key={item}
+                        onClick={() => onPageChange(item)}
+                        type="button"
+                    >
+                        {item}
+                    </button>
+                ))}
+                {end < totalPages && (
+                    <>
+                        {end < totalPages - 1 && <span className="grid min-h-10 place-items-center px-1 text-slate-400">...</span>}
+                        <button className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50" onClick={() => onPageChange(totalPages)} type="button">{totalPages}</button>
+                    </>
+                )}
+                <Button disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)} type="button" variant="secondary">Next</Button>
             </div>
         </div>
     );
