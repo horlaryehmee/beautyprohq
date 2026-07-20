@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+    build: {
+        target: ['es2018', 'safari13'],
+    },
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/main.jsx'],
