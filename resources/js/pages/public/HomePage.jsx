@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import api, { collectionFrom, ensureCsrfCookie, unwrap } from '../../lib/api';
+import { Link, useNavigate } from 'react-router-dom';
+import api, { apiError, collectionFrom, ensureCsrfCookie, unwrap } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
@@ -8,7 +9,6 @@ import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
-import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
 import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
@@ -172,9 +172,68 @@ function NewsEventCard({ item, index }) {
     );
 }
 
+function SaveProviderButton({ provider, light = false }) {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const toast = useToast();
+    const pro = providerIdentity(provider);
+    const [saved, setSaved] = useState(Boolean(provider.is_saved ?? provider.saved_by_customer ?? provider.saved));
+    const [saving, setSaving] = useState(false);
+
+    async function toggleSaved(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!user) {
+            navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+            return;
+        }
+
+        if (user.role !== 'customer') {
+            toast.error('Saved professionals are available from a customer account.');
+            return;
+        }
+
+        const previous = saved;
+        setSaved(!previous);
+        setSaving(true);
+
+        try {
+            await ensureCsrfCookie();
+            const response = previous
+                ? await api.delete(`/customer/saved-providers/${pro.id}`)
+                : await api.post(`/customer/saved-providers/${pro.id}`);
+            toast.success(response?.data?.message || (previous ? 'Professional removed from saved profiles.' : 'Professional saved to your account.'));
+        } catch (requestError) {
+            if (!previous && requestError?.response?.status === 409) {
+                setSaved(true);
+                toast.success('This professional is already in your saved profiles.');
+            } else {
+                setSaved(previous);
+                toast.error(apiError(requestError, 'Your saved profiles could not be updated.').message);
+            }
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={toggleSaved}
+            disabled={saving}
+            className={`ml-auto grid size-8 place-items-center rounded-sm border transition ${saved ? 'border-white bg-white text-[#7d2e3c]' : light ? 'border-[#241711]/25 text-[#241711]/75 hover:bg-[#f4efe9]' : 'border-white/55 text-white/80 hover:bg-white/12'}`}
+            aria-label={saved ? 'Remove from saved providers' : 'Save provider'}
+        >
+            <Icon name="heart" size={15} fill={saved ? 'currentColor' : 'none'} />
+        </button>
+    );
+}
+
 function VerifiedProfessionalCard({ provider }) {
     const pro = providerIdentity(provider);
     const reviews = pro.reviewsCount || provider.reviews_count || provider.review_count || 0;
+    const hasRating = Number(pro.rating) > 0;
 
     return (
         <article className="group relative min-h-[330px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.14)]">
@@ -182,18 +241,20 @@ function VerifiedProfessionalCard({ provider }) {
             <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/12 to-black/78" />
             <div className="relative z-10 flex min-h-[330px] flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
-                    <VerifiedBadge show={pro.verified} size="md" className="rounded-full bg-white/90 p-0.5 shadow-sm" />
-                    <span className="ml-auto rounded-sm border border-white/55 p-1.5 text-white/80"><Icon name="heart" size={15} /></span>
+                    <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]">
+                        <Icon name="map" size={12} />
+                        <span className="truncate">{pro.location}</span>
+                    </span>
+                    <SaveProviderButton provider={provider} />
                 </div>
                 <div className="mt-auto">
                     <h3 className="flex min-w-0 items-center gap-2 font-display text-2xl font-normal leading-tight">
                         <span className="truncate">{pro.name}</span>
-                        <VerifiedBadge show={pro.verified} size="md" className="shrink-0" />
                     </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
                     <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-white/78"><Icon name="map" size={13} />{pro.location}</p>
                     <div className="mt-3 flex items-center justify-between gap-3">
-                        <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating ? pro.rating.toFixed(1) : 'New'} {reviews ? `(${reviews})` : ''}</span>
+                        {hasRating ? <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span> : <span />}
                         <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
                             View Profile
                         </Link>
@@ -314,7 +375,7 @@ export default function HomePage() {
                                     {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
                                         <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
-                                        <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
+                                        <h2 className="mt-1 font-display text-3xl font-semibold leading-none text-white">{pro.name}</h2>
                                     </div>
                                 </div>
                                 <div className="flex flex-col justify-center px-5 py-6 sm:px-7 md:px-8 lg:px-10">
@@ -323,7 +384,6 @@ export default function HomePage() {
                                     </p>
                                     <div className="mt-0 hidden flex-wrap items-center gap-2 md:mt-4 md:flex">
                                         <h2 className="font-display text-3xl font-semibold leading-tight text-[#3b2921] lg:text-4xl">{pro.name}</h2>
-                                        <VerifiedBadge show={pro.verified} size="md" />
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500 md:mt-2">
                                         <span>{pro.profession}</span>
