@@ -46,7 +46,7 @@ function HeroImageMarquee({ providers }) {
     if (!squareData.length) return null;
 
     return (
-        <div className="relative mx-auto h-[430px] w-full max-w-[500px] overflow-hidden rounded-[2rem] md:h-[540px] lg:h-[620px]">
+        <div className="relative mx-auto h-[360px] w-full max-w-[500px] overflow-hidden rounded-[1.6rem] sm:h-[430px] md:h-[540px] md:rounded-[2rem] lg:h-[620px]">
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-[#f4efe9] to-transparent" />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#f4efe9] to-transparent" />
             <div className="grid h-full grid-cols-2 gap-3 sm:gap-4">
@@ -58,7 +58,7 @@ function HeroImageMarquee({ providers }) {
                         transition={{ duration: 34, ease: 'linear', repeat: Infinity }}
                     >
                         {column.items.map((item, index) => (
-                            <div className="h-44 shrink-0 overflow-hidden rounded-[1.35rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 md:h-64" key={`${column.id}-${item.id}-${index}`}>
+                            <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
                                 <img src={item.src} alt="" className="size-full object-cover" loading={index > 3 ? 'lazy' : 'eager'} />
                             </div>
                         ))}
@@ -72,14 +72,13 @@ function HeroImageMarquee({ providers }) {
 export function ShuffleHero({ providers = [], className }) {
     return (
         <section className={cn('bg-[#f4efe9] text-[#34231c]', className)}>
-            <div className="page-container grid grid-cols-1 items-center gap-5 pb-7 pt-7 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
+            <div className="page-container grid grid-cols-1 items-center gap-7 pb-8 pt-12 sm:pt-16 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
                 <motion.div
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, ease: 'easeOut' }}
                 >
-                    <p className="text-center text-[10px] font-black uppercase tracking-[.18em] text-[#7d2e3c] md:hidden">The home for beauty professionals</p>
-                    <h1 className="mt-2 max-w-[620px] text-center font-display text-[2.55rem] font-normal leading-[.94] text-[#34231c] md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
+                    <h1 className="mx-auto mt-2 max-w-[620px] text-center font-display text-[3rem] font-normal leading-[.9] text-[#34231c] sm:text-[3.7rem] md:mx-0 md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
                         <span>The Beauty Service </span>
                         <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
                     </h1>
@@ -93,15 +92,7 @@ export function ShuffleHero({ providers = [], className }) {
                     <p className="mx-auto mt-3 max-w-xl text-center text-sm font-normal leading-6 text-[#5a4d46] md:mx-0 md:text-left md:text-lg md:leading-7">
                         Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.
                     </p>
-                    <div className="mt-5 grid grid-cols-[1fr_auto] gap-3 md:hidden">
-                        <Link to="/directory" className="flex min-h-12 items-center gap-3 rounded-xl border border-[#d8cabe] bg-white/60 px-4 text-sm font-semibold text-[#6f625b]">
-                            <Icon name="search" size={22} /> Search BPHQ...
-                        </Link>
-                        <Link to="/register" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#26211e] px-5 text-sm font-black uppercase tracking-wide text-white">
-                            Join BPHQ
-                        </Link>
-                    </div>
-                    <div className="mt-6 hidden flex-wrap gap-3 md:flex">
+                    <div className="mt-6 flex flex-wrap justify-center gap-3 md:justify-start">
                         <Link
                             to="/register"
                             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#2d1d16] px-7 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#4a3328] active:scale-95"
