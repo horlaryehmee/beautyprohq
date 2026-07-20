@@ -73,10 +73,11 @@ export default function OpportunityDetailPage() {
 
     const contact = contactText(opportunity.contact_info);
     const info = contactInfo(opportunity.contact_info);
+    const intro = opportunity.short_description || opportunity.description;
 
     return (
         <>
-            <Seo title={opportunity.title} description={opportunity.description} />
+            <Seo title={opportunity.title} description={intro} />
             <section className="bg-[#f4efe9] py-14 sm:py-20">
                 <div className="page-container">
                     <Link to="/opportunities" className="inline-flex items-center gap-2 text-sm font-black text-[#7d2e3c]">
@@ -85,7 +86,7 @@ export default function OpportunityDetailPage() {
                     <div className="mt-8 max-w-4xl">
                         <span className="inline-flex rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-[#8b4b59]">{labelFor(opportunity.type)}</span>
                         <h1 className="mt-5 font-display text-5xl font-normal leading-[.95] text-[#34231c] sm:text-7xl">{opportunity.title}</h1>
-                        <p className="mt-6 max-w-2xl text-base leading-8 text-[#6f625b]">{opportunity.description}</p>
+                        <p className="mt-6 max-w-2xl text-base leading-8 text-[#6f625b]">{intro}</p>
                     </div>
                 </div>
             </section>

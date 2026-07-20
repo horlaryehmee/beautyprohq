@@ -41,6 +41,7 @@ function daysUntil(value) {
 function OpportunityCard({ item, index }) {
     const remaining = daysUntil(item.deadline);
     const urgent = remaining != null && remaining <= 7;
+    const cardDescription = item.short_description || item.description;
 
     return (
         <article className="group grid gap-5 rounded-[1.7rem] border border-[#ded2c7] bg-white p-5 shadow-[0_16px_45px_rgba(52,35,28,.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(52,35,28,.11)] lg:grid-cols-[86px_1fr_auto] lg:items-center">
@@ -57,7 +58,7 @@ function OpportunityCard({ item, index }) {
                     {item.deadline && <span className={`text-xs font-black ${urgent ? 'text-[#c92f64]' : 'text-stone-400'}`}>Closes {shortDate(item.deadline)}</span>}
                 </div>
                 <h2 className="mt-2 font-display text-2xl font-normal leading-tight text-[#34231c] sm:text-3xl">{item.title ?? labelFor(item.type)}</h2>
-                <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#6f625b]">{item.description}</p>
+                <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#6f625b]">{cardDescription}</p>
             </div>
             <Link to={`/opportunities/${item.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#34231c] px-6 text-sm font-black text-white transition hover:bg-[#4a2f26] lg:justify-self-end">
                 View Details <Icon name="arrow" size={15} />

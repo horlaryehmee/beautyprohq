@@ -4,6 +4,7 @@ import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, 
 const emptyForm = {
     type: 'job',
     title: '',
+    short_description: '',
     description: '',
     responsibilities: '',
     deliverables: '',
@@ -66,6 +67,7 @@ export default function AdminOpportunitiesPage() {
             const payload = {
                 type: form.type,
                 title: form.title,
+                short_description: form.short_description,
                 description: form.description,
                 contact_info: {
                     responsibilities: form.responsibilities,
@@ -117,7 +119,7 @@ export default function AdminOpportunitiesPage() {
                                 <article className="rounded-2xl border border-slate-100 p-4" key={item.id}>
                                     <div className="flex items-start justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span><StatusBadge status={item.status ?? 'published'} /></div>
                                     <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
-                                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.description}</p>
+                                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || item.description}</p>
                                     {info.requirements && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500"><span className="font-bold text-slate-700">Requirements:</span> {info.requirements}</div>}
                                     <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
                                     <div className="mt-4 flex gap-2"><Button className="flex-1" onClick={() => show(item)} type="button" variant="secondary">Edit</Button><Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button></div>
@@ -139,7 +141,8 @@ export default function AdminOpportunitiesPage() {
                                 <Field label="Deadline"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} type="date" value={form.deadline} /></Field>
                             </div>
                             <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
-                            <Field label="Full opportunity description" hint="Add the complete context applicants need: who it is for, scope, location, dates, compensation if available, and what happens next."><textarea className={`${inputClass} min-h-56 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required value={form.description} /></Field>
+                            <Field label="Short card description" hint="This is what appears on homepage and opportunity cards. Keep it short, clear, and direct."><textarea className={`${inputClass} min-h-24 resize-y leading-7`} maxLength={600} onChange={(event) => setForm((current) => ({ ...current, short_description: event.target.value }))} value={form.short_description} /></Field>
+                            <Field label="Detailed opportunity description" hint="Add 100–200 words or more. This appears only on the opportunity detail page and should explain the job or opportunity properly."><textarea className={`${inputClass} min-h-56 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required value={form.description} /></Field>
                             <div className="grid gap-4 lg:grid-cols-2">
                                 <Field label="Responsibilities" hint="What the selected professional will do."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, responsibilities: event.target.value }))} value={form.responsibilities} /></Field>
                                 <Field label="Deliverables" hint="What should be completed or submitted."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, deliverables: event.target.value }))} value={form.deliverables} /></Field>

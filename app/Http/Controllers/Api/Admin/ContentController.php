@@ -124,7 +124,7 @@ class ContentController extends Controller
 
     public function opportunities(Request $request): JsonResponse
     {
-        return $this->listing(Opportunity::query()->latest(), $request, ['title', 'description', 'type', 'location'], ['type']);
+        return $this->listing(Opportunity::query()->latest(), $request, ['title', 'short_description', 'description', 'type', 'location'], ['type']);
     }
 
     public function storeOpportunity(Request $request): JsonResponse
@@ -230,7 +230,7 @@ class ContentController extends Controller
         $p = $partial ? 'sometimes' : 'required';
 
         return $this->publication($request->validate([
-            'title' => [$p, 'string', 'max:180'], 'type' => [$p, 'string', 'max:100'], 'description' => [$p, 'string', 'max:10000'],
+            'title' => [$p, 'string', 'max:180'], 'type' => [$p, 'string', 'max:100'], 'short_description' => ['nullable', 'string', 'max:600'], 'description' => [$p, 'string', 'max:20000'],
             'contact_info' => ['nullable', 'array'], 'location' => ['nullable', 'string', 'max:180'], 'deadline' => ['nullable', 'date'], 'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
     }
