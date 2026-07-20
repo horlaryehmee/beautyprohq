@@ -111,7 +111,16 @@ class DatabaseSeeder extends Seeder
                 ['title' => 'Signature finish', 'media_url' => 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=80', 'sort_order' => 1],
                 ['title' => 'Client transformation', 'media_url' => 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=900&q=80', 'sort_order' => 2],
             ]);
-            $profile->digitalProducts()->create(['name' => 'Beauty Care Guide', 'description' => 'A practical after-care guide.', 'price' => 7500, 'url' => 'https://example.com/beauty-care-guide', 'image' => 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=600&q=80']);
+            if ($verified) {
+                $digitalProduct = match ($index % 5) {
+                    0 => ['Bridal Prep Checklist', 'A practical checklist for brides preparing for makeup trials and wedding-day glam.', 9500, 'https://example.com/bridal-prep-checklist'],
+                    1 => ['Healthy Hair Routine Guide', 'A simple routine planner for clients maintaining natural hair between appointments.', 8500, 'https://example.com/healthy-hair-routine'],
+                    2 => ['Nail Aftercare Mini Guide', 'Care instructions to help clients protect gel sets, extensions, and nail art.', 6500, 'https://example.com/nail-aftercare-guide'],
+                    3 => ['Glow Skin Prep Guide', 'A pre-facial and post-treatment guide for better skincare results.', 9000, 'https://example.com/glow-skin-prep'],
+                    default => ['Beauty Client Care Template', 'A reusable client-care message template for beauty professionals.', 7500, 'https://example.com/client-care-template'],
+                };
+                $profile->digitalProducts()->create(['name' => $digitalProduct[0], 'description' => $digitalProduct[1], 'price' => $digitalProduct[2], 'url' => $digitalProduct[3], 'image' => $photo]);
+            }
             $profile->rewards()->create(['name' => '₦5,000 service credit', 'description' => 'Redeem on your next appointment.', 'points_required' => 100]);
             Subscription::create(['user_id' => $user->id, 'plan' => $verified ? 'pro' : 'free', 'status' => 'active', 'starts_at' => now()]);
             VerificationRequest::create(['provider_id' => $profile->id, 'portfolio_links' => $profile->portfolio_links, 'certification_files' => [], 'status' => $verified ? 'approved' : ($index === 5 ? 'pending' : 'rejected'), 'reviewed_by' => $verified ? $admin->id : null, 'reviewed_at' => $verified ? now()->subDays(20) : null]);

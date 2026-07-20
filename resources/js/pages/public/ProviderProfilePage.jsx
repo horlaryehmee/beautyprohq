@@ -206,7 +206,13 @@ export default function ProviderProfilePage() {
     const portfolio = useMemo(() => portfolioItems(provider), [provider]);
     const availability = useMemo(() => availabilityItems(provider), [provider]);
     const socialLinks = useMemo(() => normalizeLinks(pro.profile.social_links), [pro.profile]);
-    const digitalLinks = useMemo(() => normalizeLinks(pro.profile.digital_product_links ?? provider?.digital_products), [pro.profile, provider]);
+    const canBookDirectly = Boolean(provider?.can_book_directly ?? provider?.user?.active_subscription?.plan === 'paid' ?? provider?.user?.activeSubscription?.plan === 'paid');
+    const canShowDigitalProducts = Boolean(provider?.can_show_digital_products ?? canBookDirectly);
+    const digitalLinks = useMemo(() => {
+        if (!canShowDigitalProducts) return [];
+
+        return normalizeLinks(provider?.digital_products ?? provider?.digitalProducts ?? pro.profile.digital_products ?? pro.profile.digitalProducts);
+    }, [canShowDigitalProducts, pro.profile, provider]);
     const visibleTabs = useMemo(() => digitalLinks.length ? [...tabs, ['digital-products', 'Digital products']] : tabs, [digitalLinks.length]);
     const digitalPerPage = 9;
     const digitalPageCount = Math.max(1, Math.ceil(digitalLinks.length / digitalPerPage));
@@ -221,7 +227,6 @@ export default function ProviderProfilePage() {
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
-    const canBookDirectly = Boolean(provider?.can_book_directly ?? provider?.user?.active_subscription?.plan === 'paid' ?? provider?.user?.activeSubscription?.plan === 'paid');
     const hasRating = Number(pro.rating) > 0 || reviews.length > 0;
 
     useEffect(() => {

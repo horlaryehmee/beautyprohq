@@ -97,8 +97,13 @@ class ProviderDirectoryController extends Controller
             'availability' => fn ($q) => $q->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'),
             'reviews' => fn ($q) => $q->where('is_approved', true)->with('customer:id,name')->latest()->limit(10),
         ]);
+        $hasPaidPlan = $data->user->hasPaidPlan();
+        if (! $hasPaidPlan) {
+            $data->setRelation('digitalProducts', collect());
+        }
         $data->setAttribute('is_saved', $request->user()?->isCustomer() ? $request->user()->savedProviders()->whereKey($provider->id)->exists() : false);
-        $data->setAttribute('can_book_directly', $data->user->hasPaidPlan());
+        $data->setAttribute('can_book_directly', $hasPaidPlan);
+        $data->setAttribute('can_show_digital_products', $hasPaidPlan);
 
         return $this->success($data);
     }
