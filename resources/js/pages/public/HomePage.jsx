@@ -342,34 +342,36 @@ export default function HomePage() {
                 );
             })()}
 
-            <section id="news-events" className="overflow-hidden bg-white py-12 sm:py-20">
+            <section id="news-events" className="overflow-hidden bg-white pb-12 pt-16 sm:py-20">
                 <div className="page-container">
-                    <div className="mb-6 flex items-end justify-between gap-4">
+                    <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
                             <h2 className="text-sm font-black uppercase tracking-wide text-[#34231c]">News & Events</h2>
                             <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-stone-400 sm:hidden">Swipe or use arrows</p>
                         </div>
-                        {newsAndEvents.length > 0 && (
-                            <Link to="/news-events" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c]">
-                                View All News & Events <Icon name="arrow" size={14} />
-                            </Link>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {newsAndEvents.length > 3 && (
+                                <div className="flex items-center gap-1.5">
+                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous news and events"><Icon name="chevronLeft" size={18} /></button>
+                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next news and events"><Icon name="chevronRight" size={18} /></button>
+                                </div>
+                            )}
+                            {newsAndEvents.length > 0 && (
+                                <Link to="/news-events" className="hidden items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c] sm:inline-flex">
+                                    View All News & Events <Icon name="arrow" size={14} />
+                                </Link>
+                            )}
+                        </div>
                     </div>
                     <div className="relative">
-                        {newsAndEvents.length > 3 && (
-                            <>
-                                <button type="button" onClick={() => railRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="absolute left-1 top-1/2 z-20 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#8b7a70] shadow-[0_10px_28px_rgba(45,29,22,.12)] ring-1 ring-stone-200 md:-left-4 md:size-10" aria-label="Previous news and events"><Icon name="chevronLeft" size={18} /></button>
-                                <button type="button" onClick={() => railRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="absolute right-1 top-1/2 z-20 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#8b7a70] shadow-[0_10px_28px_rgba(45,29,22,.12)] ring-1 ring-stone-200 md:-right-4 md:size-10" aria-label="Next news and events"><Icon name="chevronRight" size={18} /></button>
-                            </>
-                        )}
                         {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[315px]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>
 
-            <section className="border-y border-stone-200/70 bg-[#f8f3ee] py-12 sm:py-20">
+            <section className="border-y border-stone-200/70 bg-[#f8f3ee] pb-12 pt-16 sm:py-20">
                 <div className="page-container">
-                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-2">
                                 <h2 className="font-display text-2xl font-semibold uppercase leading-tight text-[#34231c]">Verified Beauty Professionals</h2>
@@ -378,7 +380,15 @@ export default function HomePage() {
                             <p className="mt-1 text-xs font-bold text-[#6f625b]">Trusted. Verified. Recommended.</p>
                             <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[#9a8b81] sm:hidden">Swipe or use arrows</p>
                         </div>
-                        <Link to="/directory" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c]">Explore Directory <Icon name="arrow" size={14} /></Link>
+                        <div className="flex shrink-0 items-center gap-2">
+                            {!loading && filteredVerifiedProviders.length > 1 && (
+                                <div className="flex items-center gap-1.5 sm:hidden">
+                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous verified professional"><Icon name="chevronLeft" size={18} /></button>
+                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next verified professional"><Icon name="chevronRight" size={18} /></button>
+                                </div>
+                            )}
+                            <Link to="/directory" className="hidden items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c] sm:inline-flex">Explore Directory <Icon name="arrow" size={14} /></Link>
+                        </div>
                     </div>
 
                     <div className="mb-6 flex items-center gap-2 overflow-x-auto border-y border-[#ded2c7] py-3 scrollbar-none">
@@ -396,12 +406,6 @@ export default function HomePage() {
                     </div>
 
                     <div className="relative">
-                        {!loading && filteredVerifiedProviders.length > 1 && (
-                            <>
-                                <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="absolute left-1 top-1/2 z-20 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#8b7a70] shadow-[0_10px_28px_rgba(45,29,22,.12)] ring-1 ring-stone-200 sm:hidden" aria-label="Previous verified professional"><Icon name="chevronLeft" size={18} /></button>
-                                <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="absolute right-1 top-1/2 z-20 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-[#8b7a70] shadow-[0_10px_28px_rgba(45,29,22,.12)] ring-1 ring-stone-200 sm:hidden" aria-label="Next verified professional"><Icon name="chevronRight" size={18} /></button>
-                            </>
-                        )}
                         {loading ? <LoadingCards count={6} /> : filteredVerifiedProviders.length ? <div ref={providersRailRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">{filteredVerifiedProviders.slice(0, 6).map((provider) => <div key={provider.id ?? provider.slug ?? provider.user_id} className="w-[72vw] shrink-0 snap-start sm:w-auto"><VerifiedProfessionalCard provider={provider} /></div>)}</div> : <EmptyState title="No verified professionals found" message="Try another service, location, or filter combination." />}
                     </div>
 
