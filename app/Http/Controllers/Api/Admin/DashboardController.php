@@ -312,17 +312,17 @@ class DashboardController extends Controller
         }
 
         if ($allow('content')) {
-            News::latest()->limit($limit)->get(['id', 'title', 'status', 'created_at'])->each(fn ($news) => $items->push([
+            News::latest()->limit($limit)->get(['id', 'title', 'published_at', 'created_at'])->each(fn ($news) => $items->push([
                 'id' => 'news-'.$news->id,
                 'type' => 'content',
-                'title' => 'News '.$news->status,
+                'title' => 'News '.($news->published_at ? 'published' : 'draft'),
                 'description' => $news->title,
                 'created_at' => $news->created_at,
             ]));
-            Event::latest()->limit($limit)->get(['id', 'title', 'status', 'created_at'])->each(fn ($event) => $items->push([
+            Event::latest()->limit($limit)->get(['id', 'title', 'published_at', 'created_at'])->each(fn ($event) => $items->push([
                 'id' => 'event-'.$event->id,
                 'type' => 'content',
-                'title' => 'Event '.$event->status,
+                'title' => 'Event '.($event->published_at ? 'published' : 'draft'),
                 'description' => $event->title,
                 'created_at' => $event->created_at,
             ]));
