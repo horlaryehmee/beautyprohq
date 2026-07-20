@@ -12,7 +12,6 @@ import SectionHeading from '../../components/ui/SectionHeading';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
-import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
 import Seo from '../../components/Seo';
 import { mediaUrl, providerIdentity, shortDate } from '../../lib/utils';
 
@@ -275,7 +274,6 @@ export default function HomePage() {
     const [error, setError] = useState('');
     const [email, setEmail] = useState('');
     const [newsletterLoading, setNewsletterLoading] = useState(false);
-    const [opportunity, setOpportunity] = useState(null);
     const [showAllNewsEvents, setShowAllNewsEvents] = useState(false);
     const [showAllCommunity, setShowAllCommunity] = useState(false);
     const [providerCategory, setProviderCategory] = useState('all');
@@ -562,7 +560,7 @@ export default function HomePage() {
                             <p className="text-xs font-black uppercase tracking-[.22em] text-[#8b4b59]">Opportunities</p>
                             <h2 className="mt-4 max-w-3xl font-display text-4xl font-normal leading-tight text-[#34231c] sm:text-5xl lg:text-6xl">Find the next door into the beauty industry.</h2>
                             <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-[#6f625b]">
-                                Opportunities submitted through the Get In Touch flow, reviewed and surfaced for beauty professionals ready to collaborate, speak, partner, and grow.
+                                Opportunities reviewed and surfaced for beauty professionals ready to collaborate, apply, speak, partner, and grow.
                             </p>
                         </div>
                         <Link to="/opportunities" className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-full bg-rose-600 px-7 text-sm font-bold text-white shadow-[0_10px_24px_rgba(216,86,124,.2)] transition hover:bg-rose-700">
@@ -596,7 +594,7 @@ export default function HomePage() {
                                 ))}
                             </div>
                         ) : (
-                            <EmptyState title="New opportunities are being reviewed" message="Approved opportunities submitted through Get In Touch will appear here." />
+                            <EmptyState title="New opportunities are being reviewed" message="Approved opportunities for beauty professionals will appear here." />
                         )}
                     </div>
                 </div>
@@ -737,7 +735,6 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {opportunity && <OpportunityEnquiryModal opportunity={opportunity} onClose={() => setOpportunity(null)} />}
         </>
     );
 }

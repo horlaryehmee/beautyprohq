@@ -187,8 +187,8 @@ export default function OpportunitiesPage() {
                             <h2 className="mt-3 font-display text-4xl font-normal leading-tight">Have an opportunity for beauty professionals?</h2>
                             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">Brand collaborations, speaking slots, media features, and partnership requests can be reviewed and surfaced through BPHQ.</p>
                         </div>
-                        <Link to="/#contact" className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-black uppercase tracking-wide text-[#34231c] lg:mt-0">
-                            Get In Touch <Icon name="mail" size={16} />
+                        <Link to="/opportunities#opportunity-list" className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-black uppercase tracking-wide text-[#34231c] lg:mt-0">
+                            Browse open calls <Icon name="briefcase" size={16} />
                         </Link>
                     </div>
                 </div>

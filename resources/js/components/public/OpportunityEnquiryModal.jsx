@@ -66,6 +66,7 @@ function OptionButton({ active, children, onClick }) {
 }
 
 export default function OpportunityEnquiryModal({ opportunity, onClose }) {
+    const isOpportunityApplication = Boolean(opportunity);
     const { user } = useAuth();
     const toast = useToast();
     const [step, setStep] = useState(1);
@@ -77,14 +78,19 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
         instagram: '',
         company_name: '',
         website: '',
+        role_fit: '',
+        portfolio_url: '',
+        availability: '',
+        applicant_location: '',
         detail_type: '',
-        message: opportunity ? `I am interested in: ${opportunity.title ?? opportunity.type}` : '',
+        message: '',
     });
     const [errors, setErrors] = useState({});
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
     const config = useMemo(() => dynamicOptions[form.reason] ?? dynamicOptions['General Enquiry'], [form.reason]);
+    const totalSteps = isOpportunityApplication ? 2 : 3;
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
@@ -102,21 +108,25 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
     }
 
     function next() {
-        if (step === 1 && !form.reason) {
+        if (!isOpportunityApplication && step === 1 && !form.reason) {
             setError('Choose what you need help with.');
             return;
         }
-        if (step === 2 && (!form.name || !form.email)) {
+        if ((isOpportunityApplication ? step === 1 : step === 2) && (!form.name || !form.email)) {
             setError('Add your name and email address.');
             return;
         }
         setError('');
-        setStep((current) => Math.min(3, current + 1));
+        setStep((current) => Math.min(totalSteps, current + 1));
     }
 
     function payload() {
         const lines = [
             opportunity ? `Opportunity: ${opportunity.title ?? opportunity.type}` : null,
+            form.role_fit ? `Role / fit: ${form.role_fit}` : null,
+            form.portfolio_url ? `Portfolio: ${form.portfolio_url}` : null,
+            form.availability ? `Availability: ${form.availability}` : null,
+            form.applicant_location ? `Applicant location: ${form.applicant_location}` : null,
             form.detail_type ? `Selected option: ${form.detail_type}` : null,
             form.instagram ? `Instagram: ${form.instagram}` : null,
             form.company_name ? `Company: ${form.company_name}` : null,
@@ -140,6 +150,10 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
 
     async function submit(event) {
         event.preventDefault();
+        if (isOpportunityApplication && (!form.role_fit.trim() || !form.portfolio_url.trim())) {
+            setError('Add your role/fit and portfolio link before submitting.');
+            return;
+        }
         if (!form.message.trim()) {
             setError('Tell us a little more before submitting.');
             return;
@@ -173,9 +187,9 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
             <section className="max-h-[94vh] w-full overflow-y-auto rounded-t-[2rem] bg-[#fbf8f4] p-5 shadow-2xl sm:max-w-2xl sm:rounded-[2rem] sm:p-7" role="dialog" aria-modal="true" aria-labelledby="contact-title">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Get in touch</p>
+                        <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#8b4b59]">{isOpportunityApplication ? 'Opportunity application' : 'Get in touch'}</p>
                         <h2 id="contact-title" className="mt-1 font-display text-3xl font-normal leading-tight text-[#241711]">
-                            {step === 1 ? 'What can we help you with?' : step === 2 ? 'How should we reach you?' : 'Tell us more'}
+                            {isOpportunityApplication ? (step === 1 ? 'Apply for this opportunity' : 'Application details') : (step === 1 ? 'What can we help you with?' : step === 2 ? 'How should we reach you?' : 'Tell us more')}
                         </h2>
                     </div>
                     <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full bg-white text-[#241711] shadow-sm" aria-label="Close"><Icon name="x" /></button>
@@ -183,18 +197,21 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
 
                 <div className="mt-5">
                     <div className="flex items-center gap-2">
-                        {[1, 2, 3].map((item) => (
+                        {Array.from({ length: totalSteps }).map((_, index) => {
+                            const item = index + 1;
+                            return (
                             <span key={item} className={`h-1.5 flex-1 rounded-full ${item <= step ? 'bg-[#241711]' : 'bg-stone-200'}`} />
-                        ))}
+                            );
+                        })}
                     </div>
-                    <p className="mt-2 text-xs font-black uppercase tracking-wide text-stone-500">Step {step} of 3</p>
+                    <p className="mt-2 text-xs font-black uppercase tracking-wide text-stone-500">Step {step} of {totalSteps}</p>
                 </div>
 
                 {opportunity?.description && <p className="mt-4 rounded-2xl bg-white p-4 text-sm leading-6 text-stone-600">{opportunity.description}</p>}
                 {error && <InlineAlert className="mt-4">{error}</InlineAlert>}
 
                 <form onSubmit={submit} className="mt-6">
-                    {step === 1 && (
+                    {!isOpportunityApplication && step === 1 && (
                         <div className="grid gap-2">
                             {reasons.map((reason) => (
                                 <OptionButton key={reason} active={form.reason === reason} onClick={() => update('reason', reason)}>
@@ -204,7 +221,7 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
                         </div>
                     )}
 
-                    {step === 2 && (
+                    {((isOpportunityApplication && step === 1) || (!isOpportunityApplication && step === 2)) && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <FormField label="Name" value={form.name} onChange={(event) => update('name', event.target.value)} error={errors.name} required />
                             <FormField label="Email address" type="email" value={form.email} onChange={(event) => update('email', event.target.value)} error={errors.email} required />
@@ -213,7 +230,19 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
                         </div>
                     )}
 
-                    {step === 3 && (
+                    {isOpportunityApplication && step === 2 && (
+                        <div className="grid gap-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FormField label="Role / fit" value={form.role_fit} onChange={(event) => update('role_fit', event.target.value)} placeholder="Makeup artist, educator, brand..." required />
+                                <FormField label="Portfolio link" value={form.portfolio_url} onChange={(event) => update('portfolio_url', event.target.value)} placeholder="https://..." required />
+                                <FormField label="Availability" value={form.availability} onChange={(event) => update('availability', event.target.value)} placeholder="Dates/times you are available" />
+                                <FormField label="Location" value={form.applicant_location} onChange={(event) => update('applicant_location', event.target.value)} placeholder="City, state/country" />
+                            </div>
+                            <FormField as="textarea" label="Why are you a good fit?" value={form.message} onChange={(event) => update('message', event.target.value)} error={errors.message} minLength={10} maxLength={3000} required />
+                        </div>
+                    )}
+
+                    {!isOpportunityApplication && step === 3 && (
                         <div className="grid gap-4">
                             {form.reason === 'Partnership / Brand Collaboration' ? (
                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -238,7 +267,7 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
 
                     <div className="mt-6 flex gap-2">
                         {step > 1 && <Button type="button" variant="secondary" onClick={() => setStep((current) => current - 1)}>Back</Button>}
-                        {step < 3 ? (
+                        {step < totalSteps ? (
                             <Button type="button" className="flex-1" onClick={next}>Continue <Icon name="arrow" size={16} /></Button>
                         ) : (
                             <Button type="submit" className="flex-1" disabled={submitting}>{submitting ? 'Sending...' : 'Submit'} <Icon name="arrow" size={16} /></Button>

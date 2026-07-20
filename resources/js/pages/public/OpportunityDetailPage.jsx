@@ -29,6 +29,10 @@ function contactText(value) {
     return value.text ?? value.email ?? value.url ?? '';
 }
 
+function contactInfo(value) {
+    return typeof value === 'object' && value ? value : {};
+}
+
 export default function OpportunityDetailPage() {
     const { id } = useParams();
     const [opportunity, setOpportunity] = useState(null);
@@ -57,6 +61,7 @@ export default function OpportunityDetailPage() {
     if (error || !opportunity) return <div className="page-container py-20"><EmptyState icon="briefcase" title="Opportunity unavailable" message={error} action={<Link to="/opportunities"><Button variant="secondary">Back to opportunities</Button></Link>} /></div>;
 
     const contact = contactText(opportunity.contact_info);
+    const info = contactInfo(opportunity.contact_info);
 
     return (
         <>
@@ -79,7 +84,13 @@ export default function OpportunityDetailPage() {
                     <article className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
                         <p className="text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Full details</p>
                         <div className="mt-5 whitespace-pre-line text-sm leading-8 text-[#5f524b]">{opportunity.description}</div>
-                        {contact && <InlineAlert className="mt-7">Contact guidance: {contact}</InlineAlert>}
+                        {info.requirements && (
+                            <div className="mt-8 rounded-[1.5rem] bg-[#f4efe9] p-5">
+                                <h2 className="font-display text-2xl font-normal text-[#34231c]">Requirements</h2>
+                                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#5f524b]">{info.requirements}</p>
+                            </div>
+                        )}
+                        {(info.application_notes || contact) && <InlineAlert className="mt-7">{info.application_notes || contact}</InlineAlert>}
                     </article>
 
                     <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -92,7 +103,7 @@ export default function OpportunityDetailPage() {
                                 {opportunity.published_at && <div className="flex justify-between gap-4"><span>Published</span><span className="font-black text-[#34231c]">{shortDate(opportunity.published_at)}</span></div>}
                             </div>
                             <Button onClick={() => setContactOpen(true)} className="mt-6 w-full rounded-full bg-[#34231c] hover:bg-[#4a2f26]">
-                                Send interest <Icon name="mail" size={15} />
+                                Apply / Send interest <Icon name="mail" size={15} />
                             </Button>
                         </div>
                     </aside>
