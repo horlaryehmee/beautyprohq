@@ -126,6 +126,8 @@ export default function AdminOpportunitiesPage() {
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const homepageSettings = useApiResource('/admin/homepage-settings', {});
+    const curationReady = Boolean(homepageSettings.data?.ready);
+    const sortModes = homepageSettings.data?.sort_modes ?? homepageSettings.data ?? {};
     const items = normalize(resource.data).map((item) => ({ ...item, status: item.status ?? (item.published_at ? 'published' : 'draft') }));
 
     const show = (item = null) => {
@@ -199,6 +201,7 @@ export default function AdminOpportunitiesPage() {
         <div className="space-y-6">
             <PageHeader actions={<Button onClick={() => show()} type="button">Add opportunity</Button>} description="Publish jobs, collaborations, vendor calls, and training opportunities with clear application instructions." eyebrow="Growth" title="Opportunities" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+            {!curationReady && <ErrorState message="Homepage curation needs the latest database migration before you can manually select or order homepage items." />}
             <Card>
                 <div className="grid gap-3 sm:grid-cols-[1fr_260px] sm:items-end">
                     <div>
@@ -206,7 +209,7 @@ export default function AdminOpportunitiesPage() {
                         <p className="mt-1 text-sm text-slate-500">Choose how selected opportunities are arranged on the public homepage.</p>
                     </div>
                     <Field label="Homepage sort">
-                        <select className={inputClass} onChange={(event) => updateHomepageSort(event.target.value)} value={homepageSettings.data?.opportunities ?? 'custom'}>
+                        <select className={inputClass} disabled={!curationReady} onChange={(event) => updateHomepageSort(event.target.value)} value={sortModes?.opportunities ?? 'custom'}>
                             {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </select>
                     </Field>
@@ -222,12 +225,12 @@ export default function AdminOpportunitiesPage() {
                                     <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
                                     <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3">
                                         <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                                            <input checked={Boolean(item.show_on_homepage)} onChange={(event) => updateItemHomepage(item, { show_on_homepage: event.target.checked })} type="checkbox" />
+                                            <input checked={Boolean(item.show_on_homepage)} disabled={!curationReady} onChange={(event) => updateItemHomepage(item, { show_on_homepage: event.target.checked })} type="checkbox" />
                                             Show on homepage
                                         </label>
                                         <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
                                             <span>Order</span>
-                                            <input className={`${inputClass} min-h-9 py-1 text-sm`} min="0" onChange={(event) => updateItemHomepage(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
+                                            <input className={`${inputClass} min-h-9 py-1 text-sm`} disabled={!curationReady} min="0" onChange={(event) => updateItemHomepage(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
                                         </label>
                                     </div>
                                     <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>

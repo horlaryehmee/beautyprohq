@@ -34,7 +34,7 @@ const typeFilters = {
     ],
 };
 
-function ContentRow({ item, active, onHomepageUpdate }) {
+function ContentRow({ item, active, onHomepageUpdate, curationReady }) {
     const config = contentTypes[active];
     const summary = active === 'events'
         ? `${formatDate(item.date)} · ${item.location ?? 'No location'}`
@@ -57,12 +57,12 @@ function ContentRow({ item, active, onHomepageUpdate }) {
                 {active !== 'community' && (
                     <div className="grid min-w-48 gap-2 rounded-2xl bg-slate-50 p-3">
                         <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                            <input checked={Boolean(item.show_on_homepage)} onChange={(event) => onHomepageUpdate(item, { show_on_homepage: event.target.checked })} type="checkbox" />
+                            <input checked={Boolean(item.show_on_homepage)} disabled={!curationReady} onChange={(event) => onHomepageUpdate(item, { show_on_homepage: event.target.checked })} type="checkbox" />
                             Show on homepage
                         </label>
                         <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
                             <span>Order</span>
-                            <input className={`${inputClass} min-h-9 py-1 text-sm`} min="0" onChange={(event) => onHomepageUpdate(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
+                            <input className={`${inputClass} min-h-9 py-1 text-sm`} disabled={!curationReady} min="0" onChange={(event) => onHomepageUpdate(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
                         </label>
                     </div>
                 )}
@@ -97,6 +97,8 @@ export default function AdminContentPage() {
     const resource = resources[active];
     const config = contentTypes[active];
     const error = news.error || events.error || community.error;
+    const curationReady = Boolean(homepageSettings.data?.ready);
+    const sortModes = homepageSettings.data?.sort_modes ?? homepageSettings.data ?? {};
 
     const items = useMemo(() => normalize(resource.data), [resource.data]);
     const meta = metaFrom(resource.data);
@@ -147,6 +149,7 @@ export default function AdminContentPage() {
             />
 
             {error && <ErrorState message={error} onRetry={() => { news.reload(); events.reload(); community.reload(); }} />}
+            {!curationReady && <ErrorState message="Homepage curation needs the latest database migration before you can manually select or order homepage items." />}
 
             <Card>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -163,7 +166,7 @@ export default function AdminContentPage() {
                     {active !== 'community' && (
                         <label className="block">
                             <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">Homepage sort</span>
-                            <select className={inputClass} onChange={(event) => updateHomepageSort(event.target.value)} value={homepageSettings.data?.[active] ?? 'custom'}>
+                            <select className={inputClass} disabled={!curationReady} onChange={(event) => updateHomepageSort(event.target.value)} value={sortModes?.[active] ?? 'custom'}>
                                 {sortOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                             </select>
                         </label>
@@ -203,7 +206,7 @@ export default function AdminContentPage() {
                 ) : items.length ? (
                     <>
                         <div className="space-y-3">
-                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} onHomepageUpdate={updateItemHomepage} />)}
+                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} curationReady={curationReady} onHomepageUpdate={updateItemHomepage} />)}
                         </div>
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>
