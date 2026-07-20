@@ -8,17 +8,19 @@ import Seo from '../../components/Seo';
 import { shortDate } from '../../lib/utils';
 
 const typeLabels = {
-    job: 'Brand collaborations',
-    partnership: 'Partnership requests',
-    event: 'Event opportunities',
-    media: 'Media features',
-    speaking: 'Speaking opportunities',
+    job: 'Job',
+    partnership: 'Partnership',
+    vendor_call: 'Vendor call',
+    training: 'Training',
+    media: 'Media feature',
+    speaking: 'Speaking',
 };
 
 const typeIcons = {
     job: 'briefcase',
     partnership: 'users',
-    event: 'calendar',
+    vendor_call: 'briefcase',
+    training: 'calendar',
     media: 'external',
     speaking: 'user',
 };

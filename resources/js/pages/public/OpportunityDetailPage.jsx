@@ -9,13 +9,12 @@ import Seo from '../../components/Seo';
 import { shortDate } from '../../lib/utils';
 
 const typeLabels = {
-    job: 'Brand collaboration',
-    partnership: 'Partnership request',
+    job: 'Job',
+    partnership: 'Partnership',
     vendor_call: 'Vendor call',
     training: 'Training',
-    event: 'Event opportunity',
     media: 'Media feature',
-    speaking: 'Speaking opportunity',
+    speaking: 'Speaking',
 };
 
 function labelFor(type) {
