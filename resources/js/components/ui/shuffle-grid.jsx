@@ -107,19 +107,16 @@ export function ShuffleHero({ providers = [], className }) {
                         </Link>
                     </div>
                     <div className="mx-auto mt-7 max-w-full overflow-x-auto pb-1 md:mx-0 md:overflow-visible">
-                        <div className="flex w-max items-center gap-3 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:w-auto md:flex-wrap">
+                        <div className="flex w-max items-baseline gap-6 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:w-auto md:flex-wrap md:gap-x-8 md:gap-y-2">
                             {[
                                 ['500+', 'Beauty Pros'],
                                 ['50+', 'Cities'],
                                 ['100+', 'Resources'],
                                 ['25+', 'Events'],
-                            ].map(([value, label], index) => (
-                                <span className="inline-flex items-center gap-3" key={label}>
-                                    {index > 0 && <span className="size-1.5 rounded-full bg-[#d96f53]" />}
-                                    <span className="inline-flex items-baseline gap-2">
-                                        <span className="font-display text-xl font-semibold normal-case tracking-normal text-[#34231c]">{value}</span>
-                                        {label}
-                                    </span>
+                            ].map(([value, label]) => (
+                                <span className="inline-flex items-baseline gap-2" key={label}>
+                                    <span className="font-display text-xl font-semibold normal-case tracking-normal text-[#34231c]">{value}</span>
+                                    {label}
                                 </span>
                             ))}
                         </div>
