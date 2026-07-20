@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
             return nextUser;
         } catch (error) {
             if (error?.response?.status !== 401) throw error;
+            window.localStorage.removeItem('bphq_auth_token');
             setUser(null);
             return null;
         }
@@ -40,6 +41,9 @@ export function AuthProvider({ children }) {
         const response = await api.post('/auth/login', credentials);
         const payload = unwrap(response);
         const nextUser = payload?.user ?? payload;
+        if (payload?.token) {
+            window.localStorage.setItem('bphq_auth_token', payload.token);
+        }
         setUser(nextUser);
         return nextUser;
     }, []);
@@ -49,6 +53,9 @@ export function AuthProvider({ children }) {
         const response = await api.post('/auth/register', details);
         const payload = unwrap(response);
         const nextUser = payload?.user ?? payload;
+        if (payload?.token) {
+            window.localStorage.setItem('bphq_auth_token', payload.token);
+        }
         setUser(nextUser);
         return nextUser;
     }, []);
@@ -57,6 +64,7 @@ export function AuthProvider({ children }) {
         try {
             await api.post('/auth/logout');
         } finally {
+            window.localStorage.removeItem('bphq_auth_token');
             setUser(null);
         }
     }, []);

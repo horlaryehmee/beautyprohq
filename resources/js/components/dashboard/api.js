@@ -10,6 +10,16 @@ export const dashboardApi = axios.create({
     },
 });
 
+dashboardApi.interceptors.request.use((config) => {
+    const token = window.localStorage.getItem('bphq_auth_token');
+
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+});
+
 dashboardApi.interceptors.response.use(
     (response) => response,
     (error) => {

@@ -10,6 +10,16 @@ const api = axios.create({
     },
 });
 
+api.interceptors.request.use((config) => {
+    const token = window.localStorage.getItem('bphq_auth_token');
+
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+});
+
 export async function ensureCsrfCookie() {
     await axios.get('/sanctum/csrf-cookie', {
         withCredentials: true,
