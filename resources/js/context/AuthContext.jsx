@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import api, { ensureCsrfCookie, unwrap } from '../lib/api';
 
 const AuthContext = createContext({
@@ -14,21 +14,34 @@ const AuthContext = createContext({
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const userRef = useRef(null);
+
+    const rememberUser = useCallback((nextUser) => {
+        userRef.current = nextUser;
+        setUser(nextUser);
+    }, []);
 
     const refreshUser = useCallback(async () => {
+        const tokenAtStart = window.localStorage.getItem('bphq_auth_token');
         try {
             const response = await api.get('/auth/me');
             const payload = unwrap(response);
             const nextUser = payload?.user ?? payload;
-            setUser(nextUser?.id ? nextUser : null);
+            rememberUser(nextUser?.id ? nextUser : null);
             return nextUser;
         } catch (error) {
             if (error?.response?.status !== 401) throw error;
-            window.localStorage.removeItem('bphq_auth_token');
-            setUser(null);
+            const tokenNow = window.localStorage.getItem('bphq_auth_token');
+            if (tokenAtStart !== tokenNow) {
+                return userRef.current;
+            }
+            if (tokenAtStart) {
+                window.localStorage.removeItem('bphq_auth_token');
+            }
+            rememberUser(null);
             return null;
         }
-    }, []);
+    }, [rememberUser]);
 
     useEffect(() => {
         refreshUser()
@@ -44,9 +57,9 @@ export function AuthProvider({ children }) {
         if (payload?.token) {
             window.localStorage.setItem('bphq_auth_token', payload.token);
         }
-        setUser(nextUser);
+        rememberUser(nextUser);
         return nextUser;
-    }, []);
+    }, [rememberUser]);
 
     const register = useCallback(async (details) => {
         await ensureCsrfCookie();
@@ -56,18 +69,18 @@ export function AuthProvider({ children }) {
         if (payload?.token) {
             window.localStorage.setItem('bphq_auth_token', payload.token);
         }
-        setUser(nextUser);
+        rememberUser(nextUser);
         return nextUser;
-    }, []);
+    }, [rememberUser]);
 
     const logout = useCallback(async () => {
         try {
             await api.post('/auth/logout');
         } finally {
             window.localStorage.removeItem('bphq_auth_token');
-            setUser(null);
+            rememberUser(null);
         }
-    }, []);
+    }, [rememberUser]);
 
     const value = useMemo(() => ({
         user,
