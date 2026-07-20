@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -131,6 +132,9 @@ class ContentController extends Controller
     public function homepageSettings(): JsonResponse
     {
         $defaults = collect(['news', 'events', 'opportunities'])->mapWithKeys(fn ($section) => [$section => 'custom']);
+        if (! Schema::hasTable('homepage_settings')) {
+            return $this->success($defaults);
+        }
         $settings = HomepageSetting::query()->pluck('sort_mode', 'section');
 
         return $this->success($defaults->merge($settings));
@@ -142,6 +146,8 @@ class ContentController extends Controller
             'section' => ['required', Rule::in(['news', 'events', 'opportunities'])],
             'sort_mode' => ['required', Rule::in(['custom', 'random', 'az', 'za', 'newest', 'oldest'])],
         ]);
+
+        abort_unless(Schema::hasTable('homepage_settings'), 422, 'Run database migrations before changing homepage settings.');
 
         HomepageSetting::updateOrCreate(['section' => $data['section']], ['sort_mode' => $data['sort_mode']]);
 

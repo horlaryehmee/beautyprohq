@@ -185,6 +185,16 @@ export default function AdminOpportunitiesPage() {
         }
     };
 
+    const updateItemHomepage = async (item, patch) => {
+        try {
+            const saved = await apiRequest('put', `/admin/opportunities/${item.id}`, patch);
+            resource.setData((current) => normalize(current).map((entry) => entry.id === item.id ? { ...entry, ...saved } : entry));
+            notify('Homepage selection updated.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader actions={<Button onClick={() => show()} type="button">Add opportunity</Button>} description="Publish jobs, collaborations, vendor calls, and training opportunities with clear application instructions." eyebrow="Growth" title="Opportunities" />
@@ -210,6 +220,16 @@ export default function AdminOpportunitiesPage() {
                                     <div className="flex items-start justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span><StatusBadge status={item.status ?? 'published'} /></div>
                                     <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
                                     <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
+                                    <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3">
+                                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                            <input checked={Boolean(item.show_on_homepage)} onChange={(event) => updateItemHomepage(item, { show_on_homepage: event.target.checked })} type="checkbox" />
+                                            Show on homepage
+                                        </label>
+                                        <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
+                                            <span>Order</span>
+                                            <input className={`${inputClass} min-h-9 py-1 text-sm`} min="0" onChange={(event) => updateItemHomepage(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
+                                        </label>
+                                    </div>
                                     <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
                                     <div className="mt-4 flex gap-2"><Button className="flex-1" onClick={() => show(item)} type="button" variant="secondary">Edit</Button><Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button></div>
                                 </article>

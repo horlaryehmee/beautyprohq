@@ -34,7 +34,7 @@ const typeFilters = {
     ],
 };
 
-function ContentRow({ item, active }) {
+function ContentRow({ item, active, onHomepageUpdate }) {
     const config = contentTypes[active];
     const summary = active === 'events'
         ? `${formatDate(item.date)} · ${item.location ?? 'No location'}`
@@ -54,6 +54,18 @@ function ContentRow({ item, active }) {
                 <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{summary || 'No summary yet.'}</p>
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
+                {active !== 'community' && (
+                    <div className="grid min-w-48 gap-2 rounded-2xl bg-slate-50 p-3">
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                            <input checked={Boolean(item.show_on_homepage)} onChange={(event) => onHomepageUpdate(item, { show_on_homepage: event.target.checked })} type="checkbox" />
+                            Show on homepage
+                        </label>
+                        <label className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs font-bold text-slate-500">
+                            <span>Order</span>
+                            <input className={`${inputClass} min-h-9 py-1 text-sm`} min="0" onChange={(event) => onHomepageUpdate(item, { homepage_order: Number(event.target.value || 0) })} type="number" value={item.homepage_order ?? 0} />
+                        </label>
+                    </div>
+                )}
                 <Link to={`${config.editBase}/${item.id}/edit`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
                     Edit
                 </Link>
@@ -106,6 +118,20 @@ export default function AdminContentPage() {
             const saved = await apiRequest('put', '/admin/homepage-settings', { section: active, sort_mode: sortMode });
             homepageSettings.setData(saved);
             notify('Homepage sort updated.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    };
+
+    const updateItemHomepage = async (item, patch) => {
+        if (active === 'community') return;
+        try {
+            const saved = await apiRequest('put', `${config.endpoint}/${item.id}`, patch);
+            resource.setData((current) => ({
+                ...current,
+                data: normalize(current).map((entry) => entry.id === item.id ? { ...entry, ...saved } : entry),
+            }));
+            notify('Homepage selection updated.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -177,7 +203,7 @@ export default function AdminContentPage() {
                 ) : items.length ? (
                     <>
                         <div className="space-y-3">
-                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} />)}
+                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} onHomepageUpdate={updateItemHomepage} />)}
                         </div>
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>
