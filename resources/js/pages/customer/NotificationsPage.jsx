@@ -1,0 +1,14 @@
+import { Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, apiErrorMessage, apiRequest, formatDate, useApiResource, useAsyncAction, useDashboardToast } from '../../components/dashboard';
+
+const normalize = (value) => Array.isArray(value) ? value : value?.notifications ?? value?.data ?? [];
+
+export default function CustomerNotificationsPage() {
+    const resource = useApiResource('/notifications', []);
+    const { run, isBusy } = useAsyncAction();
+    const { notify } = useDashboardToast();
+    const notifications = normalize(resource.data);
+    const markRead = (notification) => run(notification.id, async () => { try { await apiRequest('patch', `/notifications/${notification.id}/read`); resource.setData((current) => normalize(current).map((item) => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item)); } catch (error) { notify(apiErrorMessage(error), 'error'); } });
+    const markAll = async () => { try { await apiRequest('post', '/notifications/read-all'); resource.setData((current) => normalize(current).map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() }))); notify('All notifications marked as read.'); } catch (error) { notify(apiErrorMessage(error), 'error'); } };
+    return <div className="space-y-6"><PageHeader actions={notifications.some((item) => !item.read_at) && <Button onClick={markAll} type="button" variant="secondary">Mark all read</Button>} description="Booking updates, reminders and reward activity appear here." eyebrow="Updates" title="Notifications" />{resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}<Card>{resource.loading ? <LoadingBlock rows={6} /> : notifications.length ? <div className="divide-y divide-slate-100">{notifications.map((notification) => { const content = notification.data ?? notification; const unread = !notification.read_at; return <button className={`flex w-full gap-4 py-4 text-left first:pt-0 last:pb-0 ${unread ? '' : 'opacity-60'}`} disabled={!unread || isBusy(notification.id)} key={notification.id} onClick={() => markRead(notification)} type="button"><span className={`mt-2 size-2 shrink-0 rounded-full ${unread ? 'bg-fuchsia-500' : 'bg-slate-200'}`} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><p className="text-sm font-bold text-slate-900">{content.title ?? 'BeautyPro update'}</p><span className="shrink-0 text-[11px] text-slate-400">{formatDate(notification.created_at, { year: undefined })}</span></div><p className="mt-1 text-sm leading-6 text-slate-500">{content.message ?? content.body}</p></div>{unread && <span className="shrink-0 rounded-full bg-fuchsia-50 px-2 py-1 text-[10px] font-bold text-fuchsia-700">New</span>}</button>; })}</div> : <EmptyState description="You’re up to date. New booking activity will appear here." icon="bell" title="No notifications" />}</Card></div>;
+}
+

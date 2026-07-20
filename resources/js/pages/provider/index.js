@@ -1,0 +1,10 @@
+export { default as ProviderLayout } from './ProviderLayout';
+export { default as ProviderOverviewPage } from './OverviewPage';
+export { default as ProviderProfilePage } from './ProfilePage';
+export { default as ProviderBookingsPage } from './BookingsPage';
+export { default as ProviderCalendarPage } from './CalendarPage';
+export { default as ProviderCrmPage } from './CrmPage';
+export { default as ProviderLoyaltyPage } from './LoyaltyPage';
+export { default as ProviderPaymentsPage } from './PaymentsPage';
+export { default as ProviderDigitalProductsPage } from './DigitalProductsPage';
+export { default as ProviderAnalyticsPage } from './AnalyticsPage';

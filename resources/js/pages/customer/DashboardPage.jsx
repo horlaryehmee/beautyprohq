@@ -1,0 +1,20 @@
+import { Link } from 'react-router-dom';
+import { Avatar, Button, Card, CardHeader, EmptyState, ErrorState, LoadingBlock, PageHeader, StatCard, StatusBadge, formatDate, useApiResource } from '../../components/dashboard';
+
+const list = (value) => Array.isArray(value) ? value : value?.data ?? [];
+
+export default function CustomerDashboardPage() {
+    const resource = useApiResource('/customer/dashboard', {}, { refreshInterval: 30000 });
+    const savedResource = useApiResource('/customer/saved-providers', [], { refreshInterval: 30000 });
+    const dashboard = resource.data ?? {};
+    const stats = dashboard.stats ?? dashboard.summary ?? {};
+    const upcoming = list(dashboard.upcoming_bookings ?? dashboard.bookings);
+    const providers = list(savedResource.data);
+
+    return <div className="space-y-7">
+        <PageHeader actions={<Link to="/directory"><Button>Find a professional</Button></Link>} description="Keep track of appointments, rewards and the professionals you love." eyebrow="Customer portal" title="Welcome to your beauty hub" />
+        {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><StatCard icon="calendar" label="Upcoming bookings" tone="plum" value={stats.upcoming_bookings ?? upcoming.length} /><StatCard icon="loyalty" label="Reward points" tone="rose" value={Number(stats.loyalty_points ?? stats.points ?? 0).toLocaleString()} /><StatCard icon="saved" label="Saved providers" tone="sky" value={stats.saved_providers ?? providers.length} /><StatCard icon="booking" label="Completed visits" tone="emerald" value={stats.completed_bookings ?? 0} /></div>
+        <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]"><Card><CardHeader action={<Link className="text-sm font-bold text-fuchsia-700" to="/customer/bookings">All bookings</Link>} description="Your next appointments" title="Coming up" />{resource.loading ? <LoadingBlock rows={3} /> : upcoming.length ? <div className="space-y-3">{upcoming.slice(0, 4).map((booking) => { const provider = booking.provider?.user ?? booking.provider ?? {}; return <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 p-4 sm:flex-row sm:items-center" key={booking.id}><Avatar name={provider.name} src={booking.provider?.profile_photo ?? provider.profile_photo} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-950">{booking.service?.name ?? booking.service_name}</p><p className="truncate text-xs text-slate-500">with {provider.name ?? 'Beauty professional'}</p></div><div><p className="text-sm font-semibold text-slate-800">{formatDate(booking.date ?? booking.starts_at, { year: undefined })}</p><p className="text-xs text-slate-400">{booking.time ?? booking.start_time}</p></div><StatusBadge status={booking.status} /></div>; })}</div> : <EmptyState action={<Link to="/directory"><Button variant="soft">Explore directory</Button></Link>} description="Choose a verified professional and request a time." icon="calendar" title="No upcoming appointments" />}</Card><Card><CardHeader action={<Link className="text-sm font-bold text-fuchsia-700" to="/customer/saved-providers">View all</Link>} title="Saved professionals" />{resource.loading ? <LoadingBlock rows={3} /> : providers.length ? <div className="space-y-3">{providers.slice(0, 4).map((saved) => { const provider = saved.provider ?? saved; const user = provider.user ?? provider; return <Link className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-slate-50" key={saved.id ?? provider.id} to={`/providers/${provider.slug ?? provider.id}`}><Avatar name={user.name} src={provider.profile_photo} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{user.name}</p><p className="truncate text-xs text-slate-400">{provider.profession ?? provider.location}</p></div><span className="text-slate-300">›</span></Link>; })}</div> : <EmptyState description="Tap the heart on any directory profile to save it." icon="saved" title="Nothing saved yet" />}</Card></div>
+    </div>;
+}
