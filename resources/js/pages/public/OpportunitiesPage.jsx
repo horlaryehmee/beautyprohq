@@ -42,10 +42,14 @@ function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function contactInfo(value) {
+    return typeof value === 'object' && value ? value : {};
+}
+
 function OpportunityCard({ item, index }) {
     const remaining = daysUntil(item.deadline);
     const urgent = remaining != null && remaining <= 7;
-    const cardDescription = item.short_description || plainText(item.description);
+    const cardDescription = item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description);
 
     return (
         <article className="group grid gap-5 rounded-[1.7rem] border border-[#ded2c7] bg-white p-5 shadow-[0_16px_45px_rgba(52,35,28,.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(52,35,28,.11)] lg:grid-cols-[86px_1fr_auto] lg:items-center">

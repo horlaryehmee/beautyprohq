@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
-import { RichEditor } from './ContentEditorPage';
 
 const emptyForm = {
     type: 'job',
@@ -29,6 +28,7 @@ function formFrom(item) {
     return {
         ...emptyForm,
         ...item,
+        short_description: item.short_description ?? info.short_description ?? '',
         contact_email: info.email ?? '',
         contact_url: info.url ?? '',
         deadline: item.deadline ? String(item.deadline).slice(0, 10) : '',
@@ -58,9 +58,9 @@ export default function AdminOpportunitiesPage() {
             const payload = {
                 type: form.type,
                 title: form.title,
-                short_description: form.short_description,
                 description: form.description,
                 contact_info: {
+                    short_description: form.short_description,
                     email: form.contact_email,
                     url: form.contact_url,
                 },
@@ -101,7 +101,7 @@ export default function AdminOpportunitiesPage() {
                                 <article className="rounded-2xl border border-slate-100 p-4" key={item.id}>
                                     <div className="flex items-start justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span><StatusBadge status={item.status ?? 'published'} /></div>
                                     <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
-                                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || plainText(item.description)}</p>
+                                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
                                     <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
                                     <div className="mt-4 flex gap-2"><Button className="flex-1" onClick={() => show(item)} type="button" variant="secondary">Edit</Button><Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button></div>
                                 </article>
@@ -122,7 +122,7 @@ export default function AdminOpportunitiesPage() {
                             </div>
                             <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
                             <Field label="Short card description" hint="This is what appears on homepage and opportunity cards. Keep it short, clear, and direct."><textarea className={`${inputClass} min-h-24 resize-y leading-7`} maxLength={600} onChange={(event) => setForm((current) => ({ ...current, short_description: event.target.value }))} value={form.short_description} /></Field>
-                            <RichEditor label="Full opportunity details" onChange={(value) => setForm((current) => ({ ...current, description: value }))} value={form.description} />
+                            <Field label="Full opportunity details" hint="Plain text only. Add 100–200 words or more. You can type headings like Requirements, Responsibilities, How to apply, etc."><textarea className={`${inputClass} min-h-72 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Write the full opportunity details here. Example: About the opportunity, requirements, responsibilities, compensation, timeline, how to apply." required value={form.description} /></Field>
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>
                                 <Field label="Contact email"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, contact_email: event.target.value }))} type="email" value={form.contact_email} /></Field>

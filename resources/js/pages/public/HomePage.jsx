@@ -26,6 +26,10 @@ function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function contactInfo(value) {
+    return typeof value === 'object' && value ? value : {};
+}
+
 function mergedContent(home, responses) {
     const [newsResponse, eventsResponse, opportunitiesResponse, communityResponse, providersResponse] = responses;
     return {
@@ -589,7 +593,7 @@ export default function HomePage() {
                                                 {item.deadline && <span className="text-[11px] font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}
                                             </div>
                                             <h3 className="mt-1 font-display text-2xl font-normal leading-tight text-[#34231c]">{item.title ?? item.type}</h3>
-                                            <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#6f625b]">{item.short_description || plainText(item.description)}</p>
+                                            <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#6f625b]">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p>
                                         </div>
                                         <Link to={`/opportunities/${item.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#34231c] px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#4a2f26] md:justify-self-end">
                                             View Details <Icon name="arrow" size={14} />
@@ -608,7 +612,7 @@ export default function HomePage() {
             <section className="py-20 sm:py-28">
                 <div className="page-container">
                     <SectionHeading eyebrow="Open doors" title="Opportunities for beauty talent" description="Find collaborations, jobs, training, and brand opportunities—then send your interest directly." />
-                    {loading ? <LoadingCards count={4} className="grid gap-5 md:grid-cols-2" /> : opportunities.length ? <div className="grid gap-5 md:grid-cols-2">{opportunities.slice(0, 6).map((item) => <article key={item.id} className="group rounded-3xl border border-stone-200 bg-white p-6 transition hover:border-rose-200 hover:shadow-[0_18px_45px_rgba(70,28,54,.08)] sm:p-7"><div className="flex items-start justify-between gap-4"><Badge tone="plum">{item.type ?? 'Opportunity'}</Badge>{item.deadline && <span className="text-xs font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}</div><h3 className="mt-5 font-display text-xl font-black text-plum-950">{item.title ?? item.type}</h3><p className="mt-2 line-clamp-3 text-sm leading-7 text-stone-600">{item.short_description || plainText(item.description)}</p><Link to={`/opportunities/${item.id}`} className="mt-5 inline-flex gap-2 text-sm font-black text-rose-700">View details <Icon name="arrow" size={16} /></Link></article>)}</div> : <EmptyState title="New opportunities are being reviewed" message="Approved opportunities will be published here." />}
+                    {loading ? <LoadingCards count={4} className="grid gap-5 md:grid-cols-2" /> : opportunities.length ? <div className="grid gap-5 md:grid-cols-2">{opportunities.slice(0, 6).map((item) => <article key={item.id} className="group rounded-3xl border border-stone-200 bg-white p-6 transition hover:border-rose-200 hover:shadow-[0_18px_45px_rgba(70,28,54,.08)] sm:p-7"><div className="flex items-start justify-between gap-4"><Badge tone="plum">{item.type ?? 'Opportunity'}</Badge>{item.deadline && <span className="text-xs font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}</div><h3 className="mt-5 font-display text-xl font-black text-plum-950">{item.title ?? item.type}</h3><p className="mt-2 line-clamp-3 text-sm leading-7 text-stone-600">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p><Link to={`/opportunities/${item.id}`} className="mt-5 inline-flex gap-2 text-sm font-black text-rose-700">View details <Icon name="arrow" size={16} /></Link></article>)}</div> : <EmptyState title="New opportunities are being reviewed" message="Approved opportunities will be published here." />}
                 </div>
             </section>
 
