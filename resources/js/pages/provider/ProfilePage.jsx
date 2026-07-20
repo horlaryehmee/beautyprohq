@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Avatar,
     Button,
@@ -72,6 +72,8 @@ export default function ProviderProfilePage() {
     const resource = useApiResource('/provider/profile', {});
     const categoriesResource = useApiResource('/provider-categories', []);
     const profile = resource.data ?? {};
+    const stepRailRef = useRef(null);
+    const stepButtonRefs = useRef([]);
     const [step, setStep] = useState(0);
     const [form, setForm] = useState({
         name: '',
@@ -183,6 +185,10 @@ export default function ProviderProfilePage() {
     });
     const updateSlot = (day, patch) => setForm((current) => ({ ...current, availability: current.availability.map((slot) => Number(slot.day_of_week) === Number(day) ? { ...slot, ...patch } : slot) }));
 
+    useEffect(() => {
+        stepButtonRefs.current[step]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }, [step]);
+
     const saveProfile = async (event) => {
         event.preventDefault();
         setSaving(true);
@@ -259,14 +265,21 @@ export default function ProviderProfilePage() {
 
             <div className="grid min-w-0 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_320px] xl:gap-5">
                 <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
-                    <Card className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto p-2 xl:mx-0 xl:block xl:space-y-1 xl:p-3">
+                    <div className="mb-2 flex items-center justify-between px-1 xl:hidden">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Swipe steps</p>
+                        <p className="text-[11px] font-bold text-slate-400">{step + 1}/{sections.length}</p>
+                    </div>
+                    <Card ref={stepRailRef} className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto p-2 xl:mx-0 xl:block xl:space-y-1 xl:p-3">
                         {sections.map(([title, subtitle], index) => (
-                            <button className={`flex min-w-[132px] shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition xl:w-full xl:min-w-0 xl:gap-3 xl:py-3 ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
+                            <button ref={(element) => { stepButtonRefs.current[index] = element; }} className={`flex min-w-[132px] shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition xl:w-full xl:min-w-0 xl:gap-3 xl:py-3 ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
                                 <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
                                 <span className="min-w-0"><span className="block truncate text-xs font-black xl:text-sm">{title}</span><span className="hidden text-xs opacity-70 xl:block">{subtitle}</span></span>
                             </button>
                         ))}
                     </Card>
+                    <div className="pointer-events-none -mt-9 flex justify-end pr-2 xl:hidden">
+                        <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-black text-slate-400 shadow-sm">›</span>
+                    </div>
                 </aside>
 
                 <Card className="min-w-0 p-4 sm:p-6">
