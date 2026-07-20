@@ -221,6 +221,7 @@ export default function ProviderProfilePage() {
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
     const canBookDirectly = Boolean(provider?.can_book_directly ?? provider?.user?.active_subscription?.plan === 'paid' ?? provider?.user?.activeSubscription?.plan === 'paid');
+    const hasRating = Number(pro.rating) > 0 || reviews.length > 0;
 
     useEffect(() => {
         if (activeTab === 'digital-products' && !digitalLinks.length) {
@@ -370,7 +371,7 @@ export default function ProviderProfilePage() {
                             <p className="mt-1.5 text-sm font-bold text-stone-700 sm:mt-2 sm:text-base">{pro.profession}</p>
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-stone-500 sm:mt-3 sm:gap-x-4 sm:text-sm">
                                 <span className="inline-flex items-center gap-1.5"><Icon name="map" size={14} />{pro.location}</span>
-                                <span className="inline-flex items-center gap-1.5"><Icon name="star" size={14} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating ? pro.rating.toFixed(1) : 'New'} rating</span>
+                                {hasRating && <span className="inline-flex items-center gap-1.5"><Icon name="star" size={14} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating ? pro.rating.toFixed(1) : (reviews.reduce((sum, item) => sum + Number(item.rating), 0) / reviews.length).toFixed(1)} rating</span>}
                             </div>
                         </div>
                         {profileCtaUrl && (
@@ -762,8 +763,8 @@ export default function ProviderProfilePage() {
                                 <div className="rounded-[1.8rem] border border-stone-200 bg-white p-5">
                                     <h3 className="font-display text-lg font-black text-[#26211e]">Profile summary</h3>
                                     <div className="mt-4 space-y-3 text-sm text-stone-600">
-                                        <div className="flex justify-between gap-4"><span>Rating</span><span className="font-black text-[#26211e]">{pro.rating ? pro.rating.toFixed(1) : 'New'}</span></div>
-                                        <div className="flex justify-between gap-4"><span>Reviews</span><span className="font-black text-[#26211e]">{pro.reviewsCount || reviews.length}</span></div>
+                                        {hasRating && <div className="flex justify-between gap-4"><span>Rating</span><span className="font-black text-[#26211e]">{pro.rating ? pro.rating.toFixed(1) : (reviews.reduce((sum, item) => sum + Number(item.rating), 0) / reviews.length).toFixed(1)}</span></div>}
+                                        {hasRating && <div className="flex justify-between gap-4"><span>Reviews</span><span className="font-black text-[#26211e]">{pro.reviewsCount || reviews.length}</span></div>}
                                         <div className="flex justify-between gap-4"><span>Services</span><span className="font-black text-[#26211e]">{services.length}</span></div>
                                         <div className="flex justify-between gap-4"><span>Verified</span><span className="font-black text-[#26211e]">{pro.verified ? 'Yes' : 'No'}</span></div>
                                     </div>
