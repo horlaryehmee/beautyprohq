@@ -106,26 +106,26 @@ export function ShuffleHero({ providers = [], className }) {
                             Explore Directory
                         </Link>
                     </div>
-                    <div className="mx-auto mt-7 grid max-w-md grid-cols-2 gap-3 md:mx-0">
-                        {[
-                            ['users', '500+', 'Beauty Pros'],
-                            ['map', '50+', 'Cities'],
-                            ['heart', '100+', 'Resources'],
-                            ['calendar', '25+', 'Events'],
-                        ].map(([icon, value, label], index) => (
-                            <motion.div
-                                animate={{ y: [0, index % 2 === 0 ? -4 : 4, 0] }}
-                                className="rounded-2xl border border-[#e2d4c8] bg-white/55 p-3 text-left shadow-[0_14px_32px_rgba(64,42,32,.07)] backdrop-blur"
-                                key={label}
-                                transition={{ duration: 5 + index, ease: 'easeInOut', repeat: Infinity }}
-                            >
-                                <span className="mb-3 grid size-8 place-items-center rounded-full bg-[#f4efe9] text-[#8d7668] ring-1 ring-[#e2d4c8]">
-                                    <Icon name={icon} size={16} strokeWidth={1.55} />
-                                </span>
-                                <p className="font-display text-2xl font-semibold leading-none text-[#34231c]">{value}</p>
-                                <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-[#7b6b61]">{label}</p>
-                            </motion.div>
-                        ))}
+                    <div className="mx-auto mt-7 max-w-full overflow-hidden md:mx-0 md:max-w-xl">
+                        <motion.div
+                            animate={{ x: ['0%', '-50%'] }}
+                            className="flex w-max items-center gap-4 whitespace-nowrap text-[11px] font-black uppercase tracking-[.14em] text-[#7b6b61] md:gap-5"
+                            transition={{ duration: 18, ease: 'linear', repeat: Infinity }}
+                        >
+                            {[0, 1].map((set) => (
+                                [
+                                    ['500+', 'Beauty Pros'],
+                                    ['50+', 'Cities'],
+                                    ['100+', 'Resources'],
+                                    ['25+', 'Events'],
+                                ].map(([value, label]) => (
+                                    <span className="inline-flex items-baseline gap-1.5" key={`${set}-${label}`}>
+                                        <span className="font-display text-xl font-semibold normal-case tracking-normal text-[#34231c]">{value}</span>
+                                        {label}
+                                    </span>
+                                ))
+                            ))}
+                        </motion.div>
                     </div>
                 </motion.div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
