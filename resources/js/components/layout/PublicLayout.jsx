@@ -86,10 +86,7 @@ export default function PublicLayout() {
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
-                    <Link to="/" className="text-center text-[#26211e]" aria-label="BeautyPro HQ home">
-                        <span className="block font-display text-3xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
-                        <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[.28em] text-stone-500">BeautyProHQ</span>
-                    </Link>
+                    <Logo className="scale-90" />
                     <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" aria-label="Account">
                         <Icon name="user" size={24} />
                     </Link>
@@ -100,10 +97,7 @@ export default function PublicLayout() {
                 <button type="button" className={`absolute inset-0 bg-[#1f1510]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
                 <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#fbf8f4] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
-                        <Link to="/" className="text-[#26211e]" aria-label="BeautyPro HQ home">
-                            <span className="block font-display text-4xl font-normal leading-none tracking-[-.08em]">BPHQ</span>
-                            <span className="mt-1 block text-[9px] font-black uppercase tracking-[.3em] text-stone-500">BeautyProHQ</span>
-                        </Link>
+                        <Logo />
                         <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#26211e] shadow-sm" aria-label="Close navigation">
                             <Icon name="x" size={20} />
                         </button>

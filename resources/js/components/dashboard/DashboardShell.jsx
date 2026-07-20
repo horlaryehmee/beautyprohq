@@ -5,6 +5,7 @@ import Icon from './Icon';
 import { DashboardToastProvider, useDashboardToast } from './ToastProvider';
 import { Avatar, Button, cx } from './ui';
 import { useApiResource } from './useDashboard';
+import Logo from '../layout/Logo';
 
 export const providerNavigation = [
     { label: 'Overview', to: '/provider', icon: 'overview', end: true },
@@ -83,13 +84,10 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const sidebar = (
         <div className="flex h-full flex-col">
             <div className="flex h-20 items-center justify-between px-5">
-                <NavLink className="flex items-center gap-3" to="/">
-                    <span className="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-600 to-rose-500 text-sm font-black text-white shadow-lg shadow-fuchsia-200">BP</span>
-                    <span>
-                        <span className="block text-sm font-black tracking-tight text-slate-950">BeautyPro HQ</span>
-                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
-                    </span>
-                </NavLink>
+                <div>
+                    <Logo />
+                    <span className="ml-[3.25rem] mt-0.5 block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
+                </div>
                 <button className="grid size-10 place-items-center rounded-xl text-slate-500 lg:hidden" onClick={() => setMobileOpen(false)} type="button"><Icon name="close" /></button>
             </div>
 
