@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\CommunityPost;
 use App\Models\Event;
+use App\Models\HomepageSetting;
 use App\Models\News;
 use App\Models\Opportunity;
 use App\Models\OpportunityEnquiry;
@@ -127,6 +128,26 @@ class ContentController extends Controller
         return $this->listing(Opportunity::query()->latest(), $request, ['title', 'description', 'type', 'location'], ['type']);
     }
 
+    public function homepageSettings(): JsonResponse
+    {
+        $defaults = collect(['news', 'events', 'opportunities'])->mapWithKeys(fn ($section) => [$section => 'custom']);
+        $settings = HomepageSetting::query()->pluck('sort_mode', 'section');
+
+        return $this->success($defaults->merge($settings));
+    }
+
+    public function updateHomepageSettings(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'section' => ['required', Rule::in(['news', 'events', 'opportunities'])],
+            'sort_mode' => ['required', Rule::in(['custom', 'random', 'az', 'za', 'newest', 'oldest'])],
+        ]);
+
+        HomepageSetting::updateOrCreate(['section' => $data['section']], ['sort_mode' => $data['sort_mode']]);
+
+        return $this->success(HomepageSetting::query()->pluck('sort_mode', 'section'), 'Homepage setting updated.');
+    }
+
     public function storeOpportunity(Request $request): JsonResponse
     {
         return $this->created(Opportunity::create($this->opportunityData($request)), 'Opportunity created.');
@@ -196,6 +217,7 @@ class ContentController extends Controller
             'title' => [$p, 'string', 'max:180'], 'slug' => ['sometimes', 'string', 'max:200', Rule::unique('news', 'slug')->ignore($news)],
             'excerpt' => ['nullable', 'string', 'max:500'], 'content' => [$p, 'string'], 'image' => ['nullable', 'string', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
+            'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_order' => ['nullable', 'integer', 'between:0,9999'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
     }
@@ -209,6 +231,7 @@ class ContentController extends Controller
             'date' => [$p, 'date'], 'location' => [$p, 'string', 'max:255'], 'description' => [$p, 'string', 'max:10000'],
             'image' => ['nullable', 'string', 'max:500'], 'registration_url' => ['nullable', 'url', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
+            'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_order' => ['nullable', 'integer', 'between:0,9999'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
     }
@@ -231,7 +254,7 @@ class ContentController extends Controller
 
         return $this->publication($request->validate([
             'title' => [$p, 'string', 'max:180'], 'type' => [$p, 'string', 'max:100'], 'description' => [$p, 'string', 'max:20000'],
-            'contact_info' => ['nullable', 'array'], 'location' => ['nullable', 'string', 'max:180'], 'deadline' => ['nullable', 'date'], 'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
+            'contact_info' => ['nullable', 'array'], 'location' => ['nullable', 'string', 'max:180'], 'deadline' => ['nullable', 'date'], 'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_order' => ['nullable', 'integer', 'between:0,9999'], 'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
     }
 
