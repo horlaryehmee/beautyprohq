@@ -784,10 +784,10 @@ export default function ProviderProfilePage() {
                 </div>
             </section>
 
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 p-3 backdrop-blur lg:hidden">
+            <div className="fixed inset-x-3 bottom-[calc(max(.75rem,env(safe-area-inset-bottom))+4.75rem)] z-[60] rounded-[1.5rem] border border-stone-200 bg-white/95 p-3 shadow-[0_16px_40px_rgba(38,33,30,.16)] backdrop-blur lg:hidden">
                 <Button className="w-full" disabled={!services.length || !canBookDirectly} onClick={() => book()}><Icon name="calendar" size={17} /> Request booking</Button>
             </div>
-            <div className="h-18 lg:hidden" />
+            <div className="h-36 lg:hidden" />
 
             {showTerms && (
                 <div className="fixed inset-0 z-[85] grid place-items-end overflow-y-auto bg-[#1d120e]/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" onMouseDown={() => setShowTerms(false)}>
