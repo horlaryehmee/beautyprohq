@@ -347,7 +347,6 @@ export default function HomePage() {
                     <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
                             <h2 className="text-sm font-black uppercase tracking-wide text-[#34231c]">News & Events</h2>
-                            <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-stone-400 sm:hidden">Swipe or use arrows</p>
                         </div>
                         <div className="flex items-center gap-2">
                             {newsAndEvents.length > 3 && (
@@ -364,7 +363,7 @@ export default function HomePage() {
                         </div>
                     </div>
                     <div className="relative">
-                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[315px]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
+                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 sm:grid sm:grid-cols-2 md:grid-cols-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-auto"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>
@@ -378,7 +377,6 @@ export default function HomePage() {
                                 <Icon name="shield" size={18} className="text-[#7f7068]" />
                             </div>
                             <p className="mt-1 text-xs font-bold text-[#6f625b]">Trusted. Verified. Recommended.</p>
-                            <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-[#9a8b81] sm:hidden">Swipe or use arrows</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                             {!loading && filteredVerifiedProviders.length > 1 && (
@@ -406,7 +404,7 @@ export default function HomePage() {
                     </div>
 
                     <div className="relative">
-                        {loading ? <LoadingCards count={6} /> : filteredVerifiedProviders.length ? <div ref={providersRailRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">{filteredVerifiedProviders.slice(0, 6).map((provider) => <div key={provider.id ?? provider.slug ?? provider.user_id} className="w-[72vw] shrink-0 snap-start sm:w-auto"><VerifiedProfessionalCard provider={provider} /></div>)}</div> : <EmptyState title="No verified professionals found" message="Try another service, location, or filter combination." />}
+                        {loading ? <LoadingCards count={6} /> : filteredVerifiedProviders.length ? <div ref={providersRailRef} className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 lg:grid-cols-3">{filteredVerifiedProviders.slice(0, 6).map((provider) => <div key={provider.id ?? provider.slug ?? provider.user_id} className="w-[72vw] shrink-0 snap-start sm:w-auto"><VerifiedProfessionalCard provider={provider} /></div>)}</div> : <EmptyState title="No verified professionals found" message="Try another service, location, or filter combination." />}
                     </div>
 
                     <div className="mt-7 text-center">
