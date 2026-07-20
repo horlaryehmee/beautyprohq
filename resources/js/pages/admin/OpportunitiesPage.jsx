@@ -5,7 +5,12 @@ const emptyForm = {
     type: 'job',
     title: '',
     description: '',
+    responsibilities: '',
+    deliverables: '',
     requirements: '',
+    compensation: '',
+    timeline: '',
+    selection_process: '',
     application_notes: '',
     contact_email: '',
     contact_url: '',
@@ -25,7 +30,12 @@ function formFrom(item) {
     return {
         ...emptyForm,
         ...item,
+        responsibilities: info.responsibilities ?? '',
+        deliverables: info.deliverables ?? '',
         requirements: info.requirements ?? '',
+        compensation: info.compensation ?? '',
+        timeline: info.timeline ?? '',
+        selection_process: info.selection_process ?? '',
         application_notes: info.application_notes ?? info.text ?? '',
         contact_email: info.email ?? '',
         contact_url: info.url ?? '',
@@ -58,7 +68,12 @@ export default function AdminOpportunitiesPage() {
                 title: form.title,
                 description: form.description,
                 contact_info: {
+                    responsibilities: form.responsibilities,
+                    deliverables: form.deliverables,
                     requirements: form.requirements,
+                    compensation: form.compensation,
+                    timeline: form.timeline,
+                    selection_process: form.selection_process,
                     application_notes: form.application_notes,
                     email: form.contact_email,
                     url: form.contact_url,
@@ -125,7 +140,14 @@ export default function AdminOpportunitiesPage() {
                             </div>
                             <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
                             <Field label="Full opportunity description" hint="Add the complete context applicants need: who it is for, scope, location, dates, compensation if available, and what happens next."><textarea className={`${inputClass} min-h-56 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required value={form.description} /></Field>
-                            <Field label="Requirements / eligibility" hint="Examples: portfolio link, city, years of experience, tools/kit, availability, niche."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, requirements: event.target.value }))} value={form.requirements} /></Field>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <Field label="Responsibilities" hint="What the selected professional will do."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, responsibilities: event.target.value }))} value={form.responsibilities} /></Field>
+                                <Field label="Deliverables" hint="What should be completed or submitted."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, deliverables: event.target.value }))} value={form.deliverables} /></Field>
+                                <Field label="Requirements / eligibility" hint="Examples: portfolio link, city, years of experience, tools/kit, availability, niche."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, requirements: event.target.value }))} value={form.requirements} /></Field>
+                                <Field label="Compensation / benefits" hint="Fee, allowance, exposure, product support, or benefits."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, compensation: event.target.value }))} value={form.compensation} /></Field>
+                                <Field label="Timeline" hint="Dates, review period, shoot/session dates, and expected response time."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, timeline: event.target.value }))} value={form.timeline} /></Field>
+                                <Field label="Selection process" hint="How applicants will be reviewed and contacted."><textarea className={`${inputClass} min-h-32 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, selection_process: event.target.value }))} value={form.selection_process} /></Field>
+                            </div>
                             <Field label="Application instructions" hint="This appears on the detail page and helps applicants know what to submit."><textarea className={`${inputClass} min-h-28 resize-y leading-7`} onChange={(event) => setForm((current) => ({ ...current, application_notes: event.target.value }))} value={form.application_notes} /></Field>
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>

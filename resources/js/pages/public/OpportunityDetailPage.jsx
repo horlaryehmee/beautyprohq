@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api, { unwrap } from '../../lib/api';
 import Button from '../../components/ui/Button';
-import { EmptyState, InlineAlert, PageLoader } from '../../components/ui/Feedback';
+import { EmptyState, PageLoader } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
 import Seo from '../../components/Seo';
@@ -31,6 +31,17 @@ function contactText(value) {
 
 function contactInfo(value) {
     return typeof value === 'object' && value ? value : {};
+}
+
+function DetailSection({ children, title }) {
+    if (!children) return null;
+
+    return (
+        <section className="rounded-[1.5rem] border border-stone-200 bg-[#fffdf8] p-5 sm:p-6">
+            <h2 className="font-display text-2xl font-normal text-[#34231c]">{title}</h2>
+            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#5f524b]">{children}</p>
+        </section>
+    );
 }
 
 export default function OpportunityDetailPage() {
@@ -81,16 +92,18 @@ export default function OpportunityDetailPage() {
 
             <section className="bg-white py-12 sm:py-16">
                 <div className="page-container grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-                    <article className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-                        <p className="text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Full details</p>
-                        <div className="mt-5 whitespace-pre-line text-sm leading-8 text-[#5f524b]">{opportunity.description}</div>
-                        {info.requirements && (
-                            <div className="mt-8 rounded-[1.5rem] bg-[#f4efe9] p-5">
-                                <h2 className="font-display text-2xl font-normal text-[#34231c]">Requirements</h2>
-                                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-[#5f524b]">{info.requirements}</p>
-                            </div>
-                        )}
-                        {(info.application_notes || contact) && <InlineAlert className="mt-7">{info.application_notes || contact}</InlineAlert>}
+                    <article className="rounded-[2rem] border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+                        <p className="px-2 text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Full opportunity details</p>
+                        <div className="mt-5 grid gap-4">
+                            <DetailSection title="Overview">{opportunity.description}</DetailSection>
+                            <DetailSection title="Responsibilities">{info.responsibilities}</DetailSection>
+                            <DetailSection title="Deliverables">{info.deliverables}</DetailSection>
+                            <DetailSection title="Requirements">{info.requirements}</DetailSection>
+                            <DetailSection title="Compensation / benefits">{info.compensation}</DetailSection>
+                            <DetailSection title="Timeline">{info.timeline}</DetailSection>
+                            <DetailSection title="Selection process">{info.selection_process}</DetailSection>
+                            <DetailSection title="How to apply">{info.application_notes || contact}</DetailSection>
+                        </div>
                     </article>
 
                     <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
