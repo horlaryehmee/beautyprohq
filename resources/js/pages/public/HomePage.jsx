@@ -56,6 +56,37 @@ const newsEventFallbacks = [
     'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=80',
 ];
 
+const fallbackNewsEvents = [
+    {
+        id: 'fallback-news-1',
+        _kind: 'news',
+        title: 'Beauty professionals shaping the future of service',
+        excerpt: 'Stories, resources, and practical updates for beauty businesses will appear here.',
+        image: newsEventFallbacks[0],
+    },
+    {
+        id: 'fallback-event-1',
+        _kind: 'event',
+        title: 'Workshops, launches, and community events',
+        description: 'Upcoming BeautyPro HQ events and industry gatherings will be published here.',
+        image: newsEventFallbacks[1],
+    },
+    {
+        id: 'fallback-news-2',
+        _kind: 'news',
+        title: 'Business tips for growing beauty professionals',
+        excerpt: 'Useful guidance for bookings, client care, profile building, and growth.',
+        image: newsEventFallbacks[2],
+    },
+    {
+        id: 'fallback-event-2',
+        _kind: 'event',
+        title: 'Member spotlights and industry sessions',
+        description: 'Check back for featured sessions, networking moments, and learning opportunities.',
+        image: newsEventFallbacks[3],
+    },
+];
+
 const communityFallbackImages = [
     'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=1000&q=85',
     'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=1000&q=85',
@@ -212,10 +243,14 @@ export default function HomePage() {
     useEffect(() => { load(); }, [load]);
 
     const verified = useMemo(() => list(data?.verified_professionals ?? data?.featured_providers), [data]);
-    const newsAndEvents = useMemo(() => [
-        ...list(data?.news).map((item) => ({ ...item, _kind: 'news' })),
-        ...list(data?.events).map((item) => ({ ...item, _kind: 'event' })),
-    ].sort((a, b) => new Date(b.published_at ?? b.date ?? 0) - new Date(a.published_at ?? a.date ?? 0)), [data]);
+    const newsAndEvents = useMemo(() => {
+        const items = [
+            ...list(data?.news).map((item) => ({ ...item, _kind: 'news' })),
+            ...list(data?.events).map((item) => ({ ...item, _kind: 'event' })),
+        ].sort((a, b) => new Date(b.published_at ?? b.date ?? 0) - new Date(a.published_at ?? a.date ?? 0));
+
+        return items.length ? items : fallbackNewsEvents;
+    }, [data]);
     const proOfWeek = data?.pro_of_the_week ?? data?.pro_of_week ?? data?.featured_professional ?? null;
     const community = list(data?.community_posts ?? data?.community);
     const opportunities = list(data?.opportunities);
@@ -294,7 +329,7 @@ export default function HomePage() {
                                         <span className="inline-flex items-center gap-1"><Icon name="map" size={13} />{pro.location}</span>
                                         {pro.rating ? <span className="inline-flex items-center gap-1"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating.toFixed(1)}</span> : null}
                                     </div>
-                                    {summary && <p className="mt-4 line-clamp-3 max-w-xl text-sm font-semibold leading-6 text-stone-600">{summary}</p>}
+                                    {summary && <p className="mt-4 line-clamp-2 max-w-xl text-sm font-semibold leading-6 text-stone-600">{summary}</p>}
                                     <Link to={`/providers/${pro.slug}`} className="mt-6 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md bg-[#7d2e3c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#682533]">
                                         View Profile <Icon name="arrow" size={14} />
                                     </Link>

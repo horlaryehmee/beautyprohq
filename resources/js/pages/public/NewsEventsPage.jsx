@@ -14,6 +14,44 @@ const fallbackImages = [
     'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1200&q=80',
 ];
 
+const fallbackNews = [
+    {
+        id: 'fallback-news-1',
+        title: 'Beauty professionals shaping the future of service',
+        excerpt: 'Stories, resources, and practical updates for beauty businesses will appear here.',
+        content: 'BeautyPro HQ will publish stories, resources, and practical updates for beauty professionals here.',
+        image: fallbackImages[0],
+        fallback: true,
+    },
+    {
+        id: 'fallback-news-2',
+        title: 'Business tips for growing beauty professionals',
+        excerpt: 'Useful guidance for bookings, client care, profile building, and growth.',
+        content: 'Useful guidance for bookings, client care, profile building, and growth will appear as articles are published.',
+        image: fallbackImages[2],
+        fallback: true,
+    },
+];
+
+const fallbackEvents = [
+    {
+        id: 'fallback-event-1',
+        title: 'Workshops, launches, and community events',
+        description: 'Upcoming BeautyPro HQ events and industry gatherings will be published here.',
+        location: 'BeautyPro HQ',
+        image: fallbackImages[1],
+        fallback: true,
+    },
+    {
+        id: 'fallback-event-2',
+        title: 'Member spotlights and industry sessions',
+        description: 'Check back for featured sessions, networking moments, and learning opportunities.',
+        location: 'BeautyPro HQ',
+        image: fallbackImages[3],
+        fallback: true,
+    },
+];
+
 function normalize(item, kind, index) {
     const date = item.date ?? item.published_at ?? item.created_at;
 
@@ -25,7 +63,7 @@ function normalize(item, kind, index) {
         image: mediaUrl(item.image_url ?? item.image) ?? fallbackImages[index % fallbackImages.length],
         summary: item.excerpt ?? item.description ?? item.content,
         cta: kind === 'event' ? 'View event' : 'Read more',
-        href: `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}`,
+        href: item.slug ? `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}` : null,
     };
 }
 
@@ -107,6 +145,7 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
     const navigate = useNavigate();
     const [news, setNews] = useState([]);
     const [events, setEvents] = useState([]);
+    const [selected, setSelected] = useState(null);
     const [active, setActive] = useState(initialTab);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -136,10 +175,24 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
         setActive(initialTab);
     }, [initialTab]);
 
-    const items = useMemo(() => [
-        ...news.map((item, index) => normalize(item, 'news', index)),
-        ...events.map((item, index) => normalize(item, 'event', index + news.length)),
-    ].sort((a, b) => b.sortDate - a.sortDate), [news, events]);
+    const items = useMemo(() => {
+        const sourceNews = news.length ? news : fallbackNews;
+        const sourceEvents = events.length ? events : fallbackEvents;
+
+        return [
+            ...sourceNews.map((item, index) => normalize(item, 'news', index)),
+            ...sourceEvents.map((item, index) => normalize(item, 'event', index + sourceNews.length)),
+        ].sort((a, b) => b.sortDate - a.sortDate);
+    }, [news, events]);
+
+    function openItem(item) {
+        if (item.href) {
+            navigate(item.href);
+            return;
+        }
+
+        setSelected(item);
+    }
 
     const standalone = initialTab === 'news' || initialTab === 'event';
     const pageKind = standalone ? initialTab : active;
@@ -192,10 +245,10 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                         </div>
                     ) : filtered.length ? (
                         <>
-                            {!standalone && <FeaturedCard item={featured} onOpen={(item) => navigate(item.href)} />}
+                            {!standalone && <FeaturedCard item={featured} onOpen={openItem} />}
                             {gridItems.length > 0 && (
                                 <div className={`${standalone ? '' : 'mt-8'} grid gap-5 sm:grid-cols-2 lg:grid-cols-3`}>
-                                    {gridItems.map((item) => <UpdateCard key={`${item.kind}-${item.id}`} item={item} onOpen={(entry) => navigate(entry.href)} />)}
+                                    {gridItems.map((item) => <UpdateCard key={`${item.kind}-${item.id}`} item={item} onOpen={openItem} />)}
                                 </div>
                             )}
                         </>
@@ -204,6 +257,7 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                     )}
                 </div>
             </section>
+            <DetailModal item={selected} onClose={() => setSelected(null)} />
         </>
     );
 }
