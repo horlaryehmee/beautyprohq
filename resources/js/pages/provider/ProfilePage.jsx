@@ -44,8 +44,6 @@ export default function ProviderProfilePage() {
         profile_photo: '',
         instagram: '',
         website: '',
-        profile_cta_label: 'Digital product',
-        profile_cta_url: '',
         portfolio_links: [],
         certification_files: [],
         license_files: [],
@@ -70,8 +68,6 @@ export default function ProviderProfilePage() {
             profile_photo: current.profile_photo ?? '',
             instagram: current.social_links?.instagram ?? '',
             website: current.social_links?.website ?? '',
-            profile_cta_label: current.profile_cta_label ?? 'Digital product',
-            profile_cta_url: current.profile_cta_url ?? '',
             portfolio_links: current.portfolio_links ?? current.portfolio_items?.map((item) => item.url ?? item.image_url).filter(Boolean) ?? [],
             certification_files: [],
             license_files: [],
@@ -101,8 +97,6 @@ export default function ProviderProfilePage() {
                 location: form.location,
                 profile_photo: form.profile_photo || null,
                 social_links: { instagram: form.instagram || null, website: form.website || null },
-                profile_cta_label: form.profile_cta_label || 'Digital product',
-                profile_cta_url: form.profile_cta_url || null,
                 portfolio_links: form.portfolio_links,
             });
             resource.setData((current) => ({ ...current, ...(updated ?? {}) }));
@@ -195,12 +189,6 @@ export default function ProviderProfilePage() {
                         </Field>
                         <Field label="Website">
                             <input className={inputClass} onChange={change('website')} placeholder="https://..." type="url" value={form.website} />
-                        </Field>
-                        <Field label="Profile button text" hint="Default is Digital product.">
-                            <input className={inputClass} onChange={change('profile_cta_label')} placeholder="Digital product" value={form.profile_cta_label} />
-                        </Field>
-                        <Field label="Profile button link" hint="Shopify, digital product, external website, or product page.">
-                            <input className={inputClass} onChange={change('profile_cta_url')} placeholder="https://your-shop.com/product" type="url" value={form.profile_cta_url} />
                         </Field>
                         <div className="sm:col-span-2">
                             <Button busy={saving} type="submit">Save profile</Button>

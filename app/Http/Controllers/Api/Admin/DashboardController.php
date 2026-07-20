@@ -92,8 +92,6 @@ class DashboardController extends Controller
             'provider_profile.social_links' => ['nullable', 'array'],
             'provider_profile.portfolio_links' => ['nullable', 'array'],
             'provider_profile.digital_product_links' => ['nullable', 'array'],
-            'provider_profile.profile_cta_label' => ['nullable', 'string', 'max:80'],
-            'provider_profile.profile_cta_url' => ['nullable', 'url:http,https', 'max:1000'],
             'verification_status' => ['sometimes', Rule::in(['approved', 'rejected', 'pending'])],
             'verification_notes' => ['nullable', 'string', 'max:5000'],
         ]);
@@ -189,8 +187,6 @@ class DashboardController extends Controller
             'social_links' => ['sometimes', 'nullable', 'array'],
             'portfolio_links' => ['sometimes', 'nullable', 'array'],
             'digital_product_links' => ['sometimes', 'nullable', 'array'],
-            'profile_cta_label' => ['sometimes', 'nullable', 'string', 'max:80'],
-            'profile_cta_url' => ['sometimes', 'nullable', 'url:http,https', 'max:1000'],
         ]);
         if (($validated['is_pro_of_week'] ?? false) === true) {
             ProviderProfile::where('id', '!=', $provider->id)->update(['is_pro_of_week' => false]);

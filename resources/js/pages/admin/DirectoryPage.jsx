@@ -11,7 +11,7 @@ export default function AdminDirectoryPage() {
     const [filter, setFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', profile_cta_label: '', profile_cta_url: '', is_listed: true, verified: false, is_pro_of_week: false });
+    const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, verified: false, is_pro_of_week: false });
     const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', sort_order: 0, is_active: true });
     const [saving, setSaving] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
@@ -57,8 +57,6 @@ export default function AdminDirectoryPage() {
             profession: provider.profession ?? '',
             location: provider.location ?? '',
             bio: provider.bio ?? '',
-            profile_cta_label: provider.profile_cta_label ?? '',
-            profile_cta_url: provider.profile_cta_url ?? '',
             is_listed: Boolean(provider.is_listed ?? provider.listed ?? true),
             verified: Boolean(provider.verified),
             is_pro_of_week: Boolean(provider.is_pro_of_week),
@@ -289,8 +287,6 @@ export default function AdminDirectoryPage() {
                             <Field label="Profession"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, profession: event.target.value }))} value={form.profession} /></Field>
                             <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>
                             <Field className="sm:col-span-2" label="Bio"><textarea className={`${inputClass} min-h-28`} onChange={(event) => setForm((current) => ({ ...current, bio: event.target.value }))} value={form.bio} /></Field>
-                            <Field label="Profile button text"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, profile_cta_label: event.target.value }))} placeholder="Digital product" value={form.profile_cta_label} /></Field>
-                            <Field label="Profile button URL"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, profile_cta_url: event.target.value }))} placeholder="https://..." value={form.profile_cta_url} /></Field>
                             <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
                                 {[
                                     ['is_listed', 'Listed in directory'],

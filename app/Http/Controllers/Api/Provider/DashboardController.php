@@ -98,8 +98,6 @@ class DashboardController extends Controller
             'portfolio_links.*' => ['url', 'max:500'],
             'digital_product_links' => ['sometimes', 'nullable', 'array'],
             'digital_product_links.*' => ['url', 'max:500'],
-            'profile_cta_label' => ['sometimes', 'nullable', 'string', 'max:80'],
-            'profile_cta_url' => ['sometimes', 'nullable', 'url:http,https', 'max:1000'],
         ]);
 
         $provider = $request->user()->providerProfile;

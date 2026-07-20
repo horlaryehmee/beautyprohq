@@ -223,7 +223,7 @@ export default function ProviderProfilePage() {
     const portfolioLinks = useMemo(() => normalizeLinks(pro.profile.portfolio_links), [pro.profile]);
     const websiteUrl = pro.profile.website ?? provider?.website ?? pro.profile.social_links?.website ?? provider?.social_links?.website ?? '';
     const profileCtaUrl = websiteUrl;
-    const profileCtaLabel = pro.profile.profile_cta_label ?? provider?.profile_cta_label ?? 'Website';
+    const profileCtaLabel = 'Website';
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);

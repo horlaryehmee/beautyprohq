@@ -95,9 +95,6 @@ export default function AdminUserDetailPage() {
                     is_pro_of_week: Boolean(profile.is_pro_of_week),
                     social_links: profile.social_links ?? {},
                     portfolio_links: profile.portfolio_links ?? [],
-                    digital_product_links: profile.digital_product_links ?? [],
-                    profile_cta_label: profile.profile_cta_label ?? 'Digital product',
-                    profile_cta_url: profile.profile_cta_url ?? '',
                 },
             });
         } catch (requestError) {
@@ -261,17 +258,6 @@ export default function AdminUserDetailPage() {
                             <Field className="mt-4" label="Portfolio links" hint="One link per line.">
                                 <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateProfile({ portfolio_links: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })} value={(profile.portfolio_links ?? []).join('\n')} />
                             </Field>
-                            <Field className="mt-4" label="Digital product links" hint="One link per line.">
-                                <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateProfile({ digital_product_links: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })} value={(profile.digital_product_links ?? []).join('\n')} />
-                            </Field>
-                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                <Field label="Profile button text" hint="Default is Digital product.">
-                                    <input className={inputClass} onChange={(event) => updateProfile({ profile_cta_label: event.target.value })} value={profile.profile_cta_label ?? 'Digital product'} />
-                                </Field>
-                                <Field label="Profile button link" hint="Shopify, digital product, external website, or product page.">
-                                    <input className={inputClass} onChange={(event) => updateProfile({ profile_cta_url: event.target.value })} type="url" value={profile.profile_cta_url ?? ''} />
-                                </Field>
-                            </div>
                         </Card>
                     )}
                 </div>
