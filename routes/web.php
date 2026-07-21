@@ -62,7 +62,7 @@ Route::get('/', function () {
                 'original' => $photo,
                 'src' => $build(560),
                 'srcset' => collect([280, 400, 560])->map(fn (int $width) => $build($width).' '.$width.'w')->implode(', '),
-                'sizes' => '(min-width: 768px) 25vw, 50vw',
+                'sizes' => '(min-width: 768px) 25vw, 36vw',
             ];
         }
 
@@ -86,7 +86,7 @@ Route::get('/', function () {
             'pageTitle' => 'The Beauty Service Ecosystem | BeautyPro HQ',
             'pageDescription' => 'Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.',
         ])
-        ->header('Cache-Control', 'public, max-age=0, s-maxage=60, must-revalidate')
+        ->header('Cache-Control', 'public, max-age=0, s-maxage=60, must-revalidate, no-transform')
         ->header('X-LiteSpeed-Cache-Control', 'public,max-age=60');
 })->withoutMiddleware([
     StartSession::class,

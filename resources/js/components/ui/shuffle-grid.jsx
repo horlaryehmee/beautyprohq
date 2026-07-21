@@ -108,7 +108,7 @@ function HeroImageMarquee({ providers }) {
                             const isLcpImage = column.direction === -1 && index === 0;
                             const source = responsiveImage(item.src, {
                                 widths: [280, 400, 560],
-                                sizes: '(min-width: 768px) 25vw, 50vw',
+                                sizes: '(min-width: 768px) 25vw, 36vw',
                                 quality: 70,
                             });
                             return (

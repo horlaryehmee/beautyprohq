@@ -35,7 +35,7 @@
                 <a href="/news" class="rounded-lg px-3.5 py-2 text-sm font-bold text-stone-600 transition hover:bg-white hover:text-plum-900">News</a>
                 <a href="/events" class="rounded-lg px-3.5 py-2 text-sm font-bold text-stone-600 transition hover:bg-white hover:text-plum-900">Events</a>
                 <a href="/directory" class="rounded-lg px-3.5 py-2 text-sm font-bold text-stone-600 transition hover:bg-white hover:text-plum-900">Directory</a>
-                <a href="mailto:hello@beautyprohq.com" class="rounded-lg px-3.5 py-2 text-sm font-bold text-stone-600 transition hover:bg-white hover:text-plum-900">Get In Touch</a>
+                <button type="button" disabled aria-disabled="true" class="rounded-lg px-3.5 py-2 text-sm font-bold text-stone-600">Get In Touch</button>
             </nav>
             <div class="hidden items-center gap-2 lg:flex">
                 <a href="/login" class="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl px-3.5 text-xs font-bold text-plum-800 transition duration-200 hover:bg-plum-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-plum-200">Login</a>
