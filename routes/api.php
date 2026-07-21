@@ -54,6 +54,8 @@ Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe
 Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:10,1');
 Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:10,1');
 Route::post('/guest-bookings', [BookingController::class, 'guestStore'])->middleware('throttle:10,1');
+Route::post('/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment'])->middleware('throttle:10,1');
+Route::post('/booking-payments/verify', [BookingController::class, 'verifyPayment'])->middleware('throttle:20,1');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
@@ -74,6 +76,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/customer/dashboard', [CustomerController::class, 'dashboard']);
         Route::get('/customer/bookings', [BookingController::class, 'index']);
         Route::patch('/customer/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        Route::post('/customer/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment']);
+        Route::post('/customer/booking-payments/verify', [BookingController::class, 'verifyPayment']);
         Route::get('/customer/rewards', [CustomerController::class, 'rewards']);
         Route::get('/customer/saved-providers', [CustomerController::class, 'saved']);
         Route::post('/customer/saved-providers/{provider}', [CustomerController::class, 'save']);

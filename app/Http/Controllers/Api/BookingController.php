@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\ProviderProfile;
@@ -15,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class BookingController extends Controller
@@ -142,6 +144,7 @@ class BookingController extends Controller
                 'amount' => $service->price,
                 'currency' => $service->currency ?? $provider->default_currency ?? config('currencies.default', 'NGN'),
                 'status' => 'pending',
+                'metadata' => ['payment_token' => Str::random(48)],
             ]);
 
             return $booking;
@@ -155,6 +158,277 @@ class BookingController extends Controller
         $provider->user->notify(new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
 
         return $this->success($booking, 'Booking request sent to the provider.', 201);
+    }
+
+    public function checkoutPayment(Request $request, Payment $payment): JsonResponse
+    {
+        $validated = $request->validate([
+            'gateway' => ['nullable', 'string', 'in:paystack,stripe'],
+            'payment_token' => ['nullable', 'string'],
+        ]);
+
+        $this->authorizePaymentAccess($request, $payment, $validated['payment_token'] ?? null);
+        abort_unless(in_array($payment->status, ['pending', 'failed', 'processing'], true), 422, 'This payment can no longer be checked out.');
+
+        $payment->loadMissing(['booking.customer', 'booking.service', 'provider.paymentAccounts']);
+        abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
+
+        $gateway = $validated['gateway'] ?? $this->preferredProviderGateway($payment);
+        $account = $payment->provider->paymentAccounts
+            ->first(fn ($item) => $item->gateway === $gateway && ($item->enabled || $item->is_connected));
+
+        abort_unless($account, 422, "This provider has not connected {$gateway} payments yet.");
+        abort_unless((int) $account->provider_id === (int) $payment->provider_id, 422, 'Payment account provider mismatch.');
+
+        $reference = 'BPHQ-BOOK-'.$payment->id.'-'.$payment->provider_id.'-'.Str::upper(Str::random(10));
+        $metadata = [
+            ...($payment->metadata ?? []),
+            'type' => 'booking_payment',
+            'payment_id' => $payment->id,
+            'booking_id' => $payment->booking_id,
+            'provider_id' => $payment->provider_id,
+            'customer_id' => $payment->booking->customer_id,
+            'provider_payment_account_id' => $account->id,
+            'provider_account_reference' => $account->account_reference,
+            'gateway' => $gateway,
+        ];
+
+        if ($gateway === 'paystack') {
+            $checkout = $this->initializePaystackBookingCheckout($payment, $account, $reference, $metadata);
+        } else {
+            $checkout = $this->initializeStripeBookingCheckout($payment, $account, $reference, $metadata);
+        }
+
+        $payment->update([
+            'gateway' => $gateway,
+            'reference' => $reference,
+            'status' => 'processing',
+            'metadata' => [
+                ...$metadata,
+                ...$checkout['metadata'],
+            ],
+        ]);
+
+        return $this->success([
+            'gateway' => $gateway,
+            'reference' => $reference,
+            'authorization_url' => $checkout['authorization_url'],
+        ], 'Payment checkout created.');
+    }
+
+    public function verifyPayment(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'reference' => ['required_without:session_id', 'nullable', 'string'],
+            'session_id' => ['required_without:reference', 'nullable', 'string'],
+            'payment_token' => ['nullable', 'string'],
+        ]);
+
+        $payment = Payment::query()
+            ->when($validated['reference'] ?? null, fn ($query, $reference) => $query->where('reference', $reference))
+            ->when(! ($validated['reference'] ?? null) && ($validated['session_id'] ?? null), fn ($query, $session) => $query->where('metadata->stripe_session_id', $session))
+            ->with(['booking.customer', 'booking.service', 'provider.paymentAccounts'])
+            ->firstOrFail();
+
+        $this->authorizePaymentAccess($request, $payment, $validated['payment_token'] ?? null);
+        abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
+
+        if ($payment->gateway === 'paystack') {
+            $this->verifyPaystackBookingPayment($payment);
+        } elseif ($payment->gateway === 'stripe') {
+            $this->verifyStripeBookingPayment($payment, $validated['session_id'] ?? null);
+        } else {
+            abort(422, 'Unknown payment gateway.');
+        }
+
+        $payment->refresh()->load(['booking.service', 'provider.user:id,name']);
+
+        return $this->success($payment, 'Payment verified.');
+    }
+
+    private function authorizePaymentAccess(Request $request, Payment $payment, ?string $token): void
+    {
+        $payment->loadMissing(['booking.customer']);
+        $storedToken = $payment->metadata['payment_token'] ?? null;
+        if ($token && $storedToken && hash_equals($storedToken, $token)) {
+            return;
+        }
+
+        $user = $request->user();
+        abort_unless($user && ((int) $payment->booking->customer_id === (int) $user->id || $user->isAdmin()), 403);
+    }
+
+    private function preferredProviderGateway(Payment $payment): string
+    {
+        foreach (['paystack', 'stripe'] as $gateway) {
+            $account = $payment->provider->paymentAccounts
+                ->first(fn ($item) => $item->gateway === $gateway && ($item->enabled || $item->is_connected));
+            if ($account) {
+                return $gateway;
+            }
+        }
+
+        abort(422, 'This provider has not connected a payment gateway yet.');
+    }
+
+    private function initializePaystackBookingCheckout(Payment $payment, $account, string $reference, array $metadata): array
+    {
+        $secret = $this->paystackSecretKey();
+        abort_unless($secret, 422, 'Paystack is not configured yet.');
+        abort_unless($account->account_reference, 422, 'This provider Paystack subaccount is missing.');
+
+        $response = Http::withToken($secret)->post('https://api.paystack.co/transaction/initialize', [
+            'email' => $payment->booking->customer->email,
+            'amount' => (int) round((float) $payment->amount * 100),
+            'currency' => $payment->currency,
+            'reference' => $reference,
+            'callback_url' => url('/customer/bookings?payment_reference='.$reference),
+            'subaccount' => $account->account_reference,
+            'metadata' => $metadata,
+        ]);
+
+        abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack checkout could not be created.');
+
+        return [
+            'authorization_url' => $response->json('data.authorization_url'),
+            'metadata' => [
+                'access_code' => $response->json('data.access_code'),
+                'checkout_created_at' => now()->toIso8601String(),
+            ],
+        ];
+    }
+
+    private function initializeStripeBookingCheckout(Payment $payment, $account, string $reference, array $metadata): array
+    {
+        $secret = $this->stripeSecretKey();
+        abort_unless($secret, 422, 'Stripe is not configured yet.');
+        abort_unless($account->account_reference, 422, 'This provider Stripe connected account ID is missing.');
+
+        $serviceName = $payment->booking->service->name ?? 'BeautyPro HQ booking';
+        $response = Http::withToken($secret)->asForm()->post('https://api.stripe.com/v1/checkout/sessions', [
+            'mode' => 'payment',
+            'client_reference_id' => $reference,
+            'customer_email' => $payment->booking->customer->email,
+            'success_url' => url('/customer/bookings?payment_reference='.$reference.'&session_id={CHECKOUT_SESSION_ID}'),
+            'cancel_url' => url('/customer/bookings'),
+            'line_items[0][quantity]' => 1,
+            'line_items[0][price_data][currency]' => strtolower($payment->currency),
+            'line_items[0][price_data][unit_amount]' => (int) round((float) $payment->amount * 100),
+            'line_items[0][price_data][product_data][name]' => $serviceName,
+            'payment_intent_data[transfer_data][destination]' => $account->account_reference,
+            'metadata[type]' => $metadata['type'],
+            'metadata[payment_id]' => $metadata['payment_id'],
+            'metadata[booking_id]' => $metadata['booking_id'],
+            'metadata[provider_id]' => $metadata['provider_id'],
+            'metadata[customer_id]' => $metadata['customer_id'],
+            'metadata[provider_payment_account_id]' => $metadata['provider_payment_account_id'],
+            'metadata[provider_account_reference]' => $metadata['provider_account_reference'],
+            'payment_intent_data[metadata][type]' => $metadata['type'],
+            'payment_intent_data[metadata][payment_id]' => $metadata['payment_id'],
+            'payment_intent_data[metadata][booking_id]' => $metadata['booking_id'],
+            'payment_intent_data[metadata][provider_id]' => $metadata['provider_id'],
+            'payment_intent_data[metadata][provider_payment_account_id]' => $metadata['provider_payment_account_id'],
+        ]);
+
+        abort_unless($response->successful(), 422, $response->json('error.message') ?: 'Stripe checkout could not be created.');
+
+        return [
+            'authorization_url' => $response->json('url'),
+            'metadata' => [
+                'stripe_session_id' => $response->json('id'),
+                'checkout_created_at' => now()->toIso8601String(),
+            ],
+        ];
+    }
+
+    private function verifyPaystackBookingPayment(Payment $payment): void
+    {
+        $secret = $this->paystackSecretKey();
+        abort_unless($secret, 422, 'Paystack is not configured yet.');
+
+        $response = Http::withToken($secret)->get('https://api.paystack.co/transaction/verify/'.rawurlencode($payment->reference));
+        abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack payment could not be verified.');
+
+        $data = $response->json('data');
+        $meta = $data['metadata'] ?? [];
+        $this->assertVerifiedPaymentPayload($payment, $meta, (int) ($data['amount'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
+        abort_unless(($data['status'] ?? null) === 'success', 422, 'Payment has not succeeded yet.');
+
+        DB::transaction(function () use ($payment, $data): void {
+            $payment->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'metadata' => [
+                    ...($payment->metadata ?? []),
+                    'verified_at' => now()->toIso8601String(),
+                    'gateway_response' => $data,
+                ],
+            ]);
+        });
+    }
+
+    private function verifyStripeBookingPayment(Payment $payment, ?string $sessionId): void
+    {
+        $secret = $this->stripeSecretKey();
+        abort_unless($secret, 422, 'Stripe is not configured yet.');
+
+        $sessionId ??= $payment->metadata['stripe_session_id'] ?? null;
+        abort_unless($sessionId, 422, 'Stripe session is missing.');
+
+        $response = Http::withToken($secret)->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId), [
+            'expand' => ['payment_intent'],
+        ]);
+        abort_unless($response->successful(), 422, $response->json('error.message') ?: 'Stripe payment could not be verified.');
+
+        $data = $response->json();
+        $meta = $data['metadata'] ?? [];
+        $this->assertVerifiedPaymentPayload($payment, $meta, (int) ($data['amount_total'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
+        abort_unless(($data['payment_status'] ?? null) === 'paid', 422, 'Payment has not succeeded yet.');
+        abort_unless(($data['client_reference_id'] ?? null) === $payment->reference, 422, 'Stripe reference mismatch.');
+
+        $expectedDestination = $payment->metadata['provider_account_reference'] ?? null;
+        $actualDestination = data_get($data, 'payment_intent.transfer_data.destination');
+        abort_unless(! $actualDestination || $actualDestination === $expectedDestination, 422, 'Stripe destination account mismatch.');
+
+        DB::transaction(function () use ($payment, $data): void {
+            $payment->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'metadata' => [
+                    ...($payment->metadata ?? []),
+                    'verified_at' => now()->toIso8601String(),
+                    'gateway_response' => $data,
+                ],
+            ]);
+        });
+    }
+
+    private function assertVerifiedPaymentPayload(Payment $payment, array $meta, int $amountMinor, string $currency): void
+    {
+        $localMeta = $payment->metadata ?? [];
+        abort_unless((int) round((float) $payment->amount * 100) === $amountMinor, 422, 'Payment amount mismatch.');
+        abort_unless(strtoupper((string) $payment->currency) === $currency, 422, 'Payment currency mismatch.');
+        abort_unless((int) ($meta['payment_id'] ?? 0) === (int) $payment->id, 422, 'Payment ID mismatch.');
+        abort_unless((int) ($meta['booking_id'] ?? 0) === (int) $payment->booking_id, 422, 'Booking ID mismatch.');
+        abort_unless((int) ($meta['provider_id'] ?? 0) === (int) $payment->provider_id, 422, 'Provider ID mismatch.');
+        abort_unless((int) ($meta['provider_payment_account_id'] ?? 0) === (int) ($localMeta['provider_payment_account_id'] ?? 0), 422, 'Provider payment account mismatch.');
+        abort_unless(($meta['provider_account_reference'] ?? null) === ($localMeta['provider_account_reference'] ?? null), 422, 'Provider destination account mismatch.');
+    }
+
+    private function paystackSecretKey(): ?string
+    {
+        $mode = AppSetting::getValue('paystack.mode', 'test');
+        $key = AppSetting::getValue("paystack.{$mode}_secret_key");
+
+        return is_string($key) && $key !== '' ? $key : null;
+    }
+
+    private function stripeSecretKey(): ?string
+    {
+        $mode = AppSetting::getValue('stripe.mode', 'test');
+        $key = AppSetting::getValue("stripe.{$mode}_secret_key");
+
+        return is_string($key) && $key !== '' ? $key : null;
     }
 
     public function show(Request $request, Booking $booking): JsonResponse

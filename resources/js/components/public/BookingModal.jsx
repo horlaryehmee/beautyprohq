@@ -211,6 +211,14 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             };
             const response = await api.post(user?.role === 'customer' ? '/bookings' : '/guest-bookings', user?.role === 'customer' ? payload : { ...payload, customer });
             const booking = unwrap(response);
+            const payment = booking?.payment;
+            const token = payment?.metadata?.payment_token;
+            if (payment?.id && token) {
+                const checkout = unwrap(await api.post(`/booking-payments/${payment.id}/checkout`, { payment_token: token }));
+                toast.success('Booking request sent. Redirecting to secure payment...');
+                window.location.href = checkout.authorization_url;
+                return;
+            }
             toast.success(response?.data?.message || 'Booking request sent to the professional.');
             onBooked?.(booking);
             onClose();

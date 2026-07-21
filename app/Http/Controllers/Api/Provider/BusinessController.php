@@ -153,7 +153,7 @@ class BusinessController extends Controller
     public function updatePaymentAccount(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'gateway' => ['required', Rule::in(['paystack', 'stripe', 'paypal'])],
+            'gateway' => ['required', Rule::in(['paystack', 'stripe'])],
             'account_reference' => ['nullable', 'string', 'max:255'],
             'account_name' => ['nullable', 'string', 'max:255'],
             'account_identifier' => ['nullable', 'string', 'max:255'],
