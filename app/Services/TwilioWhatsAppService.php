@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AppSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -9,9 +10,9 @@ class TwilioWhatsAppService
 {
     public function configured(): bool
     {
-        return filled(config('services.twilio.account_sid'))
-            && filled(config('services.twilio.auth_token'))
-            && filled(config('services.twilio.whatsapp_from'));
+        return filled($this->accountSid())
+            && filled($this->authToken())
+            && filled($this->whatsappFrom());
     }
 
     public function send(string $to, string $body): bool
@@ -20,9 +21,9 @@ class TwilioWhatsAppService
             return false;
         }
 
-        $accountSid = (string) config('services.twilio.account_sid');
-        $authToken = (string) config('services.twilio.auth_token');
-        $from = $this->formatWhatsappAddress((string) config('services.twilio.whatsapp_from'));
+        $accountSid = (string) $this->accountSid();
+        $authToken = (string) $this->authToken();
+        $from = $this->formatWhatsappAddress((string) $this->whatsappFrom());
         $recipient = $this->formatWhatsappAddress($to);
 
         if (! $from || ! $recipient) {
@@ -80,5 +81,20 @@ class TwilioWhatsAppService
         }
 
         return preg_match('/^\+\d{8,15}$/', $value) ? 'whatsapp:'.$value : null;
+    }
+
+    private function accountSid(): ?string
+    {
+        return AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid');
+    }
+
+    private function authToken(): ?string
+    {
+        return AppSetting::getValue('twilio.auth_token') ?: config('services.twilio.auth_token');
+    }
+
+    private function whatsappFrom(): ?string
+    {
+        return AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from');
     }
 }

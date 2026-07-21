@@ -8,6 +8,7 @@ export default function AdminSettingsPage() {
     const stripeResource = useApiResource('/admin/payment-settings/stripe', {});
     const currencyResource = useApiResource('/admin/settings/currencies', {});
     const featuresResource = useApiResource('/admin/settings/features', {});
+    const twilioResource = useApiResource('/admin/settings/twilio', {});
     const { notify } = useDashboardToast();
     const [tab, setTab] = useState('platform');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
@@ -15,11 +16,13 @@ export default function AdminSettingsPage() {
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false });
+    const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
     const [savingStripe, setSavingStripe] = useState(false);
     const [savingCurrency, setSavingCurrency] = useState(false);
     const [savingFeatures, setSavingFeatures] = useState(false);
+    const [savingTwilio, setSavingTwilio] = useState(false);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -67,6 +70,16 @@ export default function AdminSettingsPage() {
             provider_whatsapp_notifications: Boolean(data.provider_whatsapp_notifications),
         });
     }, [featuresResource.data]);
+
+    useEffect(() => {
+        const data = twilioResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setTwilioForm({
+            account_sid: data.account_sid ?? '',
+            auth_token: '',
+            whatsapp_from: data.whatsapp_from ?? '',
+        });
+    }, [twilioResource.data]);
 
     const saveGateway = async (event) => {
         event.preventDefault();
@@ -140,13 +153,28 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const saveTwilio = async (event) => {
+        event.preventDefault();
+        setSavingTwilio(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/twilio', twilioForm);
+            twilioResource.setData(saved);
+            setTwilioForm((current) => ({ ...current, auth_token: '' }));
+            notify('Twilio WhatsApp settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingTwilio(false);
+        }
+    };
+
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
-    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error;
+    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error || twilioResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); }} />}
 
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
@@ -179,6 +207,54 @@ export default function AdminSettingsPage() {
                             </span>
                         </label>
                         <div className="flex justify-end"><Button busy={savingFeatures} type="submit">Save feature settings</Button></div>
+                    </form>
+                )}
+            </Card>
+
+            <Card>
+                <CardHeader
+                    title="Twilio WhatsApp connection"
+                    description="Connect the WhatsApp sender used for provider booking notifications."
+                    action={twilioResource.data?.configured ? <StatusBadge status="connected" /> : <StatusBadge status="not connected" />}
+                />
+                {twilioResource.loading ? <LoadingBlock rows={4} /> : (
+                    <form className="mt-5 space-y-5" onSubmit={saveTwilio}>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Field label="Account SID">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, account_sid: event.target.value }))}
+                                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    value={twilioForm.account_sid}
+                                />
+                            </Field>
+                            <Field hint="Leave blank to keep the saved token." label="Auth token">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, auth_token: event.target.value }))}
+                                    placeholder="Twilio auth token"
+                                    type="password"
+                                    value={twilioForm.auth_token}
+                                />
+                            </Field>
+                            <Field hint="Use Twilio format, for example whatsapp:+14155238886 or your approved live sender." label="WhatsApp sender number">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, whatsapp_from: event.target.value }))}
+                                    placeholder="whatsapp:+14155238886"
+                                    value={twilioForm.whatsapp_from}
+                                />
+                            </Field>
+                            <div className="flex items-end">
+                                {twilioResource.data?.auth_token_configured && (
+                                    <StatusBadge status={`auth token ends ${twilioResource.data.auth_token_last4}`} />
+                                )}
+                            </div>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                            Use the Twilio sandbox sender for testing. For live notifications, use an approved Twilio WhatsApp sender.
+                        </div>
+                        <div className="flex justify-end"><Button busy={savingTwilio} type="submit">Save Twilio settings</Button></div>
                     </form>
                 )}
             </Card>

@@ -181,6 +181,43 @@ class SubscriptionController extends Controller
         return $this->success($this->featurePayload());
     }
 
+    public function adminTwilioSettings(): JsonResponse
+    {
+        $authToken = AppSetting::getValue('twilio.auth_token') ?: config('services.twilio.auth_token');
+
+        return $this->success([
+            'account_sid' => AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid'),
+            'whatsapp_from' => AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from'),
+            'auth_token_configured' => filled($authToken),
+            'auth_token_last4' => filled($authToken) ? substr($authToken, -4) : null,
+            'configured' => filled(AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid'))
+                && filled($authToken)
+                && filled(AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from')),
+            'source' => [
+                'account_sid' => filled(AppSetting::getValue('twilio.account_sid')) ? 'admin_settings' : (filled(config('services.twilio.account_sid')) ? 'env' : null),
+                'auth_token' => filled(AppSetting::getValue('twilio.auth_token')) ? 'admin_settings' : (filled(config('services.twilio.auth_token')) ? 'env' : null),
+                'whatsapp_from' => filled(AppSetting::getValue('twilio.whatsapp_from')) ? 'admin_settings' : (filled(config('services.twilio.whatsapp_from')) ? 'env' : null),
+            ],
+        ]);
+    }
+
+    public function updateAdminTwilioSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'account_sid' => ['nullable', 'string', 'max:255'],
+            'auth_token' => ['nullable', 'string', 'max:255'],
+            'whatsapp_from' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        AppSetting::setValue('twilio.account_sid', $validated['account_sid'] ?? null);
+        AppSetting::setValue('twilio.whatsapp_from', $validated['whatsapp_from'] ?? null);
+        if (filled($validated['auth_token'] ?? null)) {
+            AppSetting::setValue('twilio.auth_token', $validated['auth_token'], true);
+        }
+
+        return $this->adminTwilioSettings();
+    }
+
     public function updateAdminFeatureSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([

@@ -163,6 +163,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/settings/currencies', [SubscriptionController::class, 'updateAdminCurrencySettings']);
         Route::get('/settings/features', [SubscriptionController::class, 'adminFeatureSettings']);
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
+        Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
+        Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
 
         Route::post('/media', [AdminContentController::class, 'uploadMedia']);
         Route::get('/news', [AdminContentController::class, 'news']);
