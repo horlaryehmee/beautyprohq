@@ -144,6 +144,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/subscription-plans/{plan}', [SubscriptionController::class, 'updateAdminPlan']);
         Route::get('/payment-settings/paystack', [SubscriptionController::class, 'adminPaystackSettings']);
         Route::put('/payment-settings/paystack', [SubscriptionController::class, 'updateAdminPaystackSettings']);
+        Route::get('/payment-settings/stripe', [SubscriptionController::class, 'adminStripeSettings']);
+        Route::put('/payment-settings/stripe', [SubscriptionController::class, 'updateAdminStripeSettings']);
+        Route::get('/payment-settings/gateway', [SubscriptionController::class, 'adminPaymentGatewaySettings']);
+        Route::put('/payment-settings/gateway', [SubscriptionController::class, 'updateAdminPaymentGatewaySettings']);
         Route::get('/settings/currencies', [SubscriptionController::class, 'adminCurrencySettings']);
         Route::put('/settings/currencies', [SubscriptionController::class, 'updateAdminCurrencySettings']);
 

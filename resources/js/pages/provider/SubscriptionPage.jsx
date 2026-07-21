@@ -29,15 +29,19 @@ export default function ProviderSubscriptionPage() {
     const subscription = data.subscription;
     const activePlan = subscription?.plan ?? 'free';
     const paidActive = activePlan === 'paid' && subscription?.status === 'active';
+    const subscriptionGateway = data.subscription_gateway ?? 'paystack';
+    const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
+    const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
 
     const paidPlan = useMemo(() => plans.find((plan) => plan.key === 'paid'), [plans]);
 
     useEffect(() => {
         const reference = searchParams.get('reference') || searchParams.get('trxref');
+        const sessionId = searchParams.get('session_id');
         if (!reference) return;
         let cancelled = false;
         setBusy('verify');
-        apiRequest('post', '/provider/subscription/verify', { reference })
+        apiRequest('post', '/provider/subscription/verify', { reference, session_id: sessionId || undefined })
             .then(() => {
                 if (cancelled) return;
                 notify('Paid plan activated.');
@@ -52,7 +56,7 @@ export default function ProviderSubscriptionPage() {
     const checkout = async () => {
         setBusy('checkout');
         try {
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid' });
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -127,11 +131,11 @@ export default function ProviderSubscriptionPage() {
                                     <div className="mt-6">
                                         {isPaid ? (
                                             paidActive ? <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="secondary">Downgrade to free</Button>
-                                                : <Button busy={busy === 'checkout'} disabled={!data.paystack_configured} onClick={checkout} type="button">Upgrade with Paystack</Button>
+                                                : <Button busy={busy === 'checkout'} disabled={!gatewayConfigured} onClick={checkout} type="button">Upgrade with {gatewayLabel}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>
                                         )}
-                                        {isPaid && !data.paystack_configured && <p className="mt-2 text-xs text-rose-600">Admin needs to add PAYSTACK_SECRET_KEY before paid upgrades can be processed.</p>}
+                                        {isPaid && !gatewayConfigured && <p className="mt-2 text-xs text-rose-600">Admin needs to configure {gatewayLabel} before paid upgrades can be processed.</p>}
                                     </div>
                                 </Card>
                             );

@@ -54,6 +54,8 @@ class SubscriptionController extends Controller
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('sort_order')->get(),
             'payments' => $request->user()->subscriptionPayments()->with('plan')->latest()->limit(10)->get(),
             'paystack_configured' => $this->paystackConfigured(),
+            'stripe_configured' => $this->stripeConfigured(),
+            'subscription_gateway' => $this->subscriptionGateway(),
         ]);
     }
 
@@ -105,6 +107,68 @@ class SubscriptionController extends Controller
         return $this->adminPaystackSettings();
     }
 
+    public function adminStripeSettings(): JsonResponse
+    {
+        $mode = $this->stripeMode();
+        $testSecret = AppSetting::getValue('stripe.test_secret_key');
+        $liveSecret = AppSetting::getValue('stripe.live_secret_key');
+
+        return $this->success([
+            'mode' => $mode,
+            'test_publishable_key' => AppSetting::getValue('stripe.test_publishable_key'),
+            'live_publishable_key' => AppSetting::getValue('stripe.live_publishable_key'),
+            'test_secret_configured' => filled($testSecret),
+            'live_secret_configured' => filled($liveSecret),
+            'test_secret_last4' => filled($testSecret) ? substr($testSecret, -4) : null,
+            'live_secret_last4' => filled($liveSecret) ? substr($liveSecret, -4) : null,
+            'active_secret_configured' => filled($this->stripeSecretKey()),
+            'success_url' => url('/provider/subscription'),
+        ]);
+    }
+
+    public function updateAdminStripeSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'mode' => ['required', Rule::in(['test', 'live'])],
+            'test_publishable_key' => ['nullable', 'string', 'max:255'],
+            'test_secret_key' => ['nullable', 'string', 'max:255'],
+            'live_publishable_key' => ['nullable', 'string', 'max:255'],
+            'live_secret_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        AppSetting::setValue('stripe.mode', $validated['mode']);
+        AppSetting::setValue('stripe.test_publishable_key', $validated['test_publishable_key'] ?? null);
+        AppSetting::setValue('stripe.live_publishable_key', $validated['live_publishable_key'] ?? null);
+        if (filled($validated['test_secret_key'] ?? null)) {
+            AppSetting::setValue('stripe.test_secret_key', $validated['test_secret_key'], true);
+        }
+        if (filled($validated['live_secret_key'] ?? null)) {
+            AppSetting::setValue('stripe.live_secret_key', $validated['live_secret_key'], true);
+        }
+
+        return $this->adminStripeSettings();
+    }
+
+    public function adminPaymentGatewaySettings(): JsonResponse
+    {
+        return $this->success([
+            'subscription_gateway' => $this->subscriptionGateway(),
+            'paystack_configured' => $this->paystackConfigured(),
+            'stripe_configured' => $this->stripeConfigured(),
+        ]);
+    }
+
+    public function updateAdminPaymentGatewaySettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'subscription_gateway' => ['required', Rule::in(['paystack', 'stripe'])],
+        ]);
+
+        AppSetting::setValue('payments.subscription_gateway', $validated['subscription_gateway']);
+
+        return $this->adminPaymentGatewaySettings();
+    }
+
     public function adminCurrencySettings(): JsonResponse
     {
         return $this->success($this->currencyPayload());
@@ -137,10 +201,16 @@ class SubscriptionController extends Controller
 
         $validated = $request->validate([
             'plan' => ['required', 'in:paid'],
+            'gateway' => ['nullable', Rule::in(['paystack', 'stripe'])],
         ]);
 
         $plan = SubscriptionPlan::where('key', $validated['plan'])->where('is_active', true)->firstOrFail();
         abort_if((float) $plan->price <= 0, 422, 'This plan does not require payment.');
+        $gateway = $validated['gateway'] ?? $this->subscriptionGateway();
+
+        if ($gateway === 'stripe') {
+            return $this->stripeCheckout($user, $plan);
+        }
 
         $secret = $this->paystackSecretKey();
         abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
@@ -195,6 +265,7 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'reference' => ['required', 'string', 'exists:subscription_payments,reference'],
+            'session_id' => ['nullable', 'string'],
         ]);
 
         $payment = SubscriptionPayment::where('reference', $validated['reference'])
@@ -204,6 +275,10 @@ class SubscriptionController extends Controller
 
         if ($payment->status === 'paid') {
             return $this->success($payment->load('subscription.planDefinition'), 'Subscription already active.');
+        }
+
+        if ($payment->gateway === 'stripe') {
+            return $this->verifyStripePayment($payment, $validated['session_id'] ?? null);
         }
 
         $secret = $this->paystackSecretKey();
@@ -230,34 +305,7 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Payment verification failed because the Paystack response does not match this user, plan, amount, currency, and reference.'], 422);
         }
 
-        $subscription = DB::transaction(function () use ($payment, $response): Subscription {
-            Subscription::where('user_id', $payment->user_id)->where('status', 'active')->update([
-                'status' => 'cancelled',
-                'cancelled_at' => now(),
-                'ends_at' => now(),
-            ]);
-
-            $subscription = Subscription::create([
-                'user_id' => $payment->user_id,
-                'subscription_plan_id' => $payment->subscription_plan_id,
-                'plan' => 'paid',
-                'status' => 'active',
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
-                'starts_at' => now(),
-                'renews_at' => now()->addMonth(),
-                'metadata' => ['gateway' => 'paystack'],
-            ]);
-
-            $payment->update([
-                'subscription_id' => $subscription->id,
-                'status' => 'paid',
-                'paid_at' => now(),
-                'raw_response' => $response->json(),
-            ]);
-
-            return $subscription;
-        });
+        $subscription = $this->activatePaidSubscription($payment, $response->json());
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
     }
@@ -293,6 +341,141 @@ class SubscriptionController extends Controller
     private function paystackConfigured(): bool
     {
         return filled($this->paystackSecretKey());
+    }
+
+    private function stripeCheckout($user, SubscriptionPlan $plan): JsonResponse
+    {
+        $secret = $this->stripeSecretKey();
+        abort_if(blank($secret), 422, 'Stripe secret key is not configured.');
+
+        $reference = 'BPHQ-STRIPE-SUB-'.$user->id.'-'.Str::upper(Str::random(12));
+        $payment = SubscriptionPayment::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'gateway' => 'stripe',
+            'reference' => $reference,
+            'amount' => $plan->price,
+            'currency' => strtoupper($plan->currency),
+            'status' => 'pending',
+        ]);
+
+        $response = Http::withToken($secret)
+            ->asForm()
+            ->acceptJson()
+            ->post('https://api.stripe.com/v1/checkout/sessions', [
+                'mode' => 'payment',
+                'client_reference_id' => $reference,
+                'customer_email' => $user->email,
+                'success_url' => url('/provider/subscription').'?reference='.$reference.'&session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => url('/provider/subscription'),
+                'line_items[0][quantity]' => 1,
+                'line_items[0][price_data][currency]' => strtolower($plan->currency),
+                'line_items[0][price_data][unit_amount]' => (int) round(((float) $plan->price) * 100),
+                'line_items[0][price_data][product_data][name]' => $plan->name,
+                'metadata[type]' => 'provider_subscription',
+                'metadata[user_id]' => $user->id,
+                'metadata[subscription_payment_id]' => $payment->id,
+                'metadata[plan_id]' => $plan->id,
+                'metadata[plan]' => $plan->key,
+            ]);
+
+        if (! $response->successful() || blank($response->json('url'))) {
+            $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+            return response()->json(['message' => $response->json('error.message') ?? 'Stripe could not initialize this subscription payment.'], 422);
+        }
+
+        $payment->update([
+            'authorization_url' => $response->json('url'),
+            'access_code' => $response->json('id'),
+            'raw_response' => $response->json(),
+        ]);
+
+        return $this->success([
+            'payment' => $payment->fresh('plan'),
+            'authorization_url' => $payment->authorization_url,
+            'reference' => $reference,
+            'gateway' => 'stripe',
+        ], 'Stripe checkout initialized.');
+    }
+
+    private function verifyStripePayment(SubscriptionPayment $payment, ?string $sessionId): JsonResponse
+    {
+        $secret = $this->stripeSecretKey();
+        abort_if(blank($secret), 422, 'Stripe secret key is not configured.');
+        $sessionId = $sessionId ?: $payment->access_code;
+        abort_if(blank($sessionId), 422, 'Stripe checkout session is missing.');
+
+        $response = Http::withToken($secret)
+            ->acceptJson()
+            ->get('https://api.stripe.com/v1/checkout/sessions/'.$sessionId);
+
+        if (! $response->successful() || $response->json('payment_status') !== 'paid') {
+            $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+            return response()->json(['message' => $response->json('error.message') ?? 'Stripe payment has not been confirmed.'], 422);
+        }
+
+        if (! $this->stripeResponseMatchesPayment($response->json(), $payment)) {
+            $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+            return response()->json(['message' => 'Stripe verification failed because the session does not match this user, plan, amount, currency, and reference.'], 422);
+        }
+
+        $subscription = $this->activatePaidSubscription($payment, $response->json());
+
+        return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
+    }
+
+    private function activatePaidSubscription(SubscriptionPayment $payment, array $rawResponse): Subscription
+    {
+        return DB::transaction(function () use ($payment, $rawResponse): Subscription {
+            Subscription::where('user_id', $payment->user_id)->where('status', 'active')->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'ends_at' => now(),
+            ]);
+
+            $subscription = Subscription::create([
+                'user_id' => $payment->user_id,
+                'subscription_plan_id' => $payment->subscription_plan_id,
+                'plan' => 'paid',
+                'status' => 'active',
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'starts_at' => now(),
+                'renews_at' => now()->addMonth(),
+                'metadata' => ['gateway' => $payment->gateway],
+            ]);
+
+            $payment->update([
+                'subscription_id' => $subscription->id,
+                'status' => 'paid',
+                'paid_at' => now(),
+                'raw_response' => $rawResponse,
+            ]);
+
+            return $subscription;
+        });
+    }
+
+    private function stripeConfigured(): bool
+    {
+        return filled($this->stripeSecretKey());
+    }
+
+    private function stripeMode(): string
+    {
+        return AppSetting::getValue('stripe.mode', 'test') === 'live' ? 'live' : 'test';
+    }
+
+    private function stripeSecretKey(): ?string
+    {
+        return $this->stripeMode() === 'live'
+            ? AppSetting::getValue('stripe.live_secret_key')
+            : AppSetting::getValue('stripe.test_secret_key');
+    }
+
+    private function subscriptionGateway(): string
+    {
+        return AppSetting::getValue('payments.subscription_gateway', 'paystack') === 'stripe' ? 'stripe' : 'paystack';
     }
 
     private function paystackPublicKey(): ?string
@@ -342,6 +525,24 @@ class SubscriptionController extends Controller
         $currency = strtoupper((string) ($data['currency'] ?? ''));
 
         return ($data['reference'] ?? null) === $payment->reference
+            && $paidAmount === $expectedAmount
+            && $currency === strtoupper((string) $payment->currency)
+            && (string) ($metadata['type'] ?? '') === 'provider_subscription'
+            && (int) ($metadata['user_id'] ?? 0) === (int) $payment->user_id
+            && (int) ($metadata['subscription_payment_id'] ?? 0) === (int) $payment->id
+            && (int) ($metadata['plan_id'] ?? 0) === (int) $payment->subscription_plan_id
+            && (string) ($metadata['plan'] ?? '') === (string) $payment->plan?->key;
+    }
+
+    private function stripeResponseMatchesPayment(array $data, SubscriptionPayment $payment): bool
+    {
+        $metadata = (array) ($data['metadata'] ?? []);
+        $paidAmount = (int) ($data['amount_total'] ?? 0);
+        $expectedAmount = (int) round(((float) $payment->amount) * 100);
+        $currency = strtoupper((string) ($data['currency'] ?? ''));
+
+        return ($data['client_reference_id'] ?? null) === $payment->reference
+            && ($data['id'] ?? null) === $payment->access_code
             && $paidAmount === $expectedAmount
             && $currency === strtoupper((string) $payment->currency)
             && (string) ($metadata['type'] ?? '') === 'provider_subscription'
