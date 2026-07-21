@@ -6,6 +6,7 @@ import { useToast } from '../../context/ToastContext';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
+import DeferredImage from '../../components/ui/DeferredImage';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
@@ -13,7 +14,7 @@ import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
 import Seo from '../../components/Seo';
-import { mediaUrl, providerIdentity, shortDate } from '../../lib/utils';
+import { mediaUrl, providerIdentity, responsiveImage, shortDate } from '../../lib/utils';
 
 function list(value) {
     if (Array.isArray(value)) return value;
@@ -158,13 +159,18 @@ function NewsEventCard({ item, index }) {
     const kind = item._kind === 'event' ? 'event' : 'news';
     const date = item.date ?? item.published_at ?? item.created_at;
     const image = mediaUrl(item.image_url ?? item.image) ?? newsEventFallbacks[index % newsEventFallbacks.length];
+    const imageSource = responsiveImage(image, {
+        widths: [360, 520, 720],
+        sizes: '(min-width: 768px) 25vw, 78vw',
+        quality: 70,
+    });
     const copy = item.excerpt ?? item.description ?? item.content;
     const cta = kind === 'event' ? 'Register Now' : 'Read More';
     const href = item.slug ? `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}` : '/news-events';
 
     return (
         <article className="group relative flex h-[320px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)]">
-            <img src={image} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" loading="lazy" decoding="async" />
+            <DeferredImage {...imageSource} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
             <div className="relative z-10 flex h-full flex-col p-6">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
@@ -241,12 +247,17 @@ function SaveProviderButton({ provider, light = false }) {
 
 function VerifiedProfessionalCard({ provider }) {
     const pro = providerIdentity(provider);
+    const photoSource = responsiveImage(pro.photo, {
+        widths: [360, 520, 720],
+        sizes: '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 72vw',
+        quality: 72,
+    });
     const reviews = pro.reviewsCount || provider.reviews_count || provider.review_count || 0;
     const hasRating = Number(pro.rating) > 0;
 
     return (
         <article className="group relative min-h-[330px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.14)]">
-            {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" loading="lazy" decoding="async" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#806c5d] to-[#2f211b]" />}
+            {pro.photo ? <DeferredImage {...photoSource} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#806c5d] to-[#2f211b]" />}
             <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/12 to-black/78" />
             <div className="relative z-10 flex min-h-[330px] flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -365,12 +376,12 @@ export default function HomePage() {
                 const pro = providerIdentity(proOfWeek);
                 const summary = pro.raw?.spotlight_quote ?? pro.raw?.quote ?? pro.bio;
                 return (
-                    <section className="bg-[linear-gradient(#f4efe9_0%_45%,#fff_45%_100%)] py-10 sm:py-14">
+                    <section className="homepage-deferred bg-[linear-gradient(#f4efe9_0%_45%,#fff_45%_100%)] py-10 sm:py-14">
                         <div className="page-container">
                             <article className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-[0_18px_50px_rgba(60,38,29,.08)]">
                             <div className="grid md:grid-cols-[.78fr_1fr]">
                                 <div className="relative min-h-60 bg-[#e8d9cf] md:min-h-[310px]">
-                                    {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" loading="lazy" decoding="async" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
+                                    {pro.photo ? <DeferredImage {...responsiveImage(pro.photo, { widths: [400, 560, 720], sizes: '(min-width: 768px) 40vw, 100vw', quality: 70 })} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" fetchPriority="low" rootMargin="100px" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
                                         <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
                                         <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
@@ -401,7 +412,7 @@ export default function HomePage() {
                 );
             })()}
 
-            <section id="news-events" className="overflow-hidden bg-white pb-12 pt-16 sm:py-20">
+            <section id="news-events" className="homepage-deferred overflow-hidden bg-white pb-12 pt-16 sm:py-20">
                 <div className="page-container">
                     <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
@@ -427,7 +438,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="border-y border-stone-200/70 bg-[#f8f3ee] pb-12 pt-16 sm:py-20">
+            <section className="homepage-deferred border-y border-stone-200/70 bg-[#f8f3ee] pb-12 pt-16 sm:py-20">
                 <div className="page-container">
                     <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
@@ -474,7 +485,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="relative isolate overflow-hidden bg-[#231812] py-20 text-white sm:py-28">
+            <section className="homepage-deferred relative isolate overflow-hidden bg-[#231812] py-20 text-white sm:py-28">
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(148,72,88,.34),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(244,239,233,.18),transparent_24%),linear-gradient(135deg,#2a1b14_0%,#160f0c_54%,#3d1c26_100%)]" />
                 <div className="absolute inset-x-0 top-0 -z-10 h-px bg-white/15" />
                 <div className="page-container">
@@ -523,7 +534,7 @@ export default function HomePage() {
             </section>
 
             {false && (
-            <section className="py-20 sm:py-28">
+            <section className="homepage-deferred py-20 sm:py-28">
                 <div className="page-container">
                     <SectionHeading eyebrow="Made for both sides of beauty" title="One platform. Better beauty experiences." description="Whether you provide the service or book it, BeautyPro HQ keeps the important details close." align="center" />
                     <div className="mx-auto mb-8 flex w-fit rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm" role="tablist">
@@ -552,7 +563,7 @@ export default function HomePage() {
 
             )}
 
-            <section id="opportunities" className="relative overflow-hidden bg-[#f4efe9] py-20 sm:py-28">
+            <section id="opportunities" className="homepage-deferred relative overflow-hidden bg-[#f4efe9] py-20 sm:py-28">
                 <div className="page-container relative">
                     <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                         <div>
@@ -600,7 +611,7 @@ export default function HomePage() {
             </section>
 
             {false && (
-            <section className="py-20 sm:py-28">
+            <section className="homepage-deferred py-20 sm:py-28">
                 <div className="page-container">
                     <SectionHeading eyebrow="Open doors" title="Opportunities for beauty talent" description="Find collaborations, jobs, training, and brand opportunities—then send your interest directly." />
                     {loading ? <LoadingCards count={4} className="grid gap-5 md:grid-cols-2" /> : opportunities.length ? <div className="grid gap-5 md:grid-cols-2">{opportunities.slice(0, 6).map((item) => <article key={item.id} className="group rounded-3xl border border-stone-200 bg-white p-6 transition hover:border-rose-200 hover:shadow-[0_18px_45px_rgba(70,28,54,.08)] sm:p-7"><div className="flex items-start justify-between gap-4"><Badge tone="plum">{opportunityTypeLabel(item.type)}</Badge>{item.deadline && <span className="text-xs font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}</div><h3 className="mt-5 font-display text-xl font-black text-plum-950">{item.title ?? opportunityTypeLabel(item.type)}</h3><p className="mt-2 line-clamp-3 text-sm leading-7 text-stone-600">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p><Link to={`/opportunities/${item.id}`} className="mt-5 inline-flex gap-2 text-sm font-black text-rose-700">View details <Icon name="arrow" size={16} /></Link></article>)}</div> : <EmptyState title="New opportunities are being reviewed" message="Approved opportunities will be published here." />}
@@ -609,7 +620,7 @@ export default function HomePage() {
 
             )}
 
-            <section id="community" className="relative isolate overflow-hidden bg-white py-20 sm:py-28">
+            <section id="community" className="homepage-deferred relative isolate overflow-hidden bg-white py-20 sm:py-28">
                 <div className="absolute -left-24 top-20 -z-10 size-72 rounded-full bg-[#eadfd5]/55 blur-3xl" />
                 <div className="absolute -right-24 bottom-12 -z-10 size-80 rounded-full bg-[#f0dfe2]/35 blur-3xl" />
                 <div className="page-container">
@@ -628,7 +639,7 @@ export default function HomePage() {
                             <div className="overflow-hidden rounded-[2rem] border border-[#ded2c7] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)]">
                                 <div className="grid lg:grid-cols-[1.08fr_.92fr]">
                                     <article className="group relative min-h-[520px] overflow-hidden">
-                                        <img src={mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0]} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" loading="lazy" decoding="async" />
+                                        <DeferredImage {...responsiveImage(mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0], { widths: [400, 560, 720], sizes: '(min-width: 1024px) 55vw, 100vw', quality: 70 })} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" fetchPriority="low" />
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/15 to-black/72" />
                                         <div className="relative flex min-h-[520px] flex-col p-7 text-white sm:p-10">
                                             <div className="flex items-center justify-between gap-4">
@@ -649,7 +660,7 @@ export default function HomePage() {
                                         {visibleCommunity.slice(1, 4).map((item, index) => (
                                             <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
                                                 <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
-                                                    <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" loading="lazy" decoding="async" />
+                                                    <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length], { widths: [240, 360, 520], sizes: '(min-width: 1024px) 170px, 120px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                                 </div>
                                                 <div className="flex min-w-0 flex-col justify-center">
                                                     <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
@@ -668,7 +679,7 @@ export default function HomePage() {
                                     {visibleCommunity.slice(4).map((item, index) => (
                                         <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
                                             <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
-                                                <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" loading="lazy" decoding="async" />
+                                                <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length], { widths: [360, 520, 720], sizes: '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                             </div>
                                             <div className="p-5">
                                                 <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
@@ -693,7 +704,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="overflow-hidden bg-[#f4efe9] py-14 sm:py-18">
+            <section className="homepage-deferred overflow-hidden bg-[#f4efe9] py-14 sm:py-18">
                 <div className="page-container">
                     <div className="mb-7 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
                         <div>
@@ -715,7 +726,7 @@ export default function HomePage() {
                         return (
                             <div key={partner.id ?? name ?? index} className="flex h-12 min-w-max items-center justify-center">
                                 {logo ? (
-                                    <img src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" loading="lazy" decoding="async" />
+                                    <DeferredImage src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" />
                                 ) : (
                                     <span className="font-display text-2xl font-normal text-[#6f625b]/75">{name}</span>
                                 )}
@@ -725,7 +736,7 @@ export default function HomePage() {
                 </Marquee>
             </section>
 
-            <section className="bg-[#f4efe9] py-20 sm:py-24">
+            <section className="homepage-deferred bg-[#f4efe9] py-20 sm:py-24">
                 <div className="page-container">
                     <div className="newsletter-panel overflow-hidden rounded-[34px] px-6 py-10 text-white sm:px-10 sm:py-14 lg:flex lg:items-center lg:justify-between lg:gap-12 lg:px-14">
                         <div className="max-w-xl"><p className="text-xs font-black uppercase tracking-[.18em] text-rose-200">The beauty brief</p><h2 className="mt-3 font-display text-3xl font-black sm:text-4xl">Fresh opportunities, useful news, zero clutter.</h2><p className="mt-3 text-sm leading-7 text-plum-100">Get the best of BeautyPro HQ delivered to your inbox.</p></div>

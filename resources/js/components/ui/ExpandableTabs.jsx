@@ -1,24 +1,6 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useOnClickOutside } from 'usehooks-ts';
 import { cn } from '../../lib/utils';
-
-const buttonVariants = {
-    initial: { gap: 0, paddingLeft: '.55rem', paddingRight: '.55rem' },
-    animate: (isSelected) => ({
-        gap: isSelected ? '.4rem' : 0,
-        paddingLeft: isSelected ? '.8rem' : '.55rem',
-        paddingRight: isSelected ? '.8rem' : '.55rem',
-    }),
-};
-
-const labelVariants = {
-    initial: { width: 0, opacity: 0 },
-    animate: { width: 'auto', opacity: 1 },
-    exit: { width: 0, opacity: 0 },
-};
-
-const transition = { delay: 0.05, type: 'spring', bounce: 0, duration: 0.45 };
 
 export default function ExpandableTabs({
     tabs,
@@ -56,40 +38,27 @@ export default function ExpandableTabs({
                 const isSelected = selected === index;
 
                 return (
-                    <motion.button
-                        animate="animate"
+                    <button
                         aria-current={isSelected ? 'page' : undefined}
                         aria-label={tab.title}
                         className={cn(
-                            'relative flex h-11 min-w-10 items-center justify-center rounded-xl text-xs font-black transition-colors duration-300',
+                            'relative flex h-11 min-w-10 items-center justify-center rounded-xl text-xs font-black transition-[gap,padding,background-color,color] duration-300 ease-out',
                             isSelected
-                                ? cn('bg-rose-50', activeColor)
-                                : 'text-stone-500 hover:bg-stone-50 hover:text-plum-950',
+                                ? cn('gap-1.5 bg-rose-50 px-3', activeColor)
+                                : 'gap-0 px-[.55rem] text-stone-500 hover:bg-stone-50 hover:text-plum-950',
                         )}
-                        custom={isSelected}
-                        initial={false}
                         key={tab.title}
                         onClick={() => handleSelect(tab, index)}
-                        transition={transition}
                         type="button"
-                        variants={buttonVariants}
                     >
                         <TabIcon aria-hidden="true" size={20} strokeWidth={2.2} />
-                        <AnimatePresence initial={false}>
-                            {isSelected && (
-                                <motion.span
-                                    animate="animate"
-                                    className="overflow-hidden whitespace-nowrap"
-                                    exit="exit"
-                                    initial="initial"
-                                    transition={transition}
-                                    variants={labelVariants}
-                                >
-                                    {tab.title}
-                                </motion.span>
-                            )}
-                        </AnimatePresence>
-                    </motion.button>
+                        <span className={cn(
+                            'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out',
+                            isSelected ? 'max-w-24 opacity-100' : 'max-w-0 opacity-0',
+                        )}>
+                            {tab.title}
+                        </span>
+                    </button>
                 );
             })}
         </div>

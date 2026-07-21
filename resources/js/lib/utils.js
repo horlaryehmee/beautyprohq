@@ -41,6 +41,31 @@ export function mediaUrl(value) {
     return `/storage/${String(value).replace(/^storage\//, '')}`;
 }
 
+export function responsiveImage(value, {
+    widths = [360, 520, 720],
+    sizes = '100vw',
+    quality = 72,
+} = {}) {
+    const src = mediaUrl(value);
+    if (!src || !/^https:\/\/images\.unsplash\.com\//i.test(src)) return { src };
+
+    const buildUrl = (width) => {
+        const url = new URL(src);
+        url.searchParams.set('auto', 'format');
+        url.searchParams.set('fit', 'crop');
+        url.searchParams.set('w', String(width));
+        url.searchParams.set('q', String(quality));
+        return url.toString();
+    };
+    const candidates = [...new Set(widths)].sort((a, b) => a - b);
+
+    return {
+        src: buildUrl(candidates[candidates.length - 1]),
+        srcSet: candidates.map((width) => `${buildUrl(width)} ${width}w`).join(', '),
+        sizes,
+    };
+}
+
 export function providerIdentity(provider = {}) {
     const profile = provider.provider_profile ?? provider.profile ?? provider;
     const user = provider.user ?? profile.user ?? {};

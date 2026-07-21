@@ -1,7 +1,7 @@
-import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { cn, mediaUrl } from '../../lib/utils';
+import { cn, mediaUrl, responsiveImage } from '../../lib/utils';
+import DeferredImage from './DeferredImage';
 import Icon from './Icon';
 
 const fallbackSquares = [
@@ -31,11 +31,15 @@ function providerSquares(providers = []) {
         }))
         .filter((item) => item.src);
 
-    return [...photos, ...fallbackSquares].slice(0, 16);
+    const seededPhotos = !photos.length && Array.isArray(globalThis.__BPHQ_HERO_IMAGES__)
+        ? globalThis.__BPHQ_HERO_IMAGES__.map((src, index) => ({ id: `preloaded-provider-${index}`, src: mediaUrl(src) })).filter((item) => item.src)
+        : [];
+
+    return [...photos, ...seededPhotos, ...fallbackSquares].slice(0, 16);
 }
 
 function CountUp({ end, suffix = '+' }) {
-    const [value, setValue] = useState(0);
+    const valueRef = useRef(null);
 
     useEffect(() => {
         let frame;
@@ -45,15 +49,15 @@ function CountUp({ end, suffix = '+' }) {
         function tick(now) {
             const progress = Math.min((now - startedAt) / duration, 1);
             const eased = 1 - Math.pow(1 - progress, 3);
-            setValue(Math.round(end * eased));
+            if (valueRef.current) valueRef.current.textContent = `${Math.round(end * eased).toLocaleString()}${suffix}`;
             if (progress < 1) frame = requestAnimationFrame(tick);
         }
 
         frame = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frame);
-    }, [end]);
+    }, [end, suffix]);
 
-    return <>{value.toLocaleString()}{suffix}</>;
+    return <span ref={valueRef}>0{suffix}</span>;
 }
 
 function HeroImageMarquee({ providers }) {
@@ -73,29 +77,37 @@ function HeroImageMarquee({ providers }) {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#f4efe9] to-transparent" />
             <div className="grid h-full grid-cols-2 gap-3 sm:gap-4">
                 {columns.map((column) => (
-                    <motion.div
-                        animate={{ y: column.direction === -1 ? ['0%', '-50%'] : ['-50%', '0%'] }}
-                        className={cn('flex flex-col gap-3 sm:gap-4', column.className)}
+                    <div
+                        className={cn('flex flex-col gap-3 sm:gap-4', column.className, column.direction === -1 ? 'hero-marquee-up' : 'hero-marquee-down')}
                         key={column.id}
-                        transition={{ duration: 34, ease: 'linear', repeat: Infinity }}
                     >
-                        {column.items.map((item, index) => (
-                            <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
-                                <img
-                                    src={item.src}
-                                    alt=""
-                                    className="size-full object-cover"
-                                    loading={index > 1 ? 'lazy' : 'eager'}
-                                    decoding="async"
-                                    fetchPriority={index < 2 ? 'high' : 'low'}
-                                    onError={(event) => {
-                                        const fallback = fallbackSquares[index % fallbackSquares.length].src;
-                                        if (event.currentTarget.src !== fallback) event.currentTarget.src = fallback;
-                                    }}
-                                />
-                            </div>
-                        ))}
-                    </motion.div>
+                        {column.items.map((item, index) => {
+                            const repeatedAt = column.items.length / 2;
+                            const isCritical = index < 2 || (index >= repeatedAt && index < repeatedAt + 2);
+                            const source = responsiveImage(item.src, {
+                                widths: [280, 400, 560],
+                                sizes: '(min-width: 768px) 25vw, 50vw',
+                                quality: 70,
+                            });
+                            return (
+                                <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
+                                    <DeferredImage
+                                        {...source}
+                                        alt=""
+                                        className="size-full object-cover"
+                                        loading={isCritical ? 'eager' : 'lazy'}
+                                        rootMargin="320px"
+                                        fetchPriority={isCritical ? 'high' : 'low'}
+                                        onError={(event) => {
+                                            const fallback = responsiveImage(fallbackSquares[index % fallbackSquares.length].src, { widths: [400], quality: 70 }).src;
+                                            event.currentTarget.srcset = '';
+                                            if (event.currentTarget.src !== fallback) event.currentTarget.src = fallback;
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
                 ))}
             </div>
         </div>
@@ -106,22 +118,14 @@ export function ShuffleHero({ providers = [], className }) {
     return (
         <section className={cn('bg-[#f4efe9] text-[#34231c]', className)}>
             <div className="page-container grid grid-cols-1 items-center gap-7 pb-8 pt-12 sm:pt-16 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
-                <motion.div
-                    initial={{ opacity: 0, y: 18 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.7, ease: 'easeOut' }}
-                >
+                <div className="hero-copy-enter">
                     <h1 className="mx-auto mt-2 max-w-[620px] text-center font-display text-[3rem] font-normal leading-[.9] text-[#34231c] sm:text-[3.7rem] md:mx-0 md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
                         <span>The Beauty Service </span>
                         <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
                     </h1>
-                    <motion.p
-                        animate={{ color: ['#4b3328', '#7d2e3c', '#15816f', '#4b3328'] }}
-                        className="mt-3 text-center font-display text-xl font-normal md:text-left sm:text-3xl"
-                        transition={{ duration: 8, ease: 'easeInOut', repeat: Infinity }}
-                    >
+                    <p className="hero-tagline-cycle mt-3 text-center font-display text-xl font-normal md:text-left sm:text-3xl">
                         Connect. Discover. Grow.
-                    </motion.p>
+                    </p>
                     <p className="mx-auto mt-3 max-w-xl text-center text-sm font-normal leading-6 text-[#5a4d46] md:mx-0 md:text-left md:text-lg md:leading-7">
                         Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.
                     </p>
@@ -159,7 +163,7 @@ export function ShuffleHero({ providers = [], className }) {
                             ))}
                         </div>
                     </div>
-                </motion.div>
+                </div>
                 <div className="mx-auto w-full md:max-w-none"><HeroImageMarquee providers={providers} /></div>
             </div>
         </section>

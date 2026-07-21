@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home, Menu, MessageCircle, Newspaper, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { buttonClass } from '../ui/Button';
 import ExpandableTabs from '../ui/ExpandableTabs';
-import OpportunityEnquiryModal from '../public/OpportunityEnquiryModal';
 import Icon from '../ui/Icon';
 import Logo from './Logo';
+
+const OpportunityEnquiryModal = lazy(() => import('../public/OpportunityEnquiryModal'));
 
 const links = [
     { label: 'Home', to: '/', end: true },
@@ -203,7 +204,7 @@ export default function PublicLayout() {
 
             <main className={isBookingPage ? 'pb-0' : 'pb-20 lg:pb-0'}><Outlet /></main>
 
-            {contactOpen && <OpportunityEnquiryModal onClose={() => setContactOpen(false)} />}
+            {contactOpen && <Suspense fallback={null}><OpportunityEnquiryModal onClose={() => setContactOpen(false)} /></Suspense>}
 
             {!hideFooter && <footer data-public-footer className="bg-plum-950 text-white">
                 <div className="page-container grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.25fr_.7fr_.7fr_.65fr] lg:py-16">

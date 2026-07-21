@@ -10,7 +10,13 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Playfair+Display:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    @isset($heroPreload)
+        <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+        <link rel="preload" as="image" href="{{ $heroPreload['src'] }}" @isset($heroPreload['srcset']) imagesrcset="{{ $heroPreload['srcset'] }}" imagesizes="{{ $heroPreload['sizes'] }}" @endisset fetchpriority="high">
+        <script>window.__BPHQ_HERO_IMAGES__ = @json($heroPreload['initialImages']);</script>
+    @endisset
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@400;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@400;600;700;800;900&display=swap" rel="stylesheet"></noscript>
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/main.jsx'])
 </head>

@@ -44,6 +44,10 @@ export function AuthProvider({ children }) {
     }, [rememberUser]);
 
     useEffect(() => {
+        if (!window.localStorage.getItem('bphq_auth_token')) {
+            setLoading(false);
+            return;
+        }
         refreshUser()
             .catch(() => setUser(null))
             .finally(() => setLoading(false));

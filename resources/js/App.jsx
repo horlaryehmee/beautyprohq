@@ -1,13 +1,12 @@
 import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { CurrencyProvider } from './context/CurrencyContext';
 import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
+import HomePage from './pages/public/HomePage';
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const HomePage = lazy(() => import('./pages/public/HomePage'));
 const DirectoryPage = lazy(() => import('./pages/public/DirectoryPage'));
 const NewsEventsPage = lazy(() => import('./pages/public/NewsEventsPage'));
 const OpportunitiesPage = lazy(() => import('./pages/public/OpportunitiesPage'));
@@ -61,6 +60,7 @@ const AdminAnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsPag
 const AdminSubscriptionsPage = lazy(() => import('./pages/admin/SubscriptionsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminDocumentationPage = lazy(() => import('./pages/admin/DocumentationPage'));
+const CurrencyRoute = lazy(() => import('./router/CurrencyRoute'));
 
 function RouteLoader() {
     return (
@@ -91,9 +91,8 @@ function AdminWorkspace() {
 export default function App() {
     return (
         <ErrorBoundary>
-            <CurrencyProvider>
-                <ScrollToTop />
-                <Suspense fallback={<RouteLoader />}>
+            <ScrollToTop />
+            <Suspense fallback={<RouteLoader />}>
                 <Routes>
                     <Route element={<PublicLayout />}>
                         <Route index element={<HomePage />} />
@@ -125,21 +124,23 @@ export default function App() {
 
                     <Route element={<ProtectedRoute roles={['provider']} />}>
                         <Route path="provider/onboarding" element={<ProviderOnboardingPage />} />
-                        <Route path="provider" element={<ProviderWorkspace />}>
-                            <Route index element={<ProviderOverviewPage />} />
-                            <Route path="profile" element={<ProviderProfileEditorPage />} />
-                            <Route path="services" element={<ProviderServicesPage />} />
-                            <Route path="bookings" element={<ProviderBookingsPage />} />
-                            <Route path="calendar" element={<ProviderCalendarPage />} />
-                            <Route path="subscription" element={<ProviderSubscriptionPage />} />
-                            <Route path="crm" element={<ProviderCrmPage />} />
-                            <Route path="loyalty" element={<ProviderLoyaltyPage />} />
-                            <Route path="payments" element={<ProviderPaymentsPage />} />
-                            <Route path="digital-products" element={<ProviderDigitalProductsPage />} />
-                            <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
-                            <Route path="analytics" element={<ProviderAnalyticsPage />} />
-                            <Route path="settings" element={<ProviderSettingsPage />} />
-                            <Route path="documentation" element={<ProviderDocumentationPage />} />
+                        <Route element={<CurrencyRoute />}>
+                            <Route path="provider" element={<ProviderWorkspace />}>
+                                <Route index element={<ProviderOverviewPage />} />
+                                <Route path="profile" element={<ProviderProfileEditorPage />} />
+                                <Route path="services" element={<ProviderServicesPage />} />
+                                <Route path="bookings" element={<ProviderBookingsPage />} />
+                                <Route path="calendar" element={<ProviderCalendarPage />} />
+                                <Route path="subscription" element={<ProviderSubscriptionPage />} />
+                                <Route path="crm" element={<ProviderCrmPage />} />
+                                <Route path="loyalty" element={<ProviderLoyaltyPage />} />
+                                <Route path="payments" element={<ProviderPaymentsPage />} />
+                                <Route path="digital-products" element={<ProviderDigitalProductsPage />} />
+                                <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
+                                <Route path="analytics" element={<ProviderAnalyticsPage />} />
+                                <Route path="settings" element={<ProviderSettingsPage />} />
+                                <Route path="documentation" element={<ProviderDocumentationPage />} />
+                            </Route>
                         </Route>
                     </Route>
 
@@ -155,28 +156,29 @@ export default function App() {
                     </Route>
 
                     <Route element={<ProtectedRoute roles={['admin']} />}>
-                        <Route path="admin" element={<AdminWorkspace />}>
-                            <Route index element={<AdminDashboardPage />} />
-                            <Route path="activity" element={<AdminActivityPage />} />
-                            <Route path="users" element={<AdminUsersPage />} />
-                            <Route path="users/:id" element={<AdminUserDetailPage />} />
-                            <Route path="directory" element={<AdminDirectoryPage />} />
-                            <Route path="verification" element={<AdminVerificationPage />} />
-                            <Route path="content" element={<AdminContentPage />} />
-                            <Route path="content/:type/new" element={<AdminContentEditorPage />} />
-                            <Route path="content/:type/:id/edit" element={<AdminContentEditorPage />} />
-                            <Route path="opportunities" element={<AdminOpportunitiesPage />} />
-                            <Route path="announcements" element={<AdminAnnouncementsPage />} />
-                            <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
-                            <Route path="settings" element={<AdminSettingsPage />} />
-                            <Route path="documentation" element={<AdminDocumentationPage />} />
+                        <Route element={<CurrencyRoute />}>
+                            <Route path="admin" element={<AdminWorkspace />}>
+                                <Route index element={<AdminDashboardPage />} />
+                                <Route path="activity" element={<AdminActivityPage />} />
+                                <Route path="users" element={<AdminUsersPage />} />
+                                <Route path="users/:id" element={<AdminUserDetailPage />} />
+                                <Route path="directory" element={<AdminDirectoryPage />} />
+                                <Route path="verification" element={<AdminVerificationPage />} />
+                                <Route path="content" element={<AdminContentPage />} />
+                                <Route path="content/:type/new" element={<AdminContentEditorPage />} />
+                                <Route path="content/:type/:id/edit" element={<AdminContentEditorPage />} />
+                                <Route path="opportunities" element={<AdminOpportunitiesPage />} />
+                                <Route path="announcements" element={<AdminAnnouncementsPage />} />
+                                <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+                                <Route path="settings" element={<AdminSettingsPage />} />
+                                <Route path="documentation" element={<AdminDocumentationPage />} />
+                            </Route>
                         </Route>
                     </Route>
 
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
-                </Suspense>
-            </CurrencyProvider>
+            </Suspense>
         </ErrorBoundary>
     );
 }
