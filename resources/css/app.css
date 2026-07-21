@@ -102,9 +102,11 @@
     animation: hero-tagline-cycle 8s ease-in-out infinite;
 }
 
-.homepage-deferred {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 760px;
+@media (min-width: 768px) {
+    .homepage-deferred {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 760px;
+    }
 }
 
 [data-bphq-first-paint] .hero-copy-enter,
