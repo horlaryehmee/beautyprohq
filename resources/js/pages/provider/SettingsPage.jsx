@@ -144,12 +144,6 @@ export default function ProviderSettingsPage() {
                         />
                     </Field>
 
-                    {!data.whatsapp_configured && (
-                        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
-                            WhatsApp alerts will start after the admin adds the Twilio WhatsApp credentials on the server.
-                        </p>
-                    )}
-
                     <div className="flex justify-end">
                         <Button busy={saving} type="submit">Save notifications</Button>
                     </div>
