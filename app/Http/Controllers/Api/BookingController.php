@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\ProviderProfile;
@@ -203,7 +204,9 @@ class BookingController extends Controller
         $booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
         $provider = $booking->provider;
 
-        if (! $provider?->whatsapp_notifications_enabled || blank($provider->whatsapp_number)) {
+        if (AppSetting::getValue('features.provider_whatsapp_notifications', '0') !== '1'
+            || ! $provider?->whatsapp_notifications_enabled
+            || blank($provider->whatsapp_number)) {
             return;
         }
 

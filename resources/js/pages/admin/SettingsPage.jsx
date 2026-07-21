@@ -7,16 +7,19 @@ export default function AdminSettingsPage() {
     const paystackResource = useApiResource('/admin/payment-settings/paystack', {});
     const stripeResource = useApiResource('/admin/payment-settings/stripe', {});
     const currencyResource = useApiResource('/admin/settings/currencies', {});
+    const featuresResource = useApiResource('/admin/settings/features', {});
     const { notify } = useDashboardToast();
     const [tab, setTab] = useState('platform');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
+    const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false });
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
     const [savingStripe, setSavingStripe] = useState(false);
     const [savingCurrency, setSavingCurrency] = useState(false);
+    const [savingFeatures, setSavingFeatures] = useState(false);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -56,6 +59,14 @@ export default function AdminSettingsPage() {
             live_secret_key: '',
         });
     }, [stripeResource.data]);
+
+    useEffect(() => {
+        const data = featuresResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setFeaturesForm({
+            provider_whatsapp_notifications: Boolean(data.provider_whatsapp_notifications),
+        });
+    }, [featuresResource.data]);
 
     const saveGateway = async (event) => {
         event.preventDefault();
@@ -115,13 +126,27 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const saveFeatures = async (event) => {
+        event.preventDefault();
+        setSavingFeatures(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/features', featuresForm);
+            featuresResource.setData(saved);
+            notify('Feature settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingFeatures(false);
+        }
+    };
+
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
-    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error;
+    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); }} />}
 
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
@@ -133,6 +158,31 @@ export default function AdminSettingsPage() {
             </div>
 
             {tab === 'platform' ? <>
+            <Card>
+                <CardHeader
+                    title="Provider features"
+                    description="Control which optional sections are available inside provider dashboards."
+                    action={<StatusBadge status={featuresForm.provider_whatsapp_notifications ? 'WhatsApp enabled' : 'WhatsApp hidden'} />}
+                />
+                {featuresResource.loading ? <LoadingBlock rows={2} /> : (
+                    <form className="mt-5 space-y-4" onSubmit={saveFeatures}>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <input
+                                checked={featuresForm.provider_whatsapp_notifications}
+                                className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                onChange={(event) => setFeaturesForm((current) => ({ ...current, provider_whatsapp_notifications: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span>
+                                <span className="block text-sm font-bold text-slate-900">Allow providers to use WhatsApp booking notifications</span>
+                                <span className="block text-sm text-slate-500">When off, the WhatsApp notification tab is hidden from providers and no WhatsApp booking alerts are sent.</span>
+                            </span>
+                        </label>
+                        <div className="flex justify-end"><Button busy={savingFeatures} type="submit">Save feature settings</Button></div>
+                    </form>
+                )}
+            </Card>
+
             <Card>
                 <CardHeader title="Provider plan checkout gateway" description="Choose which gateway providers use when they pay for a paid plan." action={<StatusBadge status={gatewayForm.subscription_gateway} />} />
                 {gatewayResource.loading ? <LoadingBlock rows={2} /> : (

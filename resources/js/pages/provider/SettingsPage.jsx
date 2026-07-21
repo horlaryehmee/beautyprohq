@@ -36,6 +36,11 @@ export default function ProviderSettingsPage() {
     const data = resource.data ?? {};
     const currencies = data.supported_currencies?.length ? data.supported_currencies : ['NGN', 'USD', 'EUR', 'GBP'];
     const connectedGateways = data.payment_gateways ?? [];
+    const providerTabs = [
+        ['general', 'General'],
+        ...(data.whatsapp_feature_enabled ? [['notifications', 'Notifications']] : []),
+        ['security', 'Security'],
+    ];
 
     useEffect(() => {
         if (!resource.data || !Object.keys(resource.data).length) return;
@@ -74,11 +79,7 @@ export default function ProviderSettingsPage() {
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
             <div className="flex gap-2 overflow-x-auto pb-1">
-                {[
-                    ['general', 'General'],
-                    ['notifications', 'Notifications'],
-                    ['security', 'Security'],
-                ].map(([key, label]) => (
+                {providerTabs.map(([key, label]) => (
                     <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
                 ))}
             </div>
@@ -114,9 +115,8 @@ export default function ProviderSettingsPage() {
                     </p>
                 )}
             </Card>
-            : tab === 'notifications' ? <Card>
+            : tab === 'notifications' && data.whatsapp_feature_enabled ? <Card>
                 <CardHeader
-                    action={<StatusBadge status={data.whatsapp_configured ? 'Twilio ready' : 'Twilio not configured'} />}
                     description="Receive customer booking details on WhatsApp when a new booking request is made."
                     title="WhatsApp booking alerts"
                 />

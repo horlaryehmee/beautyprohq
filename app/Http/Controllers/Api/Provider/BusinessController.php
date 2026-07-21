@@ -11,7 +11,7 @@ use App\Models\LoyaltyTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\User;
-use App\Services\TwilioWhatsAppService;
+use App\Models\AppSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -180,9 +180,9 @@ class BusinessController extends Controller
         return $this->success([
             'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
             'default_payment_gateway' => $provider->default_payment_gateway,
-            'whatsapp_number' => $provider->whatsapp_number,
-            'whatsapp_notifications_enabled' => (bool) $provider->whatsapp_notifications_enabled,
-            'whatsapp_configured' => app(TwilioWhatsAppService::class)->configured(),
+            'whatsapp_feature_enabled' => $this->providerWhatsappFeatureEnabled(),
+            'whatsapp_number' => $this->providerWhatsappFeatureEnabled() ? $provider->whatsapp_number : null,
+            'whatsapp_notifications_enabled' => $this->providerWhatsappFeatureEnabled() && (bool) $provider->whatsapp_notifications_enabled,
             'payment_gateways' => $provider->paymentAccounts()->where(function ($query): void {
                 $query->where('enabled', true)->orWhere('is_connected', true);
             })->pluck('gateway')->values(),
@@ -209,9 +209,18 @@ class BusinessController extends Controller
             abort_unless($hasGateway, 422, 'Connect and enable this payment gateway before making it your default.');
         }
 
+        if (! $this->providerWhatsappFeatureEnabled()) {
+            unset($validated['whatsapp_number'], $validated['whatsapp_notifications_enabled']);
+        }
+
         $provider->update($validated);
 
         return $this->settings($request);
+    }
+
+    private function providerWhatsappFeatureEnabled(): bool
+    {
+        return AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1';
     }
 
     public function paymentAccounts(Request $request): JsonResponse

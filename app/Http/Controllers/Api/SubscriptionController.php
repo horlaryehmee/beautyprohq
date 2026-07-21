@@ -176,6 +176,22 @@ class SubscriptionController extends Controller
         return $this->success($this->currencyPayload());
     }
 
+    public function adminFeatureSettings(): JsonResponse
+    {
+        return $this->success($this->featurePayload());
+    }
+
+    public function updateAdminFeatureSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider_whatsapp_notifications' => ['required', 'boolean'],
+        ]);
+
+        AppSetting::setValue('features.provider_whatsapp_notifications', $validated['provider_whatsapp_notifications'] ? '1' : '0');
+
+        return $this->success($this->featurePayload(), 'Feature settings saved.');
+    }
+
     public function updateAdminCurrencySettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -545,6 +561,13 @@ class SubscriptionController extends Controller
         return [
             'default' => $default,
             'supported' => $supported,
+        ];
+    }
+
+    private function featurePayload(): array
+    {
+        return [
+            'provider_whatsapp_notifications' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
         ];
     }
 
