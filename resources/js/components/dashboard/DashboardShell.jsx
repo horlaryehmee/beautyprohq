@@ -39,6 +39,7 @@ export const adminNavigation = [
     { label: 'Opportunities', to: '/admin/opportunities', icon: 'opportunity' },
     { label: 'Announcements', to: '/admin/announcements', icon: 'megaphone' },
     { label: 'Subscriptions', to: '/admin/subscriptions', icon: 'subscription' },
+    { label: 'Settings', to: '/admin/settings', icon: 'settings' },
 ];
 
 const roleLabels = { provider: 'Provider workspace', customer: 'Customer portal', admin: 'Admin console' };

@@ -52,6 +52,7 @@ import AdminContentEditorPage from './pages/admin/ContentEditorPage';
 import AdminOpportunitiesPage from './pages/admin/OpportunitiesPage';
 import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
 import AdminSubscriptionsPage from './pages/admin/SubscriptionsPage';
+import AdminSettingsPage from './pages/admin/SettingsPage';
 
 function RouteLoader() {
     return (
@@ -150,6 +151,7 @@ export default function App() {
                             <Route path="opportunities" element={<AdminOpportunitiesPage />} />
                             <Route path="announcements" element={<AdminAnnouncementsPage />} />
                             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+                            <Route path="settings" element={<AdminSettingsPage />} />
                         </Route>
                     </Route>
 

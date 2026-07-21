@@ -59,16 +59,24 @@ class SubscriptionController extends Controller
 
     public function adminPaystackSettings(): JsonResponse
     {
-        $publicKey = $this->paystackPublicKey();
-        $secretKey = $this->paystackSecretKey();
+        $mode = $this->paystackMode();
+        $testSecret = AppSetting::getValue('paystack.test_secret_key') ?: config('services.paystack.secret_key');
+        $liveSecret = AppSetting::getValue('paystack.live_secret_key');
 
         return $this->success([
-            'public_key' => $publicKey,
-            'secret_configured' => filled($secretKey),
-            'secret_last4' => filled($secretKey) ? substr($secretKey, -4) : null,
+            'mode' => $mode,
+            'test_public_key' => AppSetting::getValue('paystack.test_public_key') ?: config('services.paystack.public_key'),
+            'live_public_key' => AppSetting::getValue('paystack.live_public_key'),
+            'test_secret_configured' => filled($testSecret),
+            'live_secret_configured' => filled($liveSecret),
+            'test_secret_last4' => filled($testSecret) ? substr($testSecret, -4) : null,
+            'live_secret_last4' => filled($liveSecret) ? substr($liveSecret, -4) : null,
+            'active_secret_configured' => filled($this->paystackSecretKey()),
             'source' => [
-                'public_key' => filled(AppSetting::getValue('paystack.public_key')) ? 'admin_settings' : (filled(config('services.paystack.public_key')) ? 'env' : null),
-                'secret_key' => filled(AppSetting::getValue('paystack.secret_key')) ? 'admin_settings' : (filled(config('services.paystack.secret_key')) ? 'env' : null),
+                'test_public_key' => filled(AppSetting::getValue('paystack.test_public_key')) ? 'admin_settings' : (filled(config('services.paystack.public_key')) ? 'env' : null),
+                'test_secret_key' => filled(AppSetting::getValue('paystack.test_secret_key')) ? 'admin_settings' : (filled(config('services.paystack.secret_key')) ? 'env' : null),
+                'live_public_key' => filled(AppSetting::getValue('paystack.live_public_key')) ? 'admin_settings' : null,
+                'live_secret_key' => filled(AppSetting::getValue('paystack.live_secret_key')) ? 'admin_settings' : null,
             ],
             'callback_url' => url('/provider/subscription'),
         ]);
@@ -77,19 +85,49 @@ class SubscriptionController extends Controller
     public function updateAdminPaystackSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'public_key' => ['nullable', 'string', 'max:255'],
-            'secret_key' => ['nullable', 'string', 'max:255'],
+            'mode' => ['required', Rule::in(['test', 'live'])],
+            'test_public_key' => ['nullable', 'string', 'max:255'],
+            'test_secret_key' => ['nullable', 'string', 'max:255'],
+            'live_public_key' => ['nullable', 'string', 'max:255'],
+            'live_secret_key' => ['nullable', 'string', 'max:255'],
         ]);
 
-        if (array_key_exists('public_key', $validated)) {
-            AppSetting::setValue('paystack.public_key', $validated['public_key']);
+        AppSetting::setValue('paystack.mode', $validated['mode']);
+        AppSetting::setValue('paystack.test_public_key', $validated['test_public_key'] ?? null);
+        AppSetting::setValue('paystack.live_public_key', $validated['live_public_key'] ?? null);
+        if (filled($validated['test_secret_key'] ?? null)) {
+            AppSetting::setValue('paystack.test_secret_key', $validated['test_secret_key'], true);
         }
-
-        if (filled($validated['secret_key'] ?? null)) {
-            AppSetting::setValue('paystack.secret_key', $validated['secret_key'], true);
+        if (filled($validated['live_secret_key'] ?? null)) {
+            AppSetting::setValue('paystack.live_secret_key', $validated['live_secret_key'], true);
         }
 
         return $this->adminPaystackSettings();
+    }
+
+    public function adminCurrencySettings(): JsonResponse
+    {
+        return $this->success($this->currencyPayload());
+    }
+
+    public function updateAdminCurrencySettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'default' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
+            'rates' => ['required', 'array'],
+            'rates.*' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $rates = collect($validated['rates'])
+            ->only(array_keys(config('currencies.supported', [])))
+            ->map(fn ($rate) => (float) $rate)
+            ->all();
+        $rates[$validated['default']] = $rates[$validated['default']] ?: 1;
+
+        AppSetting::setValue('currency.default', $validated['default']);
+        AppSetting::setValue('currency.rates', json_encode($rates));
+
+        return $this->success($this->currencyPayload(), 'Currency settings saved.');
     }
 
     public function checkout(Request $request): JsonResponse
@@ -259,12 +297,41 @@ class SubscriptionController extends Controller
 
     private function paystackPublicKey(): ?string
     {
-        return AppSetting::getValue('paystack.public_key') ?: config('services.paystack.public_key');
+        return $this->paystackMode() === 'live'
+            ? AppSetting::getValue('paystack.live_public_key')
+            : (AppSetting::getValue('paystack.test_public_key') ?: config('services.paystack.public_key'));
     }
 
     private function paystackSecretKey(): ?string
     {
-        return AppSetting::getValue('paystack.secret_key') ?: config('services.paystack.secret_key');
+        return $this->paystackMode() === 'live'
+            ? AppSetting::getValue('paystack.live_secret_key')
+            : (AppSetting::getValue('paystack.test_secret_key') ?: config('services.paystack.secret_key'));
+    }
+
+    private function paystackMode(): string
+    {
+        return AppSetting::getValue('paystack.mode', 'test') === 'live' ? 'live' : 'test';
+    }
+
+    private function currencyPayload(): array
+    {
+        $default = AppSetting::getValue('currency.default') ?: config('currencies.default', 'NGN');
+        $savedRates = json_decode((string) AppSetting::getValue('currency.rates', ''), true) ?: [];
+        $supported = collect(config('currencies.supported', []))
+            ->map(fn (array $currency, string $code) => [
+                'code' => $code,
+                'name' => $currency['name'],
+                'symbol' => $currency['symbol'],
+                'rate' => (float) ($savedRates[$code] ?? $currency['rate']),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'default' => $default,
+            'supported' => $supported,
+        ];
     }
 
     private function paystackResponseMatchesPayment(array $data, SubscriptionPayment $payment): bool

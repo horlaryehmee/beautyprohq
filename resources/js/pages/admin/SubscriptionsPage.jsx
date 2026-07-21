@@ -31,16 +31,13 @@ export default function AdminSubscriptionsPage() {
     const [query, setQuery] = useState('');
     const [editingPlan, setEditingPlan] = useState(null);
     const [form, setForm] = useState({ name: '', price: '', currency: 'NGN', billing_period: 'monthly', features: '' });
-    const [paystackForm, setPaystackForm] = useState({ public_key: '', secret_key: '' });
     const [saving, setSaving] = useState(false);
-    const [savingPaystack, setSavingPaystack] = useState(false);
     const { notify } = useDashboardToast();
     const { supported } = useCurrency();
     const search = useDebouncedValue(query);
     const [page, setPage] = useState(1);
     const subscriptionsResource = useApiResource('/admin/subscriptions', [], { params: { page, per_page: 12, search: search || undefined } });
     const plansResource = useApiResource('/admin/subscription-plans', []);
-    const paystackResource = useApiResource('/admin/payment-settings/paystack', {});
     const subscriptions = normalize(subscriptionsResource.data);
     const plans = normalize(plansResource.data);
     const meta = metaFrom(subscriptionsResource.data);
@@ -55,14 +52,6 @@ export default function AdminSubscriptionsPage() {
         setPage(1);
     }, [search]);
 
-    useEffect(() => {
-        if (!paystackResource.data || !Object.keys(paystackResource.data).length) return;
-        setPaystackForm((current) => ({
-            ...current,
-            public_key: paystackResource.data.public_key ?? '',
-            secret_key: '',
-        }));
-    }, [paystackResource.data]);
 
     const startEdit = (plan) => {
         setEditingPlan(plan);
@@ -96,21 +85,6 @@ export default function AdminSubscriptionsPage() {
         }
     };
 
-    const savePaystack = async (event) => {
-        event.preventDefault();
-        setSavingPaystack(true);
-        try {
-            const saved = await apiRequest('put', '/admin/payment-settings/paystack', paystackForm);
-            paystackResource.setData(saved);
-            setPaystackForm((current) => ({ ...current, secret_key: '' }));
-            notify('Paystack settings saved.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        } finally {
-            setSavingPaystack(false);
-        }
-    };
-
     const exportCsv = () => {
         const rows = [['Name', 'Email', 'Plan', 'Status', 'Amount', 'Started'], ...subscriptions.map((item) => [item.user?.name ?? '', item.user?.email ?? item.email ?? '', item.plan ?? '', item.status ?? '', item.amount ?? 0, item.created_at ?? ''])];
         const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
@@ -130,7 +104,7 @@ export default function AdminSubscriptionsPage() {
                 title="Subscriptions"
             />
 
-            {(subscriptionsResource.error || plansResource.error || paystackResource.error) && <ErrorState message={subscriptionsResource.error || plansResource.error || paystackResource.error} onRetry={() => { subscriptionsResource.reload(); plansResource.reload(); paystackResource.reload(); }} />}
+            {(subscriptionsResource.error || plansResource.error) && <ErrorState message={subscriptionsResource.error || plansResource.error} onRetry={() => { subscriptionsResource.reload(); plansResource.reload(); }} />}
 
             <div className="grid gap-4 sm:grid-cols-3">
                 <StatCard icon="subscription" label="Active plans" tone="emerald" value={active} />
@@ -159,31 +133,6 @@ export default function AdminSubscriptionsPage() {
                             </article>
                         ))}
                     </div>
-                )}
-            </Card>
-
-            <Card>
-                <CardHeader
-                    title="Paystack payment gateway"
-                    description="Configure the admin Paystack account used only for provider plan subscription payments. Provider settlement accounts are not used here."
-                    action={paystackResource.data?.secret_configured ? <StatusBadge status="configured" /> : <StatusBadge status="missing secret" />}
-                />
-                {paystackResource.loading ? <LoadingBlock rows={3} /> : (
-                    <form className="mt-5 grid gap-4 lg:grid-cols-2" onSubmit={savePaystack}>
-                        <Field label="Paystack public key" hint="Starts with pk_test_ or pk_live_. This can be shown to browsers.">
-                            <input className={inputClass} onChange={(event) => setPaystackForm((current) => ({ ...current, public_key: event.target.value }))} placeholder="pk_test_..." value={paystackForm.public_key} />
-                        </Field>
-                        <Field label="Paystack secret key" hint={paystackResource.data?.secret_configured ? `Leave blank to keep existing secret ending ${paystackResource.data.secret_last4}.` : 'Required before providers can pay for plans.'}>
-                            <input className={inputClass} onChange={(event) => setPaystackForm((current) => ({ ...current, secret_key: event.target.value }))} placeholder="sk_test_..." type="password" value={paystackForm.secret_key} />
-                        </Field>
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-800 lg:col-span-2">
-                            <p className="font-black">Payment ownership guard</p>
-                            <p className="mt-1">Subscription checkout creates a unique reference for the logged-in provider. Verification activates only that same user when Paystack returns the matching user ID, local payment ID, plan ID, reference, amount, and currency.</p>
-                        </div>
-                        <div className="flex justify-end lg:col-span-2">
-                            <Button busy={savingPaystack} type="submit">Save Paystack settings</Button>
-                        </div>
-                    </form>
                 )}
             </Card>
 
