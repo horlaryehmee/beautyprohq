@@ -162,7 +162,7 @@ class BookingController extends Controller
     public function checkoutPayment(Request $request, Payment $payment): JsonResponse
     {
         $validated = $request->validate([
-            'gateway' => ['nullable', 'string', 'in:paystack,stripe'],
+            'gateway' => ['nullable', 'string', 'in:paystack,stripe,paypal'],
             'payment_token' => ['nullable', 'string'],
         ]);
 
@@ -194,8 +194,10 @@ class BookingController extends Controller
 
         if ($gateway === 'paystack') {
             $checkout = $this->initializePaystackBookingCheckout($payment, $account, $reference, $metadata);
-        } else {
+        } elseif ($gateway === 'stripe') {
             $checkout = $this->initializeStripeBookingCheckout($payment, $account, $reference, $metadata);
+        } else {
+            $checkout = $this->initializePaypalBookingCheckout($payment, $account, $reference, $metadata);
         }
 
         $payment->update([
@@ -236,6 +238,8 @@ class BookingController extends Controller
             $this->verifyPaystackBookingPayment($payment);
         } elseif ($payment->gateway === 'stripe') {
             $this->verifyStripeBookingPayment($payment, $validated['session_id'] ?? null);
+        } elseif ($payment->gateway === 'paypal') {
+            $this->verifyPaypalBookingPayment($payment, $validated['session_id'] ?? null);
         } else {
             abort(422, 'Unknown payment gateway.');
         }
@@ -259,7 +263,7 @@ class BookingController extends Controller
 
     private function preferredProviderGateway(Payment $payment): string
     {
-        foreach (['paystack', 'stripe'] as $gateway) {
+        foreach (['paystack', 'stripe', 'paypal'] as $gateway) {
             $account = $payment->provider->paymentAccounts
                 ->first(fn ($item) => $item->gateway === $gateway && ($item->enabled || $item->is_connected));
             if ($account) {
@@ -338,6 +342,48 @@ class BookingController extends Controller
         ];
     }
 
+    private function initializePaypalBookingCheckout(Payment $payment, $account, string $reference, array $metadata): array
+    {
+        $accessToken = $this->paypalAccessToken($account);
+        abort_unless($accessToken, 422, 'This provider PayPal account cannot create orders.');
+
+        $baseUrl = $this->paypalBaseUrl($account);
+        $response = Http::withToken($accessToken)->post($baseUrl.'/v2/checkout/orders', [
+            'intent' => 'CAPTURE',
+            'purchase_units' => [[
+                'reference_id' => $reference,
+                'custom_id' => $reference,
+                'description' => $payment->booking->service->name ?? 'BeautyPro HQ booking',
+                'amount' => [
+                    'currency_code' => strtoupper($payment->currency),
+                    'value' => number_format((float) $payment->amount, 2, '.', ''),
+                ],
+            ]],
+            'payment_source' => [
+                'paypal' => [
+                    'experience_context' => [
+                        'return_url' => url('/customer/bookings?payment_reference='.$reference),
+                        'cancel_url' => url('/customer/bookings'),
+                    ],
+                ],
+            ],
+        ]);
+
+        abort_unless($response->successful(), 422, $response->json('message') ?: data_get($response->json(), 'details.0.description') ?: 'PayPal order could not be created.');
+
+        $data = $response->json();
+        $approvalUrl = collect($data['links'] ?? [])->firstWhere('rel', 'approve')['href'] ?? null;
+        abort_unless($approvalUrl, 422, 'PayPal approval URL was not returned.');
+
+        return [
+            'authorization_url' => $approvalUrl,
+            'metadata' => [
+                'paypal_order_id' => $data['id'] ?? null,
+                'checkout_created_at' => now()->toIso8601String(),
+            ],
+        ];
+    }
+
     private function verifyPaystackBookingPayment(Payment $payment): void
     {
         $account = $payment->provider->paymentAccounts
@@ -404,6 +450,54 @@ class BookingController extends Controller
         });
     }
 
+    private function verifyPaypalBookingPayment(Payment $payment, ?string $orderId): void
+    {
+        $account = $payment->provider->paymentAccounts
+            ->first(fn ($item) => (int) $item->id === (int) ($payment->metadata['provider_payment_account_id'] ?? 0) && $item->gateway === 'paypal');
+        abort_unless($account, 422, 'Provider PayPal account not found.');
+
+        $accessToken = $this->paypalAccessToken($account);
+        abort_unless($accessToken, 422, 'This provider PayPal account cannot verify payments.');
+
+        $orderId ??= $payment->metadata['paypal_order_id'] ?? null;
+        abort_unless($orderId, 422, 'PayPal order is missing.');
+
+        $baseUrl = $this->paypalBaseUrl($account);
+        $capture = Http::withToken($accessToken)->withHeaders([
+            'PayPal-Request-Id' => $payment->reference,
+        ])->post($baseUrl.'/v2/checkout/orders/'.rawurlencode($orderId).'/capture');
+
+        if (! $capture->successful() && $capture->status() === 422) {
+            $details = Http::withToken($accessToken)->get($baseUrl.'/v2/checkout/orders/'.rawurlencode($orderId));
+            abort_unless($details->successful(), 422, $capture->json('message') ?: 'PayPal payment could not be captured.');
+            $data = $details->json();
+        } else {
+            abort_unless($capture->successful(), 422, $capture->json('message') ?: data_get($capture->json(), 'details.0.description') ?: 'PayPal payment could not be captured.');
+            $data = $capture->json();
+        }
+
+        abort_unless(($data['status'] ?? null) === 'COMPLETED', 422, 'PayPal payment has not completed yet.');
+        $purchaseUnit = $data['purchase_units'][0] ?? [];
+        abort_unless(($purchaseUnit['reference_id'] ?? null) === $payment->reference || ($purchaseUnit['custom_id'] ?? null) === $payment->reference, 422, 'PayPal reference mismatch.');
+
+        $amount = data_get($purchaseUnit, 'payments.captures.0.amount.value') ?? data_get($purchaseUnit, 'amount.value');
+        $currency = data_get($purchaseUnit, 'payments.captures.0.amount.currency_code') ?? data_get($purchaseUnit, 'amount.currency_code');
+        abort_unless((float) $amount === (float) number_format((float) $payment->amount, 2, '.', ''), 422, 'Payment amount mismatch.');
+        abort_unless(strtoupper((string) $payment->currency) === strtoupper((string) $currency), 422, 'Payment currency mismatch.');
+
+        DB::transaction(function () use ($payment, $data): void {
+            $payment->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'metadata' => [
+                    ...($payment->metadata ?? []),
+                    'verified_at' => now()->toIso8601String(),
+                    'gateway_response' => $data,
+                ],
+            ]);
+        });
+    }
+
     private function assertVerifiedPaymentPayload(Payment $payment, array $meta, int $amountMinor, string $currency): void
     {
         $localMeta = $payment->metadata ?? [];
@@ -430,6 +524,31 @@ class BookingController extends Controller
         $key = $settings['secret_key'] ?? null;
 
         return is_string($key) && $key !== '' ? $key : null;
+    }
+
+    private function paypalAccessToken($account): ?string
+    {
+        $settings = $account->settings ?? [];
+        $clientId = $account->public_key ?: ($settings['client_id'] ?? null);
+        $secret = $settings['secret_key'] ?? null;
+        if (! is_string($clientId) || $clientId === '' || ! is_string($secret) || $secret === '') {
+            return null;
+        }
+
+        $response = Http::withBasicAuth($clientId, $secret)
+            ->asForm()
+            ->post($this->paypalBaseUrl($account).'/v1/oauth2/token', [
+                'grant_type' => 'client_credentials',
+            ]);
+
+        return $response->successful() ? $response->json('access_token') : null;
+    }
+
+    private function paypalBaseUrl($account): string
+    {
+        $mode = ($account->settings ?? [])['mode'] ?? 'sandbox';
+
+        return $mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
     }
 
     public function show(Request $request, Booking $booking): JsonResponse

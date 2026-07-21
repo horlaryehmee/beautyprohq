@@ -151,6 +151,7 @@ class BusinessController extends Controller
             ->map(function ($account) {
                 $settings = $account->settings ?? [];
                 $account->has_secret_key = filled($settings['secret_key'] ?? null);
+                $account->mode = $settings['mode'] ?? null;
 
                 return $account;
             });
@@ -161,7 +162,7 @@ class BusinessController extends Controller
     public function updatePaymentAccount(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'gateway' => ['required', Rule::in(['paystack', 'stripe'])],
+            'gateway' => ['required', Rule::in(['paystack', 'stripe', 'paypal'])],
             'account_reference' => ['nullable', 'string', 'max:255'],
             'account_name' => ['nullable', 'string', 'max:255'],
             'account_identifier' => ['nullable', 'string', 'max:255'],
