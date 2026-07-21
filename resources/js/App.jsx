@@ -12,6 +12,7 @@ import NewsEventsPage from './pages/public/NewsEventsPage';
 import OpportunitiesPage from './pages/public/OpportunitiesPage';
 import OpportunityDetailPage from './pages/public/OpportunityDetailPage';
 import BookingConfirmationPage from './pages/public/BookingConfirmationPage';
+import ProviderBookingPage from './pages/public/ProviderBookingPage';
 import CommunityPage from './pages/public/CommunityPage';
 import ContentDetailPage from './pages/public/ContentDetailPage';
 import ProviderProfilePage from './pages/public/ProviderProfilePage';
@@ -105,6 +106,8 @@ export default function App() {
                         <Route path="booking-confirmation" element={<BookingConfirmationPage />} />
                         <Route path="community" element={<CommunityPage />} />
                         <Route path="community/:id" element={<ContentDetailPage type="community" />} />
+                        <Route path="providers/:provider/book/:serviceId" element={<ProviderBookingPage />} />
+                        <Route path="providers/:provider/book" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider" element={<ProviderProfilePage />} />
                     </Route>
 

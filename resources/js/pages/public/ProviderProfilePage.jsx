@@ -9,7 +9,6 @@ import Button, { buttonClass } from '../../components/ui/Button';
 import { EmptyState, InlineAlert, PageLoader } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
-import BookingModal from '../../components/public/BookingModal';
 import { currency, mediaUrl, normalizeLinks, providerIdentity, safeUrl, shortDate } from '../../lib/utils';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -166,8 +165,6 @@ export default function ProviderProfilePage() {
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('booking');
     const [selectedCategory, setSelectedCategory] = useState('All');
-    const [bookingService, setBookingService] = useState(null);
-    const [showBooking, setShowBooking] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saving, setSaving] = useState(false);
     const [showReview, setShowReview] = useState(false);
@@ -250,8 +247,7 @@ export default function ProviderProfilePage() {
             toast.error('This provider is not accepting direct bookings on BeautyPro HQ yet.');
             return;
         }
-        setBookingService(service);
-        setShowBooking(true);
+        navigate(`/providers/${identifier}/book${service?.id ? `/${service.id}` : ''}`);
     }
 
     async function shareProfile() {
@@ -818,7 +814,6 @@ export default function ProviderProfilePage() {
                 </div>
             )}
 
-            <BookingModal open={showBooking && canBookDirectly} onClose={() => setShowBooking(false)} provider={provider} services={services} initialService={bookingService} />
             <ReviewModal open={showReview} onClose={() => setShowReview(false)} providerName={pro.name} onSubmit={submitReview} submitting={reviewSubmitting} />
         </>
     );

@@ -155,7 +155,7 @@ function Stepper({ step }) {
     );
 }
 
-export default function BookingModal({ open, onClose, provider, services = [], initialService, onBooked }) {
+export default function BookingModal({ open, onClose, provider, services = [], initialService, onBooked, standalone = false }) {
     const pro = providerIdentity(provider);
     const providerId = provider?.provider_id ?? pro.id ?? provider?.id;
     const { user } = useAuth();
@@ -175,7 +175,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [monthOffset, setMonthOffset] = useState(0);
 
-    const selectedService = useMemo(() => services.find((item) => String(item.id) === String(serviceId)), [services, serviceId]);
+    const availableServices = useMemo(() => initialService ? [initialService] : services, [initialService, services]);
+    const selectedService = useMemo(() => availableServices.find((item) => String(item.id) === String(serviceId)), [availableServices, serviceId]);
     const days = useMemo(() => monthDateOptions(monthOffset), [monthOffset]);
     const bookingFields = useMemo(() => (Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : []).filter((field) => field?.label).slice(0, 8), [provider]);
     const slots = useMemo(() => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date), [availabilityData, selectedService?.duration_minutes, date]);
@@ -184,7 +185,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     useEffect(() => {
         if (!open) return undefined;
         setStep(1);
-        setServiceId(String(initialService?.id ?? services[0]?.id ?? ''));
+        setServiceId(String(initialService?.id ?? availableServices[0]?.id ?? ''));
         setDate('');
         setTime('');
         setNotes('');
@@ -195,14 +196,18 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setCheckoutUrl('');
         setMonthOffset(0);
         setError('');
-        document.body.style.overflow = 'hidden';
+        if (!standalone) {
+            document.body.style.overflow = 'hidden';
+        }
         const onKeyDown = (event) => event.key === 'Escape' && onClose();
         window.addEventListener('keydown', onKeyDown);
         return () => {
-            document.body.style.overflow = '';
+            if (!standalone) {
+                document.body.style.overflow = '';
+            }
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, initialService, services, onClose, user]);
+    }, [open, initialService, availableServices, onClose, standalone, user]);
 
     useEffect(() => {
         if (!open || !date || !pro.slug) return;
@@ -308,16 +313,15 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         );
     }
 
-    return (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#1f1512]/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-            <section className="flex h-[100dvh] w-full flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-[2rem]" role="dialog" aria-modal="true" aria-labelledby="booking-title">
+    const content = (
+            <section className={`flex w-full flex-col overflow-hidden bg-white ${standalone ? 'min-h-[calc(100dvh-5rem)] rounded-[1.5rem] border border-stone-200 shadow-sm' : 'h-[100dvh] rounded-t-[2rem] shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-[2rem]'}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="booking-title">
                 <div className="shrink-0 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Booking</p>
                             <h2 id="booking-title" className="mt-0.5 truncate font-display text-xl font-normal text-[#34231c] sm:text-2xl">Book with {pro.name}</h2>
                         </div>
-                        <button type="button" className="grid size-10 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:text-[#34231c]" onClick={onClose} aria-label="Close booking form"><Icon name="x" /></button>
+                        <button type="button" className="grid size-10 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:text-[#34231c]" onClick={onClose} aria-label={standalone ? 'Go back' : 'Close booking form'}><Icon name={standalone ? 'chevronLeft' : 'x'} /></button>
                     </div>
                     <div className="mt-3"><Stepper step={step} /></div>
                 </div>
@@ -358,13 +362,13 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <section>
                                             <div className="flex items-end justify-between gap-3">
                                                 <div>
-                                                    <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">Choose service</h3>
-                                                    <p className="text-xs font-semibold text-stone-500">Swipe to see more services.</p>
+                                                    <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">{initialService ? 'Selected service' : 'Choose service'}</h3>
+                                                    <p className="text-xs font-semibold text-stone-500">{initialService ? 'This booking is based on the service selected from the profile.' : 'Swipe to see more services.'}</p>
                                                 </div>
                                                 {selectedService && <span className="shrink-0 rounded-full bg-[#f4efe9] px-3 py-1 text-xs font-black text-[#7d2e3c]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</span>}
                                             </div>
                                             <div className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
-                                                {services.map((service) => (
+                                                {availableServices.map((service) => (
                                                     <button key={service.id} type="button" onClick={() => setServiceId(String(service.id))} className={`min-w-[76vw] snap-start rounded-2xl border p-4 text-left transition sm:min-w-0 ${String(serviceId) === String(service.id) ? 'border-[#34231c] bg-[#34231c] text-white' : 'border-stone-200 bg-white text-[#34231c] hover:border-[#c9bdb2]'}`}>
                                                         <p className="line-clamp-1 font-bold">{service.name}</p>
                                                         <div className="mt-2 flex items-center justify-between gap-3 text-xs font-black">
@@ -477,6 +481,15 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                     </div>
                 )}
             </section>
+    );
+
+    if (standalone) {
+        return content;
+    }
+
+    return (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#1f1512]/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+            {content}
         </div>
     );
 }
