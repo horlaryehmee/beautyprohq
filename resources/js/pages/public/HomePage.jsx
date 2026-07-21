@@ -11,9 +11,7 @@ import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
-import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import { Marquee } from '../../components/ui/marquee';
-import Seo from '../../components/Seo';
 import { mediaUrl, providerIdentity, responsiveImage, shortDate } from '../../lib/utils';
 
 function list(value) {
@@ -285,7 +283,7 @@ function VerifiedProfessionalCard({ provider }) {
     );
 }
 
-export default function HomePage() {
+export default function HomePage({ onVerifiedProviders }) {
     const toast = useToast();
     const railRef = useRef(null);
     const providersRailRef = useRef(null);
@@ -314,6 +312,9 @@ export default function HomePage() {
     useEffect(() => { load(); }, [load]);
 
     const verified = useMemo(() => list(data?.verified_professionals ?? data?.featured_providers), [data]);
+    useEffect(() => {
+        if (verified.length) onVerifiedProviders?.(verified);
+    }, [onVerifiedProviders, verified]);
     const newsAndEvents = useMemo(() => {
         const items = [
             ...list(data?.news).map((item) => ({ ...item, _kind: 'news' })),
@@ -358,12 +359,6 @@ export default function HomePage() {
 
     return (
         <>
-            <Seo
-                title="The Beauty Service Ecosystem"
-                description="Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry."
-            />
-            <ShuffleHero providers={verified} />
-
             {error && (
                 <div className="page-container py-6">
                     <InlineAlert>

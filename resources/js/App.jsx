@@ -5,7 +5,7 @@ import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
-import HomePage from './pages/public/HomePage';
+import HomeLandingPage from './pages/public/HomeLandingPage';
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const DirectoryPage = lazy(() => import('./pages/public/DirectoryPage'));
 const NewsEventsPage = lazy(() => import('./pages/public/NewsEventsPage'));
@@ -95,7 +95,7 @@ export default function App() {
             <Suspense fallback={<RouteLoader />}>
                 <Routes>
                     <Route element={<PublicLayout />}>
-                        <Route index element={<HomePage />} />
+                        <Route index element={<HomeLandingPage />} />
                         <Route path="directory" element={<DirectoryPage />} />
                         <Route path="news" element={<NewsEventsPage initialTab="news" />} />
                         <Route path="events" element={<NewsEventsPage initialTab="event" />} />

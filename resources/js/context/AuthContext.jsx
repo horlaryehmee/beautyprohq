@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import api, { ensureCsrfCookie, unwrap } from '../lib/api';
 
 const AuthContext = createContext({
     user: null,
@@ -23,6 +22,7 @@ export function AuthProvider({ children }) {
 
     const refreshUser = useCallback(async () => {
         const tokenAtStart = window.localStorage.getItem('bphq_auth_token');
+        const { default: api, unwrap } = await import('../lib/api');
         try {
             const response = await api.get('/auth/me');
             const payload = unwrap(response);
@@ -54,6 +54,7 @@ export function AuthProvider({ children }) {
     }, [refreshUser]);
 
     const login = useCallback(async (credentials) => {
+        const { default: api, ensureCsrfCookie, unwrap } = await import('../lib/api');
         await ensureCsrfCookie();
         const response = await api.post('/auth/login', credentials);
         const payload = unwrap(response);
@@ -69,6 +70,7 @@ export function AuthProvider({ children }) {
     }, [rememberUser]);
 
     const register = useCallback(async (details) => {
+        const { default: api, ensureCsrfCookie, unwrap } = await import('../lib/api');
         await ensureCsrfCookie();
         const response = await api.post('/auth/register', details);
         const payload = unwrap(response);
@@ -81,6 +83,7 @@ export function AuthProvider({ children }) {
     }, [rememberUser]);
 
     const logout = useCallback(async () => {
+        const { default: api } = await import('../lib/api');
         try {
             await api.post('/auth/logout');
         } finally {

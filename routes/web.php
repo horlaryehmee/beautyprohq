@@ -1,17 +1,21 @@
 <?php
 
 use App\Models\ProviderProfile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    $photos = ProviderProfile::directory()
-        ->where('verified', true)
-        ->orderByDesc('rating')
-        ->orderBy('id')
-        ->limit(8)
-        ->pluck('profile_photo')
-        ->filter()
-        ->values();
+    $photos = collect(Cache::store('file')->remember('homepage.hero.photos.v1', now()->addMinutes(5), fn () => (
+        ProviderProfile::directory()
+            ->where('verified', true)
+            ->orderByDesc('rating')
+            ->orderBy('id')
+            ->limit(8)
+            ->pluck('profile_photo')
+            ->filter()
+            ->values()
+            ->all()
+    )));
     $photo = $photos->first();
     $heroPreload = null;
 
