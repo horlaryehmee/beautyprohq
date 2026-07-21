@@ -40,10 +40,19 @@ class BookingController extends Controller
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'time' => ['required', 'date_format:H:i'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['required', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
+            'customer.name' => ['required', 'string', 'max:120'],
+            'customer.email' => ['required', 'email:rfc', 'max:255'],
+            'customer.phone' => ['required', 'string', 'max:40'],
         ]);
+
+        $request->user()->update([
+            'name' => $validated['customer']['name'],
+            'phone' => $validated['customer']['phone'],
+        ]);
+        unset($validated['customer']);
 
         return $this->createBooking($request, $validated, $request->user());
     }
@@ -55,12 +64,12 @@ class BookingController extends Controller
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'time' => ['required', 'date_format:H:i'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+            'notes' => ['required', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email:rfc', 'max:255'],
-            'customer.phone' => ['nullable', 'string', 'max:40'],
+            'customer.phone' => ['required', 'string', 'max:40'],
         ]);
 
         $email = Str::lower(trim($validated['customer']['email']));
@@ -429,7 +438,7 @@ class BookingController extends Controller
             'amount' => (int) round((float) $payment->amount * 100),
             'currency' => $payment->currency,
             'reference' => $reference,
-            'callback_url' => url('/customer/bookings?payment_reference='.$reference),
+            'callback_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&payment_token='.($payment->metadata['payment_token'] ?? ''),
             'metadata' => $metadata,
         ]);
 
@@ -455,8 +464,8 @@ class BookingController extends Controller
             'mode' => 'payment',
             'client_reference_id' => $reference,
             'customer_email' => $payment->booking->customer->email,
-            'success_url' => url('/customer/bookings?payment_reference='.$reference.'&session_id={CHECKOUT_SESSION_ID}'),
-            'cancel_url' => url('/customer/bookings'),
+            'success_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&session_id={CHECKOUT_SESSION_ID}&payment_token='.($payment->metadata['payment_token'] ?? ''),
+            'cancel_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&payment_token='.($payment->metadata['payment_token'] ?? '').'&cancelled=1',
             'line_items[0][quantity]' => 1,
             'line_items[0][price_data][currency]' => strtolower($payment->currency),
             'line_items[0][price_data][unit_amount]' => (int) round((float) $payment->amount * 100),
@@ -506,8 +515,8 @@ class BookingController extends Controller
             'payment_source' => [
                 'paypal' => [
                     'experience_context' => [
-                        'return_url' => url('/customer/bookings?payment_reference='.$reference),
-                        'cancel_url' => url('/customer/bookings'),
+                        'return_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&payment_token='.($payment->metadata['payment_token'] ?? ''),
+                        'cancel_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&payment_token='.($payment->metadata['payment_token'] ?? '').'&cancelled=1',
                     ],
                 ],
             ],
