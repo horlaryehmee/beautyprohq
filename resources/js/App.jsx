@@ -41,6 +41,7 @@ import CustomerBookingsPage from './pages/customer/BookingsPage';
 import CustomerRewardsPage from './pages/customer/RewardsPage';
 import CustomerSavedProvidersPage from './pages/customer/SavedProvidersPage';
 import CustomerNotificationsPage from './pages/customer/NotificationsPage';
+import CustomerSettingsPage from './pages/customer/SettingsPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/DashboardPage';
 import AdminActivityPage from './pages/admin/ActivityPage';
@@ -54,7 +55,6 @@ import AdminOpportunitiesPage from './pages/admin/OpportunitiesPage';
 import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
 import AdminSubscriptionsPage from './pages/admin/SubscriptionsPage';
 import AdminSettingsPage from './pages/admin/SettingsPage';
-import SecurityPage from './pages/dashboard/SecurityPage';
 
 function RouteLoader() {
     return (
@@ -127,7 +127,6 @@ export default function App() {
                             <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
                             <Route path="analytics" element={<ProviderAnalyticsPage />} />
                             <Route path="settings" element={<ProviderSettingsPage />} />
-                            <Route path="security" element={<SecurityPage />} />
                         </Route>
                     </Route>
 
@@ -138,7 +137,7 @@ export default function App() {
                             <Route path="rewards" element={<CustomerRewardsPage />} />
                             <Route path="saved-providers" element={<CustomerSavedProvidersPage />} />
                             <Route path="notifications" element={<CustomerNotificationsPage />} />
-                            <Route path="security" element={<SecurityPage />} />
+                            <Route path="settings" element={<CustomerSettingsPage />} />
                         </Route>
                     </Route>
 
@@ -157,7 +156,6 @@ export default function App() {
                             <Route path="announcements" element={<AdminAnnouncementsPage />} />
                             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
                             <Route path="settings" element={<AdminSettingsPage />} />
-                            <Route path="security" element={<SecurityPage />} />
                         </Route>
                     </Route>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Card, CardHeader, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import SecurityPage from '../dashboard/SecurityPage';
 
 export default function AdminSettingsPage() {
     const gatewayResource = useApiResource('/admin/payment-settings/gateway', {});
@@ -7,6 +8,7 @@ export default function AdminSettingsPage() {
     const stripeResource = useApiResource('/admin/payment-settings/stripe', {});
     const currencyResource = useApiResource('/admin/settings/currencies', {});
     const { notify } = useDashboardToast();
+    const [tab, setTab] = useState('platform');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
@@ -121,6 +123,16 @@ export default function AdminSettingsPage() {
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
             {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); }} />}
 
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {[
+                    ['platform', 'Platform'],
+                    ['security', 'Security'],
+                ].map(([key, label]) => (
+                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
+                ))}
+            </div>
+
+            {tab === 'platform' ? <>
             <Card>
                 <CardHeader title="Provider plan checkout gateway" description="Choose which gateway providers use when they pay for a paid plan." action={<StatusBadge status={gatewayForm.subscription_gateway} />} />
                 {gatewayResource.loading ? <LoadingBlock rows={2} /> : (
@@ -241,6 +253,7 @@ export default function AdminSettingsPage() {
                     </form>
                 )}
             </Card>
+            </> : <SecurityPage embedded />}
         </div>
     );
 }

@@ -14,6 +14,7 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
+import SecurityPage from '../dashboard/SecurityPage';
 
 const gatewayLabels = {
     paystack: 'Paystack',
@@ -24,6 +25,7 @@ const gatewayLabels = {
 export default function ProviderSettingsPage() {
     const resource = useApiResource('/provider/settings', {});
     const [form, setForm] = useState({ default_currency: 'NGN', default_payment_gateway: '' });
+    const [tab, setTab] = useState('general');
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const data = resource.data ?? {};
@@ -62,7 +64,16 @@ export default function ProviderSettingsPage() {
             <PageHeader description="Set your provider defaults for pricing and customer booking payments." eyebrow="Provider" title="Settings" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
-            <Card>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {[
+                    ['general', 'General'],
+                    ['security', 'Security'],
+                ].map(([key, label]) => (
+                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
+                ))}
+            </div>
+
+            {tab === 'general' ? <Card>
                 <CardHeader
                     action={form.default_payment_gateway ? <StatusBadge status={`${gatewayLabels[form.default_payment_gateway] ?? form.default_payment_gateway} default`} /> : <StatusBadge status="no default gateway" />}
                     description="These settings affect new services and the gateway customers are sent to when they book you."
@@ -93,6 +104,7 @@ export default function ProviderSettingsPage() {
                     </p>
                 )}
             </Card>
+            : <SecurityPage embedded />}
         </div>
     );
 }

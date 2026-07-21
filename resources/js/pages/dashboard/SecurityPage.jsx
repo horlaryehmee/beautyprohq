@@ -15,7 +15,7 @@ import {
     useDashboardToast,
 } from '../../components/dashboard';
 
-export default function SecurityPage() {
+export default function SecurityPage({ embedded = false }) {
     const resource = useApiResource('/auth/two-factor', {});
     const [code, setCode] = useState('');
     const [password, setPassword] = useState('');
@@ -76,7 +76,7 @@ export default function SecurityPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader description="Protect your account with a second verification code during login." eyebrow="Account" title="Security" />
+            {!embedded && <PageHeader description="Protect your account with a second verification code during login." eyebrow="Account" title="Security" />}
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
             <Card>
