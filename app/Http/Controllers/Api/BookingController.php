@@ -39,6 +39,7 @@ class BookingController extends Controller
             'time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
+            'redeem_loyalty' => ['nullable', 'boolean'],
         ]);
 
         return $this->createBooking($request, $validated, $request->user());
@@ -53,6 +54,7 @@ class BookingController extends Controller
             'time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
+            'redeem_loyalty' => ['nullable', 'boolean'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email:rfc', 'max:255'],
             'customer.phone' => ['nullable', 'string', 'max:40'],
@@ -91,7 +93,9 @@ class BookingController extends Controller
         }
         $service = Service::whereKey($validated['service_id'])->where('provider_id', $provider->id)->where('is_active', true)->firstOrFail();
         $customFields = $this->validatedCustomBookingFields($provider, $validated['custom_fields'] ?? []);
+        $redeemLoyalty = (bool) ($validated['redeem_loyalty'] ?? false);
         unset($validated['custom_fields']);
+        unset($validated['redeem_loyalty']);
         $date = Carbon::createFromFormat('Y-m-d H:i', $validated['date'].' '.$validated['time']);
         $end = $date->copy()->addMinutes($service->duration_minutes);
 
@@ -122,7 +126,7 @@ class BookingController extends Controller
             return response()->json(['message' => 'That date or time is blocked by the provider.'], 422);
         }
 
-        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields): ?Booking {
+        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields, $redeemLoyalty): ?Booking {
             $conflict = Booking::where('provider_id', $provider->id)
                 ->whereDate('date', $validated['date'])
                 ->whereIn('status', ['pending', 'confirmed'])
@@ -142,13 +146,26 @@ class BookingController extends Controller
                 'status' => 'pending',
                 'custom_fields' => $customFields,
             ]);
+            $redeemedPoints = 0;
+            if ($redeemLoyalty) {
+                abort_unless($provider->loyalty_enabled, 422, 'This provider has not enabled loyalty rewards.');
+                $redeemedPoints = (int) ($provider->loyalty_points_required ?? 0);
+                abort_unless($redeemedPoints > 0, 422, 'This provider has not set a valid loyalty redemption threshold.');
+                $loyalty = \App\Models\Loyalty::lockForUpdate()->firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
+                abort_unless($loyalty->points >= $redeemedPoints, 422, 'You do not have enough loyalty points for this provider.');
+                $loyalty->decrement('points', $redeemedPoints);
+                \App\Models\LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => -$redeemedPoints, 'reason' => 'Redeemed for booking request']);
+            }
+
             Payment::create([
                 'booking_id' => $booking->id,
                 'provider_id' => $provider->id,
-                'amount' => $service->price,
+                'amount' => $redeemLoyalty ? 0 : $service->price,
                 'currency' => $service->currency ?? $provider->default_currency ?? config('currencies.default', 'NGN'),
-                'status' => 'pending',
-                'metadata' => ['payment_token' => Str::random(48)],
+                'status' => $redeemLoyalty ? 'paid' : 'pending',
+                'paid_at' => $redeemLoyalty ? now() : null,
+                'gateway' => $redeemLoyalty ? 'loyalty' : null,
+                'metadata' => ['payment_token' => Str::random(48), 'redeemed_loyalty_points' => $redeemedPoints],
             ]);
 
             return $booking;

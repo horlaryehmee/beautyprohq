@@ -125,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/crm/{customer}/activities', [ProviderBusinessController::class, 'storeCrmActivity']);
             Route::patch('/crm/activities/{activity}', [ProviderBusinessController::class, 'updateCrmActivity']);
             Route::get('/loyalty', [ProviderBusinessController::class, 'loyalty']);
+            Route::put('/loyalty/settings', [ProviderBusinessController::class, 'updateLoyaltySettings']);
             Route::put('/loyalty/{customer}', [ProviderBusinessController::class, 'updateLoyalty']);
         });
     });

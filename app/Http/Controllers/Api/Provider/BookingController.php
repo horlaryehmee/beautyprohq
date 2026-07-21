@@ -56,10 +56,13 @@ class BookingController extends Controller
                     ['provider_id' => $provider->id, 'customer_id' => $booking->customer_id],
                     ['last_service_at' => now()]
                 );
-                $loyalty = Loyalty::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $booking->customer_id]);
-                $loyalty->increment('points', 10);
-                $loyalty->increment('lifetime_points', 10);
-                LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => 10, 'reason' => 'Completed booking']);
+                $points = (int) ($provider->loyalty_points_per_booking ?? 0);
+                if ($provider->loyalty_enabled && $points > 0) {
+                    $loyalty = Loyalty::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $booking->customer_id]);
+                    $loyalty->increment('points', $points);
+                    $loyalty->increment('lifetime_points', $points);
+                    LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => $points, 'reason' => 'Completed booking']);
+                }
             }
         });
 

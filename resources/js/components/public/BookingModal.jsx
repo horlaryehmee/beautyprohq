@@ -142,6 +142,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [time, setTime] = useState('');
     const [notes, setNotes] = useState('');
     const [customFields, setCustomFields] = useState({});
+    const [redeemLoyalty, setRedeemLoyalty] = useState(false);
     const [customer, setCustomer] = useState({ name: '', email: '', phone: '' });
     const [availabilityData, setAvailabilityData] = useState(null);
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -163,6 +164,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setTime('');
         setNotes('');
         setCustomFields({});
+        setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '' });
         setAvailabilityData(null);
         setError('');
@@ -212,12 +214,13 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 time,
                 notes: notes.trim() || undefined,
                 custom_fields: customFields,
+                redeem_loyalty: redeemLoyalty || undefined,
             };
             const response = await api.post(user?.role === 'customer' ? '/bookings' : '/guest-bookings', user?.role === 'customer' ? payload : { ...payload, customer });
             const booking = unwrap(response);
             const payment = booking?.payment;
             const token = payment?.metadata?.payment_token;
-            if (payment?.id && token) {
+            if (payment?.id && token && payment.status !== 'paid' && Number(payment.amount ?? 0) > 0) {
                 const checkout = unwrap(await api.post(`/booking-payments/${payment.id}/checkout`, { payment_token: token }));
                 toast.success('Booking request sent. Redirecting to secure payment...');
                 window.location.href = checkout.authorization_url;
@@ -268,6 +271,12 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <p className="text-xs font-black uppercase tracking-wide text-[#8b4b59]">Total</p>
                                         <p className="mt-1 font-display text-3xl font-normal text-[#34231c]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</p>
                                         {selectedService.description && <p className="mt-3 text-xs leading-5 text-stone-600">{selectedService.description}</p>}
+                                        {user?.role === 'customer' && provider?.loyalty_enabled && Number(provider?.loyalty_points_required ?? 0) > 0 && (
+                                            <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold leading-5 text-[#34231c]">
+                                                <input checked={redeemLoyalty} className="mt-0.5 size-4 accent-[#8b4b59]" onChange={(event) => setRedeemLoyalty(event.target.checked)} type="checkbox" />
+                                                Use {Number(provider.loyalty_points_required).toLocaleString()} loyalty points for this booking request.
+                                            </label>
+                                        )}
                                     </div>
                                 )}
                             </aside>

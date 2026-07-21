@@ -110,9 +110,36 @@ class BusinessController extends Controller
         $provider = $request->user()->providerProfile;
 
         return $this->success([
+            'settings' => [
+                'enabled' => (bool) $provider->loyalty_enabled,
+                'points_per_booking' => (int) ($provider->loyalty_points_per_booking ?? 10),
+                'points_required' => (int) ($provider->loyalty_points_required ?? 100),
+            ],
             'customers' => Loyalty::where('provider_id', $provider->id)->with('customer:id,name,email')->latest()->get(),
             'rewards' => $provider->rewards()->orderBy('points_required')->get(),
         ]);
+    }
+
+    public function updateLoyaltySettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'points_per_booking' => ['required', 'integer', 'min:0', 'max:100000'],
+            'points_required' => ['required', 'integer', 'min:1', 'max:1000000'],
+        ]);
+
+        $provider = $request->user()->providerProfile;
+        $provider->update([
+            'loyalty_enabled' => $validated['enabled'],
+            'loyalty_points_per_booking' => $validated['points_per_booking'],
+            'loyalty_points_required' => $validated['points_required'],
+        ]);
+
+        return $this->success([
+            'enabled' => (bool) $provider->loyalty_enabled,
+            'points_per_booking' => (int) $provider->loyalty_points_per_booking,
+            'points_required' => (int) $provider->loyalty_points_required,
+        ], 'Loyalty settings updated.');
     }
 
     public function updateLoyalty(Request $request, User $customer): JsonResponse
