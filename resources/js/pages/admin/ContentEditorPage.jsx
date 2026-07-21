@@ -69,49 +69,40 @@ function cleanPayload(form, type) {
     return payload;
 }
 
-function EditorToolbar({ textareaRef, value, onChange }) {
-    const wrap = (before, after = '') => {
-        const node = textareaRef.current;
-        if (!node) return;
-        const start = node.selectionStart ?? value.length;
-        const end = node.selectionEnd ?? value.length;
-        const selected = value.slice(start, end) || 'Text';
-        onChange(`${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`);
-        requestAnimationFrame(() => {
-            node.focus();
-            node.setSelectionRange(start + before.length, start + before.length + selected.length);
-        });
+export function RichEditor({ label, value, onChange }) {
+    const editorRef = useRef(null);
+    const [mode, setMode] = useState('write');
+
+    useEffect(() => {
+        const node = editorRef.current;
+        if (node && node.innerHTML !== (value || '')) node.innerHTML = value || '';
+    }, [value, mode]);
+
+    const sync = () => {
+        onChange(editorRef.current?.innerHTML ?? '');
     };
 
-    const insert = (block) => {
-        const node = textareaRef.current;
-        const start = node?.selectionStart ?? value.length;
-        const prefix = value && !value.endsWith('\n') ? '\n\n' : '';
-        onChange(`${value.slice(0, start)}${prefix}${block}${value.slice(start)}`);
-        requestAnimationFrame(() => node?.focus());
+    const run = (command, option = null) => {
+        editorRef.current?.focus();
+        document.execCommand(command, false, option);
+        sync();
+    };
+
+    const setBlock = (tag) => run('formatBlock', tag);
+    const addLink = () => {
+        const url = window.prompt('Enter link URL');
+        if (!url) return;
+        run('createLink', url);
     };
 
     const tools = [
-        ['H2', () => insert('<h2>Section heading</h2>')],
-        ['H3', () => insert('<h3>Subheading</h3>')],
-        ['Bold', () => wrap('<strong>', '</strong>')],
-        ['Quote', () => wrap('<blockquote>', '</blockquote>')],
-        ['List', () => insert('<ul>\n  <li>First point</li>\n  <li>Second point</li>\n</ul>')],
-        ['Link', () => wrap('<a href="https://example.com">', '</a>')],
+        ['H2', () => setBlock('h2')],
+        ['H3', () => setBlock('h3')],
+        ['Bold', () => run('bold')],
+        ['Quote', () => setBlock('blockquote')],
+        ['List', () => run('insertUnorderedList')],
+        ['Link', addLink],
     ];
-
-    return (
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
-            {tools.map(([label, action]) => (
-                <button key={label} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{label}</button>
-            ))}
-        </div>
-    );
-}
-
-export function RichEditor({ label, value, onChange }) {
-    const textareaRef = useRef(null);
-    const [mode, setMode] = useState('write');
 
     return (
         <div>
@@ -128,8 +119,22 @@ export function RichEditor({ label, value, onChange }) {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 {mode === 'write' ? (
                     <>
-                        <EditorToolbar textareaRef={textareaRef} value={value} onChange={onChange} />
-                        <textarea ref={textareaRef} className="min-h-[520px] w-full resize-y border-0 bg-white p-5 text-base leading-8 text-slate-900 outline-none placeholder:text-slate-400" onChange={(event) => onChange(event.target.value)} placeholder="Write the full content here. Use headings, quotes, links and lists where useful." value={value} />
+                        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
+                            {tools.map(([toolLabel, action]) => (
+                                <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
+                            ))}
+                        </div>
+                        <div
+                            ref={editorRef}
+                            className="content-prose min-h-[520px] w-full overflow-y-auto bg-white p-5 text-base leading-8 text-slate-900 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
+                            contentEditable
+                            data-placeholder="Write the full content here. Use headings, quotes, links and lists where useful."
+                            onBlur={sync}
+                            onInput={sync}
+                            role="textbox"
+                            suppressContentEditableWarning
+                            tabIndex={0}
+                        />
                     </>
                 ) : (
                     <div className="min-h-[520px] p-6">
