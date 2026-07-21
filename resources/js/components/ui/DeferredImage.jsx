@@ -7,13 +7,15 @@ export default function DeferredImage({ src, srcSet, sizes, loading = 'lazy', ro
         const image = imageRef.current;
         if (!image || !src) return undefined;
 
+        if (loading === 'eager') return undefined;
+
         const load = () => {
             if (sizes) image.sizes = sizes;
             if (srcSet) image.srcset = srcSet;
             image.src = src;
         };
 
-        if (loading === 'eager' || !('IntersectionObserver' in window)) {
+        if (!('IntersectionObserver' in window)) {
             load();
             return undefined;
         }
@@ -28,5 +30,15 @@ export default function DeferredImage({ src, srcSet, sizes, loading = 'lazy', ro
         return () => observer.disconnect();
     }, [loading, rootMargin, sizes, src, srcSet]);
 
-    return <img ref={imageRef} loading={loading} decoding="async" {...props} />;
+    return (
+        <img
+            ref={imageRef}
+            src={loading === 'eager' ? src : undefined}
+            srcSet={loading === 'eager' ? srcSet : undefined}
+            sizes={loading === 'eager' ? sizes : undefined}
+            loading={loading}
+            decoding="async"
+            {...props}
+        />
+    );
 }

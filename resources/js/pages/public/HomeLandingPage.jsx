@@ -6,6 +6,7 @@ const loadHomeContent = () => import('./HomePage');
 const HomeContent = lazy(loadHomeContent);
 
 export default function HomeLandingPage() {
+    const suppressInitialHeroAnimation = useRef(Boolean(globalThis.__BPHQ_FIRST_PAINT__)).current;
     const [showContent, setShowContent] = useState(() => (
         window.matchMedia('(min-width: 768px)').matches || Boolean(window.location.hash)
     ));
@@ -17,6 +18,10 @@ export default function HomeLandingPage() {
     const contentBoundaryRef = useRef(null);
     const updateHeroProviders = useCallback((providers) => {
         if (Array.isArray(providers) && providers.length) setHeroProviders(providers);
+    }, []);
+
+    useEffect(() => {
+        delete globalThis.__BPHQ_FIRST_PAINT__;
     }, []);
 
     useEffect(() => {
@@ -47,7 +52,7 @@ export default function HomeLandingPage() {
                 title="The Beauty Service Ecosystem"
                 description="Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry."
             />
-            <ShuffleHero providers={heroProviders} />
+            <ShuffleHero providers={heroProviders} animateCopy={!suppressInitialHeroAnimation} />
             <div ref={contentBoundaryRef} aria-hidden={!showContent || undefined}>
                 {showContent ? (
                     <Suspense fallback={<div className="min-h-[900px] bg-white" aria-hidden="true" />}>

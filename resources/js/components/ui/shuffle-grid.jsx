@@ -136,11 +136,11 @@ function HeroImageMarquee({ providers }) {
     );
 }
 
-export function ShuffleHero({ providers = [], className }) {
+export function ShuffleHero({ providers = [], className, animateCopy = true }) {
     return (
         <section className={cn('bg-[#f4efe9] text-[#34231c]', className)}>
             <div className="page-container grid grid-cols-1 items-center gap-7 pb-8 pt-12 sm:pt-16 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
-                <div className="hero-copy-enter">
+                <div className={animateCopy ? 'hero-copy-enter' : undefined}>
                     <h1 className="mx-auto mt-2 max-w-[620px] text-center font-display text-[3rem] font-normal leading-[.9] text-[#34231c] sm:text-[3.7rem] md:mx-0 md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
                         <span>The Beauty Service </span>
                         <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
