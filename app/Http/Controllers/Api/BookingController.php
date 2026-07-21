@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\ProviderProfile;
@@ -189,7 +188,7 @@ class BookingController extends Controller
             'provider_id' => $payment->provider_id,
             'customer_id' => $payment->booking->customer_id,
             'provider_payment_account_id' => $account->id,
-            'provider_account_reference' => $gateway === 'paystack' ? ($account->public_key ?: $account->account_reference) : $account->account_reference,
+            'provider_account_reference' => $account->public_key ?: $account->account_reference,
             'gateway' => $gateway,
         ];
 
@@ -299,9 +298,9 @@ class BookingController extends Controller
 
     private function initializeStripeBookingCheckout(Payment $payment, $account, string $reference, array $metadata): array
     {
-        $secret = $this->stripeSecretKey();
-        abort_unless($secret, 422, 'Stripe is not configured yet.');
-        abort_unless($account->account_reference, 422, 'This provider Stripe connected account ID is missing.');
+        $secret = $this->providerStripeSecretKey($account);
+        abort_unless($secret, 422, 'This provider has not added a Stripe secret key.');
+        abort_unless($account->public_key, 422, 'This provider has not added a Stripe public key.');
 
         $serviceName = $payment->booking->service->name ?? 'BeautyPro HQ booking';
         $response = Http::withToken($secret)->asForm()->post('https://api.stripe.com/v1/checkout/sessions', [
@@ -314,7 +313,6 @@ class BookingController extends Controller
             'line_items[0][price_data][currency]' => strtolower($payment->currency),
             'line_items[0][price_data][unit_amount]' => (int) round((float) $payment->amount * 100),
             'line_items[0][price_data][product_data][name]' => $serviceName,
-            'payment_intent_data[transfer_data][destination]' => $account->account_reference,
             'metadata[type]' => $metadata['type'],
             'metadata[payment_id]' => $metadata['payment_id'],
             'metadata[booking_id]' => $metadata['booking_id'],
@@ -372,8 +370,12 @@ class BookingController extends Controller
 
     private function verifyStripeBookingPayment(Payment $payment, ?string $sessionId): void
     {
-        $secret = $this->stripeSecretKey();
-        abort_unless($secret, 422, 'Stripe is not configured yet.');
+        $account = $payment->provider->paymentAccounts
+            ->first(fn ($item) => (int) $item->id === (int) ($payment->metadata['provider_payment_account_id'] ?? 0) && $item->gateway === 'stripe');
+        abort_unless($account, 422, 'Provider Stripe account not found.');
+
+        $secret = $this->providerStripeSecretKey($account);
+        abort_unless($secret, 422, 'This provider Stripe account cannot verify payments.');
 
         $sessionId ??= $payment->metadata['stripe_session_id'] ?? null;
         abort_unless($sessionId, 422, 'Stripe session is missing.');
@@ -388,10 +390,6 @@ class BookingController extends Controller
         $this->assertVerifiedPaymentPayload($payment, $meta, (int) ($data['amount_total'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
         abort_unless(($data['payment_status'] ?? null) === 'paid', 422, 'Payment has not succeeded yet.');
         abort_unless(($data['client_reference_id'] ?? null) === $payment->reference, 422, 'Stripe reference mismatch.');
-
-        $expectedDestination = $payment->metadata['provider_account_reference'] ?? null;
-        $actualDestination = data_get($data, 'payment_intent.transfer_data.destination');
-        abort_unless(! $actualDestination || $actualDestination === $expectedDestination, 422, 'Stripe destination account mismatch.');
 
         DB::transaction(function () use ($payment, $data): void {
             $payment->update([
@@ -426,10 +424,10 @@ class BookingController extends Controller
         return is_string($key) && $key !== '' ? $key : null;
     }
 
-    private function stripeSecretKey(): ?string
+    private function providerStripeSecretKey($account): ?string
     {
-        $mode = AppSetting::getValue('stripe.mode', 'test');
-        $key = AppSetting::getValue("stripe.{$mode}_secret_key");
+        $settings = $account->settings ?? [];
+        $key = $settings['secret_key'] ?? null;
 
         return is_string($key) && $key !== '' ? $key : null;
     }
