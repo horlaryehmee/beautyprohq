@@ -17,6 +17,10 @@ function list(value) {
     if (Array.isArray(value)) return value;
     if (Array.isArray(value?.data)) return value.data;
     if (Array.isArray(value?.items)) return value.items;
+    if (value && typeof value === 'object') {
+        const values = Object.values(value).filter((item) => item && typeof item === 'object');
+        if (values.length) return values;
+    }
     return [];
 }
 
