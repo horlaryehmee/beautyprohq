@@ -9,6 +9,7 @@ export default function AdminSettingsPage() {
     const currencyResource = useApiResource('/admin/settings/currencies', {});
     const featuresResource = useApiResource('/admin/settings/features', {});
     const twilioResource = useApiResource('/admin/settings/twilio', {});
+    const smtpResource = useApiResource('/admin/settings/smtp', {});
     const { notify } = useDashboardToast();
     const [tab, setTab] = useState('platform');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
@@ -17,12 +18,14 @@ export default function AdminSettingsPage() {
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
+    const [smtpForm, setSmtpForm] = useState({ enabled: false, host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
     const [savingStripe, setSavingStripe] = useState(false);
     const [savingCurrency, setSavingCurrency] = useState(false);
     const [savingFeatures, setSavingFeatures] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
+    const [savingSmtp, setSavingSmtp] = useState(false);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -80,6 +83,21 @@ export default function AdminSettingsPage() {
             whatsapp_from: data.whatsapp_from ?? '',
         });
     }, [twilioResource.data]);
+
+    useEffect(() => {
+        const data = smtpResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setSmtpForm({
+            enabled: Boolean(data.enabled),
+            host: data.host ?? '',
+            port: data.port ?? 587,
+            username: data.username ?? '',
+            password: '',
+            encryption: data.encryption ?? 'tls',
+            from_address: data.from_address ?? '',
+            from_name: data.from_name ?? '',
+        });
+    }, [smtpResource.data]);
 
     const saveGateway = async (event) => {
         event.preventDefault();
@@ -168,13 +186,28 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const saveSmtp = async (event) => {
+        event.preventDefault();
+        setSavingSmtp(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/smtp', smtpForm);
+            smtpResource.setData(saved);
+            setSmtpForm((current) => ({ ...current, password: '' }));
+            notify('SMTP settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingSmtp(false);
+        }
+    };
+
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
-    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error || twilioResource.error;
+    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); }} />}
 
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
@@ -255,6 +288,62 @@ export default function AdminSettingsPage() {
                             Use the Twilio sandbox sender for testing. For live notifications, use an approved Twilio WhatsApp sender.
                         </div>
                         <div className="flex justify-end"><Button busy={savingTwilio} type="submit">Save Twilio settings</Button></div>
+                    </form>
+                )}
+            </Card>
+
+            <Card>
+                <CardHeader
+                    title="SMTP email connection"
+                    description="Connect the mail server used for all platform email notifications."
+                    action={smtpResource.data?.configured ? <StatusBadge status="SMTP connected" /> : <StatusBadge status="SMTP not connected" />}
+                />
+                {smtpResource.loading ? <LoadingBlock rows={5} /> : (
+                    <form className="mt-5 space-y-5" onSubmit={saveSmtp}>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <input
+                                checked={smtpForm.enabled}
+                                className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                onChange={(event) => setSmtpForm((current) => ({ ...current, enabled: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span>
+                                <span className="block text-sm font-bold text-slate-900">Use SMTP for website emails</span>
+                                <span className="block text-sm text-slate-500">When enabled, login, booking, onboarding, customer and admin notifications will use this SMTP connection.</span>
+                            </span>
+                        </label>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Field label="SMTP host">
+                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, host: event.target.value }))} placeholder="smtp.example.com" value={smtpForm.host} />
+                            </Field>
+                            <Field label="SMTP port">
+                                <input className={inputClass} min="1" max="65535" onChange={(event) => setSmtpForm((current) => ({ ...current, port: event.target.value }))} placeholder="587" type="number" value={smtpForm.port} />
+                            </Field>
+                            <Field label="SMTP username">
+                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, username: event.target.value }))} placeholder="SMTP username or email" value={smtpForm.username} />
+                            </Field>
+                            <Field hint="Leave blank to keep the saved password." label="SMTP password">
+                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, password: event.target.value }))} placeholder="SMTP password" type="password" value={smtpForm.password} />
+                            </Field>
+                            <Field label="Encryption">
+                                <select className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, encryption: event.target.value }))} value={smtpForm.encryption}>
+                                    <option value="tls">TLS</option>
+                                    <option value="ssl">SSL</option>
+                                    <option value="">None</option>
+                                </select>
+                            </Field>
+                            <div className="flex items-end">
+                                {smtpResource.data?.password_configured && <StatusBadge status={`password ends ${smtpResource.data.password_last4}`} />}
+                            </div>
+                            <Field label="From email address">
+                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_address: event.target.value }))} placeholder="hello@beautyprohq.com" type="email" value={smtpForm.from_address} />
+                            </Field>
+                            <Field label="From name">
+                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_name: event.target.value }))} placeholder="BeautyPro HQ" value={smtpForm.from_name} />
+                            </Field>
+                        </div>
+                        <div className="flex justify-end"><Button busy={savingSmtp} type="submit">Save SMTP settings</Button></div>
                     </form>
                 )}
             </Card>

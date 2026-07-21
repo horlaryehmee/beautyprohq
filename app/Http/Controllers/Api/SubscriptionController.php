@@ -218,6 +218,56 @@ class SubscriptionController extends Controller
         return $this->adminTwilioSettings();
     }
 
+    public function adminSmtpSettings(): JsonResponse
+    {
+        $password = AppSetting::getValue('smtp.password');
+
+        return $this->success([
+            'enabled' => AppSetting::getValue('smtp.enabled', '0') === '1',
+            'host' => AppSetting::getValue('smtp.host') ?: env('MAIL_HOST'),
+            'port' => AppSetting::getValue('smtp.port') ?: env('MAIL_PORT', 587),
+            'username' => AppSetting::getValue('smtp.username') ?: env('MAIL_USERNAME'),
+            'encryption' => AppSetting::getValue('smtp.encryption') ?: env('MAIL_ENCRYPTION', 'tls'),
+            'from_address' => AppSetting::getValue('smtp.from_address') ?: env('MAIL_FROM_ADDRESS'),
+            'from_name' => AppSetting::getValue('smtp.from_name') ?: env('MAIL_FROM_NAME', config('app.name')),
+            'password_configured' => filled($password ?: env('MAIL_PASSWORD')),
+            'password_last4' => filled($password ?: env('MAIL_PASSWORD')) ? substr((string) ($password ?: env('MAIL_PASSWORD')), -4) : null,
+            'configured' => AppSetting::getValue('smtp.enabled', '0') === '1'
+                && filled(AppSetting::getValue('smtp.host') ?: env('MAIL_HOST'))
+                && filled(AppSetting::getValue('smtp.port') ?: env('MAIL_PORT'))
+                && filled(AppSetting::getValue('smtp.from_address') ?: env('MAIL_FROM_ADDRESS')),
+        ]);
+    }
+
+    public function updateAdminSmtpSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'host' => ['nullable', 'string', 'max:255'],
+            'port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'username' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:500'],
+            'encryption' => ['nullable', Rule::in(['', 'tls', 'ssl'])],
+            'from_address' => ['nullable', 'email:rfc', 'max:255'],
+            'from_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        AppSetting::setValue('smtp.enabled', $validated['enabled'] ? '1' : '0');
+        AppSetting::setValue('smtp.host', $validated['host'] ?? null);
+        AppSetting::setValue('smtp.port', $validated['port'] ?? null);
+        AppSetting::setValue('smtp.username', $validated['username'] ?? null);
+        AppSetting::setValue('smtp.encryption', $validated['encryption'] ?? null);
+        AppSetting::setValue('smtp.from_address', $validated['from_address'] ?? null);
+        AppSetting::setValue('smtp.from_name', $validated['from_name'] ?? null);
+        if (filled($validated['password'] ?? null)) {
+            AppSetting::setValue('smtp.password', $validated['password'], true);
+        }
+
+        app('mail.manager')->forgetMailers();
+
+        return $this->adminSmtpSettings();
+    }
+
     public function updateAdminFeatureSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([

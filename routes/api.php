@@ -165,6 +165,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
+        Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
+        Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
 
         Route::post('/media', [AdminContentController::class, 'uploadMedia']);
         Route::get('/news', [AdminContentController::class, 'news']);
