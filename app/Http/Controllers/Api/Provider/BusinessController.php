@@ -11,6 +11,7 @@ use App\Models\LoyaltyTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\User;
+use App\Services\TwilioWhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -179,6 +180,9 @@ class BusinessController extends Controller
         return $this->success([
             'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
             'default_payment_gateway' => $provider->default_payment_gateway,
+            'whatsapp_number' => $provider->whatsapp_number,
+            'whatsapp_notifications_enabled' => (bool) $provider->whatsapp_notifications_enabled,
+            'whatsapp_configured' => app(TwilioWhatsAppService::class)->configured(),
             'payment_gateways' => $provider->paymentAccounts()->where(function ($query): void {
                 $query->where('enabled', true)->orWhere('is_connected', true);
             })->pluck('gateway')->values(),
@@ -191,6 +195,8 @@ class BusinessController extends Controller
         $validated = $request->validate([
             'default_currency' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
             'default_payment_gateway' => ['nullable', Rule::in(['paystack', 'stripe', 'paypal'])],
+            'whatsapp_number' => ['nullable', 'string', 'max:40'],
+            'whatsapp_notifications_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $provider = $request->user()->providerProfile;

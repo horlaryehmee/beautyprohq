@@ -24,7 +24,12 @@ const gatewayLabels = {
 
 export default function ProviderSettingsPage() {
     const resource = useApiResource('/provider/settings', {});
-    const [form, setForm] = useState({ default_currency: 'NGN', default_payment_gateway: '' });
+    const [form, setForm] = useState({
+        default_currency: 'NGN',
+        default_payment_gateway: '',
+        whatsapp_number: '',
+        whatsapp_notifications_enabled: false,
+    });
     const [tab, setTab] = useState('general');
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
@@ -37,6 +42,8 @@ export default function ProviderSettingsPage() {
         setForm({
             default_currency: resource.data.default_currency ?? 'NGN',
             default_payment_gateway: resource.data.default_payment_gateway ?? '',
+            whatsapp_number: resource.data.whatsapp_number ?? '',
+            whatsapp_notifications_enabled: Boolean(resource.data.whatsapp_notifications_enabled),
         });
     }, [resource.data]);
 
@@ -47,6 +54,8 @@ export default function ProviderSettingsPage() {
             const updated = await apiRequest('put', '/provider/settings', {
                 default_currency: form.default_currency,
                 default_payment_gateway: form.default_payment_gateway || null,
+                whatsapp_number: form.whatsapp_number || null,
+                whatsapp_notifications_enabled: form.whatsapp_notifications_enabled,
             });
             resource.setData(updated);
             notify('Settings updated.');
@@ -67,6 +76,7 @@ export default function ProviderSettingsPage() {
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
                     ['general', 'General'],
+                    ['notifications', 'Notifications'],
                     ['security', 'Security'],
                 ].map(([key, label]) => (
                     <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
@@ -103,6 +113,47 @@ export default function ProviderSettingsPage() {
                         Connect a payment gateway on the Payments page before choosing a default gateway.
                     </p>
                 )}
+            </Card>
+            : tab === 'notifications' ? <Card>
+                <CardHeader
+                    action={<StatusBadge status={data.whatsapp_configured ? 'Twilio ready' : 'Twilio not configured'} />}
+                    description="Receive customer booking details on WhatsApp when a new booking request is made."
+                    title="WhatsApp booking alerts"
+                />
+                <form className="space-y-4" onSubmit={save}>
+                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                        <input
+                            checked={form.whatsapp_notifications_enabled}
+                            className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                            onChange={(event) => setForm((current) => ({ ...current, whatsapp_notifications_enabled: event.target.checked }))}
+                            type="checkbox"
+                        />
+                        <span>
+                            <span className="block text-sm font-bold text-slate-900">Enable WhatsApp booking notifications</span>
+                            <span className="block text-sm text-slate-500">When enabled, new booking details will be sent to your WhatsApp number.</span>
+                        </span>
+                    </label>
+
+                    <Field hint="Use international format, for example +2348012345678." label="WhatsApp contact">
+                        <input
+                            className={inputClass}
+                            onChange={(event) => setForm((current) => ({ ...current, whatsapp_number: event.target.value }))}
+                            placeholder="+2348012345678"
+                            type="tel"
+                            value={form.whatsapp_number}
+                        />
+                    </Field>
+
+                    {!data.whatsapp_configured && (
+                        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                            WhatsApp alerts will start after the admin adds the Twilio WhatsApp credentials on the server.
+                        </p>
+                    )}
+
+                    <div className="flex justify-end">
+                        <Button busy={saving} type="submit">Save notifications</Button>
+                    </div>
+                </form>
             </Card>
             : <SecurityPage embedded />}
         </div>
