@@ -17,6 +17,8 @@ const ProviderBookingPage = lazy(() => import('./pages/public/ProviderBookingPag
 const CommunityPage = lazy(() => import('./pages/public/CommunityPage'));
 const ContentDetailPage = lazy(() => import('./pages/public/ContentDetailPage'));
 const ProviderProfilePage = lazy(() => import('./pages/public/ProviderProfilePage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/public/PrivacyPolicyPage'));
+const TermsConditionsPage = lazy(() => import('./pages/public/TermsConditionsPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
@@ -110,6 +112,8 @@ export default function App() {
                         <Route path="providers/:provider/book/:serviceId" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider/book" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider" element={<ProviderProfilePage />} />
+                        <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+                        <Route path="terms-and-conditions" element={<TermsConditionsPage />} />
                     </Route>
 
                     <Route path="login" element={<LoginPage />} />

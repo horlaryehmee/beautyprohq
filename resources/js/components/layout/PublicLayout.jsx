@@ -206,7 +206,7 @@ export default function PublicLayout() {
             {contactOpen && <OpportunityEnquiryModal onClose={() => setContactOpen(false)} />}
 
             {!hideFooter && <footer data-public-footer className="bg-plum-950 text-white">
-                <div className="page-container grid gap-10 py-14 md:grid-cols-[1.3fr_.7fr_.7fr] lg:py-16">
+                <div className="page-container grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.25fr_.7fr_.7fr_.65fr] lg:py-16">
                     <div className="max-w-md">
                         <Logo light />
                         <p className="mt-5 text-sm leading-7 text-plum-100">The trusted home for beauty professionals and customers to discover, book, grow, and build lasting relationships.</p>
@@ -228,11 +228,21 @@ export default function PublicLayout() {
                             <a href="mailto:hello@beautyprohq.com" className="hover:text-white">hello@beautyprohq.com</a>
                         </div>
                     </div>
+                    <div>
+                        <p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-rose-200">Legal</p>
+                        <div className="flex flex-col gap-3 text-sm font-semibold text-plum-100">
+                            <Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+                            <Link to="/terms-and-conditions" className="hover:text-white">Terms & Conditions</Link>
+                        </div>
+                    </div>
                 </div>
                 <div className="border-t border-white/10">
                     <div className="page-container flex flex-col gap-2 py-5 text-xs text-plum-200 sm:flex-row sm:items-center sm:justify-between">
                         <p>© {new Date().getFullYear()} BeautyPro HQ. All rights reserved.</p>
-                        <p>Made for the beauty community.</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            <Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+                            <Link to="/terms-and-conditions" className="hover:text-white">Terms & Conditions</Link>
+                        </div>
                     </div>
                 </div>
             </footer>}
