@@ -25,7 +25,7 @@ export default function ExpandableTabs({
         <div
             ref={outsideClickRef}
             className={cn(
-                'flex items-center justify-center gap-1 rounded-2xl border border-stone-200/90 bg-white/95 p-1.5 shadow-[0_12px_40px_rgba(41,19,31,.18)] backdrop-blur-xl',
+                'flex transform-gpu items-center justify-center gap-1 rounded-2xl border border-stone-200/90 bg-white/95 p-1.5 shadow-[0_12px_40px_rgba(41,19,31,.18)] [backface-visibility:hidden] md:backdrop-blur-xl',
                 className,
             )}
         >

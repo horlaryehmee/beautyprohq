@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Home, Menu, MessageCircle, Newspaper, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ export default function PublicLayout() {
     const [contactOpen, setContactOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [footerVisible, setFooterVisible] = useState(false);
+    const footerVisibleRef = useRef(false);
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
@@ -61,13 +62,25 @@ export default function PublicLayout() {
             return undefined;
         }
 
+        let timer = null;
+        const updateFooterVisibility = (nextVisible) => {
+            if (footerVisibleRef.current === nextVisible) return;
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                footerVisibleRef.current = nextVisible;
+                setFooterVisible(nextVisible);
+            }, 120);
+        };
         const observer = new IntersectionObserver(
-            ([entry]) => setFooterVisible(entry.isIntersecting),
-            { root: null, threshold: 0.02 },
+            ([entry]) => updateFooterVisibility(entry.isIntersecting && entry.intersectionRatio > 0.08),
+            { root: null, rootMargin: '0px 0px -72px 0px', threshold: [0, 0.08, 0.16] },
         );
         observer.observe(footer);
 
-        return () => observer.disconnect();
+        return () => {
+            window.clearTimeout(timer);
+            observer.disconnect();
+        };
     }, [hideFooter, location.pathname]);
 
     async function handleLogout() {
@@ -108,7 +121,7 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#fbf8f4]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden">
+            <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#fbf8f4] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
                 <div className="flex h-16 items-center justify-between px-4">
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
@@ -162,7 +175,7 @@ export default function PublicLayout() {
                 </aside>
             </div>
 
-            {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transition-all duration-300 ease-out lg:hidden ${footerVisible ? 'pointer-events-none translate-y-8 opacity-0' : 'translate-y-0 opacity-100'}`}>
+            {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transform-gpu transition-[opacity,transform] duration-300 ease-out [backface-visibility:hidden] [will-change:opacity,transform] lg:hidden ${footerVisible ? 'pointer-events-none translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
                 <ExpandableTabs
                     activeIndex={activeMobileTab >= 0 ? activeMobileTab : null}
                     className="mx-auto w-fit max-w-full"
