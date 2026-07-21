@@ -1,170 +1,147 @@
-import { Card, CardHeader, PageHeader, StatusBadge } from '../../components/dashboard';
+import { Card, PageHeader } from '../../components/dashboard';
 
 const sections = [
-    {
-        title: 'How your provider account works',
-        items: [
-            'Your dashboard is where you set up your public profile, services, availability, bookings, payments, customers, loyalty rewards, digital products, content planning, analytics and account settings.',
-            'Customers discover you from the public directory, homepage sections, profile cards and your profile detail page.',
-            'A complete profile performs better. Add your profession, country, bio, profile photo, portfolio, services, availability, payment settings and booking questions before sharing your profile.',
-        ],
-    },
-    {
-        title: 'Onboarding and profile setup',
-        items: [
-            'Complete every onboarding step before depending on the dashboard. These answers populate your provider profile and help customers understand your service.',
-            'Use Profile to update your business name, profession, category, country, bio, portfolio links, social links, profile button, website and other public details.',
-            'Keep your bio realistic. Long text can be used on the detail page, but cards will only show a short preview for clean mobile display.',
-            'Only your country is shown on profile cards. Full location details can be kept in your profile where needed.',
-        ],
-    },
-    {
-        title: 'Services and availability',
-        items: [
-            'Create services with clear names, pricing, duration, category and service type. Customers can only book active services.',
-            'Set availability by day and time. The booking system checks your availability before accepting a booking request.',
-            'Use blocked dates to stop bookings on days or time ranges when you are unavailable.',
-            'If customers cannot book a slot, check whether the service is active, the date is not blocked and the time fits within your availability.',
-        ],
-    },
-    {
-        title: 'Bookings',
-        items: [
-            'Bookings start as pending requests. Review the customer details, service, date, time, notes and custom booking answers before accepting.',
-            'You can update booking status from the Bookings page. Customers receive notifications when important booking updates happen.',
-            'If payment is required, customers can complete payment through your connected provider payment gateway.',
-            'Use booking details to prepare for the service and keep customer communication professional.',
-        ],
-    },
-    {
-        title: 'Custom booking questions',
-        items: [
-            'Use booking form fields to ask customers for extra information before a booking is submitted.',
-            'Good examples include preferred style, skin concerns, event location, reference photo link, allergies, arrival instructions or preferred contact method.',
-            'Only ask for what you truly need. Too many questions can reduce booking completion.',
-            'Required fields must be answered before customers can submit the booking.',
-        ],
-    },
-    {
-        title: 'Payments',
-        items: [
-            'Payment settings are unique to your provider account. Payments for your bookings must go only through the gateway account you connected.',
-            'Connect Paystack, Stripe or PayPal where available, then choose your default gateway in Settings.',
-            'Your connected gateway is separate from the admin plan-payment gateway. Admin plan payments do not control where your customer booking payments go.',
-            'Keep public keys, secret keys and account references accurate. Wrong credentials will stop checkout or verification.',
-        ],
-    },
-    {
-        title: 'Subscription',
-        items: [
-            'The free tier has limited access. Paid/pro access unlocks the full business tools such as bookings, services, payments, CRM, loyalty, analytics and digital products.',
-            'Use Subscription to view your current plan, available plans and recent plan payment records.',
-            'If a paid feature is hidden, confirm that your paid subscription is active.',
-        ],
-    },
-    {
-        title: 'CRM and customer records',
-        items: [
-            'CRM helps you manage customers who have booked with you. You can review booking history, notes, tags, stage, priority and follow-up information.',
-            'Use notes to remember preferences, allergies, birthdays, repeat service choices and follow-up tasks.',
-            'Do not store sensitive payment card data or private information that is not needed for your service.',
-        ],
-    },
-    {
-        title: 'Loyalty rewards',
-        items: [
-            'You can enable or disable loyalty rewards from the Loyalty page.',
-            'When enabled, set how many points customers earn per booking and how many points are required before they can request a service using points.',
-            'Keep reward rules simple so customers understand how to earn and redeem.',
-            'You can adjust customer points manually where necessary, but use clear reasons for your records.',
-        ],
-    },
-    {
-        title: 'Digital products',
-        items: [
-            'Digital products are available only for paid providers.',
-            'Each provider manages their own digital products. Your profile should show only the products you added.',
-            'Add product name, description, price, product URL and optional image. Only active products should appear publicly.',
-            'Use this for guides, templates, online classes, consultation products, presets, e-books or external shop items.',
-        ],
-    },
-    {
-        title: 'WhatsApp booking notifications',
-        items: [
-            'If the admin enables WhatsApp booking notifications for providers, you will see a Notifications tab in Settings.',
-            'Add your WhatsApp contact in international format, for example +2348012345678, then enable WhatsApp booking notifications.',
-            'When a customer books you, the system can send booking details to your WhatsApp contact.',
-            'If the Notifications tab is not visible, the admin has not enabled the feature for providers.',
-        ],
-    },
-    {
-        title: 'Verification',
-        items: [
-            'Submit verification from the Verification area using accurate business and professional information.',
-            'Add portfolio, certification or supporting links/files where available.',
-            'If rejected, review the admin note, correct the issue and resubmit.',
-            'Approved verification updates the verification tag shown on your public profile and cards.',
-        ],
-    },
-    {
-        title: 'Content calendar and analytics',
-        items: [
-            'Use the content calendar to plan marketing posts, campaigns, reminders and business content.',
-            'Analytics helps you understand profile views, bookings, revenue and customer activity.',
-            'Review analytics regularly and update your services, profile and portfolio based on what customers engage with.',
-        ],
-    },
-    {
-        title: 'Troubleshooting',
-        items: [
-            'If you cannot access a section, check that your subscription is active and that your account has completed onboarding.',
-            'If bookings are not coming through, confirm services are active, availability is set and your public profile is listed.',
-            'If payment checkout fails, review your connected gateway credentials and default payment gateway.',
-            'If emails or WhatsApp alerts do not arrive, check your contact details and ask the admin to confirm platform notification settings.',
-        ],
-    },
+    ['Provider dashboard overview', [
+        'Your dashboard manages your public profile, subscription, services, bookings, availability, payments, CRM, loyalty rewards, digital products, content planning, analytics and settings.',
+        'Customers find you from the public directory, homepage sections, search, categories and your profile detail page.',
+        'Your profile should be complete before you promote your link. Missing photos, services, availability or payment details can reduce bookings.',
+    ]],
+    ['Onboarding', [
+        'Complete all onboarding questions before using the full dashboard.',
+        'Onboarding answers help build your profile and determine how customers understand your business.',
+        'After onboarding, review Profile and update any details that need more polish.',
+        'If the dashboard keeps returning you to onboarding, a required onboarding field may still be missing.',
+    ]],
+    ['Profile setup', [
+        'Use Profile to update your name/business details, profession, category, country, bio, profile photo, social links, portfolio links, website and public profile button.',
+        'Your public cards only show compact data. The full detail page can show longer information.',
+        'Keep the profile button linked to your website if available. Digital products have their own profile section.',
+        'Use a strong profile photo and real portfolio work because these affect customer trust.',
+    ]],
+    ['Services', [
+        'Create each service with a clear name, category, price, duration, description and active state.',
+        'Customers can only book active services attached to your provider profile.',
+        'Keep service descriptions practical: what is included, expected duration, preparation and limits.',
+        'If a service should not appear publicly, deactivate it instead of deleting it.',
+    ]],
+    ['Availability and calendar', [
+        'Set weekly availability for the days and times you accept bookings.',
+        'Use blocked dates for holidays, unavailable days or partial-day blocks.',
+        'The booking system checks service duration, availability and blocked dates before accepting requests.',
+        'If a customer cannot select a time, confirm the service duration fits inside your available window.',
+    ]],
+    ['Bookings', [
+        'New bookings arrive as pending requests with customer details, service, date, time, notes and custom answers.',
+        'Open booking details before accepting or rejecting so you understand what the customer requested.',
+        'Update booking status as the job progresses. Customers receive booking status notifications.',
+        'If payment is required, customers can pay through your connected gateway where available.',
+    ]],
+    ['Custom booking form fields', [
+        'You can add extra questions customers answer during booking.',
+        'Good questions include style preference, event type, allergies, location notes, reference links, preferred contact method and timing instructions.',
+        'Use required fields only for information you truly need before accepting the booking.',
+        'Too many questions can reduce completed bookings, so keep the form focused.',
+    ]],
+    ['Payments and gateways', [
+        'Your payment gateway settings belong only to your provider account.',
+        'Connect Paystack, Stripe or PayPal where supported, then choose your default gateway in Settings.',
+        'Customer booking payments should always go through your connected account, not another provider account and not the admin account.',
+        'If payment fails, check your public key/client ID, secret key, account reference, enabled state and default gateway.',
+    ]],
+    ['Subscription and plan access', [
+        'Free accounts have limited access. Paid/pro accounts unlock full business features.',
+        'Use Subscription to view your active plan, available plans and payment history.',
+        'If a paid feature is hidden, check whether your subscription is active and paid.',
+        'Plan payments are paid to the platform and are separate from customer booking payments.',
+    ]],
+    ['CRM', [
+        'CRM stores customers who have booked with you and helps you manage follow-up.',
+        'Use notes, tags, stage, priority, support status and next follow-up date to organize customer relationships.',
+        'Review customer booking history before repeat appointments.',
+        'Do not store sensitive payment card data or unnecessary private information.',
+    ]],
+    ['Loyalty rewards', [
+        'You can enable or disable loyalty rewards.',
+        'When enabled, set points earned per booking and points required before a customer can request a service using points.',
+        'Use clear reward rules customers can understand.',
+        'You can manually adjust customer loyalty points where necessary and should include a reason.',
+    ]],
+    ['Digital products', [
+        'Digital products are available only for paid providers.',
+        'Only products you add should show on your public profile.',
+        'Add name, description, price, URL, image and active state.',
+        'Use digital products for guides, templates, e-books, courses, presets, consultation products or external shop products.',
+    ]],
+    ['Content calendar', [
+        'Use Content calendar to plan posts, campaigns, reminders and marketing activities.',
+        'Create content ideas ahead of launches, holidays, promotions and events.',
+        'Use the calendar as a planning tool; it does not replace your social media account.',
+    ]],
+    ['Analytics', [
+        'Analytics helps you review profile views, bookings, revenue and customer activity.',
+        'Use analytics to decide which services, profile updates and promotions are working.',
+        'If numbers look empty, confirm you have active bookings/views and that the selected date range includes activity.',
+    ]],
+    ['WhatsApp booking notifications', [
+        'If admin enables WhatsApp notifications, you will see a Notifications tab in Settings.',
+        'Add your WhatsApp number in international format, for example +2348012345678.',
+        'Enable WhatsApp booking alerts if you want booking details sent to WhatsApp.',
+        'If the tab is missing, the admin has not enabled the feature for providers.',
+    ]],
+    ['Verification', [
+        'Submit verification using accurate professional/business details.',
+        'Add portfolio, certification or supporting links/files where available.',
+        'If rejected, read the admin note, correct the problem and resubmit.',
+        'Approved verification displays the verification tag on your public profile/cards.',
+    ]],
+    ['Settings and security', [
+        'Settings controls your default currency, default payment gateway, optional notifications and account security.',
+        'Enable two-factor authentication to protect your account.',
+        'Keep your email and phone accurate because notifications, bookings and account recovery depend on them.',
+        'Do not share secret gateway keys with customers or other providers.',
+    ]],
+    ['Troubleshooting', [
+        'Cannot access dashboard: check login email, password, two-factor code, account status and subscription.',
+        'Bookings not showing: confirm services are active, availability is set and your profile is listed.',
+        'Payments not working: confirm gateway credentials, default gateway and account enabled state.',
+        'WhatsApp not working: confirm the tab is visible, your number is saved, alerts are enabled and admin has connected Twilio.',
+        'Profile data wrong on public site: update Profile, then refresh the public page and clear browser cache if needed.',
+    ]],
 ];
+
+function DocumentationAccordion({ title, items, defaultOpen = false }) {
+    return (
+        <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" open={defaultOpen}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-black text-slate-950">
+                <span>{title}</span>
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-lg text-slate-500 transition group-open:rotate-45">+</span>
+            </summary>
+            <ul className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
+                {items.map((item) => (
+                    <li className="flex gap-3" key={item}>
+                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-fuchsia-600" />
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </details>
+    );
+}
 
 export default function ProviderDocumentationPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                description="A complete provider guide for setting up your profile, managing bookings and using the business tools."
+                description="A complete provider manual for setting up your account, receiving bookings and managing your beauty business."
                 eyebrow="Documentation"
                 title="Provider documentation"
             />
 
-            <Card>
-                <CardHeader
-                    action={<StatusBadge status="provider guide" />}
-                    description="Use this order when preparing your account for customers."
-                    title="Recommended provider workflow"
-                />
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                    {['Complete onboarding', 'Build profile', 'Add services', 'Set availability', 'Connect payments'].map((step, index) => (
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4" key={step}>
-                            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Step {index + 1}</p>
-                            <p className="mt-2 font-black text-slate-950">{step}</p>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            <div className="grid gap-5 xl:grid-cols-2">
-                {sections.map((section) => (
-                    <Card key={section.title}>
-                        <CardHeader title={section.title} />
-                        <ul className="space-y-3 text-sm leading-6 text-slate-600">
-                            {section.items.map((item) => (
-                                <li className="flex gap-3" key={item}>
-                                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-fuchsia-600" />
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </Card>
+            <Card className="space-y-3">
+                {sections.map((section, index) => (
+                    <DocumentationAccordion defaultOpen={index === 0} items={section[1]} key={section[0]} title={section[0]} />
                 ))}
-            </div>
+            </Card>
         </div>
     );
 }

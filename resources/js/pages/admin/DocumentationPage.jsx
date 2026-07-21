@@ -1,151 +1,135 @@
-import { Card, CardHeader, PageHeader, StatusBadge } from '../../components/dashboard';
+import { Card, PageHeader } from '../../components/dashboard';
 
 const sections = [
-    {
-        title: 'Admin role and platform flow',
-        items: [
-            'The admin controls users, provider directory visibility, verification, homepage content, opportunities, announcements, subscriptions, payment gateway settings, SMTP email, Twilio WhatsApp, security and platform feature access.',
-            'A provider registers, completes onboarding, chooses a plan, pays if required, completes profile/service setup, then receives bookings from customers through the public profile.',
-            'Customers can browse the public website, save providers, book services, pay for bookings where payment gateways are connected, earn/redeem loyalty points where enabled, and receive email/in-app notifications.',
-        ],
-    },
-    {
-        title: 'Initial setup checklist',
-        items: [
-            'Open Settings and configure SMTP first so account verification, password reset, booking, onboarding, payment and admin notification emails can be delivered.',
-            'Configure subscription gateways under Settings. Paystack and Stripe settings are used for provider plan payments only.',
-            'Configure currency rates under Settings so frontend currency switching uses your chosen exchange rates.',
-            'Configure Twilio WhatsApp only if you want providers to receive WhatsApp booking alerts. After saving the Twilio keys, enable the provider WhatsApp feature from Provider features.',
-            'Review subscription plans and confirm which plan is active, the price, billing period and included features.',
-        ],
-    },
-    {
-        title: 'Users and customer management',
-        items: [
-            'Use Users to search all admin, provider and customer accounts. Open a user record to review their profile, role, activity, bookings and related account information.',
-            'Admins can edit customer information where needed. Keep email addresses accurate because login, password reset and booking updates depend on them.',
-            'If a user cannot access the dashboard, check account status, role, email verification state, two-factor status and subscription status where applicable.',
-        ],
-    },
-    {
-        title: 'Directory management',
-        items: [
-            'Directory is split into Directory list, Provider categories and Pro of the week. Use Directory list for provider visibility, profile review and account adjustments.',
-            'Provider categories control public filtering and provider classification. Keep category names short and clear.',
-            'Use Pro of the week to select the provider featured on the homepage. The card uses the provider profile data, so ensure their photo, profession, country and summary are clean.',
-            'Only list providers whose profiles are ready for public viewing. If a provider profile is incomplete, update it or ask the provider to complete missing fields.',
-        ],
-    },
-    {
-        title: 'Verification workflow',
-        items: [
-            'Providers submit verification details and supporting profile links/files from their dashboard.',
-            'Use Verification to approve or reject submissions. Approval updates the provider verification state shown across profile cards and detail pages.',
-            'Use admin notes when rejecting so the provider knows what to correct before resubmitting.',
-        ],
-    },
-    {
-        title: 'Content, news, events and community',
-        items: [
-            'Use Content to manage News, Events and Community posts. Each item should have a clear title, short excerpt and full body content.',
-            'The backend editor is designed for formatted content. Use headings, paragraphs, lists, quotes and links to structure longer posts.',
-            'Homepage cards should use concise short descriptions. Full explanations belong on detail pages so mobile cards stay responsive.',
-            'If live content is missing, confirm the content is published/active, the database has been migrated and the live server has the latest deployed build.',
-        ],
-    },
-    {
-        title: 'Opportunities',
-        items: [
-            'Use Opportunities to create job leads, collaborations, grants, calls for stylists, beauty brand campaigns and other professional opportunities.',
-            'Each opportunity should have a short description for cards and a detailed body for the detail page. Put requirements, responsibilities, deadlines, location, eligibility and application notes in the full details field.',
-            'Customers/providers apply through the opportunity enquiry process, not a generic get-in-touch link. Review submissions from Opportunity enquiries.',
-        ],
-    },
-    {
-        title: 'Subscriptions and payments',
-        items: [
-            'Subscription settings control provider plan payments to the platform. These payments must remain separate from provider booking payments.',
-            'Provider booking payments use the payment gateway credentials connected by each provider in their own dashboard. This keeps provider A payments tied to provider A only.',
-            'When troubleshooting plan payment issues, check active subscription gateway, gateway keys, selected mode, callback/return URL and payment records.',
-        ],
-    },
-    {
-        title: 'SMTP email settings',
-        items: [
-            'Enable SMTP in Settings only after adding host, port, from email and the required login credentials.',
-            'Use TLS with port 587 for most providers. Use SSL with port 465 if your mail provider requires it.',
-            'Leave the password field blank when editing other SMTP fields if you want to keep the saved password.',
-            'All major website emails use this connection when enabled: account verification, password reset, two-factor codes, booking updates, provider onboarding, subscription updates, announcements and admin alerts.',
-        ],
-    },
-    {
-        title: 'Twilio WhatsApp settings',
-        items: [
-            'Add Account SID, Auth Token and WhatsApp sender number from Twilio Settings. Use the sandbox sender for testing and an approved WhatsApp sender for production.',
-            'After Twilio is connected, enable the provider WhatsApp notification feature in Provider features. Providers will then see the WhatsApp notification tab in their settings.',
-            'Providers must add their own WhatsApp contact and enable alerts before booking notifications are sent to them.',
-            'If the feature is off, providers do not see the section and no WhatsApp booking messages are sent.',
-        ],
-    },
-    {
-        title: 'Security and access',
-        items: [
-            'Use Settings > Security for account password and two-factor authentication.',
-            'Two-factor authentication applies to platform users and helps protect admin, provider and customer accounts.',
-            'Do not share admin payment, SMTP or Twilio credentials with providers. Providers only manage their own profile, booking, payment and notification settings.',
-        ],
-    },
-    {
-        title: 'Deployment and troubleshooting',
-        items: [
-            'After code updates on live hosting, run migrations, clear Laravel caches and ensure the latest public/build assets are deployed.',
-            'If a page is blank, check browser console errors, Vite manifest, cached assets and Laravel logs.',
-            'If database errors mention missing tables or columns, run php artisan migrate --force on the live server.',
-            'If email or WhatsApp fails, check saved credentials, provider status, logs and whether the feature is enabled.',
-        ],
-    },
+    ['System overview', [
+        'BeautyPro HQ has three main account types: admin, provider and customer. Admin manages the platform; providers sell and manage services; customers discover providers, book services and receive updates.',
+        'The public website pulls data from providers, content, opportunities, community posts, reviews, events and homepage selections. The dashboards control the data shown publicly.',
+        'Core flow: provider registers, completes onboarding, selects a plan, sets profile/services/availability/payments, then customers can book from the public profile.',
+    ]],
+    ['First setup after deployment', [
+        'Run database migrations on the live server after every update that adds tables or columns.',
+        'Open Admin Settings and configure SMTP so verification emails, password resets, two-factor codes, booking emails, onboarding emails and admin alerts can send.',
+        'Configure subscription gateways for provider plan payments. These are platform payments, not provider booking payouts.',
+        'Configure currency rates if users can switch currencies on the frontend.',
+        'Configure Twilio WhatsApp if WhatsApp booking alerts will be offered to providers, then enable the provider WhatsApp feature.',
+        'Review subscription plans, provider categories, homepage content, sample news/events/opportunities and admin security.',
+    ]],
+    ['Users and account control', [
+        'Use Users to search, inspect and update admin, provider and customer accounts.',
+        'Check role, active status, email verification, two-factor status, profile data, bookings and subscriptions when troubleshooting login or dashboard access.',
+        'Admins can adjust customer information where needed, especially booking contact details and account status.',
+        'Avoid changing a user role unless it is intentional because dashboard access and permissions depend on role.',
+    ]],
+    ['Directory management', [
+        'Directory should contain Directory list, Provider categories and Pro of the week areas.',
+        'Directory list is for managing provider visibility and profile readiness. Use list and pagination for easier backend review.',
+        'Provider categories control public filtering and provider classification.',
+        'Pro of the week should be manually selected from real provider users. The frontend card uses provider photo, name, profession, country, verification state and profile link.',
+        'Only list providers whose public data is acceptable. Hide incomplete or inactive providers.',
+    ]],
+    ['Provider verification', [
+        'Providers submit verification details from their dashboard.',
+        'Admin reviews submitted identity/business details, portfolio, certificates and supporting links.',
+        'Approval updates the provider verification tag across the website.',
+        'Rejection should include a useful admin note so the provider knows what to fix.',
+    ]],
+    ['Content management', [
+        'News, events and community posts are managed from Content.',
+        'Each content item should have a clear title, short excerpt, featured image where needed and detailed body.',
+        'Use the editor formatting tools for headings, paragraphs, lists, quotes and links. Card descriptions should remain short because mobile cards need fixed responsive heights.',
+        'If content is missing on live, confirm the item exists on the live database, is published/active, migrations have run and the latest build is deployed.',
+    ]],
+    ['Opportunities management', [
+        'Opportunities should have a short description for cards and one full rich-text/plain content body for detailed information.',
+        'The full detail can include overview, requirements, responsibilities, benefits, location, deadline, application process and contact notes.',
+        'Opportunity frontend cards should show the correct type tag selected from backend.',
+        'Users apply or enquire through the opportunity enquiry process, not a generic get-in-touch button.',
+        'Admins review opportunity enquiries from the backend and update their status.',
+    ]],
+    ['Announcements and notifications', [
+        'Announcements are used to broadcast updates to selected audiences.',
+        'Platform notifications can appear in-app and by email depending on the notification type.',
+        'Important events that should notify users include registration, onboarding, verification decision, booking creation/status, payment updates, announcements, opportunity enquiries and security updates.',
+    ]],
+    ['Subscription plans and platform payments', [
+        'Subscription plans control provider access to paid tools.',
+        'Admin Paystack/Stripe settings are only for provider plan payments to the platform.',
+        'Provider booking payments are separate and must use the individual provider gateway setup.',
+        'When a provider payment fails, check active gateway, mode, public/secret keys, plan price/currency and payment logs.',
+    ]],
+    ['Provider booking payments', [
+        'Providers connect their own Paystack, Stripe or PayPal credentials in their dashboard.',
+        'A booking payment must always be tied to the booking provider ID, provider payment account ID, amount, currency and gateway reference.',
+        'Never use admin subscription payment credentials for provider booking payouts.',
+        'If checkout fails, review provider gateway credentials, default gateway, account enabled state and payment status.',
+    ]],
+    ['SMTP email setup', [
+        'Admin can connect SMTP from Settings.',
+        'Required fields are enabled state, host, port, from email and usually username/password.',
+        'Use TLS/587 for most SMTP providers and SSL/465 where required.',
+        'Password is encrypted. Leaving the password field blank keeps the saved password.',
+        'When SMTP is enabled, platform emails use admin-saved SMTP settings first, with environment settings as fallback.',
+    ]],
+    ['Twilio WhatsApp setup', [
+        'Admin can connect Twilio WhatsApp from Settings using Account SID, Auth Token and WhatsApp sender number.',
+        'Use Twilio sandbox for testing. Production requires an approved Twilio WhatsApp sender.',
+        'After credentials are saved, enable provider WhatsApp notifications in Provider features.',
+        'Providers only see the WhatsApp notification section when admin enables the feature.',
+        'Booking WhatsApp messages are sent only when admin feature is enabled and provider has enabled alerts with a WhatsApp number.',
+    ]],
+    ['Currency settings', [
+        'Currency settings control the rates used when users switch display currency on the frontend.',
+        'Rates should be maintained by admin based on the platform’s preferred conversion model.',
+        'Provider service prices remain stored in their selected/default currency; frontend display can convert using saved rates.',
+    ]],
+    ['Security settings', [
+        'Security settings include password management and two-factor authentication.',
+        'Admins should enable two-factor authentication for their own accounts.',
+        'If a user is redirected after login, check token/session state, two-factor challenge, role route, account status and browser cache.',
+        'Do not expose admin SMTP, Twilio or subscription gateway secrets to providers.',
+    ]],
+    ['Live deployment troubleshooting', [
+        'Blank page: check browser console, Vite manifest, public/build assets, cached old JS and Laravel logs.',
+        '404 LiteSpeed page: confirm domain document root points to Laravel public folder and rewrite rules are active.',
+        'Missing build/manifest: run npm install/build locally or in CI and deploy public/build.',
+        'Missing table/column SQL errors: run php artisan migrate --force on live.',
+        'Cache issues: run php artisan optimize:clear after config, route, view or deployment changes.',
+    ]],
 ];
+
+function DocumentationAccordion({ title, items, defaultOpen = false }) {
+    return (
+        <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" open={defaultOpen}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-black text-slate-950">
+                <span>{title}</span>
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-lg text-slate-500 transition group-open:rotate-45">+</span>
+            </summary>
+            <ul className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
+                {items.map((item) => (
+                    <li className="flex gap-3" key={item}>
+                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-fuchsia-600" />
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </details>
+    );
+}
 
 export default function AdminDocumentationPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                description="A practical operating guide for managing BeautyPro HQ from the admin dashboard."
+                description="A complete admin manual for operating, configuring and troubleshooting BeautyPro HQ."
                 eyebrow="Documentation"
                 title="Admin documentation"
             />
 
-            <Card>
-                <CardHeader
-                    action={<StatusBadge status="admin guide" />}
-                    description="Follow this order when setting up a fresh install or reviewing a live deployment."
-                    title="Recommended admin workflow"
-                />
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    {['Configure settings', 'Review plans', 'Prepare content', 'Manage users'].map((step, index) => (
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4" key={step}>
-                            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Step {index + 1}</p>
-                            <p className="mt-2 font-black text-slate-950">{step}</p>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            <div className="grid gap-5 xl:grid-cols-2">
-                {sections.map((section) => (
-                    <Card key={section.title}>
-                        <CardHeader title={section.title} />
-                        <ul className="space-y-3 text-sm leading-6 text-slate-600">
-                            {section.items.map((item) => (
-                                <li className="flex gap-3" key={item}>
-                                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-fuchsia-600" />
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </Card>
+            <Card className="space-y-3">
+                {sections.map((section, index) => (
+                    <DocumentationAccordion defaultOpen={index === 0} items={section[1]} key={section[0]} title={section[0]} />
                 ))}
-            </div>
+            </Card>
         </div>
     );
 }
