@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, Home, MessageCircle, Newspaper, Search } from 'lucide-react';
+import { CalendarDays, Home, Menu, MessageCircle, Newspaper, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { buttonClass } from '../ui/Button';
 import ExpandableTabs from '../ui/ExpandableTabs';
@@ -85,6 +85,7 @@ export default function PublicLayout() {
         { title: 'Events', icon: CalendarDays, to: '/events' },
         { title: 'Directory', icon: Search, to: '/directory' },
         { title: 'Contact', icon: MessageCircle, action: 'contact' },
+        { title: 'Menu', icon: Menu, action: 'menu' },
     ];
     const activeMobileTab = mobileTabs.findIndex((tab) => (
         tab.to === '/'
@@ -95,6 +96,10 @@ export default function PublicLayout() {
     function handleMobileTabChange(index, tab) {
         if (tab.action === 'contact') {
             openContact();
+            return;
+        }
+        if (tab.action === 'menu') {
+            setOpen(true);
             return;
         }
         navigate(tab.to);
