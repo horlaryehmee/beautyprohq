@@ -13,7 +13,6 @@ const links = [
     { label: 'News', to: '/news' },
     { label: 'Events', to: '/events' },
     { label: 'Directory', to: '/directory' },
-    { label: 'Resources', to: '/resources' },
     { label: 'Get In Touch', action: 'contact' },
 ];
 
