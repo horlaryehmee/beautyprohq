@@ -26,6 +26,7 @@ export default function PublicLayout() {
     const [open, setOpen] = useState(false);
     const [contactOpen, setContactOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [footerVisible, setFooterVisible] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
@@ -47,6 +48,26 @@ export default function PublicLayout() {
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        if (hideFooter) {
+            setFooterVisible(false);
+            return undefined;
+        }
+
+        const footer = document.querySelector('[data-public-footer]');
+        if (!footer || !('IntersectionObserver' in window)) {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => setFooterVisible(entry.isIntersecting),
+            { root: null, threshold: 0.02 },
+        );
+        observer.observe(footer);
+
+        return () => observer.disconnect();
+    }, [hideFooter, location.pathname]);
 
     async function handleLogout() {
         await logout();
@@ -135,7 +156,7 @@ export default function PublicLayout() {
                 </aside>
             </div>
 
-            {!isBookingPage && <nav aria-label="Mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] lg:hidden">
+            {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transition-all duration-300 ease-out lg:hidden ${footerVisible ? 'pointer-events-none translate-y-8 opacity-0' : 'translate-y-0 opacity-100'}`}>
                 <ExpandableTabs
                     activeIndex={activeMobileTab >= 0 ? activeMobileTab : null}
                     className="mx-auto w-fit max-w-full"
@@ -179,7 +200,7 @@ export default function PublicLayout() {
 
             {contactOpen && <OpportunityEnquiryModal onClose={() => setContactOpen(false)} />}
 
-            {!hideFooter && <footer className="bg-plum-950 text-white">
+            {!hideFooter && <footer data-public-footer className="bg-plum-950 text-white">
                 <div className="page-container grid gap-10 py-14 md:grid-cols-[1.3fr_.7fr_.7fr] lg:py-16">
                     <div className="max-w-md">
                         <Logo light />
