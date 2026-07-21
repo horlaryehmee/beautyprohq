@@ -8,6 +8,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Notifications\TwoFactorCodeNotification;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -73,6 +74,20 @@ class AuthController extends Controller
         });
 
         event(new Registered($user));
+        $user->notify(new PlatformUpdateNotification(
+            'Welcome to BeautyPro HQ',
+            'Your BeautyPro HQ account has been created. Complete your setup to start using your workspace.',
+            'Open dashboard',
+            rtrim(config('app.frontend_url', config('app.url')), '/').($user->isProvider() ? '/provider' : '/customer'),
+            ['user_id' => $user->id, 'role' => $user->role],
+        ));
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'New user registration',
+            "{$user->name} registered as a {$user->role}.",
+            'View users',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users',
+            ['user_id' => $user->id, 'role' => $user->role],
+        ));
         if ($request->hasSession()) {
             Auth::login($user);
             $request->session()->regenerate();

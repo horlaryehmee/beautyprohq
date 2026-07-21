@@ -8,6 +8,7 @@ use App\Models\CrmCustomer;
 use App\Models\Loyalty;
 use App\Models\LoyaltyTransaction;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +63,13 @@ class BookingController extends Controller
                     $loyalty->increment('points', $points);
                     $loyalty->increment('lifetime_points', $points);
                     LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => $points, 'reason' => 'Completed booking']);
+                    $booking->customer->notify(new PlatformUpdateNotification(
+                        'Loyalty points earned',
+                        "You earned {$points} loyalty points from {$provider->user->name}.",
+                        'View rewards',
+                        rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/rewards',
+                        ['booking_id' => $booking->id, 'provider_id' => $provider->id, 'points' => $points],
+                    ));
                 }
             }
         });

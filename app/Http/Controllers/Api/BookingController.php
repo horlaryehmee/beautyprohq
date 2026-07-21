@@ -10,6 +10,7 @@ use App\Models\Review;
 use App\Models\Service;
 use App\Models\User;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\PlatformUpdateNotification;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -177,6 +178,20 @@ class BookingController extends Controller
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
         $provider->user->notify(new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
+        $customer->notify(new PlatformUpdateNotification(
+            'Booking request received',
+            "Your booking request for {$booking->service->name} with {$provider->user->name} has been received.",
+            'View bookings',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
+            ['booking_id' => $booking->id, 'provider_id' => $provider->id],
+        ));
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'New booking request',
+            "{$customer->name} requested {$booking->service->name} with {$provider->user->name}.",
+            'View activity',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
+            ['booking_id' => $booking->id, 'provider_id' => $provider->id],
+        ));
 
         return $this->success($booking, 'Booking request sent to the provider.', 201);
     }
@@ -491,6 +506,7 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $this->notifyBookingPaymentPaid($payment);
     }
 
     private function verifyStripeBookingPayment(Payment $payment, ?string $sessionId): void
@@ -527,6 +543,7 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $this->notifyBookingPaymentPaid($payment);
     }
 
     private function verifyPaypalBookingPayment(Payment $payment, ?string $orderId): void
@@ -575,6 +592,39 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $this->notifyBookingPaymentPaid($payment);
+    }
+
+    private function notifyBookingPaymentPaid(Payment $payment): void
+    {
+        $payment->refresh()->loadMissing(['booking.customer', 'booking.service', 'provider.user']);
+        $providerName = $payment->provider?->user?->name ?? 'your provider';
+        $serviceName = $payment->booking?->service?->name ?? 'booking';
+        $amount = $payment->currency.' '.number_format((float) $payment->amount, 2);
+
+        $payment->booking?->customer?->notify(new PlatformUpdateNotification(
+            'Booking payment confirmed',
+            "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed.",
+            'View bookings',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
+            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id],
+        ));
+
+        $payment->provider?->user?->notify(new PlatformUpdateNotification(
+            'New booking payment received',
+            "{$payment->booking?->customer?->name} paid {$amount} for {$serviceName}.",
+            'View payments',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/payments',
+            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id],
+        ));
+
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'Booking payment confirmed',
+            "{$payment->booking?->customer?->name} paid {$amount} to {$providerName} for {$serviceName}.",
+            'View activity',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=payments',
+            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id, 'provider_id' => $payment->provider_id],
+        ));
     }
 
     private function assertVerifiedPaymentPayload(Payment $payment, array $meta, int $amountMinor, string $currency): void

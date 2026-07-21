@@ -9,6 +9,8 @@ use App\Models\Event;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
+use App\Models\User;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -80,6 +82,12 @@ class PublicContentController extends Controller
             'message' => ['required', 'string', 'max:3000'],
         ]);
         $enquiry = $opportunity->enquiries()->create($validated + ['user_id' => $request->user()?->id]);
+        $this->notifyAdmins(
+            'New opportunity enquiry',
+            "{$validated['name']} applied/enquired about {$opportunity->title}.",
+            '/admin/opportunity-enquiries',
+            ['opportunity_id' => $opportunity->id, 'enquiry_id' => $enquiry->id]
+        );
 
         return $this->success($enquiry, 'Your enquiry has been sent.', 201);
     }
@@ -99,6 +107,12 @@ class PublicContentController extends Controller
         ]);
 
         $enquiry = ContactEnquiry::create($validated + ['user_id' => $request->user()?->id]);
+        $this->notifyAdmins(
+            'New contact enquiry',
+            "{$validated['name']} sent a {$validated['reason']} enquiry.",
+            '/admin/activity?type=messages',
+            ['contact_enquiry_id' => $enquiry->id]
+        );
 
         return $this->success($enquiry, 'Your message has been sent to BeautyPro HQ.', 201);
     }
@@ -106,5 +120,12 @@ class PublicContentController extends Controller
     private function paginated($paginator): JsonResponse
     {
         return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
+    }
+
+    private function notifyAdmins(string $title, string $message, string $path, array $data = []): void
+    {
+        $url = rtrim(config('app.frontend_url', config('app.url')), '/').$path;
+        User::where('role', 'admin')->where('is_active', true)->get()
+            ->each->notify(new PlatformUpdateNotification($title, $message, 'Review in admin', $url, $data));
     }
 }

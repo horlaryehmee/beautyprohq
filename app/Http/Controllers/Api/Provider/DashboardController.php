@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\ProfileView;
 use App\Models\VerificationRequest;
+use App\Models\User;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -229,6 +231,21 @@ class DashboardController extends Controller
             }
         });
 
+        $request->user()->notify(new PlatformUpdateNotification(
+            'Provider onboarding completed',
+            'Your provider listing setup is complete. You can now continue refining your profile and services.',
+            'Open dashboard',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
+            ['provider_id' => $provider->id],
+        ));
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'Provider onboarding completed',
+            "{$request->user()->name} completed provider onboarding.",
+            'View user',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users/'.$request->user()->id,
+            ['provider_id' => $provider->id, 'user_id' => $request->user()->id],
+        ));
+
         return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']), 'Listing details completed.');
     }
 
@@ -283,6 +300,14 @@ class DashboardController extends Controller
             'certification_files' => array_values($validated['certification_files'] ?? []),
             'license_files' => array_values($validated['license_files'] ?? []),
         ]);
+
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'New verification request',
+            "{$request->user()->name} submitted a provider verification request.",
+            'Review verification',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/verification',
+            ['verification_id' => $verification->id, 'provider_id' => $provider->id],
+        ));
 
         return $this->success($verification, 'Verification request submitted.', 201);
     }

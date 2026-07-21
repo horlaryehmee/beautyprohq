@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
+use App\Models\User;
+use App\Notifications\PlatformUpdateNotification;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
@@ -306,6 +308,7 @@ class SubscriptionController extends Controller
         }
 
         $subscription = $this->activatePaidSubscription($payment, $response->json());
+        $this->notifySubscriptionActivated($subscription);
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
     }
@@ -334,6 +337,13 @@ class SubscriptionController extends Controller
                 'starts_at' => now(),
             ]);
         });
+        $user->notify(new PlatformUpdateNotification(
+            'Subscription changed',
+            'Your account has been moved to the free plan.',
+            'View subscription',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
+            ['subscription_id' => $subscription->id],
+        ));
 
         return $this->success($subscription->load('planDefinition'), 'Your account has been moved to the free plan.');
     }
@@ -420,6 +430,7 @@ class SubscriptionController extends Controller
         }
 
         $subscription = $this->activatePaidSubscription($payment, $response->json());
+        $this->notifySubscriptionActivated($subscription);
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
     }
@@ -454,6 +465,26 @@ class SubscriptionController extends Controller
 
             return $subscription;
         });
+    }
+
+    private function notifySubscriptionActivated(Subscription $subscription): void
+    {
+        $subscription->loadMissing(['user', 'planDefinition']);
+        $subscription->user?->notify(new PlatformUpdateNotification(
+            'Paid plan activated',
+            'Your BeautyPro HQ paid plan is now active.',
+            'Open subscription',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
+            ['subscription_id' => $subscription->id, 'plan' => $subscription->plan],
+        ));
+
+        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+            'Provider plan activated',
+            ($subscription->user?->name ?? 'A provider').' activated the paid plan.',
+            'View subscriptions',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/subscriptions',
+            ['subscription_id' => $subscription->id, 'user_id' => $subscription->user_id],
+        ));
     }
 
     private function stripeConfigured(): bool

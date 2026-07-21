@@ -20,13 +20,15 @@ class BookingStatusNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $path = $notifiable->role === 'provider' ? '/provider/bookings' : '/customer/bookings';
+
         return (new MailMessage)
             ->subject('BeautyPro HQ booking update')
             ->greeting("Hello {$notifiable->name},")
             ->line($this->message)
             ->line("Service: {$this->booking->service->name}")
             ->line('Date: '.$this->booking->date->format('M j, Y').' at '.$this->booking->time)
-            ->action('View your bookings', rtrim(config('app.frontend_url', config('app.url')), '/').'/dashboard/bookings');
+            ->action('View your bookings', rtrim(config('app.frontend_url', config('app.url')), '/').$path);
     }
 
     public function toArray(object $notifiable): array

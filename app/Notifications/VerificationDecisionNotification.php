@@ -25,7 +25,7 @@ class VerificationDecisionNotification extends Notification
             $mail->line($this->verification->admin_notes);
         }
 
-        return $mail->action('View verification', rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/verification');
+        return $mail->action('View verification', rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/profile');
     }
 
     public function toArray(object $notifiable): array
