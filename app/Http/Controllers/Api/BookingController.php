@@ -189,7 +189,7 @@ class BookingController extends Controller
             'provider_id' => $payment->provider_id,
             'customer_id' => $payment->booking->customer_id,
             'provider_payment_account_id' => $account->id,
-            'provider_account_reference' => $account->account_reference,
+            'provider_account_reference' => $gateway === 'paystack' ? ($account->public_key ?: $account->account_reference) : $account->account_reference,
             'gateway' => $gateway,
         ];
 
@@ -273,9 +273,9 @@ class BookingController extends Controller
 
     private function initializePaystackBookingCheckout(Payment $payment, $account, string $reference, array $metadata): array
     {
-        $secret = $this->paystackSecretKey();
-        abort_unless($secret, 422, 'Paystack is not configured yet.');
-        abort_unless($account->account_reference, 422, 'This provider Paystack subaccount is missing.');
+        $secret = $this->providerPaystackSecretKey($account);
+        abort_unless($secret, 422, 'This provider has not added a Paystack secret key.');
+        abort_unless($account->public_key, 422, 'This provider has not added a Paystack public key.');
 
         $response = Http::withToken($secret)->post('https://api.paystack.co/transaction/initialize', [
             'email' => $payment->booking->customer->email,
@@ -283,7 +283,6 @@ class BookingController extends Controller
             'currency' => $payment->currency,
             'reference' => $reference,
             'callback_url' => url('/customer/bookings?payment_reference='.$reference),
-            'subaccount' => $account->account_reference,
             'metadata' => $metadata,
         ]);
 
@@ -343,8 +342,12 @@ class BookingController extends Controller
 
     private function verifyPaystackBookingPayment(Payment $payment): void
     {
-        $secret = $this->paystackSecretKey();
-        abort_unless($secret, 422, 'Paystack is not configured yet.');
+        $account = $payment->provider->paymentAccounts
+            ->first(fn ($item) => (int) $item->id === (int) ($payment->metadata['provider_payment_account_id'] ?? 0) && $item->gateway === 'paystack');
+        abort_unless($account, 422, 'Provider Paystack account not found.');
+
+        $secret = $this->providerPaystackSecretKey($account);
+        abort_unless($secret, 422, 'This provider Paystack account cannot verify payments.');
 
         $response = Http::withToken($secret)->get('https://api.paystack.co/transaction/verify/'.rawurlencode($payment->reference));
         abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack payment could not be verified.');
@@ -415,10 +418,10 @@ class BookingController extends Controller
         abort_unless(($meta['provider_account_reference'] ?? null) === ($localMeta['provider_account_reference'] ?? null), 422, 'Provider destination account mismatch.');
     }
 
-    private function paystackSecretKey(): ?string
+    private function providerPaystackSecretKey($account): ?string
     {
-        $mode = AppSetting::getValue('paystack.mode', 'test');
-        $key = AppSetting::getValue("paystack.{$mode}_secret_key");
+        $settings = $account->settings ?? [];
+        $key = $settings['secret_key'] ?? null;
 
         return is_string($key) && $key !== '' ? $key : null;
     }

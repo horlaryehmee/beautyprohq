@@ -147,7 +147,15 @@ class BusinessController extends Controller
 
     public function paymentAccounts(Request $request): JsonResponse
     {
-        return $this->success($request->user()->providerProfile->paymentAccounts()->get());
+        $accounts = $request->user()->providerProfile->paymentAccounts()->get()
+            ->map(function ($account) {
+                $settings = $account->settings ?? [];
+                $account->has_secret_key = filled($settings['secret_key'] ?? null);
+
+                return $account;
+            });
+
+        return $this->success($accounts);
     }
 
     public function updatePaymentAccount(Request $request): JsonResponse
@@ -159,6 +167,7 @@ class BusinessController extends Controller
             'account_identifier' => ['nullable', 'string', 'max:255'],
             'public_key' => ['nullable', 'string', 'max:500'],
             'settings' => ['nullable', 'array'],
+            'settings.secret_key' => ['nullable', 'string', 'max:500'],
             'is_connected' => ['sometimes', 'boolean'],
             'enabled' => ['sometimes', 'boolean'],
         ]);
@@ -168,10 +177,18 @@ class BusinessController extends Controller
         if (! array_key_exists('is_connected', $validated) && array_key_exists('enabled', $validated)) {
             $validated['is_connected'] = $validated['enabled'];
         }
+        $existing = $request->user()->providerProfile->paymentAccounts()
+            ->where('gateway', $validated['gateway'])->first();
+        $settings = $validated['settings'] ?? [];
+        if (blank($settings['secret_key'] ?? null)) {
+            $settings = $existing?->settings ?? [];
+        }
+        $validated['settings'] = $settings;
         $account = PaymentAccount::updateOrCreate(
             ['provider_id' => $request->user()->providerProfile->id, 'gateway' => $validated['gateway']],
             $validated
         );
+        $account->has_secret_key = filled(($account->settings ?? [])['secret_key'] ?? null);
 
         return $this->success($account, 'Payment account updated.');
     }
