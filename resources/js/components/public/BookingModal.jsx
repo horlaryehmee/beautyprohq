@@ -356,7 +356,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 )}
                             </aside>
 
-                            <main className="flex min-h-0 min-w-0 flex-col overflow-y-auto px-4 py-4 pb-24 lg:p-6">
+                            <main className="flex min-h-0 min-w-0 flex-col overflow-y-auto px-4 py-4 pb-28 lg:p-6">
                                 {step === 1 && (
                                     <div className="space-y-5">
                                         <section>
@@ -472,7 +472,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     </section>
                                 )}
 
-                                <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col-reverse gap-2 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:justify-between sm:bg-white sm:px-0">
+                                <div className={`${standalone ? 'fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 lg:static lg:px-0 lg:pb-0' : 'sticky bottom-0 -mx-4 px-4 py-3 sm:mx-0 sm:px-0'} mt-auto flex flex-col-reverse gap-2 border-t border-stone-200 bg-white/95 backdrop-blur sm:flex-row sm:justify-between`}>
                                     <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep((current) => Math.max(1, current - 1))}>{step === 1 ? 'Cancel' : 'Back'}</Button>
                                     {step < 4 && <Button type="button" onClick={nextStep} className="rounded-full bg-[#34231c] hover:bg-[#4a2f26]">Continue <Icon name="arrow" size={16} /></Button>}
                                 </div>

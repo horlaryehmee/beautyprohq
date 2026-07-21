@@ -29,7 +29,8 @@ export default function PublicLayout() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
-    const hideFooter = /^\/providers\/[^/]+\/?$/.test(location.pathname);
+    const isBookingPage = /^\/providers\/[^/]+\/book(\/[^/]+)?\/?$/.test(location.pathname);
+    const hideFooter = isBookingPage || /^\/providers\/[^/]+\/?$/.test(location.pathname);
 
     useEffect(() => {
         setOpen(false);
@@ -134,14 +135,14 @@ export default function PublicLayout() {
                 </aside>
             </div>
 
-            <nav aria-label="Mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] lg:hidden">
+            {!isBookingPage && <nav aria-label="Mobile navigation" className="fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] lg:hidden">
                 <ExpandableTabs
                     activeIndex={activeMobileTab >= 0 ? activeMobileTab : null}
                     className="mx-auto w-fit max-w-full"
                     onChange={handleMobileTabChange}
                     tabs={mobileTabs}
                 />
-            </nav>
+            </nav>}
 
             <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
                 <div className="page-container flex h-18 items-center justify-between gap-5">
@@ -174,7 +175,7 @@ export default function PublicLayout() {
                 </div>
             </header>
 
-            <main className="pb-20 lg:pb-0"><Outlet /></main>
+            <main className={isBookingPage ? 'pb-0' : 'pb-20 lg:pb-0'}><Outlet /></main>
 
             {contactOpen && <OpportunityEnquiryModal onClose={() => setContactOpen(false)} />}
 
