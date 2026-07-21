@@ -18,7 +18,7 @@ class BookingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $bookings = Booking::where('provider_id', $request->user()->providerProfile->id)
-            ->with(['customer:id,name,email', 'service', 'payment', 'review'])
+            ->with(['customer:id,name,email,phone', 'service', 'payment', 'review'])
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))
             ->when($request->date, fn ($q, $date) => $q->whereDate('date', $date))
             ->orderByDesc('date')->orderByDesc('time')->paginate($request->integer('per_page', 20));

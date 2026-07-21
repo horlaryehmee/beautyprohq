@@ -38,6 +38,7 @@ class BookingController extends Controller
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'custom_fields' => ['nullable', 'array'],
         ]);
 
         return $this->createBooking($request, $validated, $request->user());
@@ -51,6 +52,7 @@ class BookingController extends Controller
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'custom_fields' => ['nullable', 'array'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email:rfc', 'max:255'],
             'customer.phone' => ['nullable', 'string', 'max:40'],
@@ -88,6 +90,8 @@ class BookingController extends Controller
             return response()->json(['message' => 'This provider is not accepting direct bookings on BeautyPro HQ.'], 422);
         }
         $service = Service::whereKey($validated['service_id'])->where('provider_id', $provider->id)->where('is_active', true)->firstOrFail();
+        $customFields = $this->validatedCustomBookingFields($provider, $validated['custom_fields'] ?? []);
+        unset($validated['custom_fields']);
         $date = Carbon::createFromFormat('Y-m-d H:i', $validated['date'].' '.$validated['time']);
         $end = $date->copy()->addMinutes($service->duration_minutes);
 
@@ -118,7 +122,7 @@ class BookingController extends Controller
             return response()->json(['message' => 'That date or time is blocked by the provider.'], 422);
         }
 
-        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end): ?Booking {
+        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields): ?Booking {
             $conflict = Booking::where('provider_id', $provider->id)
                 ->whereDate('date', $validated['date'])
                 ->whereIn('status', ['pending', 'confirmed'])
@@ -136,6 +140,7 @@ class BookingController extends Controller
                 'customer_id' => $customer->id,
                 'end_time' => $end->format('H:i:s'),
                 'status' => 'pending',
+                'custom_fields' => $customFields,
             ]);
             Payment::create([
                 'booking_id' => $booking->id,
@@ -157,6 +162,54 @@ class BookingController extends Controller
         $provider->user->notify(new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
 
         return $this->success($booking, 'Booking request sent to the provider.', 201);
+    }
+
+    private function validatedCustomBookingFields(ProviderProfile $provider, array $answers): array
+    {
+        $fields = collect($provider->booking_form_fields ?? [])
+            ->filter(fn ($field) => filled($field['label'] ?? null))
+            ->values()
+            ->take(8);
+
+        $clean = [];
+        foreach ($fields as $index => $field) {
+            $key = 'field_'.$index;
+            $label = trim((string) ($field['label'] ?? 'Question '.($index + 1)));
+            $type = in_array($field['type'] ?? 'text', ['text', 'textarea', 'select', 'checkbox'], true) ? $field['type'] : 'text';
+            $required = (bool) ($field['required'] ?? false);
+            $value = $answers[$key] ?? null;
+
+            if ($type === 'checkbox') {
+                $value = filter_var($value, FILTER_VALIDATE_BOOL);
+            } elseif (is_array($value)) {
+                $value = '';
+            } else {
+                $value = trim((string) $value);
+            }
+
+            if ($required && ($type === 'checkbox' ? ! $value : $value === '')) {
+                abort(422, "{$label} is required.");
+            }
+
+            if ($type === 'select') {
+                $options = collect($field['options'] ?? [])->map(fn ($option) => trim((string) $option))->filter()->values()->all();
+                if ($value !== '' && ! in_array($value, $options, true)) {
+                    abort(422, "{$label} has an invalid answer.");
+                }
+            }
+
+            if ($type !== 'checkbox') {
+                $value = Str::limit($value, $type === 'textarea' ? 1000 : 255, '');
+            }
+
+            $clean[] = [
+                'label' => $label,
+                'type' => $type,
+                'answer' => $value,
+            ];
+        }
+
+        return $clean;
     }
 
     public function checkoutPayment(Request $request, Payment $payment): JsonResponse
@@ -546,9 +599,7 @@ class BookingController extends Controller
 
     private function paypalBaseUrl($account): string
     {
-        $mode = ($account->settings ?? [])['mode'] ?? 'sandbox';
-
-        return $mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+        return 'https://api-m.paypal.com';
     }
 
     public function show(Request $request, Booking $booking): JsonResponse

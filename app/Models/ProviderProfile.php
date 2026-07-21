@@ -25,6 +25,7 @@ class ProviderProfile extends Model
             'social_links' => 'array',
             'portfolio_links' => 'array',
             'digital_product_links' => 'array',
+            'booking_form_fields' => 'array',
             'base_price' => 'decimal:2',
             'terms_accepted_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',

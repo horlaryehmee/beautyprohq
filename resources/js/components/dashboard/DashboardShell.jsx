@@ -118,7 +118,6 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                     >
                         <Icon className="size-[18px]" name={item.icon} />
                         <span>{item.label}</span>
-                        {(item.verifiedOnly || item.paidOnly) && <span className="ml-auto rounded-full bg-fuchsia-100 px-2 py-0.5 text-[9px] uppercase tracking-wide text-fuchsia-700 group-[.active]:bg-white/10 group-[.active]:text-white">Pro</span>}
                     </NavLink>
                 ))}
             </nav>

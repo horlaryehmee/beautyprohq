@@ -22,7 +22,7 @@ import {
 const gateways = [
     { id: 'paystack', name: 'Paystack', description: 'Connect your own Paystack integration keys for booking payments.' },
     { id: 'stripe', name: 'Stripe', description: 'Connect your own Stripe integration keys for booking payments.' },
-    { id: 'paypal', name: 'PayPal', description: 'Connect your own PayPal REST app credentials for booking payments.' },
+    { id: 'paypal', name: 'PayPal', description: 'Connect your live PayPal REST app credentials for booking payments.' },
 ];
 
 const normalize = (value, key) => Array.isArray(value) ? value : value?.[key] ?? value?.data ?? [];
@@ -35,7 +35,7 @@ export default function ProviderPaymentsPage() {
     const resource = useApiResource('/provider/payments', {});
     const accountsResource = useApiResource('/provider/payment-accounts', {});
     const [activeGateway, setActiveGateway] = useState(null);
-    const [account, setAccount] = useState({ public_key: '', secret_key: '', mode: 'sandbox', enabled: true });
+    const [account, setAccount] = useState({ public_key: '', secret_key: '', enabled: true });
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const dashboard = resource.data ?? {};
@@ -57,7 +57,6 @@ export default function ProviderPaymentsPage() {
         setAccount({
             public_key: saved?.public_key ?? '',
             secret_key: '',
-            mode: saved?.mode ?? saved?.settings?.mode ?? 'sandbox',
             enabled: saved?.enabled ?? saved?.is_connected ?? true,
         });
     }, [accounts, activeGateway]);
@@ -77,7 +76,6 @@ export default function ProviderPaymentsPage() {
                 enabled: account.enabled,
                 settings: {
                     ...(account.secret_key ? { secret_key: account.secret_key } : {}),
-                    ...(activeGateway.id === 'paypal' ? { mode: account.mode } : {}),
                 },
             });
             accountsResource.setData((current) => ({
@@ -178,15 +176,6 @@ export default function ProviderPaymentsPage() {
                             Use the credentials from your own {activeGateway.name} dashboard. Booking payments will be initialized and verified on that provider account.
                         </p>
                         <form autoComplete="off" className="mt-5 space-y-4" onSubmit={saveAccount}>
-                            {activeGateway.id === 'paypal' && (
-                                <Field label="PayPal mode">
-                                    <select className={inputClass} onChange={(event) => setAccount((current) => ({ ...current, mode: event.target.value }))} value={account.mode}>
-                                        <option value="sandbox">Sandbox</option>
-                                        <option value="live">Live</option>
-                                    </select>
-                                </Field>
-                            )}
-
                             <Field label={activeGateway.id === 'paypal' ? 'PayPal client ID' : `${activeGateway.name} public key`}>
                                 <input
                                     autoComplete="off"

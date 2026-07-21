@@ -93,6 +93,7 @@ export default function ProviderProfilePage() {
         base_price: '',
         availability: defaultAvailability,
         portfolio_links: [],
+        booking_form_fields: [],
         certification_files: [],
         license_files: [],
         professional_info: '',
@@ -113,6 +114,7 @@ export default function ProviderProfilePage() {
         ['Pricing', 'Base price and currency'],
         ['Work hours', 'Availability'],
         ['Portfolio', 'Best work links'],
+        ['Booking form', 'Extra questions'],
         ['Verification', 'Review material'],
     ], []);
 
@@ -141,6 +143,7 @@ export default function ProviderProfilePage() {
                 end_time: String(slot.end_time ?? '18:00').slice(0, 5),
             })) : defaultAvailability,
             portfolio_links: current.portfolio_links ?? current.portfolio_items?.map((item) => item.url ?? item.image_url).filter(Boolean) ?? [],
+            booking_form_fields: Array.isArray(current.booking_form_fields) ? current.booking_form_fields : [],
             certification_files: [],
             license_files: [],
             professional_info: [current.profession, current.location, current.bio].filter(Boolean).join('\n\n'),
@@ -214,6 +217,15 @@ export default function ProviderProfilePage() {
                 base_price: form.base_price || null,
                 availability: form.availability,
                 portfolio_links: form.portfolio_links,
+                booking_form_fields: form.booking_form_fields
+                    .filter((field) => field.label?.trim())
+                    .slice(0, 8)
+                    .map((field) => ({
+                        label: field.label.trim(),
+                        type: field.type || 'text',
+                        required: Boolean(field.required),
+                        options: (field.options ?? []).filter((option) => option?.trim()).map((option) => option.trim()).slice(0, 12),
+                    })),
             });
             resource.setData((current) => ({ ...current, ...(updated ?? {}) }));
             notify('Profile changes saved.');
@@ -230,6 +242,16 @@ export default function ProviderProfilePage() {
         setPortfolioUrl('');
     };
     const removePortfolioLink = (index) => setForm((current) => ({ ...current, portfolio_links: current.portfolio_links.filter((_, itemIndex) => itemIndex !== index) }));
+    const addBookingField = () => setForm((current) => ({
+        ...current,
+        booking_form_fields: [...current.booking_form_fields, { label: '', type: 'text', required: false, options: [] }].slice(0, 8),
+    }));
+    const updateBookingField = (index, patch) => setForm((current) => ({
+        ...current,
+        booking_form_fields: current.booking_form_fields.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field),
+    }));
+    const removeBookingField = (index) => setForm((current) => ({ ...current, booking_form_fields: current.booking_form_fields.filter((_, fieldIndex) => fieldIndex !== index) }));
+    const updateBookingFieldOptions = (index, value) => updateBookingField(index, { options: value.split('\n').map((option) => option.trim()).filter(Boolean) });
     const addVerificationLink = (key, value, reset) => {
         if (!value.trim()) return;
         setForm((current) => ({ ...current, [key]: [...current[key], value.trim()] }));
@@ -359,6 +381,32 @@ export default function ProviderProfilePage() {
                     )}
 
                     {step === 8 && (
+                        <div className="space-y-5">
+                            <CardHeader description="Ask customers for extra details before they submit a booking request." title="Custom booking questions" />
+                            {form.booking_form_fields.length ? (
+                                <div className="space-y-4">
+                                    {form.booking_form_fields.map((field, index) => (
+                                        <div className="rounded-2xl border border-slate-100 p-4" key={index}>
+                                            <div className="grid gap-3 lg:grid-cols-[1fr_150px_auto]">
+                                                <Field label="Question label"><input className={inputClass} onChange={(event) => updateBookingField(index, { label: event.target.value })} placeholder="e.g. What style are you booking for?" value={field.label ?? ''} /></Field>
+                                                <Field label="Answer type"><select className={inputClass} onChange={(event) => updateBookingField(index, { type: event.target.value })} value={field.type ?? 'text'}><option value="text">Short text</option><option value="textarea">Long text</option><option value="select">Dropdown</option><option value="checkbox">Checkbox</option></select></Field>
+                                                <div className="flex items-end gap-2">
+                                                    <label className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-600"><input checked={Boolean(field.required)} className="size-4 accent-fuchsia-700" onChange={(event) => updateBookingField(index, { required: event.target.checked })} type="checkbox" />Required</label>
+                                                    <Button onClick={() => removeBookingField(index)} type="button" variant="secondary">Remove</Button>
+                                                </div>
+                                            </div>
+                                            {field.type === 'select' && <Field className="mt-3" hint="One option per line." label="Dropdown options"><textarea className={`${inputClass} min-h-24 resize-y`} onChange={(event) => updateBookingFieldOptions(index, event.target.value)} placeholder={'Option 1\nOption 2'} value={(field.options ?? []).join('\n')} /></Field>}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">No extra booking questions yet. Customers will only see the default booking fields.</div>
+                            )}
+                            <Button disabled={form.booking_form_fields.length >= 8} onClick={addBookingField} type="button" variant="soft">Add booking question</Button>
+                        </div>
+                    )}
+
+                    {step === 9 && (
                         <div className="space-y-5">
                             <CardHeader description="This is what admin reviews before awarding the BPHQ verified badge." title="Verification submission" />
                             {verified ? <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-emerald-600">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-700"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>

@@ -26,6 +26,7 @@ const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'rejec
 export default function ProviderBookingsPage() {
     const [status, setStatus] = useState('all');
     const [query, setQuery] = useState('');
+    const [selectedBooking, setSelectedBooking] = useState(null);
     const debouncedQuery = useDebouncedValue(query);
     const resource = useApiResource('/provider/bookings', [], { params: { status: status === 'all' ? undefined : status, search: debouncedQuery || undefined }, refreshInterval: 15000 });
     const [bookings, setBookings] = [normalize(resource.data), resource.setData];
@@ -90,6 +91,7 @@ export default function ProviderBookingsPage() {
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
+                                        <Button onClick={() => setSelectedBooking(booking)} type="button" variant="secondary">Details</Button>
                                         {booking.status === 'pending' && <><Button busy={isBusy(`${booking.id}-confirmed`)} onClick={() => updateStatus(booking, 'confirmed')} type="button">Accept</Button><Button busy={isBusy(`${booking.id}-rejected`)} onClick={() => updateStatus(booking, 'rejected')} type="button" variant="danger">Decline</Button></>}
                                         {booking.status === 'confirmed' && <><Button busy={isBusy(`${booking.id}-completed`)} onClick={() => updateStatus(booking, 'completed')} type="button" variant="soft">Mark complete</Button><Button busy={isBusy(`${booking.id}-cancelled`)} onClick={() => updateStatus(booking, 'cancelled')} type="button" variant="secondary">Cancel</Button></>}
                                     </div>
@@ -99,6 +101,63 @@ export default function ProviderBookingsPage() {
                     </div>
                 ) : <EmptyState description="Try another filter, or check back when customers send requests." icon="booking" title="No bookings found" />}
             </Card>
+            {selectedBooking && (
+                <div className="fixed inset-0 z-[80] grid place-items-end bg-slate-950/40 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setSelectedBooking(null)}>
+                    <Card className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-fuchsia-700">Booking details</p>
+                                <h2 className="mt-1 text-xl font-black text-slate-950">{selectedBooking.service?.name ?? selectedBooking.service_name ?? 'Beauty service'}</h2>
+                            </div>
+                            <Button onClick={() => setSelectedBooking(null)} type="button" variant="secondary">Close</Button>
+                        </div>
+                        <div className="mt-5 grid gap-4 md:grid-cols-2">
+                            <DetailBlock title="Customer" items={[
+                                ['Name', selectedBooking.customer?.name ?? 'Customer'],
+                                ['Email', selectedBooking.customer?.email ?? 'Not provided'],
+                                ['Phone', selectedBooking.customer?.phone ?? 'Not provided'],
+                            ]} />
+                            <DetailBlock title="Appointment" items={[
+                                ['Status', selectedBooking.status],
+                                ['Date', formatDate(selectedBooking.date ?? selectedBooking.starts_at)],
+                                ['Time', selectedBooking.time ?? selectedBooking.start_time ?? 'Not set'],
+                                ['Amount', selectedBooking.payment?.amount ? `${selectedBooking.payment.currency ?? 'NGN'} ${Number(selectedBooking.payment.amount).toLocaleString()}` : 'Not set'],
+                                ['Payment', selectedBooking.payment?.status ?? 'unpaid'],
+                            ]} />
+                        </div>
+                        {selectedBooking.notes && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes}</p></div>}
+                        {selectedBooking.custom_fields?.length ? (
+                            <div className="mt-4 rounded-2xl border border-slate-100 p-4">
+                                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Extra booking answers</p>
+                                <div className="mt-3 space-y-3">
+                                    {selectedBooking.custom_fields.map((field, index) => (
+                                        <div key={index}>
+                                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{field.label}</p>
+                                            <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-800">{field.type === 'checkbox' ? (field.answer ? 'Yes' : 'No') : field.answer || 'No answer'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+                    </Card>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function DetailBlock({ title, items }) {
+    return (
+        <div className="rounded-2xl border border-slate-100 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">{title}</p>
+            <div className="mt-3 space-y-2">
+                {items.map(([label, value]) => (
+                    <div className="flex justify-between gap-3 text-sm" key={label}>
+                        <span className="text-slate-400">{label}</span>
+                        <span className="text-right font-semibold text-slate-800">{value}</span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

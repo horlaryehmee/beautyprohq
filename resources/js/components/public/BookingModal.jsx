@@ -141,6 +141,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [notes, setNotes] = useState('');
+    const [customFields, setCustomFields] = useState({});
     const [customer, setCustomer] = useState({ name: '', email: '', phone: '' });
     const [availabilityData, setAvailabilityData] = useState(null);
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -149,6 +150,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
     const selectedService = useMemo(() => services.find((item) => String(item.id) === String(serviceId)), [services, serviceId]);
     const days = useMemo(() => dateOptions(21), []);
+    const bookingFields = useMemo(() => (Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : []).filter((field) => field?.label).slice(0, 8), [provider]);
     const slots = useMemo(
         () => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date),
         [availabilityData, selectedService?.duration_minutes, date],
@@ -160,6 +162,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setDate('');
         setTime('');
         setNotes('');
+        setCustomFields({});
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '' });
         setAvailabilityData(null);
         setError('');
@@ -208,6 +211,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 date,
                 time,
                 notes: notes.trim() || undefined,
+                custom_fields: customFields,
             };
             const response = await api.post(user?.role === 'customer' ? '/bookings' : '/guest-bookings', user?.role === 'customer' ? payload : { ...payload, customer });
             const booking = unwrap(response);
@@ -339,6 +343,38 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             <FormField label="Email" type="email" value={customer.email} onChange={(event) => setCustomer((current) => ({ ...current, email: event.target.value }))} placeholder="you@example.com" required />
                                             <FormField label="Phone optional" value={customer.phone} onChange={(event) => setCustomer((current) => ({ ...current, phone: event.target.value }))} placeholder="+234..." />
                                             <p className="text-[11px] leading-5 text-stone-500">We’ll store this with your booking so the provider can manage the request. No customer account is created for you to log into.</p>
+                                        </div>
+                                    )}
+                                    {bookingFields.length > 0 && (
+                                        <div className="mb-5 space-y-3 rounded-2xl border border-stone-200 bg-[#fbf8f4] p-4">
+                                            <p className="text-xs font-black uppercase tracking-wide text-[#8b4b59]">Provider questions</p>
+                                            {bookingFields.map((field, index) => {
+                                                const key = `field_${index}`;
+                                                const type = field.type ?? 'text';
+                                                const label = `${field.label}${field.required ? ' *' : ''}`;
+
+                                                if (type === 'textarea') {
+                                                    return <FormField key={key} as="textarea" label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={1000} required={Boolean(field.required)} />;
+                                                }
+
+                                                if (type === 'select') {
+                                                    return (
+                                                        <label className="block text-sm font-bold text-[#34231c]" key={key}>
+                                                            {label}
+                                                            <select className="mt-2 min-h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#34231c] outline-none focus:border-[#8b4b59]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} required={Boolean(field.required)} value={customFields[key] ?? ''}>
+                                                                <option value="">Choose an option</option>
+                                                                {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+                                                            </select>
+                                                        </label>
+                                                    );
+                                                }
+
+                                                if (type === 'checkbox') {
+                                                    return <label className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#34231c]" key={key}><input checked={Boolean(customFields[key])} className="mt-1 size-4 accent-[#8b4b59]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.checked }))} required={Boolean(field.required)} type="checkbox" />{field.label}</label>;
+                                                }
+
+                                                return <FormField key={key} label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={255} required={Boolean(field.required)} />;
+                                            })}
                                         </div>
                                     )}
                                     <FormField as="textarea" label="Notes (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} placeholder="Share anything that will help them prepare..." />
