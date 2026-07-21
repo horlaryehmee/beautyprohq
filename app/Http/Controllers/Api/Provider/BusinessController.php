@@ -172,6 +172,42 @@ class BusinessController extends Controller
         return $this->success($payments->items(), meta: $this->paginationMeta($payments));
     }
 
+    public function settings(Request $request): JsonResponse
+    {
+        $provider = $request->user()->providerProfile;
+
+        return $this->success([
+            'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
+            'default_payment_gateway' => $provider->default_payment_gateway,
+            'payment_gateways' => $provider->paymentAccounts()->where(function ($query): void {
+                $query->where('enabled', true)->orWhere('is_connected', true);
+            })->pluck('gateway')->values(),
+            'supported_currencies' => array_keys(config('currencies.supported', [])),
+        ]);
+    }
+
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'default_currency' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
+            'default_payment_gateway' => ['nullable', Rule::in(['paystack', 'stripe', 'paypal'])],
+        ]);
+
+        $provider = $request->user()->providerProfile;
+        if ($validated['default_payment_gateway']) {
+            $hasGateway = $provider->paymentAccounts()
+                ->where('gateway', $validated['default_payment_gateway'])
+                ->where(function ($query): void {
+                    $query->where('enabled', true)->orWhere('is_connected', true);
+                })->exists();
+            abort_unless($hasGateway, 422, 'Connect and enable this payment gateway before making it your default.');
+        }
+
+        $provider->update($validated);
+
+        return $this->settings($request);
+    }
+
     public function paymentAccounts(Request $request): JsonResponse
     {
         $accounts = $request->user()->providerProfile->paymentAccounts()->get()

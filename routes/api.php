@@ -110,6 +110,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::get('/bookings', [ProviderBookingController::class, 'index']);
             Route::patch('/bookings/{booking}/status', [ProviderBookingController::class, 'updateStatus']);
             Route::get('/payments', [ProviderBusinessController::class, 'payments']);
+            Route::get('/settings', [ProviderBusinessController::class, 'settings']);
+            Route::put('/settings', [ProviderBusinessController::class, 'updateSettings']);
             Route::get('/payment-accounts', [ProviderBusinessController::class, 'paymentAccounts']);
             Route::put('/payment-accounts', [ProviderBusinessController::class, 'updatePaymentAccount']);
             Route::get('/digital-products', [ProviderBusinessController::class, 'products']);

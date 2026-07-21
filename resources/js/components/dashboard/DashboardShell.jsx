@@ -20,6 +20,7 @@ export const providerNavigation = [
     { label: 'Digital products', to: '/provider/digital-products', icon: 'product', paidOnly: true },
     { label: 'Content calendar', to: '/provider/content-calendar', icon: 'content', paidOnly: true },
     { label: 'Analytics', to: '/provider/analytics', icon: 'analytics', paidOnly: true },
+    { label: 'Settings', to: '/provider/settings', icon: 'settings', paidOnly: true },
 ];
 
 export const customerNavigation = [

@@ -333,6 +333,15 @@ class BookingController extends Controller
 
     private function preferredProviderGateway(Payment $payment): string
     {
+        $preferred = $payment->provider->default_payment_gateway;
+        if (in_array($preferred, ['paystack', 'stripe', 'paypal'], true)) {
+            $account = $payment->provider->paymentAccounts
+                ->first(fn ($item) => $item->gateway === $preferred && ($item->enabled || $item->is_connected));
+            if ($account) {
+                return $preferred;
+            }
+        }
+
         foreach (['paystack', 'stripe', 'paypal'] as $gateway) {
             $account = $payment->provider->paymentAccounts
                 ->first(fn ($item) => $item->gateway === $gateway && ($item->enabled || $item->is_connected));

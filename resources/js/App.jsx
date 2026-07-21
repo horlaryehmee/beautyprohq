@@ -34,6 +34,7 @@ import ProviderPaymentsPage from './pages/provider/PaymentsPage';
 import ProviderDigitalProductsPage from './pages/provider/DigitalProductsPage';
 import ProviderContentCalendarPage from './pages/provider/ContentCalendarPage';
 import ProviderAnalyticsPage from './pages/provider/AnalyticsPage';
+import ProviderSettingsPage from './pages/provider/SettingsPage';
 import CustomerLayout from './pages/customer/CustomerLayout';
 import CustomerDashboardPage from './pages/customer/DashboardPage';
 import CustomerBookingsPage from './pages/customer/BookingsPage';
@@ -124,6 +125,7 @@ export default function App() {
                             <Route path="digital-products" element={<ProviderDigitalProductsPage />} />
                             <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
                             <Route path="analytics" element={<ProviderAnalyticsPage />} />
+                            <Route path="settings" element={<ProviderSettingsPage />} />
                         </Route>
                     </Route>
 
