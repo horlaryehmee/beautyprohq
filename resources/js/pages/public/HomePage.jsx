@@ -20,6 +20,23 @@ function list(value) {
     return [];
 }
 
+function uniqueProviders(providers) {
+    const seen = new Set();
+    return providers.filter((provider) => {
+        const pro = providerIdentity(provider);
+        const key = pro.id ?? pro.slug ?? pro.userId;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function hasUsableProviderIdentity(provider) {
+    if (!provider) return false;
+    const pro = providerIdentity(provider);
+    return Boolean(pro.id && pro.slug && pro.name && pro.name !== 'Beauty professional');
+}
+
 function plainText(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -295,7 +312,7 @@ export default function HomePage({ onVerifiedProviders }) {
     const [showAllNewsEvents, setShowAllNewsEvents] = useState(false);
     const [showAllCommunity, setShowAllCommunity] = useState(false);
     const [providerCategory, setProviderCategory] = useState('all');
-    const [activeProviderFilters, setActiveProviderFilters] = useState(['verified']);
+    const [activeProviderFilters, setActiveProviderFilters] = useState([]);
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
@@ -303,7 +320,17 @@ export default function HomePage({ onVerifiedProviders }) {
             const response = await fetch('/api/home', { headers: { Accept: 'application/json' } });
             const payload = await response.json();
             if (!response.ok) throw new Error(payload?.message || 'We could not load BeautyPro HQ right now.');
-            setData(payload?.data ?? payload ?? {});
+            const nextData = payload?.data ?? payload ?? {};
+            setData((current) => ({
+                ...(current ?? {}),
+                ...nextData,
+                verified_professionals: list(nextData.verified_professionals).length
+                    ? nextData.verified_professionals
+                    : current?.verified_professionals,
+                featured_providers: list(nextData.featured_providers).length
+                    ? nextData.featured_providers
+                    : current?.featured_providers,
+            }));
         } catch (requestError) {
             setError(requestError?.message || 'We could not load BeautyPro HQ right now.');
         } finally {
@@ -313,7 +340,16 @@ export default function HomePage({ onVerifiedProviders }) {
 
     useEffect(() => { load(); }, [load]);
 
-    const verified = useMemo(() => list(data?.verified_professionals ?? data?.featured_providers), [data]);
+    const proOfWeek = data?.pro_of_the_week ?? data?.pro_of_week ?? data?.featured_professional ?? null;
+    const displayProOfWeek = hasUsableProviderIdentity(proOfWeek) ? proOfWeek : null;
+    const verified = useMemo(() => {
+        const verifiedProviders = list(data?.verified_professionals);
+        const featuredProviders = list(data?.featured_providers);
+        return uniqueProviders([
+            ...(verifiedProviders.length ? verifiedProviders : featuredProviders),
+            ...(displayProOfWeek ? [displayProOfWeek] : []),
+        ]);
+    }, [data, displayProOfWeek]);
     useEffect(() => {
         if (verified.length) onVerifiedProviders?.(verified);
     }, [onVerifiedProviders, verified]);
@@ -325,7 +361,6 @@ export default function HomePage({ onVerifiedProviders }) {
 
         return items.length ? items : fallbackNewsEvents;
     }, [data]);
-    const proOfWeek = data?.pro_of_the_week ?? data?.pro_of_week ?? data?.featured_professional ?? null;
     const community = list(data?.community_posts ?? data?.community);
     const opportunities = list(data?.opportunities);
     const partners = list(data?.partner_brands ?? data?.partners);
@@ -333,10 +368,11 @@ export default function HomePage({ onVerifiedProviders }) {
     const visibleNewsAndEvents = showAllNewsEvents ? newsAndEvents : newsAndEvents.slice(0, 8);
     const visibleCommunity = showAllCommunity ? community : community.slice(0, 4);
     const filteredVerifiedProviders = useMemo(() => {
-        return verified.filter((provider) => {
+        const matches = verified.filter((provider) => {
             const text = searchableProviderText(provider);
             return matchesProviderCategory(text, providerCategory) && matchesProviderFilters(provider, text, activeProviderFilters);
         });
+        return matches.length || providerCategory !== 'all' || activeProviderFilters.length ? matches : verified;
     }, [activeProviderFilters, providerCategory, verified]);
 
     function toggleProviderFilter(filter) {
@@ -370,8 +406,8 @@ export default function HomePage({ onVerifiedProviders }) {
                 </div>
             )}
 
-            {proOfWeek && (() => {
-                const pro = providerIdentity(proOfWeek);
+            {displayProOfWeek && (() => {
+                const pro = providerIdentity(displayProOfWeek);
                 const summary = pro.raw?.spotlight_quote ?? pro.raw?.quote ?? pro.bio;
                 return (
                     <section className="homepage-deferred bg-[linear-gradient(#f4efe9_0%_45%,#fff_45%_100%)] py-10 sm:py-14">

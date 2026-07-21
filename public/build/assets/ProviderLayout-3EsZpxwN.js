@@ -1,1 +1,0 @@
-import{j as o}from"./main-C2l8ib35.js";import{D as i,p as t}from"./DashboardShell-Bf3WhtcI.js";import"./ui-CjL5JWkL.js";import"./api-DPWTVFgP.js";import"./useDashboard-C2MwWlqm.js";import"./index-Cb4jjC6W.js";function d(r){return o.jsx(i,{navigation:t,role:"provider",...r})}export{d as default};
