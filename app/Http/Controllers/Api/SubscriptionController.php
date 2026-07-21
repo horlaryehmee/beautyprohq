@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
@@ -52,8 +53,43 @@ class SubscriptionController extends Controller
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('sort_order')->get(),
             'payments' => $request->user()->subscriptionPayments()->with('plan')->latest()->limit(10)->get(),
-            'paystack_configured' => filled(config('services.paystack.secret_key')),
+            'paystack_configured' => $this->paystackConfigured(),
         ]);
+    }
+
+    public function adminPaystackSettings(): JsonResponse
+    {
+        $publicKey = $this->paystackPublicKey();
+        $secretKey = $this->paystackSecretKey();
+
+        return $this->success([
+            'public_key' => $publicKey,
+            'secret_configured' => filled($secretKey),
+            'secret_last4' => filled($secretKey) ? substr($secretKey, -4) : null,
+            'source' => [
+                'public_key' => filled(AppSetting::getValue('paystack.public_key')) ? 'admin_settings' : (filled(config('services.paystack.public_key')) ? 'env' : null),
+                'secret_key' => filled(AppSetting::getValue('paystack.secret_key')) ? 'admin_settings' : (filled(config('services.paystack.secret_key')) ? 'env' : null),
+            ],
+            'callback_url' => url('/provider/subscription'),
+        ]);
+    }
+
+    public function updateAdminPaystackSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'public_key' => ['nullable', 'string', 'max:255'],
+            'secret_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (array_key_exists('public_key', $validated)) {
+            AppSetting::setValue('paystack.public_key', $validated['public_key']);
+        }
+
+        if (filled($validated['secret_key'] ?? null)) {
+            AppSetting::setValue('paystack.secret_key', $validated['secret_key'], true);
+        }
+
+        return $this->adminPaystackSettings();
     }
 
     public function checkout(Request $request): JsonResponse
@@ -68,7 +104,7 @@ class SubscriptionController extends Controller
         $plan = SubscriptionPlan::where('key', $validated['plan'])->where('is_active', true)->firstOrFail();
         abort_if((float) $plan->price <= 0, 422, 'This plan does not require payment.');
 
-        $secret = config('services.paystack.secret_key');
+        $secret = $this->paystackSecretKey();
         abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
 
         $reference = 'BPHQ-SUB-'.$user->id.'-'.Str::upper(Str::random(12));
@@ -93,7 +129,9 @@ class SubscriptionController extends Controller
                 'metadata' => [
                     'type' => 'provider_subscription',
                     'user_id' => $user->id,
+                    'subscription_payment_id' => $payment->id,
                     'plan' => $plan->key,
+                    'plan_id' => $plan->id,
                 ],
             ]);
 
@@ -130,7 +168,7 @@ class SubscriptionController extends Controller
             return $this->success($payment->load('subscription.planDefinition'), 'Subscription already active.');
         }
 
-        $secret = config('services.paystack.secret_key');
+        $secret = $this->paystackSecretKey();
         abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
 
         $response = Http::withToken($secret)
@@ -143,6 +181,15 @@ class SubscriptionController extends Controller
                 'raw_response' => $response->json(),
             ]);
             return response()->json(['message' => $response->json('message') ?? 'Payment has not been confirmed by Paystack.'], 422);
+        }
+
+        if (! $this->paystackResponseMatchesPayment($response->json('data', []), $payment)) {
+            $payment->update([
+                'status' => 'failed',
+                'raw_response' => $response->json(),
+            ]);
+
+            return response()->json(['message' => 'Payment verification failed because the Paystack response does not match this user, plan, amount, currency, and reference.'], 422);
         }
 
         $subscription = DB::transaction(function () use ($payment, $response): Subscription {
@@ -203,5 +250,37 @@ class SubscriptionController extends Controller
         });
 
         return $this->success($subscription->load('planDefinition'), 'Your account has been moved to the free plan.');
+    }
+
+    private function paystackConfigured(): bool
+    {
+        return filled($this->paystackSecretKey());
+    }
+
+    private function paystackPublicKey(): ?string
+    {
+        return AppSetting::getValue('paystack.public_key') ?: config('services.paystack.public_key');
+    }
+
+    private function paystackSecretKey(): ?string
+    {
+        return AppSetting::getValue('paystack.secret_key') ?: config('services.paystack.secret_key');
+    }
+
+    private function paystackResponseMatchesPayment(array $data, SubscriptionPayment $payment): bool
+    {
+        $metadata = (array) ($data['metadata'] ?? []);
+        $paidAmount = (int) ($data['amount'] ?? 0);
+        $expectedAmount = (int) round(((float) $payment->amount) * 100);
+        $currency = strtoupper((string) ($data['currency'] ?? ''));
+
+        return ($data['reference'] ?? null) === $payment->reference
+            && $paidAmount === $expectedAmount
+            && $currency === strtoupper((string) $payment->currency)
+            && (string) ($metadata['type'] ?? '') === 'provider_subscription'
+            && (int) ($metadata['user_id'] ?? 0) === (int) $payment->user_id
+            && (int) ($metadata['subscription_payment_id'] ?? 0) === (int) $payment->id
+            && (int) ($metadata['plan_id'] ?? 0) === (int) $payment->subscription_plan_id
+            && (string) ($metadata['plan'] ?? '') === (string) $payment->plan?->key;
     }
 }

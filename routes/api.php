@@ -142,6 +142,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/subscriptions', [AdminDashboardController::class, 'subscriptions']);
         Route::get('/subscription-plans', [SubscriptionController::class, 'adminPlans']);
         Route::put('/subscription-plans/{plan}', [SubscriptionController::class, 'updateAdminPlan']);
+        Route::get('/payment-settings/paystack', [SubscriptionController::class, 'adminPaystackSettings']);
+        Route::put('/payment-settings/paystack', [SubscriptionController::class, 'updateAdminPaystackSettings']);
 
         Route::post('/media', [AdminContentController::class, 'uploadMedia']);
         Route::get('/news', [AdminContentController::class, 'news']);
