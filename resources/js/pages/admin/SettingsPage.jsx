@@ -104,10 +104,6 @@ export default function AdminSettingsPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                            <p className="font-black">Strict payment ownership</p>
-                            <p className="mt-1">A plan payment can only activate the same logged-in provider that started checkout. Verification checks the Paystack reference, user ID, local payment ID, plan ID, amount, and currency.</p>
-                        </div>
                         <div className="flex justify-end"><Button busy={savingPaystack} type="submit">Save Paystack settings</Button></div>
                     </form>
                 )}
