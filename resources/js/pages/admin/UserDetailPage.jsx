@@ -135,6 +135,18 @@ export default function AdminUserDetailPage() {
 
     const profile = form?.provider_profile ?? {};
     const hasProviderControls = form?.role === 'provider' || Boolean(user?.provider_profile ?? user?.providerProfile);
+    const providerBookings = (user?.provider_profile ?? user?.providerProfile)?.bookings ?? [];
+    const bookedCustomers = useMemo(() => {
+        const seen = new Set();
+        return providerBookings
+            .filter((booking) => booking.customer)
+            .filter((booking) => {
+                const key = booking.customer?.id ?? booking.customer?.email;
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    }, [providerBookings]);
 
     const update = (patch) => setForm((current) => ({ ...current, ...patch }));
     const updateProfile = (patch) => setForm((current) => ({ ...current, provider_profile: { ...current.provider_profile, ...patch } }));
@@ -335,6 +347,70 @@ export default function AdminUserDetailPage() {
                                     );
                                 })}
                             </div>
+                        </Card>
+                    )}
+
+                    {hasProviderControls && (
+                        <Card>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-950">Customers booked on this provider</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Recent customers who booked from this provider profile, with contact and booking context.</p>
+                                </div>
+                                <StatusBadge status={`${bookedCustomers.length} customers`} />
+                            </div>
+                            {providerBookings.length ? (
+                                <div className="mt-5 overflow-x-auto">
+                                    <table className="w-full min-w-[920px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                                                <th className="pb-3 font-bold">Customer</th>
+                                                <th className="pb-3 font-bold">Contact</th>
+                                                <th className="pb-3 font-bold">Service</th>
+                                                <th className="pb-3 font-bold">Booking</th>
+                                                <th className="pb-3 font-bold">Payment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {providerBookings.map((booking) => {
+                                                const customer = booking.customer ?? {};
+                                                const payment = booking.payment ?? {};
+                                                return (
+                                                    <tr className="border-b border-slate-50 last:border-0" key={booking.id}>
+                                                        <td className="py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <Avatar name={customer.name} size="sm" />
+                                                                <div>
+                                                                    <p className="font-bold text-slate-900">{customer.name ?? 'Customer'}</p>
+                                                                    <p className="text-xs text-slate-400">Joined {formatDate(customer.created_at)}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <p className="font-semibold text-slate-700">{customer.email ?? 'No email'}</p>
+                                                            <p className="mt-1 text-xs text-slate-400">{customer.phone ?? 'No phone'}</p>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <p className="font-semibold text-slate-700">{booking.service?.name ?? booking.service_name ?? 'Service'}</p>
+                                                            <p className="mt-1 text-xs text-slate-400">{booking.notes ? `Note: ${booking.notes}` : 'No booking note'}</p>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <StatusBadge status={booking.status ?? 'pending'} />
+                                                            <p className="mt-1 text-xs text-slate-400">{formatDate(booking.date ?? booking.created_at)} {booking.time ? `· ${String(booking.time).slice(0, 5)}` : ''}</p>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <StatusBadge status={payment.status ?? 'unpaid'} />
+                                                            <p className="mt-1 text-xs text-slate-400">{payment.amount ? `${payment.currency ?? 'NGN'} ${Number(payment.amount).toLocaleString()}` : 'No payment amount'}</p>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No customer bookings have been recorded for this provider yet.</p>
+                            )}
                         </Card>
                     )}
                 </div>
