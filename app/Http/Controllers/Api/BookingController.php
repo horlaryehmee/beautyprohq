@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class BookingController extends Controller
@@ -188,24 +189,43 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
-        $provider->user->notify(new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
-        $customer->notify(new PlatformUpdateNotification(
+        $this->safeNotify($provider->user, new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
+        $this->safeNotify($customer, new PlatformUpdateNotification(
             'Booking request received',
             "Your booking request for {$booking->service->name} with {$provider->user->name} has been received.",
             'View bookings',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
             ['booking_id' => $booking->id, 'provider_id' => $provider->id],
         ));
-        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-            'New booking request',
-            "{$customer->name} requested {$booking->service->name} with {$provider->user->name}.",
-            'View activity',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
-            ['booking_id' => $booking->id, 'provider_id' => $provider->id],
-        ));
+        User::where('role', 'admin')->where('is_active', true)->get()->each(function (User $admin) use ($booking, $customer, $provider): void {
+            $this->safeNotify($admin, new PlatformUpdateNotification(
+                'New booking request',
+                "{$customer->name} requested {$booking->service->name} with {$provider->user->name}.",
+                'View activity',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
+                ['booking_id' => $booking->id, 'provider_id' => $provider->id],
+            ));
+        });
         $this->notifyProviderOnWhatsApp($booking);
 
         return $this->success($booking, 'Booking request sent to the provider.', 201);
+    }
+
+    private function safeNotify(?User $user, object $notification): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        try {
+            $user->notify($notification);
+        } catch (\Throwable $exception) {
+            Log::warning('Booking notification failed without blocking booking flow.', [
+                'user_id' => $user->id,
+                'notification' => $notification::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function notifyProviderOnWhatsApp(Booking $booking): void
