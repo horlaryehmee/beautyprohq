@@ -6,7 +6,7 @@ import Icon from './Icon';
 
 const fallbackSquares = [
     { id: 'fallback-1', src: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=900&q=80' },
-    { id: 'fallback-2', src: 'https://images.unsplash.com/photo-1560066984-138dadb4c035a?auto=format&fit=crop&w=900&q=80' },
+    { id: 'fallback-2', src: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=80' },
     { id: 'fallback-3', src: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80' },
     { id: 'fallback-4', src: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80' },
     { id: 'fallback-5', src: 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=900&q=80' },
@@ -81,7 +81,18 @@ function HeroImageMarquee({ providers }) {
                     >
                         {column.items.map((item, index) => (
                             <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
-                                <img src={item.src} alt="" className="size-full object-cover" loading={index > 3 ? 'lazy' : 'eager'} />
+                                <img
+                                    src={item.src}
+                                    alt=""
+                                    className="size-full object-cover"
+                                    loading={index > 1 ? 'lazy' : 'eager'}
+                                    decoding="async"
+                                    fetchPriority={index < 2 ? 'high' : 'low'}
+                                    onError={(event) => {
+                                        const fallback = fallbackSquares[index % fallbackSquares.length].src;
+                                        if (event.currentTarget.src !== fallback) event.currentTarget.src = fallback;
+                                    }}
+                                />
                             </div>
                         ))}
                     </motion.div>

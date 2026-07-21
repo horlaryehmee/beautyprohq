@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api, { apiError, collectionFrom, ensureCsrfCookie, unwrap } from '../../lib/api';
+import api, { apiError, ensureCsrfCookie, unwrap } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Avatar from '../../components/ui/Avatar';
@@ -41,18 +41,6 @@ function opportunityTypeLabel(type) {
     };
     if (!type) return 'Opportunity';
     return labels[type] ?? String(type).replaceAll('_', ' ');
-}
-
-function mergedContent(home, responses) {
-    const [newsResponse, eventsResponse, opportunitiesResponse, communityResponse, providersResponse] = responses;
-    return {
-        ...home,
-        news: list(home.news).length ? list(home.news) : collectionFrom(newsResponse),
-        events: list(home.events).length ? list(home.events) : collectionFrom(eventsResponse),
-        opportunities: list(home.opportunities).length ? list(home.opportunities) : collectionFrom(opportunitiesResponse),
-        community_posts: list(home.community_posts ?? home.community).length ? list(home.community_posts ?? home.community) : collectionFrom(communityResponse),
-        verified_professionals: list(home.verified_professionals ?? home.providers).length ? list(home.verified_professionals ?? home.providers) : collectionFrom(providersResponse),
-    };
 }
 
 function LoadingCards({ count = 3, className = 'grid gap-5 sm:grid-cols-2 lg:grid-cols-3' }) {
@@ -176,7 +164,7 @@ function NewsEventCard({ item, index }) {
 
     return (
         <article className="group relative flex h-[320px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)]">
-            <img src={image} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" />
+            <img src={image} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" loading="lazy" decoding="async" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
             <div className="relative z-10 flex h-full flex-col p-6">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
@@ -258,7 +246,7 @@ function VerifiedProfessionalCard({ provider }) {
 
     return (
         <article className="group relative min-h-[330px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.14)]">
-            {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#806c5d] to-[#2f211b]" />}
+            {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" loading="lazy" decoding="async" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#806c5d] to-[#2f211b]" />}
             <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/12 to-black/78" />
             <div className="relative z-10 flex min-h-[330px] flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -303,18 +291,8 @@ export default function HomePage() {
         setLoading(true);
         setError('');
         try {
-            const [homeResult, ...results] = await Promise.allSettled([
-                api.get('/home'),
-                api.get('/news', { params: { per_page: 6 } }),
-                api.get('/events', { params: { per_page: 6 } }),
-                api.get('/opportunities', { params: { per_page: 4 } }),
-                api.get('/community-posts', { params: { per_page: 8 } }),
-                api.get('/providers', { params: { verified: 1, per_page: 6 } }),
-            ]);
-            if (homeResult.status === 'rejected') throw homeResult.reason;
-            const home = unwrap(homeResult.value) ?? {};
-            const successfulResponses = results.map((result) => result.status === 'fulfilled' ? result.value : undefined);
-            setData(mergedContent(home, successfulResponses));
+            const response = await api.get('/home');
+            setData(unwrap(response) ?? {});
         } catch (requestError) {
             setError(requestError?.response?.data?.message || 'We could not load BeautyPro HQ right now.');
         } finally {
@@ -392,7 +370,7 @@ export default function HomePage() {
                             <article className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-[0_18px_50px_rgba(60,38,29,.08)]">
                             <div className="grid md:grid-cols-[.78fr_1fr]">
                                 <div className="relative min-h-60 bg-[#e8d9cf] md:min-h-[310px]">
-                                    {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
+                                    {pro.photo ? <img src={pro.photo} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" loading="lazy" decoding="async" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
                                         <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
                                         <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
@@ -650,7 +628,7 @@ export default function HomePage() {
                             <div className="overflow-hidden rounded-[2rem] border border-[#ded2c7] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)]">
                                 <div className="grid lg:grid-cols-[1.08fr_.92fr]">
                                     <article className="group relative min-h-[520px] overflow-hidden">
-                                        <img src={mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0]} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" />
+                                        <img src={mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0]} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" loading="lazy" decoding="async" />
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/15 to-black/72" />
                                         <div className="relative flex min-h-[520px] flex-col p-7 text-white sm:p-10">
                                             <div className="flex items-center justify-between gap-4">
@@ -671,7 +649,7 @@ export default function HomePage() {
                                         {visibleCommunity.slice(1, 4).map((item, index) => (
                                             <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
                                                 <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
-                                                    <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" />
+                                                    <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" loading="lazy" decoding="async" />
                                                 </div>
                                                 <div className="flex min-w-0 flex-col justify-center">
                                                     <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
@@ -690,7 +668,7 @@ export default function HomePage() {
                                     {visibleCommunity.slice(4).map((item, index) => (
                                         <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
                                             <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
-                                                <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" />
+                                                <img src={mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length]} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" loading="lazy" decoding="async" />
                                             </div>
                                             <div className="p-5">
                                                 <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
@@ -737,7 +715,7 @@ export default function HomePage() {
                         return (
                             <div key={partner.id ?? name ?? index} className="flex h-12 min-w-max items-center justify-center">
                                 {logo ? (
-                                    <img src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" />
+                                    <img src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" loading="lazy" decoding="async" />
                                 ) : (
                                     <span className="font-display text-2xl font-normal text-[#6f625b]/75">{name}</span>
                                 )}

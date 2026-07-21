@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -5,60 +6,59 @@ import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
-import NotFoundPage from './pages/NotFoundPage';
-import HomePage from './pages/public/HomePage';
-import DirectoryPage from './pages/public/DirectoryPage';
-import NewsEventsPage from './pages/public/NewsEventsPage';
-import OpportunitiesPage from './pages/public/OpportunitiesPage';
-import OpportunityDetailPage from './pages/public/OpportunityDetailPage';
-import BookingConfirmationPage from './pages/public/BookingConfirmationPage';
-import ProviderBookingPage from './pages/public/ProviderBookingPage';
-import CommunityPage from './pages/public/CommunityPage';
-import ContentDetailPage from './pages/public/ContentDetailPage';
-import ProviderProfilePage from './pages/public/ProviderProfilePage';
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
-
-import ProviderLayout from './pages/provider/ProviderLayout';
-import ProviderOnboardingPage from './pages/provider/OnboardingPage';
-import ProviderOverviewPage from './pages/provider/OverviewPage';
-import ProviderProfileEditorPage from './pages/provider/ProfilePage';
-import ProviderServicesPage from './pages/provider/ServicesPage';
-import ProviderBookingsPage from './pages/provider/BookingsPage';
-import ProviderCalendarPage from './pages/provider/CalendarPage';
-import ProviderSubscriptionPage from './pages/provider/SubscriptionPage';
-import ProviderCrmPage from './pages/provider/CrmPage';
-import ProviderLoyaltyPage from './pages/provider/LoyaltyPage';
-import ProviderPaymentsPage from './pages/provider/PaymentsPage';
-import ProviderDigitalProductsPage from './pages/provider/DigitalProductsPage';
-import ProviderContentCalendarPage from './pages/provider/ContentCalendarPage';
-import ProviderAnalyticsPage from './pages/provider/AnalyticsPage';
-import ProviderSettingsPage from './pages/provider/SettingsPage';
-import ProviderDocumentationPage from './pages/provider/DocumentationPage';
-import CustomerLayout from './pages/customer/CustomerLayout';
-import CustomerDashboardPage from './pages/customer/DashboardPage';
-import CustomerBookingsPage from './pages/customer/BookingsPage';
-import CustomerRewardsPage from './pages/customer/RewardsPage';
-import CustomerSavedProvidersPage from './pages/customer/SavedProvidersPage';
-import CustomerNotificationsPage from './pages/customer/NotificationsPage';
-import CustomerSettingsPage from './pages/customer/SettingsPage';
-import AdminLayout from './pages/admin/AdminLayout';
-import AdminDashboardPage from './pages/admin/DashboardPage';
-import AdminActivityPage from './pages/admin/ActivityPage';
-import AdminUsersPage from './pages/admin/UsersPage';
-import AdminUserDetailPage from './pages/admin/UserDetailPage';
-import AdminDirectoryPage from './pages/admin/DirectoryPage';
-import AdminVerificationPage from './pages/admin/VerificationPage';
-import AdminContentPage from './pages/admin/ContentPage';
-import AdminContentEditorPage from './pages/admin/ContentEditorPage';
-import AdminOpportunitiesPage from './pages/admin/OpportunitiesPage';
-import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
-import AdminSubscriptionsPage from './pages/admin/SubscriptionsPage';
-import AdminSettingsPage from './pages/admin/SettingsPage';
-import AdminDocumentationPage from './pages/admin/DocumentationPage';
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const HomePage = lazy(() => import('./pages/public/HomePage'));
+const DirectoryPage = lazy(() => import('./pages/public/DirectoryPage'));
+const NewsEventsPage = lazy(() => import('./pages/public/NewsEventsPage'));
+const OpportunitiesPage = lazy(() => import('./pages/public/OpportunitiesPage'));
+const OpportunityDetailPage = lazy(() => import('./pages/public/OpportunityDetailPage'));
+const BookingConfirmationPage = lazy(() => import('./pages/public/BookingConfirmationPage'));
+const ProviderBookingPage = lazy(() => import('./pages/public/ProviderBookingPage'));
+const CommunityPage = lazy(() => import('./pages/public/CommunityPage'));
+const ContentDetailPage = lazy(() => import('./pages/public/ContentDetailPage'));
+const ProviderProfilePage = lazy(() => import('./pages/public/ProviderProfilePage'));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
+const ProviderLayout = lazy(() => import('./pages/provider/ProviderLayout'));
+const ProviderOnboardingPage = lazy(() => import('./pages/provider/OnboardingPage'));
+const ProviderOverviewPage = lazy(() => import('./pages/provider/OverviewPage'));
+const ProviderProfileEditorPage = lazy(() => import('./pages/provider/ProfilePage'));
+const ProviderServicesPage = lazy(() => import('./pages/provider/ServicesPage'));
+const ProviderBookingsPage = lazy(() => import('./pages/provider/BookingsPage'));
+const ProviderCalendarPage = lazy(() => import('./pages/provider/CalendarPage'));
+const ProviderSubscriptionPage = lazy(() => import('./pages/provider/SubscriptionPage'));
+const ProviderCrmPage = lazy(() => import('./pages/provider/CrmPage'));
+const ProviderLoyaltyPage = lazy(() => import('./pages/provider/LoyaltyPage'));
+const ProviderPaymentsPage = lazy(() => import('./pages/provider/PaymentsPage'));
+const ProviderDigitalProductsPage = lazy(() => import('./pages/provider/DigitalProductsPage'));
+const ProviderContentCalendarPage = lazy(() => import('./pages/provider/ContentCalendarPage'));
+const ProviderAnalyticsPage = lazy(() => import('./pages/provider/AnalyticsPage'));
+const ProviderSettingsPage = lazy(() => import('./pages/provider/SettingsPage'));
+const ProviderDocumentationPage = lazy(() => import('./pages/provider/DocumentationPage'));
+const CustomerLayout = lazy(() => import('./pages/customer/CustomerLayout'));
+const CustomerDashboardPage = lazy(() => import('./pages/customer/DashboardPage'));
+const CustomerBookingsPage = lazy(() => import('./pages/customer/BookingsPage'));
+const CustomerRewardsPage = lazy(() => import('./pages/customer/RewardsPage'));
+const CustomerSavedProvidersPage = lazy(() => import('./pages/customer/SavedProvidersPage'));
+const CustomerNotificationsPage = lazy(() => import('./pages/customer/NotificationsPage'));
+const CustomerSettingsPage = lazy(() => import('./pages/customer/SettingsPage'));
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
+const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
+const AdminActivityPage = lazy(() => import('./pages/admin/ActivityPage'));
+const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
+const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
+const AdminDirectoryPage = lazy(() => import('./pages/admin/DirectoryPage'));
+const AdminVerificationPage = lazy(() => import('./pages/admin/VerificationPage'));
+const AdminContentPage = lazy(() => import('./pages/admin/ContentPage'));
+const AdminContentEditorPage = lazy(() => import('./pages/admin/ContentEditorPage'));
+const AdminOpportunitiesPage = lazy(() => import('./pages/admin/OpportunitiesPage'));
+const AdminAnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsPage'));
+const AdminSubscriptionsPage = lazy(() => import('./pages/admin/SubscriptionsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AdminDocumentationPage = lazy(() => import('./pages/admin/DocumentationPage'));
 
 function RouteLoader() {
     return (
@@ -91,6 +91,7 @@ export default function App() {
         <ErrorBoundary>
             <CurrencyProvider>
                 <ScrollToTop />
+                <Suspense fallback={<RouteLoader />}>
                 <Routes>
                     <Route element={<PublicLayout />}>
                         <Route index element={<HomePage />} />
@@ -170,6 +171,7 @@ export default function App() {
 
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
+                </Suspense>
             </CurrencyProvider>
         </ErrorBoundary>
     );
