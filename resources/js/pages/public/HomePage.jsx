@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api, { apiError, ensureCsrfCookie, unwrap } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Avatar from '../../components/ui/Avatar';
@@ -212,6 +211,7 @@ function SaveProviderButton({ provider, light = false }) {
         setSaving(true);
 
         try {
+            const { default: api, ensureCsrfCookie } = await import('../../lib/api');
             await ensureCsrfCookie();
             const response = previous
                 ? await api.delete(`/customer/saved-providers/${pro.id}`)
@@ -223,7 +223,7 @@ function SaveProviderButton({ provider, light = false }) {
                 toast.success('This professional is already in your saved profiles.');
             } else {
                 setSaved(previous);
-                toast.error(apiError(requestError, 'Your saved profiles could not be updated.').message);
+                toast.error(requestError?.response?.data?.message || requestError?.message || 'Your saved profiles could not be updated.');
             }
         } finally {
             setSaving(false);
@@ -300,10 +300,12 @@ export default function HomePage({ onVerifiedProviders }) {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get('/home');
-            setData(unwrap(response) ?? {});
+            const response = await fetch('/api/home', { headers: { Accept: 'application/json' } });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload?.message || 'We could not load BeautyPro HQ right now.');
+            setData(payload?.data ?? payload ?? {});
         } catch (requestError) {
-            setError(requestError?.response?.data?.message || 'We could not load BeautyPro HQ right now.');
+            setError(requestError?.message || 'We could not load BeautyPro HQ right now.');
         } finally {
             setLoading(false);
         }
@@ -345,6 +347,7 @@ export default function HomePage({ onVerifiedProviders }) {
         event.preventDefault();
         setNewsletterLoading(true);
         try {
+            const { default: api, ensureCsrfCookie } = await import('../../lib/api');
             await ensureCsrfCookie();
             const response = await api.post('/newsletter/subscribe', { email });
             toast.success(response?.data?.message || 'You are on the BeautyPro HQ list.');

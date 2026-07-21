@@ -1,11 +1,14 @@
 <?php
 
 use App\Models\ProviderProfile;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::get('/', function () {
-    $photos = collect(Cache::store('file')->remember('homepage.hero.photos.v1', now()->addMinutes(5), fn () => (
+    $photos = collect(Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('homepage.hero.photos.v1', now()->addMinutes(5), fn () => (
         ProviderProfile::directory()
             ->where('verified', true)
             ->orderByDesc('rating')
@@ -42,7 +45,14 @@ Route::get('/', function () {
         }
     }
 
-    return view('app', compact('heroPreload'));
-});
+    return response()
+        ->view('app', compact('heroPreload') + ['inlineHomepageCss' => true])
+        ->header('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400')
+        ->header('X-LiteSpeed-Cache-Control', 'public,max-age=60');
+})->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
 
 Route::view('/{path?}', 'app')->where('path', '^(?!api|sanctum|up).*$');

@@ -40,24 +40,43 @@ function providerSquares(providers = []) {
 
 function CountUp({ end, suffix = '+' }) {
     const valueRef = useRef(null);
+    const finalValue = `${end.toLocaleString()}${suffix}`;
 
     useEffect(() => {
         let frame;
+        let startTimer;
         const duration = 1200;
-        const startedAt = performance.now();
 
-        function tick(now) {
-            const progress = Math.min((now - startedAt) / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            if (valueRef.current) valueRef.current.textContent = `${Math.round(end * eased).toLocaleString()}${suffix}`;
-            if (progress < 1) frame = requestAnimationFrame(tick);
+        function begin() {
+            const startedAt = performance.now();
+
+            function tick(now) {
+                const progress = Math.min((now - startedAt) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                if (valueRef.current) valueRef.current.textContent = `${Math.round(end * eased).toLocaleString()}${suffix}`;
+                if (progress < 1) frame = requestAnimationFrame(tick);
+            }
+
+            frame = requestAnimationFrame(tick);
         }
 
-        frame = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(frame);
+        const schedule = () => { startTimer = window.setTimeout(begin, 1800); };
+        if (document.readyState === 'complete') schedule();
+        else window.addEventListener('load', schedule, { once: true });
+
+        return () => {
+            window.removeEventListener('load', schedule);
+            window.clearTimeout(startTimer);
+            cancelAnimationFrame(frame);
+        };
     }, [end, suffix]);
 
-    return <span ref={valueRef}>0{suffix}</span>;
+    return (
+        <span className="inline-grid" aria-label={finalValue}>
+            <span className="invisible col-start-1 row-start-1" aria-hidden="true">{finalValue}</span>
+            <span ref={valueRef} className="col-start-1 row-start-1" aria-hidden="true">0{suffix}</span>
+        </span>
+    );
 }
 
 function HeroImageMarquee({ providers }) {
@@ -83,7 +102,10 @@ function HeroImageMarquee({ providers }) {
                     >
                         {column.items.map((item, index) => {
                             const repeatedAt = column.items.length / 2;
-                            const isCritical = index < 2 || (index >= repeatedAt && index < repeatedAt + 2);
+                            const isInitiallyVisible = column.direction === -1
+                                ? index < 2
+                                : index >= repeatedAt && index < repeatedAt + 2;
+                            const isLcpImage = column.direction === -1 && index === 0;
                             const source = responsiveImage(item.src, {
                                 widths: [280, 400, 560],
                                 sizes: '(min-width: 768px) 25vw, 50vw',
@@ -95,9 +117,9 @@ function HeroImageMarquee({ providers }) {
                                         {...source}
                                         alt=""
                                         className="size-full object-cover"
-                                        loading={isCritical ? 'eager' : 'lazy'}
+                                        loading={isInitiallyVisible ? 'eager' : 'lazy'}
                                         rootMargin="320px"
-                                        fetchPriority={isCritical ? 'high' : 'low'}
+                                        fetchPriority={isLcpImage ? 'high' : 'low'}
                                         onError={(event) => {
                                             const fallback = responsiveImage(fallbackSquares[index % fallbackSquares.length].src, { widths: [400], quality: 70 }).src;
                                             event.currentTarget.srcset = '';

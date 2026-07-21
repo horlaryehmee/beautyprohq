@@ -9,6 +9,7 @@ use App\Models\News;
 use App\Models\Opportunity;
 use App\Models\ProviderProfile;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class HomeController extends Controller
 {
@@ -16,7 +17,7 @@ class HomeController extends Controller
     {
         $providerRelations = ['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)];
 
-        return $this->success([
+        $data = Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('public.home.payload.v1', now()->addMinute(), fn () => [
             'pro_of_the_week' => ProviderProfile::directory()->where('is_pro_of_week', true)->with($providerRelations)->first(),
             'verified_professionals' => ProviderProfile::directory()->where('verified', true)->with($providerRelations)->orderByDesc('rating')->limit(8)->get(),
             'news' => News::published()->latest('published_at')->limit(6)->get(),
@@ -30,5 +31,8 @@ class HomeController extends Controller
                 ['name' => 'Natural Nigerian'],
             ],
         ]);
+
+        return $this->success($data)
+            ->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
     }
 }
