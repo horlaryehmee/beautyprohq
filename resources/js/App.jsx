@@ -35,6 +35,7 @@ import ProviderDigitalProductsPage from './pages/provider/DigitalProductsPage';
 import ProviderContentCalendarPage from './pages/provider/ContentCalendarPage';
 import ProviderAnalyticsPage from './pages/provider/AnalyticsPage';
 import ProviderSettingsPage from './pages/provider/SettingsPage';
+import ProviderDocumentationPage from './pages/provider/DocumentationPage';
 import CustomerLayout from './pages/customer/CustomerLayout';
 import CustomerDashboardPage from './pages/customer/DashboardPage';
 import CustomerBookingsPage from './pages/customer/BookingsPage';
@@ -55,6 +56,7 @@ import AdminOpportunitiesPage from './pages/admin/OpportunitiesPage';
 import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
 import AdminSubscriptionsPage from './pages/admin/SubscriptionsPage';
 import AdminSettingsPage from './pages/admin/SettingsPage';
+import AdminDocumentationPage from './pages/admin/DocumentationPage';
 
 function RouteLoader() {
     return (
@@ -127,6 +129,7 @@ export default function App() {
                             <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
                             <Route path="analytics" element={<ProviderAnalyticsPage />} />
                             <Route path="settings" element={<ProviderSettingsPage />} />
+                            <Route path="documentation" element={<ProviderDocumentationPage />} />
                         </Route>
                     </Route>
 
@@ -156,6 +159,7 @@ export default function App() {
                             <Route path="announcements" element={<AdminAnnouncementsPage />} />
                             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
                             <Route path="settings" element={<AdminSettingsPage />} />
+                            <Route path="documentation" element={<AdminDocumentationPage />} />
                         </Route>
                     </Route>
 
