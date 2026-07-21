@@ -53,6 +53,9 @@ export function AuthProvider({ children }) {
         await ensureCsrfCookie();
         const response = await api.post('/auth/login', credentials);
         const payload = unwrap(response);
+        if (payload?.two_factor_required) {
+            return payload;
+        }
         const nextUser = payload?.user ?? payload;
         if (payload?.token) {
             window.localStorage.setItem('bphq_auth_token', payload.token);

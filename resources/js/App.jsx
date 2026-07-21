@@ -54,6 +54,7 @@ import AdminOpportunitiesPage from './pages/admin/OpportunitiesPage';
 import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
 import AdminSubscriptionsPage from './pages/admin/SubscriptionsPage';
 import AdminSettingsPage from './pages/admin/SettingsPage';
+import SecurityPage from './pages/dashboard/SecurityPage';
 
 function RouteLoader() {
     return (
@@ -126,6 +127,7 @@ export default function App() {
                             <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
                             <Route path="analytics" element={<ProviderAnalyticsPage />} />
                             <Route path="settings" element={<ProviderSettingsPage />} />
+                            <Route path="security" element={<SecurityPage />} />
                         </Route>
                     </Route>
 
@@ -136,6 +138,7 @@ export default function App() {
                             <Route path="rewards" element={<CustomerRewardsPage />} />
                             <Route path="saved-providers" element={<CustomerSavedProvidersPage />} />
                             <Route path="notifications" element={<CustomerNotificationsPage />} />
+                            <Route path="security" element={<SecurityPage />} />
                         </Route>
                     </Route>
 
@@ -154,6 +157,7 @@ export default function App() {
                             <Route path="announcements" element={<AdminAnnouncementsPage />} />
                             <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
                             <Route path="settings" element={<AdminSettingsPage />} />
+                            <Route path="security" element={<SecurityPage />} />
                         </Route>
                     </Route>
 

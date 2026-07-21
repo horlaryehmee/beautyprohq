@@ -17,7 +17,7 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'preferred_currency', 'is_guest', 'is_active', 'email_verified_at', 'last_login_at'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'preferred_currency', 'is_guest', 'is_active', 'two_factor_enabled', 'two_factor_confirmed_at', 'two_factor_code_hash', 'two_factor_code_expires_at', 'email_verified_at', 'last_login_at'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -31,6 +31,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_code_expires_at' => 'datetime',
+            'two_factor_enabled' => 'boolean',
             'is_active' => 'boolean',
             'is_guest' => 'boolean',
             'password' => 'hashed',

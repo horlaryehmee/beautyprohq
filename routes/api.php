@@ -61,6 +61,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:6,1');
+    Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
+    Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:6,1');
+    Route::post('/auth/two-factor/confirm', [AuthController::class, 'confirmTwoFactor'])->middleware('throttle:6,1');
+    Route::post('/auth/two-factor/disable', [AuthController::class, 'disableTwoFactor'])->middleware('throttle:6,1');
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);

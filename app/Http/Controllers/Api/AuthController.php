@@ -7,6 +7,7 @@ use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Notifications\TwoFactorCodeNotification;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -88,6 +89,7 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'two_factor_code' => ['nullable', 'string'],
         ]);
 
         $user = User::where('email', Str::lower(trim($credentials['email'])))->first();
@@ -98,6 +100,26 @@ class AuthController extends Controller
 
         if (! $user->is_active) {
             return response()->json(['message' => 'This account has been disabled.'], 403);
+        }
+
+        if ($user->two_factor_enabled) {
+            if (! filled($credentials['two_factor_code'] ?? null)) {
+                $this->sendTwoFactorCode($user, 'login');
+
+                return $this->success([
+                    'two_factor_required' => true,
+                    'email' => $user->email,
+                ], 'Enter the verification code sent to your email.');
+            }
+
+            if (! $this->validTwoFactorCode($user, $credentials['two_factor_code'])) {
+                return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
+            }
+
+            $user->forceFill([
+                'two_factor_code_hash' => null,
+                'two_factor_code_expires_at' => null,
+            ])->save();
         }
 
         if ($request->hasSession()) {
@@ -116,6 +138,53 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return $this->success($request->user()->load(['providerProfile', 'activeSubscription.planDefinition']));
+    }
+
+    public function twoFactorStatus(Request $request): JsonResponse
+    {
+        return $this->success([
+            'enabled' => (bool) $request->user()->two_factor_enabled,
+            'confirmed_at' => $request->user()->two_factor_confirmed_at,
+        ]);
+    }
+
+    public function enableTwoFactor(Request $request): JsonResponse
+    {
+        $this->sendTwoFactorCode($request->user(), 'enable');
+
+        return $this->success(null, 'A confirmation code has been sent to your email.');
+    }
+
+    public function confirmTwoFactor(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['code' => ['required', 'string']]);
+        $user = $request->user();
+
+        abort_unless($this->validTwoFactorCode($user, $validated['code']), 422, 'The confirmation code is invalid or expired.');
+
+        $user->forceFill([
+            'two_factor_enabled' => true,
+            'two_factor_confirmed_at' => now(),
+            'two_factor_code_hash' => null,
+            'two_factor_code_expires_at' => null,
+        ])->save();
+
+        return $this->success(['enabled' => true, 'confirmed_at' => $user->two_factor_confirmed_at], 'Two-factor authentication enabled.');
+    }
+
+    public function disableTwoFactor(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['password' => ['required', 'string']]);
+        abort_unless(Hash::check($validated['password'], $request->user()->password), 422, 'The password is incorrect.');
+
+        $request->user()->forceFill([
+            'two_factor_enabled' => false,
+            'two_factor_confirmed_at' => null,
+            'two_factor_code_hash' => null,
+            'two_factor_code_expires_at' => null,
+        ])->save();
+
+        return $this->success(['enabled' => false], 'Two-factor authentication disabled.');
     }
 
     public function logout(Request $request): JsonResponse
@@ -206,5 +275,23 @@ class AuthController extends Controller
         }
 
         return $slug;
+    }
+
+    private function sendTwoFactorCode(User $user, string $purpose): void
+    {
+        $code = (string) random_int(100000, 999999);
+        $user->forceFill([
+            'two_factor_code_hash' => Hash::make($code),
+            'two_factor_code_expires_at' => now()->addMinutes(10),
+        ])->save();
+        $user->notify(new TwoFactorCodeNotification($code, $purpose));
+    }
+
+    private function validTwoFactorCode(User $user, string $code): bool
+    {
+        return filled($user->two_factor_code_hash)
+            && $user->two_factor_code_expires_at
+            && now()->lessThanOrEqualTo($user->two_factor_code_expires_at)
+            && Hash::check(trim($code), $user->two_factor_code_hash);
     }
 }

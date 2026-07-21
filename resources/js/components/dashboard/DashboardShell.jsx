@@ -21,6 +21,7 @@ export const providerNavigation = [
     { label: 'Content calendar', to: '/provider/content-calendar', icon: 'content', paidOnly: true },
     { label: 'Analytics', to: '/provider/analytics', icon: 'analytics', paidOnly: true },
     { label: 'Settings', to: '/provider/settings', icon: 'settings', paidOnly: true },
+    { label: 'Security', to: '/provider/security', icon: 'shield' },
 ];
 
 export const customerNavigation = [
@@ -29,6 +30,7 @@ export const customerNavigation = [
     { label: 'Rewards', to: '/customer/rewards', icon: 'loyalty' },
     { label: 'Saved providers', to: '/customer/saved-providers', icon: 'saved' },
     { label: 'Notifications', to: '/customer/notifications', icon: 'bell' },
+    { label: 'Security', to: '/customer/security', icon: 'shield' },
 ];
 
 export const adminNavigation = [
@@ -41,6 +43,7 @@ export const adminNavigation = [
     { label: 'Announcements', to: '/admin/announcements', icon: 'megaphone' },
     { label: 'Subscriptions', to: '/admin/subscriptions', icon: 'subscription' },
     { label: 'Settings', to: '/admin/settings', icon: 'settings' },
+    { label: 'Security', to: '/admin/security', icon: 'shield' },
 ];
 
 const roleLabels = { provider: 'Provider workspace', customer: 'Customer portal', admin: 'Admin console' };
