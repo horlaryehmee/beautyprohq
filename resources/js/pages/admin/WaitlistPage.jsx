@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Button,
     Card,
     EmptyState,
     ErrorState,
@@ -28,6 +29,29 @@ export default function AdminWaitlistPage() {
         status: subscriber.unsubscribed_at ? 'unsubscribed' : 'active',
     })), [subscribers]);
 
+    const exportWaitlist = async () => {
+        const params = new URLSearchParams();
+        if (query) params.set('search', query);
+        const response = await fetch(`/api/admin/waitlist/export?${params.toString()}`, {
+            headers: {
+                Accept: 'text/csv',
+                Authorization: `Bearer ${window.localStorage.getItem('bphq_auth_token') ?? ''}`,
+            },
+        });
+
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `beautyprohq-waitlist-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    };
+
     useEffect(() => {
         setPage(1);
     }, [query]);
@@ -37,6 +61,7 @@ export default function AdminWaitlistPage() {
             <PageHeader
                 description="Emails collected from the coming soon and newsletter forms."
                 eyebrow="Launch"
+                actions={<Button onClick={exportWaitlist} type="button" variant="secondary">Export CSV</Button>}
                 title="Waitlist"
             />
 

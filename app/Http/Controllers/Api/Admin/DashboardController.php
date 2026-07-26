@@ -82,6 +82,31 @@ class DashboardController extends Controller
         ], meta: $this->paginationMeta($subscribers));
     }
 
+    public function exportWaitlist(Request $request)
+    {
+        $filename = 'beautyprohq-waitlist-'.now()->format('Y-m-d-His').'.csv';
+        $subscribers = NewsletterSubscriber::query()
+            ->when($request->search, fn ($query, $search) => $query->where('email', 'like', "%{$search}%"))
+            ->latest('subscribed_at')
+            ->get();
+
+        return response()->streamDownload(function () use ($subscribers): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Email', 'Status', 'Subscribed at', 'Unsubscribed at']);
+
+            foreach ($subscribers as $subscriber) {
+                fputcsv($handle, [
+                    $subscriber->email,
+                    $subscriber->unsubscribed_at ? 'Unsubscribed' : 'Active',
+                    optional($subscriber->subscribed_at)->toDateTimeString(),
+                    optional($subscriber->unsubscribed_at)->toDateTimeString(),
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
     public function users(Request $request): JsonResponse
     {
         $users = User::with('providerProfile')
