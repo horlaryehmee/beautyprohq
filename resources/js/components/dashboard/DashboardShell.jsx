@@ -36,6 +36,7 @@ export const customerNavigation = [
 export const adminNavigation = [
     { label: 'Dashboard', to: '/admin', icon: 'overview', end: true },
     { label: 'Activity', to: '/admin/activity', icon: 'analytics' },
+    { label: 'Waitlist', to: '/admin/waitlist', icon: 'bell' },
     { label: 'Users', to: '/admin/users', icon: 'users' },
     { label: 'Directory', to: '/admin/directory', icon: 'profile' },
     { label: 'Content', to: '/admin/content', icon: 'content' },

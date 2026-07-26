@@ -49,6 +49,7 @@ const CustomerSettingsPage = lazy(() => import('./pages/customer/SettingsPage'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
 const AdminActivityPage = lazy(() => import('./pages/admin/ActivityPage'));
+const AdminWaitlistPage = lazy(() => import('./pages/admin/WaitlistPage'));
 const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
 const AdminDirectoryPage = lazy(() => import('./pages/admin/DirectoryPage'));
@@ -160,6 +161,7 @@ export default function App() {
                             <Route path="admin" element={<AdminWorkspace />}>
                                 <Route index element={<AdminDashboardPage />} />
                                 <Route path="activity" element={<AdminActivityPage />} />
+                                <Route path="waitlist" element={<AdminWaitlistPage />} />
                                 <Route path="users" element={<AdminUsersPage />} />
                                 <Route path="users/:id" element={<AdminUserDetailPage />} />
                                 <Route path="directory" element={<AdminDirectoryPage />} />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\News;
+use App\Models\NewsletterSubscriber;
 use App\Models\Payment;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
@@ -60,6 +61,25 @@ class DashboardController extends Controller
         );
 
         return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
+    }
+
+    public function waitlist(Request $request): JsonResponse
+    {
+        $subscribers = NewsletterSubscriber::query()
+            ->when($request->search, fn ($query, $search) => $query->where('email', 'like', "%{$search}%"))
+            ->latest('subscribed_at')
+            ->paginate($request->integer('per_page', 20));
+
+        return $this->success([
+            'subscribers' => $subscribers->items(),
+            'stats' => [
+                'total' => NewsletterSubscriber::count(),
+                'active' => NewsletterSubscriber::whereNull('unsubscribed_at')->count(),
+                'unsubscribed' => NewsletterSubscriber::whereNotNull('unsubscribed_at')->count(),
+                'today' => NewsletterSubscriber::whereDate('subscribed_at', today())->count(),
+            ],
+            'pagination' => $this->paginationMeta($subscribers),
+        ], meta: $this->paginationMeta($subscribers));
     }
 
     public function users(Request $request): JsonResponse
