@@ -15,10 +15,9 @@
         .page{position:relative;isolation:isolate;min-height:100vh;background:linear-gradient(135deg,rgba(253,251,248,.96),rgba(250,245,239,.9)),url('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1800&q=76') center/cover fixed}
         .page:before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,rgba(80,44,66,.055) 1px,transparent 1px),linear-gradient(rgba(80,44,66,.055) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(to bottom,black,transparent 82%)}
         .glow{position:fixed;inset:auto auto 0 0;z-index:-1;width:22rem;height:22rem;border-radius:999px;background:rgba(201,54,97,.22);filter:blur(70px);transform:translate(var(--x,18vw),var(--y,18vh));transition:transform .2s ease;pointer-events:none}
-        .wrap{display:flex;min-height:100vh;width:min(1040px,calc(100% - 32px));margin:0 auto;padding:18px 0 14px;flex-direction:column}
-        header{display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:inline-flex;flex-direction:column;align-items:center;line-height:1;color:#26211e;text-decoration:none}.brand-bphq{font-family:'Playfair Display',Georgia,serif;font-size:2.15rem;font-weight:400;letter-spacing:-.08em}.brand-name{margin-top:4px;color:#78716c;font-size:10px;font-weight:900;letter-spacing:.42em}
-        .admin{border:1px solid rgba(80,44,66,.14);border-radius:999px;background:rgba(255,255,255,.72);padding:9px 13px;color:#422638;text-decoration:none;font-size:13px;font-weight:850;backdrop-filter:blur(14px);transition:.18s ease}.admin:hover{border-color:#c93661;color:#8e2747;transform:translateY(-1px)}
-        main{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.62fr);gap:32px;align-items:center;flex:1;padding:22px 0 16px}
+        .wrap{display:flex;min-height:100vh;width:min(1040px,calc(100% - 32px));margin:0 auto;padding:12px 0 12px;flex-direction:column}
+        header{display:flex;align-items:center;justify-content:center}.brand{display:inline-flex;flex-direction:column;align-items:center;line-height:1;color:#26211e;text-decoration:none}.brand-bphq{font-family:'Playfair Display',Georgia,serif;font-size:2.15rem;font-weight:400;letter-spacing:-.08em}.brand-name{margin-top:4px;color:#78716c;font-size:10px;font-weight:900;letter-spacing:.42em}
+        main{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.62fr);gap:28px;align-items:center;flex:1;padding:10px 0 12px}
         .copy{position:relative;padding-left:18px}.copy:before{content:"";position:absolute;left:0;top:.35rem;width:3px;height:calc(100% - .7rem);border-radius:999px;background:linear-gradient(#54213f,#c93661,#15816f)}
         h1{max-width:650px;margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:clamp(44px,6.7vw,78px);font-weight:400;line-height:.94;letter-spacing:0}.lead{max-width:560px;margin:16px 0 0;color:#51443e;font-size:clamp(15px,1.55vw,18px);line-height:1.48}
         .panel{position:relative;overflow:hidden;border:1px solid rgba(80,44,66,.16);border-radius:10px;background:linear-gradient(145deg,rgba(255,255,255,.93),rgba(253,251,248,.82));box-shadow:0 24px 70px rgba(41,19,31,.16);backdrop-filter:blur(20px);padding:17px;transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .16s ease}.panel:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#54213f,#c93661,#15816f);background-size:200% 100%;animation:sweep 3.5s linear infinite}.panel h2{margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:25px;font-weight:400;line-height:1.05}.panel p{margin:6px 0 0;color:#6b5b53;font-size:14px;line-height:1.38}
@@ -26,11 +25,11 @@
         button{min-height:42px;border:0;border-radius:8px;background:#54213f;color:white;font:inherit;font-weight:900;padding:0 16px;cursor:pointer;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}button:hover{background:#aa294f;box-shadow:0 12px 28px rgba(170,41,79,.22);transform:translateY(-1px)}button:disabled{cursor:wait;opacity:.7;transform:none}
         .message{grid-column:1/-1;display:none;border-radius:8px;padding:10px 11px;font-size:13px;line-height:1.38}.message.show{display:block}.message.ok{background:#ecfdf3;color:#027a48}.message.err{background:#fff1f3;color:#c01048}
         .marquee{width:100%;overflow:hidden;border-block:1px solid rgba(80,44,66,.12);padding:7px 0;color:#60334f;font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}.track{display:inline-flex;gap:24px;min-width:max-content;animation:marquee 25s linear infinite}.track span{display:inline-flex;align-items:center;gap:24px}.track span:after{content:"";width:4px;height:4px;border-radius:999px;background:#c93661}
-        footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-top:10px;color:#78716c;font-size:12px}.links{display:flex;gap:12px}.links a{color:#502c42;text-decoration:none;font-weight:850}
+        footer{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding-top:8px;color:#78716c;font-size:12px}.links{display:flex;gap:12px}.links a{color:#502c42;text-decoration:none;font-weight:850}
         @keyframes sweep{to{background-position:200% 0}}@keyframes marquee{to{transform:translateX(-50%)}}
         @media (max-width:820px){.page{background-attachment:scroll}main{grid-template-columns:1fr;gap:18px;padding:24px 0 12px}.panel{max-width:560px}}
-        @media (max-width:560px){.wrap{width:min(100% - 20px,1040px);padding:12px 0 8px}.brand-bphq{font-size:1.55rem}.brand-name{font-size:7px;letter-spacing:.3em}.admin{padding:7px 9px;font-size:11px}main{gap:14px;padding:18px 0 9px}.copy{padding-left:12px}.copy:before{width:2px}h1{font-size:34px;line-height:.98}.lead{margin-top:9px;font-size:14px;line-height:1.34}.panel{padding:13px}.panel h2{font-size:22px}.panel p{font-size:13px;line-height:1.3}form{grid-template-columns:1fr;gap:8px;margin-top:10px}button{width:100%;min-height:40px}.marquee{padding:6px 0;font-size:9px;letter-spacing:.1em}footer{padding-top:8px;font-size:11px}}
-        @media (max-height:700px) and (max-width:560px){.lead,.marquee,footer{display:none}.panel p{display:none}main{padding:14px 0 6px}}
+        @media (max-width:560px){.wrap{width:min(100% - 20px,1040px);padding:10px 0 8px}.brand-bphq{font-size:1.55rem}.brand-name{font-size:7px;letter-spacing:.3em}main{gap:12px;padding:10px 0 8px}.copy{padding-left:12px}.copy:before{width:2px}h1{font-size:34px;line-height:.98}.lead{margin-top:9px;font-size:14px;line-height:1.34}.panel{padding:13px}.panel h2{font-size:22px}.panel p{font-size:13px;line-height:1.3}form{grid-template-columns:1fr;gap:8px;margin-top:10px}button{width:100%;min-height:40px}.marquee{padding:6px 0;font-size:9px;letter-spacing:.1em}footer{padding-top:8px;font-size:11px}}
+        @media (max-height:700px) and (max-width:560px){.lead,.marquee,footer{display:none}.panel p{display:none}main{padding:8px 0 6px}}
         @media (prefers-reduced-motion:reduce){.panel:before,.track{animation:none}.panel{transform:none!important}.glow{display:none}}
     </style>
 </head>
@@ -39,11 +38,10 @@
         <div class="glow" aria-hidden="true"></div>
         <div class="wrap">
             <header>
-                <a class="brand" href="/login" aria-label="BeautyPro HQ admin login">
+                <a class="brand" href="/" aria-label="BeautyPro HQ">
                     <span class="brand-bphq">BPHQ</span>
                     <span class="brand-name">BEAUTYPROHQ</span>
                 </a>
-                <a class="admin" href="/login">Admin access</a>
             </header>
             <main>
                 <section class="copy">
@@ -71,7 +69,7 @@
             </div>
             <footer>
                 <span>&copy; {{ date('Y') }} BeautyPro HQ. All rights reserved.</span>
-                <span class="links"><a href="mailto:hello@beautyprohq.com">Contact</a><a href="/login">Admin</a></span>
+                <span class="links"><a href="mailto:hello@beautyprohq.com">Contact</a></span>
             </footer>
         </div>
     </div>
