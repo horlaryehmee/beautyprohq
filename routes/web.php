@@ -5,9 +5,35 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
+function beautyproComingSoonEnabled(): bool
+{
+    if (! Schema::hasTable('app_settings')) {
+        return app()->environment('production');
+    }
+
+    $value = \App\Models\AppSetting::getValue('features.coming_soon');
+
+    if ($value === null) {
+        return app()->environment('production');
+    }
+
+    return $value === '1';
+}
+
+Route::get('/coming-soon', fn () => response()
+    ->view('coming-soon')
+    ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
+
 Route::get('/', function () {
+    if (beautyproComingSoonEnabled()) {
+        return response()
+            ->view('coming-soon')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     $photos = collect(Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('homepage.hero.photos.v1', now()->addMinutes(5), fn () => (
         ProviderProfile::directory()
             ->where('verified', true)
@@ -94,4 +120,26 @@ Route::get('/', function () {
     PreventRequestForgery::class,
 ]);
 
-Route::view('/{path?}', 'app')->where('path', '^(?!api|sanctum|up).*$');
+Route::get('/{path?}', function (?string $path = null) {
+    $path = trim((string) $path, '/');
+    $firstSegment = strtok($path, '/') ?: '';
+    $comingSoonBypass = in_array($firstSegment, [
+        'login',
+        'register',
+        'forgot-password',
+        'reset-password',
+        'verify-email',
+        'admin',
+        'provider',
+        'customer',
+        'coming-soon',
+    ], true);
+
+    if (! $comingSoonBypass && beautyproComingSoonEnabled()) {
+        return response()
+            ->view('coming-soon')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    return view('app');
+})->where('path', '^(?!api|sanctum|up).*$');

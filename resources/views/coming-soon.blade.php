@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101827">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="BeautyPro HQ is preparing a better way to discover, book, and grow beauty services. Join the waitlist for launch updates.">
+    <title>Coming Soon | BeautyPro HQ</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <style>
+        @font-face{font-family:Inter;font-style:normal;font-weight:400 900;font-display:swap;src:url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2') format('woff2')}
+        @font-face{font-family:'Playfair Display';font-style:normal;font-weight:400 900;font-display:swap;src:url('https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2') format('woff2')}
+        *{box-sizing:border-box}html{min-height:100%;font-family:Inter,'Avenir Next','Segoe UI',system-ui,sans-serif;color:#29131f;background:#fdfbf8}body{min-height:100vh;margin:0;overflow-x:hidden}
+        .page{position:relative;isolation:isolate;min-height:100vh;background:linear-gradient(135deg,rgba(253,251,248,.96),rgba(250,245,239,.88)),url('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1600&q=74') center/cover fixed}
+        .page:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(120deg,rgba(240,227,237,.62),transparent 46%,rgba(255,227,233,.55));pointer-events:none}
+        .wrap{display:flex;min-height:100vh;width:min(960px,calc(100% - 32px));margin:0 auto;padding:16px 0 12px;flex-direction:column}
+        header{display:flex;align-items:center;justify-content:space-between;gap:20px}
+        .brand{display:inline-flex;flex-direction:column;align-items:center;line-height:1;color:#26211e;text-decoration:none}.brand-bphq{font-family:'Playfair Display',Georgia,serif;font-size:2.15rem;font-weight:400;letter-spacing:-.08em}.brand-name{margin-top:4px;color:#78716c;font-size:10px;font-weight:900;letter-spacing:.42em}
+        .admin{border:1px solid rgba(80,44,66,.16);border-radius:999px;background:rgba(255,255,255,.72);padding:9px 13px;color:#422638;text-decoration:none;font-size:13px;font-weight:800;backdrop-filter:blur(12px)}
+        main{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.64fr);gap:26px;align-items:center;flex:1;padding:24px 0 18px}
+        h1{max-width:600px;margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:clamp(38px,6.2vw,68px);font-weight:400;line-height:.98;letter-spacing:0}.lead{max-width:540px;margin:12px 0 0;color:#51443e;font-size:clamp(15px,1.55vw,18px);line-height:1.42}
+        .panel{border:1px solid rgba(80,44,66,.14);border-radius:8px;background:rgba(255,255,255,.9);box-shadow:0 18px 56px rgba(41,19,31,.12);backdrop-filter:blur(18px);padding:16px}
+        .panel h2{margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:400;line-height:1.05}.panel p{margin:6px 0 0;color:#6b5b53;font-size:14px;line-height:1.38}
+        form{display:grid;gap:8px;margin-top:12px}label{font-size:12px;font-weight:800;color:#502c42}input{width:100%;border:1px solid #dfc8d9;border-radius:8px;background:white;padding:11px 12px;color:#29131f;font:inherit;outline:none}input:focus{border-color:#c93661;box-shadow:0 0 0 4px rgba(201,54,97,.14)}
+        button{min-height:42px;border:0;border-radius:8px;background:#54213f;color:white;font:inherit;font-weight:900;cursor:pointer;transition:transform .18s ease,background .18s ease}button:hover{background:#aa294f;transform:translateY(-1px)}button:disabled{cursor:wait;opacity:.7;transform:none}
+        .message{display:none;border-radius:8px;padding:12px;font-size:14px;line-height:1.45}.message.show{display:block}.message.ok{background:#ecfdf3;color:#027a48}.message.err{background:#fff1f3;color:#c01048}
+        .marquee{width:100%;overflow:hidden;border-block:1px solid rgba(80,44,66,.12);padding:7px 0;color:#60334f;font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}.track{display:inline-flex;gap:24px;min-width:max-content;animation:marquee 26s linear infinite}.track span{display:inline-flex;align-items:center;gap:24px}.track span:after{content:"";width:4px;height:4px;border-radius:999px;background:#c93661}
+        footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:#78716c;font-size:12px}.links{display:flex;gap:12px}.links a{color:#502c42;text-decoration:none;font-weight:800}
+        @keyframes pulse{0%,100%{filter:saturate(1);opacity:.86}50%{filter:saturate(1.35);opacity:1}}
+        @keyframes marquee{to{transform:translateX(-50%)}}
+        @media (max-width:820px){.page{background-attachment:scroll}main{grid-template-columns:1fr;gap:14px;align-items:center;padding:24px 0 14px}.panel{max-width:560px}h1{max-width:560px}}
+        @media (max-width:560px){.wrap{width:min(100% - 20px,960px);padding:12px 0 8px}header{gap:10px}.brand-bphq{font-size:1.55rem}.brand-name{font-size:7px;letter-spacing:.3em}.admin{padding:7px 9px;font-size:11px}main{justify-content:center;gap:12px;padding:22px 0 10px}h1{font-size:32px;line-height:1}.lead{margin-top:9px;font-size:14px;line-height:1.35}.panel{padding:12px}.panel h2{font-size:21px}.panel p{font-size:13px;line-height:1.32}form{gap:7px;margin-top:10px}input{padding:10px 11px}button{min-height:40px}.marquee{padding:6px 0;font-size:9px;letter-spacing:.1em}footer{padding-top:8px;padding-bottom:4px;font-size:11px}}
+        @media (max-height:700px) and (max-width:560px){.lead{display:none}main{padding:16px 0 8px}.panel p{display:none}.marquee{display:none}footer{display:none}}
+        @media (prefers-reduced-motion:reduce){.track{animation:none}}
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="wrap">
+            <header>
+                <a class="brand" href="/login" aria-label="BeautyPro HQ admin login">
+                    <span class="brand-bphq">BPHQ</span>
+                    <span class="brand-name">BEAUTYPROHQ</span>
+                </a>
+                <a class="admin" href="/login">Admin access</a>
+            </header>
+            <main>
+                <section>
+                    <h1>BeautyPro HQ is getting ready for launch.</h1>
+                    <p class="lead">We are preparing a sharper way to discover trusted beauty professionals, book services, and help providers run a stronger beauty business.</p>
+                </section>
+                <aside class="panel" aria-label="Join the launch waitlist">
+                    <h2>Join the first access list</h2>
+                    <p>Get notified when the platform opens, plus early updates for customers, beauty professionals, partners, and event organizers.</p>
+                    <form id="waitlist-form">
+                        <label for="email">Email address</label>
+                        <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                        <button id="submit-button" type="submit">Notify me</button>
+                        <div id="form-message" class="message" role="status" aria-live="polite"></div>
+                    </form>
+                </aside>
+            </main>
+            <div class="marquee" aria-label="BeautyPro HQ launch areas">
+                <div class="track">
+                    <span>Beauty bookings</span><span>Trusted professionals</span><span>Provider tools</span><span>Events and opportunities</span>
+                    <span>Beauty bookings</span><span>Trusted professionals</span><span>Provider tools</span><span>Events and opportunities</span>
+                </div>
+            </div>
+            <footer>
+                <span>&copy; {{ date('Y') }} BeautyPro HQ. All rights reserved.</span>
+                <span class="links"><a href="mailto:hello@beautyprohq.com">Contact</a><a href="/login">Admin</a></span>
+            </footer>
+        </div>
+    </div>
+    <script>
+        const form = document.getElementById('waitlist-form');
+        const button = document.getElementById('submit-button');
+        const message = document.getElementById('form-message');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            button.disabled = true;
+            button.textContent = 'Joining...';
+            message.className = 'message';
+            message.textContent = '';
+
+            try {
+                const response = await fetch('/api/newsletter/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ email: form.email.value }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'Please check the email address and try again.');
+                form.reset();
+                message.textContent = data.message || 'You are on the list. We will send launch updates soon.';
+                message.className = 'message ok show';
+            } catch (error) {
+                message.textContent = error.message || 'Something went wrong. Please try again.';
+                message.className = 'message err show';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Notify me';
+            }
+        });
+    </script>
+</body>
+</html>

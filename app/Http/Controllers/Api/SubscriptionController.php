@@ -272,9 +272,11 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'provider_whatsapp_notifications' => ['required', 'boolean'],
+            'coming_soon' => ['required', 'boolean'],
         ]);
 
         AppSetting::setValue('features.provider_whatsapp_notifications', $validated['provider_whatsapp_notifications'] ? '1' : '0');
+        AppSetting::setValue('features.coming_soon', $validated['coming_soon'] ? '1' : '0');
 
         return $this->success($this->featurePayload(), 'Feature settings saved.');
     }
@@ -653,8 +655,12 @@ class SubscriptionController extends Controller
 
     private function featurePayload(): array
     {
+        $comingSoon = AppSetting::getValue('features.coming_soon');
+
         return [
             'provider_whatsapp_notifications' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
+            'coming_soon' => $comingSoon === null ? app()->environment('production') : $comingSoon === '1',
+            'coming_soon_defaulted' => $comingSoon === null,
         ];
     }
 

@@ -16,7 +16,7 @@ export default function AdminSettingsPage() {
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
-    const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false });
+    const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [savingGateway, setSavingGateway] = useState(false);
@@ -71,6 +71,7 @@ export default function AdminSettingsPage() {
         if (!data || !Object.keys(data).length) return;
         setFeaturesForm({
             provider_whatsapp_notifications: Boolean(data.provider_whatsapp_notifications),
+            coming_soon: Boolean(data.coming_soon),
         });
     }, [featuresResource.data]);
 
@@ -222,11 +223,24 @@ export default function AdminSettingsPage() {
             <Card>
                 <CardHeader
                     title="Provider features"
-                    description="Control which optional sections are available inside provider dashboards."
-                    action={<StatusBadge status={featuresForm.provider_whatsapp_notifications ? 'WhatsApp enabled' : 'WhatsApp hidden'} />}
+                    description="Control public launch mode and optional platform features."
+                    action={<StatusBadge status={featuresForm.coming_soon ? 'Coming soon active' : 'Public site live'} />}
                 />
                 {featuresResource.loading ? <LoadingBlock rows={2} /> : (
                     <form className="mt-5 space-y-4" onSubmit={saveFeatures}>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <input
+                                checked={featuresForm.coming_soon}
+                                className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                onChange={(event) => setFeaturesForm((current) => ({ ...current, coming_soon: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span>
+                                <span className="block text-sm font-bold text-slate-900">Show coming soon page on public routes</span>
+                                <span className="block text-sm text-slate-500">When on, visitors see the launch waitlist page while login, admin, provider and customer dashboard routes remain available.</span>
+                                {featuresResource.data?.coming_soon_defaulted && <span className="mt-1 block text-xs font-bold text-amber-600">No saved preference yet. Production will auto-enable this until you save a setting.</span>}
+                            </span>
+                        </label>
                         <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
                             <input
                                 checked={featuresForm.provider_whatsapp_notifications}
