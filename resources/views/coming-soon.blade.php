@@ -17,7 +17,8 @@
         .glow{position:fixed;inset:auto auto 0 0;z-index:-1;width:22rem;height:22rem;border-radius:999px;background:rgba(201,54,97,.22);filter:blur(70px);transform:translate(var(--x,18vw),var(--y,18vh));transition:transform .2s ease;pointer-events:none}
         .wrap{display:flex;min-height:100vh;width:min(1040px,calc(100% - 32px));margin:0 auto;padding:12px 0 12px;flex-direction:column}
         header{display:flex;align-items:center;justify-content:center}.brand{display:inline-flex;flex-direction:column;align-items:center;line-height:1;color:#26211e;text-decoration:none}.brand-bphq{font-family:'Playfair Display',Georgia,serif;font-size:2.15rem;font-weight:400;letter-spacing:-.08em}.brand-name{margin-top:4px;color:#78716c;font-size:10px;font-weight:900;letter-spacing:.42em}
-        main{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.62fr);gap:28px;align-items:center;flex:1;padding:10px 0 12px}
+        main{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.62fr);gap:28px;align-items:center;flex:1;padding:10px 0 12px}
+        .image-marquees{position:absolute;z-index:-1;inset:15% 0 auto 0;display:grid;gap:12px;overflow:hidden;padding:4px 0;opacity:.58;mask-image:linear-gradient(90deg,transparent,black 12%,black 88%,transparent);pointer-events:none}.image-row{display:flex;width:max-content;gap:12px;animation:image-marquee-left 34s linear infinite}.image-row.reverse{animation-name:image-marquee-right}.image-row img{width:104px;height:72px;border:1px solid rgba(255,255,255,.72);border-radius:10px;object-fit:cover;box-shadow:0 14px 35px rgba(41,19,31,.12);filter:saturate(.92) contrast(.96)}
         .copy{position:relative;padding-left:18px}.copy:before{content:"";position:absolute;left:0;top:.35rem;width:3px;height:calc(100% - .7rem);border-radius:999px;background:linear-gradient(#54213f,#c93661,#15816f)}
         h1{max-width:650px;margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:clamp(44px,6.7vw,78px);font-weight:400;line-height:.94;letter-spacing:0}.lead{max-width:560px;margin:16px 0 0;color:#51443e;font-size:clamp(15px,1.55vw,18px);line-height:1.48}
         .panel{position:relative;overflow:hidden;border:1px solid rgba(80,44,66,.16);border-radius:10px;background:linear-gradient(145deg,rgba(255,255,255,.93),rgba(253,251,248,.82));box-shadow:0 24px 70px rgba(41,19,31,.16);backdrop-filter:blur(20px);padding:17px;transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .16s ease}.panel:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#54213f,#c93661,#15816f);background-size:200% 100%;animation:sweep 3.5s linear infinite}.panel h2{margin:0;color:#29131f;font-family:'Playfair Display',Georgia,serif;font-size:25px;font-weight:400;line-height:1.05}.panel p{margin:6px 0 0;color:#6b5b53;font-size:14px;line-height:1.38}
@@ -26,11 +27,11 @@
         .message{grid-column:1/-1;display:none;border-radius:8px;padding:10px 11px;font-size:13px;line-height:1.38}.message.show{display:block}.message.ok{background:#ecfdf3;color:#027a48}.message.err{background:#fff1f3;color:#c01048}
         .marquee{width:100%;overflow:hidden;border-block:1px solid rgba(80,44,66,.12);padding:7px 0;color:#60334f;font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}.track{display:inline-flex;gap:24px;min-width:max-content;animation:marquee 25s linear infinite}.track span{display:inline-flex;align-items:center;gap:24px}.track span:after{content:"";width:4px;height:4px;border-radius:999px;background:#c93661}
         footer{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding-top:8px;color:#78716c;font-size:12px}.links{display:flex;gap:12px}.links a{color:#502c42;text-decoration:none;font-weight:850}
-        @keyframes sweep{to{background-position:200% 0}}@keyframes marquee{to{transform:translateX(-50%)}}
+        @keyframes sweep{to{background-position:200% 0}}@keyframes marquee{to{transform:translateX(-50%)}}@keyframes image-marquee-left{to{transform:translateX(-50%)}}@keyframes image-marquee-right{from{transform:translateX(-50%)}to{transform:translateX(0)}}
         @media (max-width:820px){.page{background-attachment:scroll}main{grid-template-columns:1fr;gap:18px;padding:24px 0 12px}.panel{max-width:560px}}
-        @media (max-width:560px){.wrap{width:min(100% - 20px,1040px);padding:10px 0 8px}.brand-bphq{font-size:1.55rem}.brand-name{font-size:7px;letter-spacing:.3em}main{gap:12px;padding:10px 0 8px}.copy{padding-left:12px}.copy:before{width:2px}h1{font-size:34px;line-height:.98}.lead{margin-top:9px;font-size:14px;line-height:1.34}.panel{padding:13px}.panel h2{font-size:22px}.panel p{font-size:13px;line-height:1.3}form{grid-template-columns:1fr;gap:8px;margin-top:10px}button{width:100%;min-height:40px}.marquee{padding:6px 0;font-size:9px;letter-spacing:.1em}footer{padding-top:8px;font-size:11px}}
+        @media (max-width:560px){.wrap{width:min(100% - 20px,1040px);padding:10px 0 8px}.brand-bphq{font-size:1.55rem}.brand-name{font-size:7px;letter-spacing:.3em}main{gap:12px;padding:10px 0 8px}.image-marquees{inset:31% -10px auto -10px;gap:8px;opacity:.46}.image-row{gap:8px;animation-duration:28s}.image-row img{width:78px;height:54px;border-radius:8px}.copy{padding-left:12px}.copy:before{width:2px}h1{font-size:34px;line-height:.98}.lead{margin-top:9px;font-size:14px;line-height:1.34}.panel{padding:13px}.panel h2{font-size:22px}.panel p{font-size:13px;line-height:1.3}form{grid-template-columns:1fr;gap:8px;margin-top:10px}button{width:100%;min-height:40px}.marquee{padding:6px 0;font-size:9px;letter-spacing:.1em}footer{padding-top:8px;font-size:11px}}
         @media (max-height:700px) and (max-width:560px){.lead,.marquee,footer{display:none}.panel p{display:none}main{padding:8px 0 6px}}
-        @media (prefers-reduced-motion:reduce){.panel:before,.track{animation:none}.panel{transform:none!important}.glow{display:none}}
+        @media (prefers-reduced-motion:reduce){.panel:before,.track,.image-row{animation:none}.panel{transform:none!important}.glow{display:none}}
     </style>
 </head>
 <body>
@@ -44,6 +45,32 @@
                 </a>
             </header>
             <main>
+                <div class="image-marquees" aria-hidden="true">
+                    <div class="image-row">
+                        <img alt="" src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=260&q=68">
+                    </div>
+                    <div class="image-row reverse">
+                        <img alt="" src="https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=260&q=68">
+                        <img alt="" src="https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=260&q=68">
+                    </div>
+                </div>
                 <section class="copy">
                     <h1>Your beauty service ecosystem is almost here.</h1>
                     <p class="lead">BeautyPro HQ is preparing trusted discovery, seamless bookings, industry updates, and business tools for beauty professionals.</p>
