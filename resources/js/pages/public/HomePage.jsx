@@ -369,7 +369,7 @@ export default function HomePage({ onVerifiedProviders }) {
     const opportunities = list(data?.opportunities);
     const partners = list(data?.partner_brands ?? data?.partners);
     const displayPartners = partners.length ? partners : ['GlowLab', 'LuxeSkin', 'Beauty Business Africa', 'NailPro Collective', 'StyleHouse', 'BPHQ Academy'];
-    const visibleNewsAndEvents = showAllNewsEvents ? newsAndEvents : newsAndEvents.slice(0, 8);
+    const visibleNewsAndEvents = newsAndEvents.slice(0, 10);
     const visibleCommunity = showAllCommunity ? community : community.slice(0, 4);
     const filteredVerifiedProviders = useMemo(() => {
         const matches = verified.filter((provider) => {
@@ -471,7 +471,7 @@ export default function HomePage({ onVerifiedProviders }) {
                         </div>
                     </div>
                     <div className="relative">
-                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 sm:grid sm:grid-cols-2 md:grid-cols-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-auto"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
+                        {loading ? <LoadingCards count={4} className="flex gap-3 overflow-hidden" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[21rem] lg:w-[23rem]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>

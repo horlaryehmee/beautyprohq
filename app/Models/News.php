@@ -12,7 +12,10 @@ class News extends Model
 
     protected function casts(): array
     {
-        return ['published_at' => 'datetime'];
+        return [
+            'published_at' => 'datetime',
+            'show_on_homepage' => 'boolean',
+        ];
     }
 
     public function scopePublished(Builder $query): Builder

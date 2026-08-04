@@ -14,26 +14,11 @@ use App\Notifications\AnnouncementNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ContentController extends Controller
 {
-    public function uploadMedia(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
-        ]);
-
-        $path = $data['image']->store('content', 'public');
-
-        return $this->success([
-            'path' => $path,
-            'url' => Storage::url($path),
-        ], 'Image uploaded.', 201);
-    }
-
     public function news(Request $request): JsonResponse
     {
         return $this->listing(News::query()->latest(), $request, ['title', 'excerpt', 'content']);
@@ -196,6 +181,7 @@ class ContentController extends Controller
             'title' => [$p, 'string', 'max:180'], 'slug' => ['sometimes', 'string', 'max:200', Rule::unique('news', 'slug')->ignore($news)],
             'excerpt' => ['nullable', 'string', 'max:500'], 'content' => [$p, 'string'], 'image' => ['nullable', 'string', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
+            'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
         return $data;
@@ -210,6 +196,7 @@ class ContentController extends Controller
             'date' => [$p, 'date'], 'location' => [$p, 'string', 'max:255'], 'description' => [$p, 'string', 'max:10000'],
             'image' => ['nullable', 'string', 'max:500'], 'registration_url' => ['nullable', 'url', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
+            'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
         return $data;

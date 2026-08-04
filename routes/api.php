@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
+use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Api\ProviderDirectoryController;
 use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\UploadController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/status', StatusController::class);
@@ -46,6 +49,7 @@ Route::get('/news', [PublicContentController::class, 'news']);
 Route::get('/news/{news:slug}', [PublicContentController::class, 'showNews']);
 Route::get('/events', [PublicContentController::class, 'events']);
 Route::get('/events/{event:slug}', [PublicContentController::class, 'showEvent']);
+Route::post('/events/{event:slug}/registrations', [PublicContentController::class, 'registerForEvent'])->middleware('throttle:10,1');
 Route::get('/opportunities', [PublicContentController::class, 'opportunities']);
 Route::get('/opportunities/{opportunity}', [PublicContentController::class, 'showOpportunity']);
 Route::get('/community-posts', [PublicContentController::class, 'community']);
@@ -69,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::post('/upload', UploadController::class)->middleware('throttle:20,1');
 
     Route::middleware('role:customer')->group(function (): void {
         Route::get('/bookings', [BookingController::class, 'index']);
@@ -170,7 +175,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
 
-        Route::post('/media', [AdminContentController::class, 'uploadMedia']);
+        Route::get('/media', [AdminMediaController::class, 'index']);
+        Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:20,1');
         Route::get('/news', [AdminContentController::class, 'news']);
         Route::post('/news', [AdminContentController::class, 'storeNews']);
         Route::get('/news/{news}', [AdminContentController::class, 'showNews']);
@@ -181,6 +187,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/events/{event}', [AdminContentController::class, 'showEvent']);
         Route::put('/events/{event}', [AdminContentController::class, 'updateEvent']);
         Route::delete('/events/{event}', [AdminContentController::class, 'destroyEvent']);
+        Route::get('/event-registrations', [AdminEventRegistrationController::class, 'index']);
+        Route::patch('/event-registrations/{registration}', [AdminEventRegistrationController::class, 'update']);
+        Route::delete('/event-registrations/{registration}', [AdminEventRegistrationController::class, 'destroy']);
         Route::get('/community-posts', [AdminContentController::class, 'community']);
         Route::post('/community-posts', [AdminContentController::class, 'storeCommunity']);
         Route::get('/community-posts/{communityPost}', [AdminContentController::class, 'showCommunity']);

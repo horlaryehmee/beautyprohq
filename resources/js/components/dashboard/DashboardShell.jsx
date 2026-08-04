@@ -40,6 +40,8 @@ export const adminNavigation = [
     { label: 'Users', to: '/admin/users', icon: 'users' },
     { label: 'Directory', to: '/admin/directory', icon: 'profile' },
     { label: 'Content', to: '/admin/content', icon: 'content' },
+    { label: 'Media', to: '/admin/media', icon: 'content' },
+    { label: 'Event registrations', to: '/admin/event-registrations', icon: 'calendar' },
     { label: 'Opportunities', to: '/admin/opportunities', icon: 'opportunity' },
     { label: 'Announcements', to: '/admin/announcements', icon: 'megaphone' },
     { label: 'Subscriptions', to: '/admin/subscriptions', icon: 'subscription' },

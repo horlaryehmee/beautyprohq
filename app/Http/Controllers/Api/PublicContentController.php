@@ -40,6 +40,38 @@ class PublicContentController extends Controller
         return $this->success($event);
     }
 
+    public function registerForEvent(Request $request, Event $event): JsonResponse
+    {
+        abort_unless($event->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'business_name' => ['nullable', 'string', 'max:180'],
+            'professional_role' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $registration = $event->registrations()->updateOrCreate(
+            ['email' => strtolower($validated['email'])],
+            $validated + [
+                'email' => strtolower($validated['email']),
+                'user_id' => $request->user()?->id,
+                'status' => 'registered',
+            ],
+        );
+
+        $this->notifyAdmins(
+            'New event registration',
+            "{$validated['name']} registered for {$event->title}.",
+            '/admin/event-registrations',
+            ['event_id' => $event->id, 'event_registration_id' => $registration->id]
+        );
+
+        return $this->success($registration, 'Your event registration has been received.', 201);
+    }
+
     public function opportunities(Request $request): JsonResponse
     {
         return $this->paginated(Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->paginate($request->integer('per_page', 12)));

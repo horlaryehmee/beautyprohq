@@ -8,19 +8,21 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-function beautyproComingSoonEnabled(): bool
-{
-    if (! Schema::hasTable('app_settings')) {
-        return app()->environment('production');
+if (! function_exists('beautyproComingSoonEnabled')) {
+    function beautyproComingSoonEnabled(): bool
+    {
+        if (! Schema::hasTable('app_settings')) {
+            return app()->environment('production');
+        }
+
+        $value = \App\Models\AppSetting::getValue('features.coming_soon');
+
+        if ($value === null) {
+            return app()->environment('production');
+        }
+
+        return $value === '1';
     }
-
-    $value = \App\Models\AppSetting::getValue('features.coming_soon');
-
-    if ($value === null) {
-        return app()->environment('production');
-    }
-
-    return $value === '1';
 }
 
 Route::get('/coming-soon', fn () => response()

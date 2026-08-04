@@ -9,7 +9,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/news',
         publicPath: (item) => item?.slug ? `/news-events/news/${item.slug}` : null,
-        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '' },
+        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
         bodyKey: 'content',
     },
     events: {
@@ -17,7 +17,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/events',
         publicPath: (item) => item?.slug ? `/news-events/events/${item.slug}` : null,
-        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', seo_title: '', seo_description: '' },
+        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
         bodyKey: 'description',
     },
     community: {
@@ -61,6 +61,11 @@ function cleanPayload(form, type) {
     if (type !== 'community' && !payload.slug) delete payload.slug;
     if (payload.status === 'published' && !payload.published_at) delete payload.published_at;
     if (type === 'events' && !payload.registration_url) delete payload.registration_url;
+    if (type === 'community') {
+        delete payload.show_on_homepage;
+        delete payload.homepage_sort_order;
+    }
+    if (!payload.show_on_homepage) payload.homepage_sort_order = null;
 
     Object.keys(payload).forEach((key) => {
         if (payload[key] === '') payload[key] = null;
@@ -161,8 +166,8 @@ function ImageUploader({ value, onChange }) {
         setError('');
         try {
             const formData = new FormData();
-            formData.append('image', file);
-            const response = await dashboardApi.post('/admin/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            formData.append('file', file);
+            const response = await dashboardApi.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             const payload = unwrap(response);
             onChange(payload.url);
         } catch (requestError) {
@@ -375,6 +380,39 @@ export default function AdminContentEditorPage() {
                             {!isNew && editing?.published_at && <p className="text-xs font-semibold text-slate-400">Current publish date: {formatDate(editing.published_at)}</p>}
                         </div>
                     </Card>
+
+                    {type !== 'community' && (
+                        <Card>
+                            <h2 className="font-bold text-slate-950">Homepage placement</h2>
+                            <p className="mt-1 text-sm leading-6 text-slate-500">Select the news and events that should appear on the homepage. The homepage displays the first 10 selected items in one slide row.</p>
+                            <div className="mt-5 space-y-4">
+                                <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <input
+                                        checked={Boolean(form.show_on_homepage)}
+                                        className="mt-1 size-4 rounded border-slate-300 text-fuchsia-700 focus:ring-fuchsia-500"
+                                        onChange={(event) => updateForm({ show_on_homepage: event.target.checked })}
+                                        type="checkbox"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-bold text-slate-900">Show on homepage</span>
+                                        <span className="mt-1 block text-xs leading-5 text-slate-500">Use this for the four featured News & Events cards on the homepage.</span>
+                                    </span>
+                                </label>
+                                <Field label="Homepage order" hint="Lower numbers appear first. Leave empty to sort by date.">
+                                    <input
+                                        className={inputClass}
+                                        disabled={!form.show_on_homepage}
+                                        min="1"
+                                        max="99"
+                                        onChange={(event) => updateForm({ homepage_sort_order: event.target.value })}
+                                        placeholder="1"
+                                        type="number"
+                                        value={form.homepage_sort_order ?? ''}
+                                    />
+                                </Field>
+                            </div>
+                        </Card>
+                    )}
 
                     <Card>
                         <h2 className="font-bold text-slate-950">Featured image</h2>

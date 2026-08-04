@@ -37,8 +37,8 @@ function ImageUpload({ value, onChange }) {
         setError('');
         try {
             const formData = new FormData();
-            formData.append('image', file);
-            const response = await dashboardApi.post('/admin/media', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            formData.append('file', file);
+            const response = await dashboardApi.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             onChange(unwrap(response).url);
         } catch (requestError) {
             setError(apiErrorMessage(requestError, 'Upload failed.'));

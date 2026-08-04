@@ -179,5 +179,7 @@ class DatabaseSeeder extends Seeder
         CommunityPost::create(['title' => 'Pro spotlight: Kemi Crowns', 'content' => 'Meet the natural hair specialist building confidence one healthy-hair routine at a time.', 'type' => 'spotlight', 'provider_id' => $providers[1]->id, 'image' => $providers[1]->profile_photo, 'published_at' => now()->subDays(3)]);
         Announcement::create(['title' => 'Welcome to BeautyPro HQ', 'message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()]);
         NewsletterSubscriber::create(['email' => 'demo@beautyprohq.test', 'subscribed_at' => now()]);
+
+        $this->call(NewsEventsDemoSeeder::class);
     }
 }

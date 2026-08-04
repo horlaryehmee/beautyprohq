@@ -40,6 +40,7 @@ function ContentRow({ item, active }) {
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={statusFor(item)} />
+                    {item.show_on_homepage && <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold text-fuchsia-700 ring-1 ring-inset ring-fuchsia-600/10">Homepage {item.homepage_sort_order ? `#${item.homepage_sort_order}` : ''}</span>}
                     <span className="text-xs font-semibold text-slate-400">{item.published_at ? `Published ${formatDate(item.published_at)}` : 'Not published'}</span>
                 </div>
                 <h2 className="mt-2 line-clamp-1 text-lg font-bold text-slate-950">{item.title || 'Untitled'}</h2>

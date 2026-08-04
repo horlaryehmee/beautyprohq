@@ -17,7 +17,7 @@ class HomeController extends Controller
     {
         $providerRelations = ['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)];
 
-        $data = Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('public.home.payload.v3', now()->addMinute(), function () use ($providerRelations) {
+        $data = Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('public.home.payload.v4', now()->addMinute(), function () use ($providerRelations) {
             $featuredProviders = ProviderProfile::directory()
                 ->with($providerRelations)
                 ->orderByDesc('verified')
@@ -29,12 +29,39 @@ class HomeController extends Controller
                 ->with($providerRelations)
                 ->first() ?? $featuredProviders->first();
 
+            $homepageUpdates = collect()
+                ->merge(News::published()
+                    ->where('show_on_homepage', true)
+                    ->get()
+                    ->map(fn (News $news): array => [
+                        'kind' => 'news',
+                        'sort_order' => $news->homepage_sort_order,
+                        'sort_date' => $news->published_at?->timestamp ?? 0,
+                        'item' => $news->toArray(),
+                    ]))
+                ->merge(Event::published()
+                    ->where('show_on_homepage', true)
+                    ->where('date', '>=', now()->startOfDay())
+                    ->get()
+                    ->map(fn (Event $event): array => [
+                        'kind' => 'event',
+                        'sort_order' => $event->homepage_sort_order,
+                        'sort_date' => $event->date?->timestamp ?? 0,
+                        'item' => $event->toArray(),
+                    ]))
+                ->sortBy([
+                    fn (array $a, array $b): int => ($a['sort_order'] ?? 999) <=> ($b['sort_order'] ?? 999),
+                    fn (array $a, array $b): int => $b['sort_date'] <=> $a['sort_date'],
+                ])
+                ->take(10)
+                ->values();
+
             return [
                 'pro_of_the_week' => $proOfTheWeek?->toArray(),
                 'verified_professionals' => $featuredProviders->where('verified', true)->values()->toArray(),
                 'featured_providers' => $featuredProviders->values()->toArray(),
-                'news' => News::published()->latest('published_at')->limit(6)->get()->toArray(),
-                'events' => Event::published()->where('date', '>=', now()->startOfDay())->orderBy('date')->limit(6)->get()->toArray(),
+                'news' => $homepageUpdates->where('kind', 'news')->pluck('item')->values()->toArray(),
+                'events' => $homepageUpdates->where('kind', 'event')->pluck('item')->values()->toArray(),
                 'opportunities' => Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->limit(6)->get()->toArray(),
                 'community' => CommunityPost::published()->with('provider.user:id,name')->latest('published_at')->limit(6)->get()->toArray(),
                 'partner_brands' => [

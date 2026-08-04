@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api, { collectionFrom, unwrap } from '../../lib/api';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
@@ -39,6 +39,15 @@ function bodyFor(type, item = {}) {
     return type === 'event' ? item.description : item.content;
 }
 
+function stripHtml(value) {
+    return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function readingTime(content) {
+    const words = stripHtml(content).split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.ceil(words / 220));
+}
+
 function DetailBody({ content }) {
     const value = String(content ?? '').trim();
     if (!value) return null;
@@ -53,6 +62,133 @@ function DetailBody({ content }) {
                 <p key={index}>{paragraph}</p>
             ))}
         </div>
+    );
+}
+
+function DetailPanel({ item, type, onShare }) {
+    const details = type === 'event'
+        ? [
+            ['Date', item.date ? shortDate(item.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'To be announced'],
+            ['Location', item.location || 'BeautyPro HQ'],
+            ['Format', item.location?.toLowerCase() === 'online' ? 'Virtual session' : 'In-person'],
+        ]
+        : [
+            ['Published', item.date ? shortDate(item.date, { day: 'numeric', month: 'short', year: 'numeric' }) : 'BeautyPro HQ'],
+            ['Author', item.author],
+            ['Read time', `${item.readingTime} min read`],
+        ];
+
+    return (
+        <aside className="lg:sticky lg:top-24">
+            <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_45px_rgba(52,35,28,.06)]">
+                <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">{type === 'event' ? 'Event details' : 'Article details'}</p>
+                <dl className="mt-4 space-y-4">
+                    {details.map(([label, value]) => (
+                        <div key={label}>
+                            <dt className="text-[11px] font-black uppercase tracking-wide text-stone-400">{label}</dt>
+                            <dd className="mt-1 text-sm font-bold leading-6 text-[#34231c]">{value}</dd>
+                        </div>
+                    ))}
+                </dl>
+                <div className="mt-5 grid gap-2">
+                    {type === 'event' && (
+                        <a href="#event-registration" className={buttonClass({ className: 'w-full rounded-full' })}>
+                            Register <Icon name="arrow" size={15} />
+                        </a>
+                    )}
+                    <button type="button" onClick={onShare} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:border-[#8b4b59] hover:text-[#8b4b59]">
+                        Share <Icon name="external" size={15} />
+                    </button>
+                </div>
+            </div>
+
+            {item.excerpt && (
+                <div className="mt-4 rounded-lg bg-[#34231c] p-5 text-white">
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-rose-200">Key takeaway</p>
+                    <p className="mt-3 text-sm font-semibold leading-7 text-white/86">{item.excerpt}</p>
+                </div>
+            )}
+        </aside>
+    );
+}
+
+function EventRegistrationForm({ event }) {
+    const [form, setForm] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        business_name: '',
+        professional_role: '',
+        notes: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+
+    const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+    const submit = async (submitEvent) => {
+        submitEvent.preventDefault();
+        setSaving(true);
+        setMessage('');
+        setError('');
+
+        try {
+            const response = await api.post(`/events/${event.slug}/registrations`, form);
+            setMessage(response?.data?.message || 'Your event registration has been received.');
+            setForm({ name: '', email: '', phone: '', business_name: '', professional_role: '', notes: '' });
+        } catch (requestError) {
+            const payload = requestError?.response?.data;
+            const validationMessage = payload?.errors ? Object.values(payload.errors).flat().find(Boolean) : null;
+            setError(validationMessage || payload?.message || 'We could not submit your registration. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <section id="event-registration" className="mt-10 scroll-mt-24 rounded-lg border border-stone-200 bg-[#fbf8f5] p-5 sm:p-6">
+            <div className="max-w-2xl">
+                <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Event registration</p>
+                <h2 className="mt-2 font-display text-3xl font-normal leading-tight text-[#34231c]">Reserve your place</h2>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={submit}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Full name</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('name', input.target.value)} required value={form.name} />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Email address</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('email', input.target.value)} required type="email" value={form.email} />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Phone number</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('phone', input.target.value)} value={form.phone} />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Professional role</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('professional_role', input.target.value)} placeholder="Makeup artist, educator, founder..." value={form.professional_role} />
+                    </label>
+                </div>
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Business or brand name</span>
+                    <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('business_name', input.target.value)} value={form.business_name} />
+                </label>
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Notes</span>
+                    <textarea className="min-h-28 w-full resize-y rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm leading-6 text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('notes', input.target.value)} placeholder="Share accessibility needs, questions, or what you hope to get from the event." value={form.notes} />
+                </label>
+
+                {message && <p className="rounded-md bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</p>}
+                {error && <p className="rounded-md bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>}
+
+                <button className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full bg-[#7d2e3c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#682533] disabled:cursor-not-allowed disabled:opacity-60" disabled={saving} type="submit">
+                    {saving ? 'Submitting...' : 'Register for event'} <Icon name="arrow" size={15} />
+                </button>
+            </form>
+        </section>
     );
 }
 
@@ -127,6 +263,8 @@ export default function ContentDetailPage({ type = 'news' }) {
             label: typeLabel(type, item),
             author: item.author?.name ?? item.provider?.user?.name ?? 'BeautyPro HQ',
             body: bodyFor(type, item),
+            excerpt: item.excerpt ?? (type === 'event' ? stripHtml(item.description).slice(0, 220) : null),
+            readingTime: readingTime(bodyFor(type, item)),
         };
     }, [item, type]);
 
@@ -172,7 +310,7 @@ export default function ContentDetailPage({ type = 'news' }) {
         <>
             <Seo
                 title={normalized.seo_title || normalized.title}
-                description={normalized.seo_description || normalized.excerpt || String(normalized.body ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)}
+                description={normalized.seo_description || normalized.excerpt || stripHtml(normalized.body).slice(0, 160)}
                 image={normalized.image}
                 type="article"
             />
@@ -196,42 +334,56 @@ export default function ContentDetailPage({ type = 'news' }) {
                         </div>
                     </div>
 
-                    <div className="relative h-[420px] overflow-hidden bg-[#d8d3cc] sm:h-[520px] lg:h-[620px]">
+                    <div className="relative h-[460px] overflow-hidden bg-[#d8d3cc] sm:h-[560px] lg:h-[660px]">
                         <img src={normalized.image} alt="" className="size-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/20 to-black/10" />
+                        <div className="absolute inset-x-0 bottom-0">
+                            <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-6 lg:pb-12">
+                                <span className="inline-block bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-[#241711]">{normalized.label}</span>
+                                <h1 className="mt-4 max-w-4xl font-display text-[2.65rem] font-normal leading-[.96] tracking-[-.02em] text-white sm:text-6xl lg:text-7xl">{normalized.title}</h1>
+                                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-[.14em] text-white/80">
+                                    <span>By {normalized.author}</span>
+                                    {normalized.date && <span>{shortDate(normalized.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                                    {type !== 'event' && <span>{normalized.readingTime} min read</span>}
+                                    {normalized.location && <span>{normalized.location}</span>}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <article className="mx-auto max-w-3xl px-5 pb-12 pt-5 sm:px-6 sm:pt-8 lg:pb-16">
-                    <span className="inline-block bg-[#241711] px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-white">{normalized.label}</span>
-                    <h1 className="mt-4 font-display text-[2.55rem] font-normal leading-[.98] tracking-[-.03em] text-[#241711] sm:text-6xl">{normalized.title}</h1>
-
-                    <div className="my-6 flex items-center gap-4 border-y border-stone-200 py-4">
-                        <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#f4efe9] font-display text-xl font-normal text-[#241711]">
-                            {String(normalized.author || 'B').slice(0, 1)}
+                <article className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:pb-16 lg:pt-12">
+                    <div className="min-w-0">
+                        <div className="mb-8 flex items-center gap-4 border-b border-stone-200 pb-6">
+                            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#f4efe9] font-display text-xl font-normal text-[#241711]">
+                                {String(normalized.author || 'B').slice(0, 1)}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="truncate text-xs font-black uppercase tracking-[.14em] text-[#241711]">Published by {normalized.author}</p>
+                                <p className="mt-1 text-xs font-semibold text-stone-500">
+                                    {normalized.date ? shortDate(normalized.date) : 'BeautyPro HQ'}{normalized.location ? ` / ${normalized.location}` : ''}
+                                </p>
+                            </div>
                         </div>
-                        <div className="min-w-0">
-                            <p className="truncate text-xs font-black uppercase tracking-[.14em] text-[#241711]">By {normalized.author}</p>
-                            <p className="mt-1 text-xs font-semibold text-stone-500">
-                                {normalized.date ? shortDate(normalized.date) : 'BeautyPro HQ'}{normalized.location ? ` · ${normalized.location}` : ''}
+
+                        {normalized.excerpt && (
+                            <p className="mb-8 border-l-2 border-[#7d2e3c] pl-5 font-display text-2xl font-normal italic leading-tight text-[#34231c] sm:text-3xl">
+                                {normalized.excerpt}
                             </p>
-                        </div>
-                    </div>
+                        )}
 
-                    {(normalized.excerpt || type === 'event') && (
-                        <p className="mb-7 border-l-2 border-[#7d2e3c] pl-4 font-display text-2xl font-normal italic leading-tight text-[#34231c]">
-                            {normalized.excerpt ?? normalized.description}
-                        </p>
-                    )}
-
-                    <div className="mx-auto">
+                        <div className="mx-auto max-w-3xl">
                             <DetailBody content={normalized.body} />
-                            {normalized.registration_url && (
+                            {type === 'event' ? (
+                                <EventRegistrationForm event={normalized} />
+                            ) : normalized.registration_url && (
                                 <a href={normalized.registration_url} target="_blank" rel="noreferrer" className={buttonClass({ className: 'mt-8 rounded-full' })}>
                                     Register now <Icon name="arrow" size={15} />
                                 </a>
                             )}
+                        </div>
                     </div>
+                    <DetailPanel item={normalized} type={type} onShare={shareContent} />
                 </article>
             </section>
 
@@ -254,3 +406,4 @@ export default function ContentDetailPage({ type = 'news' }) {
         </>
     );
 }
+
