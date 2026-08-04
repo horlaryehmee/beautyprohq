@@ -1,0 +1,4 @@
+---
+deployment:
+  tasks:
+    - APP_ROOT=/home/bakhtech/beautyprohq.bakhtech.com.ng /bin/bash scripts/cpanel-deploy.sh
