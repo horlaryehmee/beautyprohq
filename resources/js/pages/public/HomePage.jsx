@@ -350,7 +350,7 @@ export default function HomePage({ onVerifiedProviders }) {
         const verifiedProviders = list(data?.verified_professionals);
         const featuredProviders = list(data?.featured_providers);
         return uniqueProviders([
-            ...(verifiedProviders.length ? verifiedProviders : featuredProviders),
+            ...verifiedProviders,
             ...(displayProOfWeek ? [displayProOfWeek] : []),
         ]);
     }, [data, displayProOfWeek]);
