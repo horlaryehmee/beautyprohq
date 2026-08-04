@@ -348,7 +348,6 @@ export default function HomePage({ onVerifiedProviders }) {
     const displayProOfWeek = hasUsableProviderIdentity(proOfWeek) ? proOfWeek : null;
     const verified = useMemo(() => {
         const verifiedProviders = list(data?.verified_professionals);
-        const featuredProviders = list(data?.featured_providers);
         return uniqueProviders([
             ...verifiedProviders,
             ...(displayProOfWeek ? [displayProOfWeek] : []),
