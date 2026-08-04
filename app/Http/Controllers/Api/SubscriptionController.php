@@ -151,6 +151,21 @@ class SubscriptionController extends Controller
         return $this->adminStripeSettings();
     }
 
+    public function adminDebug(): JsonResponse
+    {
+        try {
+            $this->adminPaymentGatewaySettings();
+            return response()->json(['status' => 'ok']);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => explode("\n", $e->getTraceAsString()),
+            ], 500);
+        }
+    }
+
     public function adminPaymentGatewaySettings(): JsonResponse
     {
         return $this->success([

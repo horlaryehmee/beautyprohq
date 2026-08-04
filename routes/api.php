@@ -175,6 +175,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
 
+        Route::get('/debug', [SubscriptionController::class, 'adminDebug']);
         Route::get('/media', [AdminMediaController::class, 'index']);
         Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:20,1');
         Route::get('/news', [AdminContentController::class, 'news']);
