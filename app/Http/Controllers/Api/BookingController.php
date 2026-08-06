@@ -189,26 +189,11 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
-        $this->safeNotify($provider->user, new BookingStatusNotification($booking, "{$customer->name} requested a new booking."));
-        $this->safeNotify($customer, new PlatformUpdateNotification(
-            'Booking request received',
-            "Your booking request for {$booking->service->name} with {$provider->user->name} has been received.",
-            'View bookings',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
-            ['booking_id' => $booking->id, 'provider_id' => $provider->id],
-        ));
-        User::where('role', 'admin')->where('is_active', true)->get()->each(function (User $admin) use ($booking, $customer, $provider): void {
-            $this->safeNotify($admin, new PlatformUpdateNotification(
-                'New booking request',
-                "{$customer->name} requested {$booking->service->name} with {$provider->user->name}.",
-                'View activity',
-                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
-                ['booking_id' => $booking->id, 'provider_id' => $provider->id],
-            ));
-        });
-        $this->notifyProviderOnWhatsApp($booking);
+        if ($booking->payment?->status === 'paid') {
+            $this->notifyBookingPaymentPaid($booking->payment);
+        }
 
-        return $this->success($booking, 'Booking request sent to the provider.', 201);
+        return $this->success($booking, 'Booking request created.', 201);
     }
 
     private function safeNotify(?User $user, object $notification): void
@@ -688,33 +673,52 @@ class BookingController extends Controller
     private function notifyBookingPaymentPaid(Payment $payment): void
     {
         $payment->refresh()->loadMissing(['booking.customer', 'booking.service', 'provider.user']);
+        if ($payment->status !== 'paid' || ($payment->metadata['booking_notifications_sent_at'] ?? null)) {
+            return;
+        }
+
+        $booking = $payment->booking;
+        if (! $booking) {
+            return;
+        }
+
+        $booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
         $providerName = $payment->provider?->user?->name ?? 'your provider';
-        $serviceName = $payment->booking?->service?->name ?? 'booking';
+        $customerName = $booking->customer?->name ?? 'A customer';
+        $serviceName = $booking->service?->name ?? 'booking';
         $amount = $payment->currency.' '.number_format((float) $payment->amount, 2);
 
-        $payment->booking?->customer?->notify(new PlatformUpdateNotification(
-            'Booking payment confirmed',
+        $this->safeNotify($booking->customer, new PlatformUpdateNotification(
+            'Booking confirmed',
             "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed.",
             'View bookings',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
-            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id],
+            ['booking_id' => $booking->id, 'payment_id' => $payment->id],
         ));
 
-        $payment->provider?->user?->notify(new PlatformUpdateNotification(
-            'New booking payment received',
-            "{$payment->booking?->customer?->name} paid {$amount} for {$serviceName}.",
-            'View payments',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/payments',
-            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id],
+        $this->safeNotify($payment->provider?->user, new BookingStatusNotification(
+            $booking,
+            "{$customerName} paid {$amount} and requested a new booking."
         ));
 
-        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-            'Booking payment confirmed',
-            "{$payment->booking?->customer?->name} paid {$amount} to {$providerName} for {$serviceName}.",
-            'View activity',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=payments',
-            ['booking_id' => $payment->booking_id, 'payment_id' => $payment->id, 'provider_id' => $payment->provider_id],
-        ));
+        User::where('role', 'admin')->where('is_active', true)->get()->each(function (User $admin) use ($booking, $customerName, $providerName, $serviceName, $payment, $amount): void {
+            $this->safeNotify($admin, new PlatformUpdateNotification(
+                'New paid booking',
+                "{$customerName} paid {$amount} to {$providerName} for {$serviceName}.",
+                'View activity',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
+                ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'provider_id' => $payment->provider_id],
+            ));
+        });
+
+        $this->notifyProviderOnWhatsApp($booking);
+
+        $payment->forceFill([
+            'metadata' => [
+                ...($payment->metadata ?? []),
+                'booking_notifications_sent_at' => now()->toIso8601String(),
+            ],
+        ])->save();
     }
 
     private function assertVerifiedPaymentPayload(Payment $payment, array $meta, int $amountMinor, string $currency): void
