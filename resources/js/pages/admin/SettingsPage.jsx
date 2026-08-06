@@ -50,6 +50,7 @@ export default function AdminSettingsPage() {
     const [mailchimpForm, setMailchimpForm] = useState({ enabled: false, api_key: '', server_prefix: '', list_id: '', webhook_secret: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
     const [twilioTestPhone, setTwilioTestPhone] = useState('');
+    const [twilioTestMessage, setTwilioTestMessage] = useState('BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.');
     const [emailNotificationTestType, setEmailNotificationTestType] = useState('all');
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
@@ -258,7 +259,7 @@ export default function AdminSettingsPage() {
     const testTwilio = async () => {
         setTestingTwilio(true);
         try {
-            await apiRequest('post', '/admin/settings/twilio/test', { phone: twilioTestPhone });
+            await apiRequest('post', '/admin/settings/twilio/test', { phone: twilioTestPhone, message: twilioTestMessage });
             notify(`WhatsApp test sent to ${twilioTestPhone}.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -510,7 +511,16 @@ export default function AdminSettingsPage() {
                                     value={twilioTestPhone}
                                 />
                             </Field>
-                            <Button busy={testingTwilio} disabled={!twilioTestPhone || savingTwilio} onClick={testTwilio} type="button" variant="secondary">Send WhatsApp test</Button>
+                            <Button busy={testingTwilio} disabled={!twilioTestPhone || !twilioTestMessage || savingTwilio} onClick={testTwilio} type="button" variant="secondary">Send WhatsApp test</Button>
+                            <Field className="lg:col-span-2" hint="This is the exact text that will be sent to the recipient." label="Test message">
+                                <textarea
+                                    className={inputClass}
+                                    maxLength={1500}
+                                    onChange={(event) => setTwilioTestMessage(event.target.value)}
+                                    rows={4}
+                                    value={twilioTestMessage}
+                                />
+                            </Field>
                         </div>
                         <div className="flex justify-end"><Button busy={savingTwilio} disabled={testingTwilio} type="submit">Save Twilio settings</Button></div>
                     </form>

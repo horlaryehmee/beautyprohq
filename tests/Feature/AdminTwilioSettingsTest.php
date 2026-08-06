@@ -26,12 +26,14 @@ class AdminTwilioSettingsTest extends TestCase
 
         $this->postJson('/api/admin/settings/twilio/test', [
             'phone' => '+2348012345678',
+            'message' => 'Custom WhatsApp test text',
         ])->assertOk()
-            ->assertJsonPath('data.phone', '+2348012345678');
+            ->assertJsonPath('data.phone', '+2348012345678')
+            ->assertJsonPath('data.message', 'Custom WhatsApp test text');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://api.twilio.com/2010-04-01/Accounts/AC123456789/Messages.json'
             && $request['From'] === 'whatsapp:+14155238886'
             && $request['To'] === 'whatsapp:+2348012345678'
-            && str_contains($request['Body'], 'BeautyPro HQ WhatsApp test message'));
+            && $request['Body'] === 'Custom WhatsApp test text');
     }
 }

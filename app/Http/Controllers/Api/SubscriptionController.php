@@ -263,19 +263,21 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'phone' => ['required', 'string', 'max:40'],
+            'message' => ['required', 'string', 'min:2', 'max:1500'],
         ]);
 
         abort_unless($twilio->configured(), 422, 'Twilio WhatsApp is not configured.');
 
         $sent = $twilio->send(
             $validated['phone'],
-            'BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.'
+            $validated['message']
         );
 
         abort_unless($sent, 422, 'Twilio WhatsApp test failed. Check the recipient number, sandbox opt-in, sender number and Twilio logs.');
 
         return $this->success([
             'phone' => $validated['phone'],
+            'message' => $validated['message'],
         ], 'WhatsApp test message sent.');
     }
 
