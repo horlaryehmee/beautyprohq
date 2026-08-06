@@ -367,7 +367,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
     const content = (
             <section className={`flex w-full flex-col overflow-hidden ${standalone ? 'min-h-[calc(100dvh-2rem)] bg-[#F6F9FC] lg:min-h-[calc(100dvh-5rem)] lg:rounded-[1.5rem] lg:border lg:border-stone-200 lg:bg-white lg:shadow-sm' : 'h-[100dvh] rounded-t-[2rem] bg-white shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-[2rem]'}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="booking-title">
-                <div className={`shrink-0 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4 ${standalone ? 'hidden lg:block' : ''}`}>
+                <div className={`shrink-0 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4 ${standalone ? 'hidden' : ''}`}>
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Booking</p>
@@ -408,7 +408,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 )}
                             </aside>
 
-                            <main className={`flex min-h-0 min-w-0 flex-col overflow-y-auto ${standalone ? 'px-0 py-0 pb-28 lg:px-6 lg:py-6' : 'px-4 py-4 pb-28 lg:p-6'}`}>
+                            <main className={`flex min-h-0 min-w-0 flex-col overflow-y-auto ${standalone ? 'px-3 py-3 pb-28 lg:px-6 lg:py-6' : 'px-4 py-4 pb-28 lg:p-6'}`}>
                                 {step === 1 && (
                                     <div className="space-y-5">
                                         <section className={`${standalone ? 'block lg:hidden' : 'hidden'}`}>

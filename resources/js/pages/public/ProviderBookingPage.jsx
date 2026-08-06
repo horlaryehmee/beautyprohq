@@ -64,7 +64,7 @@ export default function ProviderBookingPage() {
     }
 
     return (
-        <section className="min-h-screen bg-[#F6F9FC] px-3 py-3 sm:bg-[#F7F3ED] sm:px-5 sm:py-8">
+        <section className="min-h-screen bg-[#F6F9FC] px-0 py-0 sm:bg-[#F7F3ED] sm:px-5 sm:py-8">
             <div className="mx-auto max-w-5xl">
                 <Link to={`/providers/${provider}`} className="mb-3 hidden items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#2A1D14] shadow-sm sm:inline-flex">
                     <Icon name="chevronLeft" size={15} /> Back to profile

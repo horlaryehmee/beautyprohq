@@ -122,7 +122,7 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
+            {!isBookingPage && <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
                 <div className="flex h-24 items-center justify-between px-4">
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
@@ -132,9 +132,9 @@ export default function PublicLayout() {
                         <Icon name="user" size={24} />
                     </Link>
                 </div>
-            </header>
+            </header>}
 
-            <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
+            {!isBookingPage && <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
                 <button type="button" className={`absolute inset-0 bg-[#2A1D14]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
                 <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#F7F3ED] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
@@ -174,7 +174,7 @@ export default function PublicLayout() {
                         )}
                     </div>
                 </aside>
-            </div>
+            </div>}
 
             {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transform-gpu transition-[opacity,transform] duration-300 ease-out [backface-visibility:hidden] [will-change:opacity,transform] lg:hidden ${footerVisible ? 'pointer-events-none translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
                 <ExpandableTabs
@@ -185,7 +185,7 @@ export default function PublicLayout() {
                 />
             </nav>}
 
-            <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
+            {!isBookingPage && <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
                 <div className="page-container flex h-28 items-center justify-between gap-5">
                     <Logo />
 
@@ -214,7 +214,7 @@ export default function PublicLayout() {
                     </div>
 
                 </div>
-            </header>
+            </header>}
 
             <main className={isBookingPage ? 'pb-0' : 'pb-20 lg:pb-0'}><Outlet /></main>
 
