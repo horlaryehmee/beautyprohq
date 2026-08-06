@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CrmCustomer;
 use App\Models\LiveChatConversation;
 use App\Models\ProviderProfile;
+use App\Models\User;
 use App\Notifications\LiveChatProviderMessageNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,11 +28,14 @@ class LiveChatController extends Controller
         ]);
 
         [$conversation, $message] = DB::transaction(function () use ($request, $provider, $validated): array {
+            $customer = $this->customerForLiveChat($request, $validated);
+            $email = Str::lower($validated['email']);
+
             $conversation = LiveChatConversation::create([
                 'provider_id' => $provider->id,
-                'customer_id' => $request->user()?->isCustomer() ? $request->user()->id : null,
+                'customer_id' => $customer->id,
                 'visitor_name' => $validated['name'],
-                'visitor_email' => Str::lower($validated['email']),
+                'visitor_email' => $email,
                 'visitor_token' => Str::random(64),
                 'status' => 'open',
                 'provider_unread_count' => 1,
@@ -42,6 +47,8 @@ class LiveChatController extends Controller
                 'sender_type' => 'visitor',
                 'body' => $validated['message'],
             ]);
+
+            $this->recordLiveChatCrmActivity($provider, $customer, $validated['message'], 'Live chat started');
 
             return [$conversation, $message];
         });
@@ -85,6 +92,15 @@ class LiveChatController extends Controller
                 'closed_at' => null,
             ])->save();
 
+            if ($conversation->customer_id) {
+                $this->recordLiveChatCrmActivity(
+                    $conversation->provider,
+                    $conversation->customer,
+                    $validated['message'],
+                    'Live chat reply'
+                );
+            }
+
             return $message;
         });
 
@@ -112,6 +128,70 @@ class LiveChatController extends Controller
                 'error' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function customerForLiveChat(Request $request, array $validated): User
+    {
+        if ($request->user()?->isCustomer()) {
+            return $request->user();
+        }
+
+        $email = Str::lower($validated['email']);
+        $customer = User::where('email', $email)->first();
+
+        if ($customer) {
+            if (blank($customer->name)) {
+                $customer->forceFill(['name' => $validated['name']])->save();
+            }
+
+            return $customer;
+        }
+
+        return User::create([
+            'name' => $validated['name'],
+            'email' => $email,
+            'password' => Str::random(48),
+            'role' => 'customer',
+            'is_guest' => true,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+    }
+
+    private function recordLiveChatCrmActivity(ProviderProfile $provider, User $customer, string $message, string $title): void
+    {
+        $crm = CrmCustomer::firstOrCreate(
+            ['provider_id' => $provider->id, 'customer_id' => $customer->id],
+            [
+                'stage' => 'lead',
+                'source' => 'live_chat',
+                'priority' => 'normal',
+                'support_status' => 'open',
+                'tags' => ['live-chat'],
+                'last_service_at' => now(),
+            ]
+        );
+
+        $tags = collect($crm->tags ?? [])->push('live-chat')->unique()->values()->all();
+        $updates = [
+            'source' => $crm->source ?: 'live_chat',
+            'support_status' => 'open',
+            'tags' => $tags,
+            'last_service_at' => now(),
+        ];
+
+        if (blank($crm->notes)) {
+            $updates['notes'] = 'Lead came from live chat.';
+        }
+
+        $crm->forceFill($updates)->save();
+
+        $crm->activities()->create([
+            'type' => 'chat',
+            'title' => $title,
+            'description' => Str::limit($message, 3000, ''),
+            'status' => 'open',
+        ]);
     }
 
     private function publicConversationPayload(LiveChatConversation $conversation, array $options = []): array

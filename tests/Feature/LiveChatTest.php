@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CrmCustomer;
 use App\Models\LiveChatConversation;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
@@ -33,12 +34,34 @@ class LiveChatTest extends TestCase
         $conversationId = $start->json('data.id');
         $visitorToken = $start->json('data.visitor_token');
         Notification::assertSentTo($providerUser, LiveChatProviderMessageNotification::class);
+        $visitor = User::where('email', 'ada@example.com')->first();
+        $this->assertNotNull($visitor);
+
+        $crmLead = CrmCustomer::where('provider_id', $provider->id)->where('customer_id', $visitor->id)->first();
+        $this->assertTrue($visitor->is_guest);
+        $this->assertNotNull($crmLead);
+        $this->assertSame('lead', $crmLead->stage);
+        $this->assertSame('live_chat', $crmLead->source);
+        $this->assertSame('open', $crmLead->support_status);
+        $this->assertDatabaseHas('crm_activities', [
+            'crm_customer_id' => $crmLead->id,
+            'type' => 'chat',
+            'title' => 'Live chat started',
+            'status' => 'open',
+        ]);
 
         Sanctum::actingAs($providerUser);
         $this->getJson('/api/provider/live-chat')
             ->assertOk()
             ->assertJsonPath('data.0.id', $conversationId)
             ->assertJsonPath('data.0.provider_unread_count', 1);
+
+        $this->putJson("/api/provider/crm/{$visitor->id}", [
+            'stage' => 'prospect',
+            'priority' => 'high',
+        ])->assertOk()
+            ->assertJsonPath('data.stage', 'prospect')
+            ->assertJsonPath('data.priority', 'high');
 
         $this->getJson("/api/provider/live-chat/{$conversationId}")
             ->assertOk()
@@ -58,6 +81,7 @@ class LiveChatTest extends TestCase
         $this->assertDatabaseHas('live_chat_conversations', [
             'id' => $conversationId,
             'provider_id' => $provider->id,
+            'customer_id' => $visitor->id,
             'visitor_email' => 'ada@example.com',
         ]);
     }

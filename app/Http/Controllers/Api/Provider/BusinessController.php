@@ -59,7 +59,7 @@ class BusinessController extends Controller
     public function updateCrm(Request $request, User $customer): JsonResponse
     {
         $provider = $request->user()->providerProfile;
-        abort_unless($provider->bookings()->where('customer_id', $customer->id)->exists(), 422, 'This customer has not booked with you.');
+        abort_unless($this->canManageCrmCustomer($provider, $customer), 422, 'This customer is not in your CRM.');
         $validated = $request->validate([
             'notes' => ['nullable', 'string', 'max:5000'],
             'tags' => ['nullable', 'array'],
@@ -78,7 +78,7 @@ class BusinessController extends Controller
     public function storeCrmActivity(Request $request, User $customer): JsonResponse
     {
         $provider = $request->user()->providerProfile;
-        abort_unless($provider->bookings()->where('customer_id', $customer->id)->exists(), 422, 'This customer has not booked with you.');
+        abort_unless($this->canManageCrmCustomer($provider, $customer), 422, 'This customer is not in your CRM.');
         $record = CrmCustomer::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
         $validated = $request->validate([
             'type' => ['required', Rule::in(['call', 'email', 'chat', 'task', 'workflow', 'support', 'note'])],
@@ -221,6 +221,12 @@ class BusinessController extends Controller
     private function providerWhatsappFeatureEnabled(): bool
     {
         return AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1';
+    }
+
+    private function canManageCrmCustomer($provider, User $customer): bool
+    {
+        return $provider->bookings()->where('customer_id', $customer->id)->exists()
+            || CrmCustomer::where('provider_id', $provider->id)->where('customer_id', $customer->id)->exists();
     }
 
     public function paymentAccounts(Request $request): JsonResponse
