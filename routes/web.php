@@ -115,7 +115,7 @@ Route::get('/', function () {
     return response()
         ->view('app', compact('heroPreload', 'heroShellImages') + [
             'homepageShell' => true,
-            'inlineHomepageCss' => true,
+            'inlineHomepageCss' => false,
             'pageTitle' => 'The Beauty Service Ecosystem | BeautyPro HQ',
             'pageDescription' => 'Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.',
         ])
