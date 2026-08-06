@@ -228,18 +228,22 @@ function CountryPhoneField({ value, onChange }) {
 
     return (
         <label className="block text-sm font-bold text-plum-950">
-            WhatsApp Number
+            Phone number
             <div className="mt-1.5 flex min-h-12 overflow-hidden rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
-                <select
-                    className="w-16 border-r border-stone-200 bg-white px-2 text-sm font-bold text-plum-950 outline-none"
-                    value={selectedCountry[0]}
-                    onChange={(event) => updateCountry(event.target.value)}
-                    aria-label="Country code"
-                >
-                    {phoneCountries.map(([code, name, dialCode, flag]) => (
-                        <option key={`${code}-${dialCode}`} value={code}>{flag} {name} {dialCode}</option>
-                    ))}
-                </select>
+                <span className="relative flex w-16 items-center justify-center gap-1 border-r border-stone-200 bg-white text-base">
+                    <span>{selectedCountry[3]}</span>
+                    <Icon name="chevronDown" size={13} className="text-plum-950" />
+                    <select
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                        value={selectedCountry[0]}
+                        onChange={(event) => updateCountry(event.target.value)}
+                        aria-label="Country code"
+                    >
+                        {phoneCountries.map(([code, name, dialCode, flag]) => (
+                            <option key={`${code}-${dialCode}`} value={code}>{flag} {name} {dialCode}</option>
+                        ))}
+                    </select>
+                </span>
                 <span className="flex min-w-20 items-center justify-center border-r border-stone-200 px-3 text-sm font-black text-plum-950">{selectedCountry[2]}</span>
                 <input
                     className="min-w-0 flex-1 px-3.5 text-sm text-plum-950 outline-none placeholder:text-stone-400"
