@@ -12,6 +12,8 @@ function storageKey(providerId) {
 export default function LiveChatWidget({ providerId, providerName }) {
     const [open, setOpen] = useState(false);
     const [conversation, setConversation] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [messagePage, setMessagePage] = useState({ newest_id: null });
     const [form, setForm] = useState(initialForm);
     const [reply, setReply] = useState('');
     const [loading, setLoading] = useState(false);
@@ -32,10 +34,12 @@ export default function LiveChatWidget({ providerId, providerName }) {
         setError('');
         try {
             const response = await api.get(`/live-chat/conversations/${stored.id}`, {
-                params: { visitor_token: stored.visitor_token },
+                params: { visitor_token: stored.visitor_token, per_page: 60 },
             });
             const payload = unwrap(response);
             setConversation(payload);
+            setMessages(payload?.messages ?? []);
+            setMessagePage(payload?.message_page ?? {});
             setForm((current) => ({
                 ...current,
                 name: payload?.visitor_name ?? current.name,
@@ -54,9 +58,33 @@ export default function LiveChatWidget({ providerId, providerName }) {
 
     useEffect(() => {
         if (!open || !conversation?.id) return undefined;
-        const timer = window.setInterval(() => loadConversation(true), 10000);
+        const timer = window.setInterval(async () => {
+            try {
+                const response = await api.get(`/live-chat/conversations/${conversation.id}`, {
+                    params: {
+                        visitor_token: conversation.visitor_token,
+                        after_id: messagePage.newest_id || undefined,
+                        per_page: 100,
+                    },
+                });
+                const payload = unwrap(response);
+                if (payload?.messages?.length) {
+                    setMessages((current) => {
+                        const map = new Map();
+                        [...current, ...payload.messages].forEach((message) => map.set(message.id, message));
+                        return Array.from(map.values()).sort((a, b) => Number(a.id) - Number(b.id));
+                    });
+                    setMessagePage((current) => ({
+                        ...current,
+                        newest_id: Math.max(Number(current.newest_id ?? 0), Number(payload.message_page?.newest_id ?? 0)) || current.newest_id,
+                    }));
+                }
+            } catch {
+                // Keep background polling quiet.
+            }
+        }, 5000);
         return () => window.clearInterval(timer);
-    }, [conversation?.id, loadConversation, open]);
+    }, [conversation?.id, conversation?.visitor_token, messagePage.newest_id, open]);
 
     function updateForm(key, value) {
         setForm((current) => ({ ...current, [key]: value }));
@@ -75,6 +103,8 @@ export default function LiveChatWidget({ providerId, providerName }) {
                 visitor_token: payload.visitor_token,
             }));
             setConversation(payload);
+            setMessages(payload?.messages ?? []);
+            setMessagePage(payload?.message_page ?? {});
             setReply('');
         } catch (requestError) {
             setError(apiError(requestError, 'Your message could not be sent.').message);
@@ -90,19 +120,19 @@ export default function LiveChatWidget({ providerId, providerName }) {
         setError('');
         try {
             await ensureCsrfCookie();
-            await api.post(`/live-chat/conversations/${conversation.id}/messages`, { message: reply }, {
+            const response = await api.post(`/live-chat/conversations/${conversation.id}/messages`, { message: reply }, {
                 params: { visitor_token: conversation.visitor_token },
             });
+            const created = unwrap(response);
+            setMessages((current) => [...current, created].sort((a, b) => Number(a.id) - Number(b.id)));
+            setMessagePage((current) => ({ ...current, newest_id: Math.max(Number(current.newest_id ?? 0), Number(created.id)) || created.id }));
             setReply('');
-            await loadConversation(true);
         } catch (requestError) {
             setError(apiError(requestError, 'Your reply could not be sent.').message);
         } finally {
             setLoading(false);
         }
     }
-
-    const messages = conversation?.messages ?? [];
 
     return (
         <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[75] sm:right-6">

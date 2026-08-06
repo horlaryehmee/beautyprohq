@@ -53,10 +53,15 @@ class LiveChatController extends Controller
     public function show(Request $request, LiveChatConversation $conversation): JsonResponse
     {
         $this->authorizeVisitor($request, $conversation);
+        $validated = $request->validate([
+            'before_id' => ['nullable', 'integer', 'min:1'],
+            'after_id' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
+        ]);
         $conversation->messages()->where('sender_type', 'provider')->whereNull('read_at')->update(['read_at' => now()]);
         $conversation->forceFill(['visitor_unread_count' => 0])->save();
 
-        return $this->success($this->publicConversationPayload($conversation->fresh(['provider.user', 'messages.sender:id,name'])));
+        return $this->success($this->publicConversationPayload($conversation->fresh(['provider.user']), $validated));
     }
 
     public function reply(Request $request, LiveChatConversation $conversation): JsonResponse
@@ -93,9 +98,31 @@ class LiveChatController extends Controller
         abort_unless(hash_equals($conversation->visitor_token, $token), 403);
     }
 
-    private function publicConversationPayload(LiveChatConversation $conversation): array
+    private function publicConversationPayload(LiveChatConversation $conversation, array $options = []): array
     {
-        $conversation->loadMissing(['provider.user:id,name', 'messages.sender:id,name']);
+        $conversation->loadMissing(['provider.user:id,name']);
+        $perPage = min((int) ($options['per_page'] ?? 50), 100);
+        $query = $conversation->messages()->with('sender:id,name');
+        $mode = 'latest';
+
+        if (isset($options['after_id'])) {
+            $mode = 'after';
+            $query->where('id', '>', $options['after_id'])->oldest('id');
+        } elseif (isset($options['before_id'])) {
+            $mode = 'before';
+            $query->where('id', '<', $options['before_id'])->latest('id');
+        } else {
+            $query->latest('id');
+        }
+
+        $items = $query->limit($perPage + 1)->get();
+        $hasMore = $items->count() > $perPage;
+        $messages = $items->take($perPage);
+        if ($mode !== 'after') {
+            $messages = $messages->reverse()->values();
+        } else {
+            $messages = $messages->values();
+        }
 
         return [
             'id' => $conversation->id,
@@ -107,7 +134,13 @@ class LiveChatController extends Controller
             'status' => $conversation->status,
             'visitor_unread_count' => $conversation->visitor_unread_count,
             'last_message_at' => $conversation->last_message_at,
-            'messages' => $conversation->messages()->oldest()->get(),
+            'messages' => $messages,
+            'message_page' => [
+                'has_older' => $mode === 'latest' || $mode === 'before' ? $hasMore : $conversation->messages()->where('id', '<', $messages->min('id') ?? 0)->exists(),
+                'has_newer' => $mode === 'after' ? $hasMore : false,
+                'oldest_id' => $messages->min('id'),
+                'newest_id' => $messages->max('id'),
+            ],
         ];
     }
 }

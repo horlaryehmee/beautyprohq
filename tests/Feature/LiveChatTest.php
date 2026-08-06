@@ -77,6 +77,53 @@ class LiveChatTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_provider_thread_messages_are_paged_and_scoped_to_one_conversation(): void
+    {
+        [$provider, $providerUser] = $this->paidProvider();
+        $otherProvider = $this->paidProvider()[0];
+        $conversation = LiveChatConversation::create([
+            'provider_id' => $provider->id,
+            'visitor_name' => 'Volume Visitor',
+            'visitor_email' => 'volume@example.com',
+            'visitor_token' => 'volume-token',
+            'last_message_at' => now(),
+        ]);
+        $otherConversation = LiveChatConversation::create([
+            'provider_id' => $otherProvider->id,
+            'visitor_name' => 'Other Visitor',
+            'visitor_email' => 'other@example.com',
+            'visitor_token' => 'other-token',
+            'last_message_at' => now(),
+        ]);
+
+        foreach (range(1, 125) as $index) {
+            $conversation->messages()->create([
+                'sender_type' => $index % 2 ? 'visitor' : 'provider',
+                'body' => "Message {$index}",
+            ]);
+        }
+        $otherConversation->messages()->create([
+            'sender_type' => 'visitor',
+            'body' => 'This should not appear',
+        ]);
+
+        Sanctum::actingAs($providerUser);
+        $response = $this->getJson("/api/provider/live-chat/{$conversation->id}?per_page=25")
+            ->assertOk()
+            ->assertJsonCount(25, 'data.messages')
+            ->assertJsonPath('data.message_page.has_older', true);
+
+        $this->assertSame('Message 101', $response->json('data.messages.0.body'));
+        $this->assertSame('Message 125', $response->json('data.messages.24.body'));
+
+        $oldestId = $response->json('data.message_page.oldest_id');
+        $this->getJson("/api/provider/live-chat/{$conversation->id}?before_id={$oldestId}&per_page=25")
+            ->assertOk()
+            ->assertJsonCount(25, 'data.messages')
+            ->assertJsonPath('data.messages.0.body', 'Message 76')
+            ->assertJsonMissing(['body' => 'This should not appear']);
+    }
+
     private function paidProvider(): array
     {
         $user = User::factory()->provider()->create(['name' => 'Pro Artist']);
