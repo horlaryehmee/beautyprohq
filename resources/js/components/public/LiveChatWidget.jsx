@@ -186,7 +186,7 @@ export default function LiveChatWidget({ providerId, providerName }) {
                 </section>
             )}
 
-            <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto grid size-14 place-items-center rounded-2xl border border-stone-200/90 bg-white/95 text-[#2A1D14] shadow-[0_12px_40px_rgba(41,19,31,.18)] transition hover:bg-stone-50 sm:flex sm:min-h-14 sm:w-auto sm:items-center sm:gap-2 sm:rounded-full sm:bg-[#2A1D14] sm:px-5 sm:text-sm sm:font-semibold sm:text-white sm:hover:bg-[#3A2A1F]" aria-label={open ? 'Close live chat' : 'Open live chat'} title={open ? 'Close live chat' : 'Live chat'}>
+            <button type="button" onClick={() => setOpen((value) => !value)} className="ml-auto grid size-14 place-items-center rounded-2xl border border-[#2A1D14] bg-[#2A1D14] text-white shadow-[0_12px_40px_rgba(41,19,31,.18)] transition hover:bg-[#3A2A1F] sm:flex sm:min-h-14 sm:w-auto sm:items-center sm:gap-2 sm:rounded-full sm:px-5 sm:text-sm sm:font-semibold" aria-label={open ? 'Close live chat' : 'Open live chat'} title={open ? 'Close live chat' : 'Live chat'}>
                 <Icon name={open ? 'x' : 'chat'} size={18} />
                 <span className="hidden sm:inline">{open ? 'Close' : 'Live chat'}</span>
             </button>
