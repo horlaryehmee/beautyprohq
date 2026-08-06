@@ -4,4 +4,5 @@ export { default as Button, buttonClass } from './Button';
 export { EmptyState, InlineAlert, PageLoader } from './Feedback';
 export { default as FormField } from './FormField';
 export { default as Icon } from './Icon';
+export { default as LumaSpin, Component as LumaSpinComponent } from './LumaSpin';
 export { default as SectionHeading } from './SectionHeading';

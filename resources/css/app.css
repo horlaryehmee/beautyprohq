@@ -5,35 +5,117 @@
 @source '../**/*.{js,jsx}';
 
 @theme {
-    --font-sans: 'Inter', 'Avenir Next', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
-    --font-display: 'Playfair Display', Georgia, ui-serif, serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
 
-    --color-plum-50: #f9f4f8;
-    --color-plum-100: #f0e3ed;
-    --color-plum-200: #dfc8d9;
-    --color-plum-300: #c69fbb;
-    --color-plum-400: #a97098;
-    --color-plum-500: #8d507a;
-    --color-plum-600: #743d62;
-    --color-plum-700: #60334f;
-    --color-plum-800: #502c42;
-    --color-plum-900: #422638;
-    --color-plum-950: #29131f;
+    --color-bphq-coffee: #3A2A1F;
+    --color-bphq-espresso: #2A1D14;
+    --color-bphq-beige: #DCCCB8;
+    --color-bphq-ivory: #F7F3ED;
+    --color-bphq-chrome: #BFC3C8;
+    --color-bphq-white: #FFFFFF;
 
-    --color-rose-50: #fff3f5;
-    --color-rose-100: #ffe3e9;
-    --color-rose-200: #ffcbd7;
-    --color-rose-300: #f9a3b7;
-    --color-rose-400: #ef7895;
-    --color-rose-500: #e05579;
-    --color-rose-600: #c93661;
-    --color-rose-700: #aa294f;
-    --color-rose-800: #8e2747;
-    --color-rose-900: #7a253f;
+    --color-plum-50: #F7F3ED;
+    --color-plum-100: #F7F3ED;
+    --color-plum-200: #DCCCB8;
+    --color-plum-300: #DCCCB8;
+    --color-plum-400: #BFC3C8;
+    --color-plum-500: #3A2A1F;
+    --color-plum-600: #3A2A1F;
+    --color-plum-700: #3A2A1F;
+    --color-plum-800: #2A1D14;
+    --color-plum-900: #2A1D14;
+    --color-plum-950: #2A1D14;
 
-    --color-cream-50: #fdfbf8;
-    --color-cream-100: #faf5ef;
-    --color-cream-200: #f2e8dc;
+    --color-rose-50: #F7F3ED;
+    --color-rose-100: #F7F3ED;
+    --color-rose-200: #DCCCB8;
+    --color-rose-300: #DCCCB8;
+    --color-rose-400: #BFC3C8;
+    --color-rose-500: #3A2A1F;
+    --color-rose-600: #3A2A1F;
+    --color-rose-700: #2A1D14;
+    --color-rose-800: #2A1D14;
+    --color-rose-900: #2A1D14;
+
+    --color-cream-50: #F7F3ED;
+    --color-cream-100: #F7F3ED;
+    --color-cream-200: #DCCCB8;
+
+    --color-stone-50: #F7F3ED;
+    --color-stone-100: #F7F3ED;
+    --color-stone-200: #DCCCB8;
+    --color-stone-300: #BFC3C8;
+    --color-stone-400: #BFC3C8;
+    --color-stone-500: #3A2A1F;
+    --color-stone-600: #3A2A1F;
+    --color-stone-700: #2A1D14;
+    --color-stone-800: #2A1D14;
+    --color-stone-900: #2A1D14;
+    --color-stone-950: #2A1D14;
+
+    --color-slate-50: #F7F3ED;
+    --color-slate-100: #F7F3ED;
+    --color-slate-200: #DCCCB8;
+    --color-slate-300: #BFC3C8;
+    --color-slate-400: #BFC3C8;
+    --color-slate-500: #3A2A1F;
+    --color-slate-600: #3A2A1F;
+    --color-slate-700: #2A1D14;
+    --color-slate-800: #2A1D14;
+    --color-slate-900: #2A1D14;
+    --color-slate-950: #2A1D14;
+
+    --color-gray-50: #F7F3ED;
+    --color-gray-100: #F7F3ED;
+    --color-gray-200: #DCCCB8;
+    --color-gray-300: #BFC3C8;
+    --color-gray-400: #BFC3C8;
+    --color-gray-500: #3A2A1F;
+    --color-gray-600: #3A2A1F;
+    --color-gray-700: #2A1D14;
+    --color-gray-800: #2A1D14;
+    --color-gray-900: #2A1D14;
+    --color-gray-950: #2A1D14;
+
+    --color-fuchsia-50: #F7F3ED;
+    --color-fuchsia-100: #F7F3ED;
+    --color-fuchsia-200: #DCCCB8;
+    --color-fuchsia-300: #DCCCB8;
+    --color-fuchsia-400: #BFC3C8;
+    --color-fuchsia-500: #3A2A1F;
+    --color-fuchsia-600: #3A2A1F;
+    --color-fuchsia-700: #2A1D14;
+    --color-fuchsia-800: #2A1D14;
+    --color-fuchsia-900: #2A1D14;
+    --color-fuchsia-950: #2A1D14;
+
+    --color-amber-50: #F7F3ED;
+    --color-amber-100: #F7F3ED;
+    --color-amber-200: #DCCCB8;
+    --color-amber-300: #DCCCB8;
+    --color-amber-400: #BFC3C8;
+    --color-amber-500: #3A2A1F;
+    --color-amber-600: #3A2A1F;
+    --color-amber-700: #2A1D14;
+    --color-amber-800: #2A1D14;
+    --color-amber-900: #2A1D14;
+
+    --color-emerald-50: #F7F3ED;
+    --color-emerald-100: #F7F3ED;
+    --color-emerald-600: #3A2A1F;
+    --color-emerald-700: #2A1D14;
+    --color-sky-50: #F7F3ED;
+    --color-sky-600: #3A2A1F;
+    --color-sky-700: #2A1D14;
+    --color-violet-50: #F7F3ED;
+    --color-violet-600: #3A2A1F;
+    --color-violet-700: #2A1D14;
+    --color-red-50: #F7F3ED;
+    --color-red-100: #F7F3ED;
+    --color-red-200: #DCCCB8;
+    --color-red-600: #3A2A1F;
+    --color-red-700: #2A1D14;
 
     --animate-fade-up: fade-up .45s ease-out both;
     --animate-fade-in: fade-in .3s ease-out both;
@@ -79,9 +161,9 @@
 }
 
 @keyframes hero-tagline-cycle {
-    0%, 100% { color: #4b3328; }
-    33% { color: #7d2e3c; }
-    66% { color: #15816f; }
+    0%, 100% { color: #3A2A1F; }
+    33% { color: #2A1D14; }
+    66% { color: #BFC3C8; }
 }
 
 .hero-marquee-up {
@@ -117,7 +199,7 @@
 }
 
 [data-bphq-first-paint] .hero-tagline-cycle {
-    color: #4b3328;
+    color: #3A2A1F;
 }
 
 [data-bphq-first-paint] .hero-marquee-up {
@@ -151,10 +233,36 @@
         min-height: 100vh;
         margin: 0;
         background: var(--color-cream-50);
-        color: var(--color-plum-950);
+        color: var(--color-bphq-espresso);
         font-family: var(--font-sans);
         text-rendering: optimizeLegibility;
         -webkit-font-smoothing: antialiased;
+    }
+
+    h1,
+    h2,
+    h3 {
+        color: inherit;
+        font-family: var(--font-display);
+        letter-spacing: 0;
+    }
+
+    h1 {
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        font-weight: 600;
+        line-height: 1.05;
+    }
+
+    h2 {
+        font-size: clamp(2rem, 4vw, 2.5rem);
+        font-weight: 600;
+        line-height: 1.1;
+    }
+
+    h3 {
+        font-size: clamp(1.5rem, 3vw, 1.875rem);
+        font-weight: 500;
+        line-height: 1.15;
     }
 
     button,
@@ -175,8 +283,24 @@
     }
 
     ::selection {
-        background: var(--color-rose-200);
-        color: var(--color-plum-950);
+        background: var(--color-bphq-beige);
+        color: var(--color-bphq-espresso);
+    }
+}
+
+@layer utilities {
+    .font-display.font-bold,
+    .font-display.font-extrabold,
+    .font-display.font-black {
+        font-weight: 600;
+    }
+
+    .font-display.font-semibold {
+        font-weight: 600;
+    }
+
+    .font-display.font-medium {
+        font-weight: 500;
     }
 }
 
@@ -188,7 +312,7 @@
 
     .section-eyebrow {
         margin-bottom: .45rem;
-        color: var(--color-rose-600);
+        color: var(--color-bphq-coffee);
         font-size: .7rem;
         font-weight: 900;
         letter-spacing: .18em;
@@ -196,11 +320,11 @@
     }
 
     .section-title {
-        color: var(--color-plum-950);
+        color: var(--color-bphq-espresso);
         font-family: var(--font-display);
         font-size: clamp(1.75rem, 4vw, 2.25rem);
-        font-weight: 900;
-        letter-spacing: -.035em;
+        font-weight: 600;
+        letter-spacing: 0;
         line-height: 1.1;
     }
 
@@ -209,16 +333,16 @@
         width: 2.75rem;
         height: 2.75rem;
         place-items: center;
-        border: 1px solid rgb(231 229 228);
+        border: 1px solid var(--color-bphq-chrome);
         border-radius: .8rem;
         background: white;
-        color: var(--color-plum-900);
+        color: var(--color-bphq-espresso);
         transition: .2s ease;
     }
 
     .carousel-button:hover {
-        border-color: var(--color-rose-200);
-        background: var(--color-rose-50);
+        border-color: var(--color-bphq-chrome);
+        background: var(--color-bphq-ivory);
         transform: translateY(-1px);
     }
 
@@ -242,7 +366,7 @@
     }
 
     .content-prose {
-        color: #51443e;
+        color: var(--color-bphq-coffee);
         font-size: 1rem;
         line-height: 1.9;
     }
@@ -253,7 +377,7 @@
 
     .content-prose h2,
     .content-prose h3 {
-        color: #34231c;
+        color: var(--color-bphq-espresso);
         font-family: var(--font-display);
         font-weight: 400;
         line-height: 1.1;
@@ -283,16 +407,16 @@
     }
 
     .content-prose a {
-        color: #7d2e3c;
+        color: var(--color-bphq-coffee);
         font-weight: 800;
         text-decoration: underline;
         text-underline-offset: .22em;
     }
 
     .content-prose blockquote {
-        border-left: 3px solid #8b4b59;
+        border-left: 3px solid var(--color-bphq-chrome);
         padding-left: 1.25rem;
-        color: #34231c;
+        color: var(--color-bphq-espresso);
         font-family: var(--font-display);
         font-size: 1.45rem;
         line-height: 1.35;
@@ -313,7 +437,7 @@
     background:
         radial-gradient(circle at 15% 25%, rgba(255, 255, 255, .6), transparent 22%),
         radial-gradient(circle at 80% 10%, rgba(255, 255, 255, .45), transparent 25%),
-        linear-gradient(115deg, var(--color-plum-200), var(--color-rose-200) 45%, var(--color-cream-200));
+        linear-gradient(115deg, var(--color-bphq-beige), var(--color-bphq-ivory) 45%, var(--color-bphq-chrome));
 }
 
 .profile-cover::after {
@@ -330,10 +454,10 @@
     position: relative;
     isolation: isolate;
     background:
-        radial-gradient(circle at 90% 10%, rgba(239, 120, 149, .38), transparent 30%),
-        radial-gradient(circle at 8% 90%, rgba(198, 159, 187, .3), transparent 26%),
-        var(--color-plum-950);
-    box-shadow: 0 28px 75px rgba(41, 19, 31, .18);
+        radial-gradient(circle at 90% 10%, rgba(220, 204, 184, .32), transparent 30%),
+        radial-gradient(circle at 8% 90%, rgba(191, 195, 200, .22), transparent 26%),
+        var(--color-bphq-espresso);
+    box-shadow: 0 18px 45px rgba(42, 29, 20, .12);
 }
 
 .newsletter-panel::before {
@@ -358,7 +482,7 @@
     height: 28rem;
     top: -13rem;
     right: -10rem;
-    background: rgba(224, 85, 121, .2);
+    background: rgba(220, 204, 184, .2);
 }
 
 .auth-orb-two {
@@ -366,15 +490,15 @@
     height: 24rem;
     bottom: -11rem;
     left: -9rem;
-    background: rgba(198, 159, 187, .18);
+    background: rgba(191, 195, 200, .18);
 }
 
 .loading-ring {
     display: inline-block;
     width: 2.25rem;
     height: 2.25rem;
-    border: 3px solid var(--color-rose-100);
-    border-top-color: var(--color-rose-600);
+    border: 3px solid var(--color-bphq-beige);
+    border-top-color: var(--color-bphq-coffee);
     border-radius: 50%;
     animation: spin .7s linear infinite;
 }
@@ -388,7 +512,7 @@
 .skeleton {
     position: relative;
     overflow: hidden;
-    background: #f1eeec;
+    background: var(--color-bphq-ivory);
 }
 
 .skeleton::after {

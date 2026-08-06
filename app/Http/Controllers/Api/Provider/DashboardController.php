@@ -78,7 +78,7 @@ class DashboardController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        return $this->success($request->user()->providerProfile->load(['user:id,name,email,phone', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]));
+        return $this->success($request->user()->providerProfile->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]));
     }
 
     public function updateProfile(Request $request): JsonResponse
@@ -123,6 +123,23 @@ class DashboardController extends Controller
         ]);
 
         $provider = $request->user()->providerProfile;
+        if ((array_key_exists('cover_image', $validated) || $request->hasFile('cover_image')) && ! $request->user()->hasPaidPlan()) {
+            $incomingCover = $request->hasFile('cover_image') ? null : ($validated['cover_image'] ?? null);
+            $coverChanged = $request->hasFile('cover_image')
+                || (string) ($incomingCover ?? '') !== (string) ($provider->cover_image ?? '');
+
+            if ($coverChanged) {
+                return response()->json([
+                    'message' => 'Cover image editing is available on the Pro plan.',
+                    'errors' => [
+                        'cover_image' => ['Cover image editing is available on the Pro plan.'],
+                    ],
+                ], 422);
+            }
+
+            unset($validated['cover_image']);
+        }
+
         if (array_key_exists('name', $validated)) {
             $request->user()->update([
                 'name' => $validated['name'],
@@ -157,7 +174,7 @@ class DashboardController extends Controller
             }
         });
 
-        return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');
+        return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');
     }
 
     public function completeOnboarding(Request $request): JsonResponse

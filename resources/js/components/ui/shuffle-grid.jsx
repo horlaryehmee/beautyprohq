@@ -84,7 +84,7 @@ function HeroImageMarquee({ providers }) {
     const leftColumn = [...squareData.filter((_, index) => index % 2 === 0), ...squareData.filter((_, index) => index % 2 === 0)];
     const rightColumn = [...squareData.filter((_, index) => index % 2 !== 0), ...squareData.filter((_, index) => index % 2 !== 0)];
     const columns = [
-        { id: 'left', items: leftColumn, direction: -1, className: 'pt-12 md:pt-20' },
+        { id: 'left', items: leftColumn, direction: -1, className: 'pt-8 md:pt-12' },
         { id: 'right', items: rightColumn, direction: 1, className: '-mt-20 md:-mt-28' },
     ];
 
@@ -92,8 +92,8 @@ function HeroImageMarquee({ providers }) {
 
     return (
         <div className="relative mx-auto h-[360px] w-full max-w-[500px] overflow-hidden rounded-[1.6rem] sm:h-[430px] md:h-[540px] md:rounded-[2rem] lg:h-[620px]">
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-[#f4efe9] to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#f4efe9] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-[#F7F3ED] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#F7F3ED] to-transparent" />
             <div className="grid h-full grid-cols-2 gap-3 sm:gap-4">
                 {columns.map((column) => (
                     <div
@@ -112,7 +112,7 @@ function HeroImageMarquee({ providers }) {
                                 quality: 70,
                             });
                             return (
-                                <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#ddd3c8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
+                                <div className="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#DCCCB8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64" key={`${column.id}-${item.id}-${index}`}>
                                     <DeferredImage
                                         {...source}
                                         alt=""
@@ -138,29 +138,29 @@ function HeroImageMarquee({ providers }) {
 
 export function ShuffleHero({ providers = [], className, animateCopy = true }) {
     return (
-        <section className={cn('bg-[#f4efe9] text-[#34231c]', className)}>
-            <div className="page-container grid grid-cols-1 items-center gap-7 pb-8 pt-12 sm:pt-16 md:min-h-[520px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-10 md:pt-20 lg:gap-12 lg:pb-14 lg:pt-24">
+        <section className={cn('bg-[#F7F3ED] text-[#2A1D14]', className)}>
+            <div className="page-container grid grid-cols-1 items-center gap-7 pb-8 pt-10 sm:pt-12 md:min-h-[500px] md:grid-cols-[.94fr_1.06fr] md:gap-8 md:pb-8 md:pt-14 lg:gap-10 lg:pb-10 lg:pt-16">
                 <div className={animateCopy ? 'hero-copy-enter' : undefined}>
-                    <h1 className="mx-auto mt-2 max-w-[620px] text-center font-display text-[3rem] font-normal leading-[.9] text-[#34231c] sm:text-[3.7rem] md:mx-0 md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
+                    <h1 className="mx-auto mt-2 max-w-[620px] text-center font-display text-[3rem] font-normal leading-[.9] text-[#2A1D14] sm:text-[3.7rem] md:mx-0 md:mt-0 md:text-left md:text-[clamp(2.75rem,6.5vw,5.2rem)]">
                         <span>The Beauty Service </span>
-                        <span className="block font-serif italic text-[#d96f53]">Ecosystem</span>
+                        <span className="block font-display italic text-[#3A2A1F]">Ecosystem</span>
                     </h1>
                     <p className="hero-tagline-cycle mt-3 text-center font-display text-xl font-normal md:text-left sm:text-3xl">
                         Connect. Discover. Grow.
                     </p>
-                    <p className="mx-auto mt-3 max-w-xl text-center text-sm font-normal leading-6 text-[#5a4d46] md:mx-0 md:text-left md:text-lg md:leading-7">
+                    <p className="mx-auto mt-3 max-w-xl text-center text-sm font-normal leading-6 text-[#3A2A1F] md:mx-0 md:text-left md:text-lg md:leading-7">
                         Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.
                     </p>
                     <div className="mt-6 flex flex-wrap justify-center gap-3 md:justify-start">
                         <Link
                             to="/register"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#2d1d16] px-7 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#4a3328] active:scale-95"
+                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#2A1D14] px-7 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#3A2A1F] active:scale-95"
                         >
                             Join BPHQ <Icon name="arrow" size={14} />
                         </Link>
                         <Link
                             to="/directory"
-                            className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#cfc5bb] bg-[#fbf7f1] px-7 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-white active:scale-95"
+                            className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#BFC3C8] bg-[#F7F3ED] px-7 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:bg-white active:scale-95"
                         >
                             Explore Directory
                         </Link>
@@ -174,12 +174,12 @@ export function ShuffleHero({ providers = [], className, animateCopy = true }) {
                                 [25, 'Events'],
                             ].map(([value, label], index) => (
                                 <div className="flex items-center" key={label}>
-                                    {index > 0 && <span className="mx-5 h-8 w-px bg-gradient-to-b from-transparent via-[#cbb9ab] to-transparent" />}
+                                    {index > 0 && <span className="mx-5 h-8 w-px bg-gradient-to-b from-transparent via-[#DCCCB8] to-transparent" />}
                                     <span className="inline-flex flex-col gap-1">
-                                        <span className="font-display text-2xl font-semibold leading-none text-[#34231c]">
+                                        <span className="font-display text-2xl font-semibold leading-none text-[#2A1D14]">
                                             <CountUp end={value} />
                                         </span>
-                                        <span className="text-[10px] font-black uppercase tracking-[.15em] text-[#7b6b61]">{label}</span>
+                                        <span className="text-[10px] font-semibold uppercase tracking-[.15em] text-[#3A2A1F]">{label}</span>
                                     </span>
                                 </div>
                             ))}

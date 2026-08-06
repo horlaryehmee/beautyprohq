@@ -152,7 +152,7 @@ export default function AdminAnnouncementsPage() {
                     <Card key={label} padding={false}>
                         <div className="p-5">
                             <p className="text-sm font-semibold text-slate-500">{label}</p>
-                            <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+                            <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
                         </div>
                     </Card>
                 ))}

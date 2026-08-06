@@ -15,6 +15,7 @@ class ProviderCategory extends Model
     protected function casts(): array
     {
         return [
+            'is_demo' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Models\AppSetting;
+use App\Models\NewsletterSubscriber;
+use App\Models\User;
+use App\Observers\NewsletterSubscriberMailchimpObserver;
+use App\Observers\UserMailchimpObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Schema;
@@ -25,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureAdminSmtp();
+        User::observe(UserMailchimpObserver::class);
+        NewsletterSubscriber::observe(NewsletterSubscriberMailchimpObserver::class);
 
         ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
             return rtrim(config('app.frontend_url'), '/').'/reset-password?'.http_build_query([

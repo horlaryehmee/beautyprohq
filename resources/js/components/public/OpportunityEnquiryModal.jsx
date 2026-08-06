@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Icon from '../ui/Icon';
 import { InlineAlert } from '../ui/Feedback';
+import { stripHtml } from '../../lib/utils';
 
 const reasons = [
     'Work With Us',
@@ -53,12 +54,12 @@ function OptionButton({ active, children, onClick }) {
         <button
             type="button"
             onClick={onClick}
-            className={`flex min-h-12 items-center justify-between rounded-2xl border px-4 text-left text-sm font-black transition ${
-                active ? 'border-[#241711] bg-[#241711] text-white' : 'border-stone-200 bg-white text-[#241711] hover:bg-[#f4efe9]'
+            className={`flex min-h-12 items-center justify-between rounded-2xl border px-4 text-left text-sm font-semibold transition ${
+                active ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:bg-[#F7F3ED]'
             }`}
         >
             <span>{children}</span>
-            <span className={`grid size-5 place-items-center rounded-full border ${active ? 'border-white bg-white text-[#241711]' : 'border-stone-300'}`}>
+            <span className={`grid size-5 place-items-center rounded-full border ${active ? 'border-white bg-white text-[#2A1D14]' : 'border-stone-300'}`}>
                 {active && <Icon name="check" size={12} />}
             </span>
         </button>
@@ -183,16 +184,16 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
     }
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#241711]/55 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-            <section className="max-h-[94vh] w-full overflow-y-auto rounded-t-[2rem] bg-[#fbf8f4] p-5 shadow-2xl sm:max-w-2xl sm:rounded-[2rem] sm:p-7" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#2A1D14]/55 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+            <section className="max-h-[94vh] w-full overflow-y-auto rounded-t-[2rem] bg-[#F7F3ED] p-5 shadow-2xl sm:max-w-2xl sm:rounded-[2rem] sm:p-7" role="dialog" aria-modal="true" aria-labelledby="contact-title">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#8b4b59]">{isOpportunityApplication ? 'Opportunity application' : 'Get in touch'}</p>
-                        <h2 id="contact-title" className="mt-1 font-display text-3xl font-normal leading-tight text-[#241711]">
+                        <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">{isOpportunityApplication ? 'Opportunity application' : 'Get in touch'}</p>
+                        <h2 id="contact-title" className="mt-1 font-display text-3xl font-normal leading-tight text-[#2A1D14]">
                             {isOpportunityApplication ? (step === 1 ? 'Apply for this opportunity' : 'Application details') : (step === 1 ? 'What can we help you with?' : step === 2 ? 'How should we reach you?' : 'Tell us more')}
                         </h2>
                     </div>
-                    <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full bg-white text-[#241711] shadow-sm" aria-label="Close"><Icon name="x" /></button>
+                    <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full bg-white text-[#2A1D14] shadow-sm" aria-label="Close"><Icon name="x" /></button>
                 </div>
 
                 <div className="mt-5">
@@ -200,14 +201,14 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
                         {Array.from({ length: totalSteps }).map((_, index) => {
                             const item = index + 1;
                             return (
-                            <span key={item} className={`h-1.5 flex-1 rounded-full ${item <= step ? 'bg-[#241711]' : 'bg-stone-200'}`} />
+                            <span key={item} className={`h-1.5 flex-1 rounded-full ${item <= step ? 'bg-[#2A1D14]' : 'bg-stone-200'}`} />
                             );
                         })}
                     </div>
-                    <p className="mt-2 text-xs font-black uppercase tracking-wide text-stone-500">Step {step} of {totalSteps}</p>
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Step {step} of {totalSteps}</p>
                 </div>
 
-                {opportunity?.description && <p className="mt-4 rounded-2xl bg-white p-4 text-sm leading-6 text-stone-600">{opportunity.description}</p>}
+                {opportunity?.description && <p className="mt-4 rounded-2xl bg-white p-4 text-sm leading-6 text-stone-600">{stripHtml(opportunity.description)}</p>}
                 {error && <InlineAlert className="mt-4">{error}</InlineAlert>}
 
                 <form onSubmit={submit} className="mt-6">
@@ -251,7 +252,7 @@ export default function OpportunityEnquiryModal({ opportunity, onClose }) {
                                 </div>
                             ) : config.options.length ? (
                                 <div>
-                                    <p className="mb-2 text-sm font-black text-[#241711]">{config.label}</p>
+                                    <p className="mb-2 text-sm font-semibold text-[#2A1D14]">{config.label}</p>
                                     <div className="grid gap-2 sm:grid-cols-2">
                                         {config.options.map((option) => (
                                             <OptionButton key={option} active={form.detail_type === option} onClick={() => update('detail_type', option)}>

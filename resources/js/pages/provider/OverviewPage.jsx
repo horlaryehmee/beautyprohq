@@ -128,7 +128,7 @@ export default function ProviderOverviewPage() {
 
                     <Card className="bg-slate-950 text-white">
                         <p className="text-xs font-bold uppercase tracking-[0.15em] text-fuchsia-200">Paid plan</p>
-                        <h2 className="mt-2 text-2xl font-black">Unlock business tools</h2>
+                        <h2 className="mt-2 text-2xl font-semibold">Unlock business tools</h2>
                         <p className="mt-2 text-sm leading-6 text-white/65">Upgrade to use services, direct bookings, calendar, CRM, loyalty, payments, digital products, content calendar, and analytics.</p>
                         <Link to="/provider/subscription"><Button className="mt-5 bg-white text-slate-950 hover:bg-fuchsia-50" variant="secondary">View paid plan</Button></Link>
                     </Card>
@@ -173,7 +173,7 @@ export default function ProviderOverviewPage() {
                 <StatCard icon="profile" label="Customers" note="Unique customers booked" tone="plum" value={compact(stats.customer_count)} />
                 <StatCard icon="content" label="Services" note="Active services listed" tone="sky" value={compact(stats.service_count)} />
                 <StatCard icon="analytics" label="Average rating" note={`${compact(stats.review_count)} reviews`} tone="amber" value={Number(stats.rating ?? stats.average_rating ?? 0).toFixed(1)} />
-                <StatCard icon="booking" label="Completed" note={`${compact(stats.cancelled_bookings)} cancelled/rejected`} tone="emerald" value={compact(stats.completed_bookings)} />
+                <StatCard icon="booking" label="Completed" note={`${compact(stats.cancelled_bookings)} cancelled/declined`} tone="emerald" value={compact(stats.completed_bookings)} />
             </div>
 
             <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
@@ -194,7 +194,7 @@ export default function ProviderOverviewPage() {
                                 <div className="h-full rounded-full bg-fuchsia-700" style={{ width: `${Math.min(100, Math.max(0, profileCompletion))}%` }} />
                             </div>
                         </div>
-                        <MetricRow label="Verification" tone={dashboard.verification_status === 'approved' ? 'bg-emerald-600' : 'bg-amber-500'} value={String(dashboard.verification_status ?? 'not submitted').replaceAll('_', ' ')} />
+                        <MetricRow label="Verification" tone={dashboard.verification_status === 'approved' ? 'bg-[#027A48]' : dashboard.verification_status === 'rejected' || dashboard.verification_status === 'declined' ? 'bg-[#B42318]' : 'bg-[#B54708]'} value={String(dashboard.verification_status === 'rejected' ? 'declined' : dashboard.verification_status ?? 'not submitted').replaceAll('_', ' ')} />
                         <MetricRow label="Location" value={market.location ?? 'Not set'} />
                         <MetricRow label="Country" value={market.country ?? 'Not set'} />
                     </div>

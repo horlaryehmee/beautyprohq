@@ -15,7 +15,7 @@ class Service extends Model
 
     protected function casts(): array
     {
-        return ['price' => 'decimal:2', 'is_active' => 'boolean'];
+        return ['price' => 'decimal:2', 'is_active' => 'boolean', 'is_demo' => 'boolean'];
     }
 
     public function provider(): BelongsTo

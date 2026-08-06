@@ -3,16 +3,32 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\SmtpConnectionTestMail;
+use App\Models\ContactEnquiry;
 use App\Models\AppSetting;
+use App\Models\Event;
+use App\Models\EventRegistration;
+use App\Models\Opportunity;
+use App\Models\OpportunityEnquiry;
 use App\Models\User;
+use App\Notifications\BeautyProResetPasswordNotification;
+use App\Notifications\BeautyProVerifyEmailNotification;
+use App\Notifications\ContactEnquiryConfirmation;
+use App\Notifications\EventRegistrationConfirmation;
+use App\Notifications\NewsletterSubscriptionConfirmation;
+use App\Notifications\OpportunityEnquiryConfirmation;
 use App\Notifications\PlatformUpdateNotification;
+use App\Notifications\TwoFactorCodeNotification;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
+use App\Services\MailchimpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -51,10 +67,19 @@ class SubscriptionController extends Controller
 
     public function current(Request $request): JsonResponse
     {
+        $payments = $request->user()
+            ->subscriptionPayments()
+            ->with('plan')
+            ->latest()
+            ->paginate($request->integer('payments_per_page', 10), ['*'], 'payments_page', $request->integer('payments_page', 1));
+
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
             'plans' => SubscriptionPlan::where('is_active', true)->orderBy('sort_order')->get(),
-            'payments' => $request->user()->subscriptionPayments()->with('plan')->latest()->limit(10)->get(),
+            'payments' => [
+                'data' => $payments->items(),
+                'meta' => $this->paginationMeta($payments),
+            ],
             'paystack_configured' => $this->paystackConfigured(),
             'stripe_configured' => $this->stripeConfigured(),
             'subscription_gateway' => $this->subscriptionGateway(),
@@ -281,6 +306,150 @@ class SubscriptionController extends Controller
         app('mail.manager')->forgetMailers();
 
         return $this->adminSmtpSettings();
+    }
+
+    public function testAdminSmtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255'],
+        ]);
+
+        $this->assertSmtpConfigured();
+
+        app('mail.manager')->forgetMailers();
+
+        try {
+            Mail::to($validated['email'])->send(new SmtpConnectionTestMail($request->user()->email));
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'SMTP test failed: '.$exception->getMessage(),
+            ], 422);
+        }
+
+        return $this->success([
+            'email' => $validated['email'],
+        ], 'Test email sent.');
+    }
+
+    public function adminMailchimpSettings(MailchimpService $mailchimp): JsonResponse
+    {
+        return $this->success($mailchimp->payload());
+    }
+
+    public function updateAdminMailchimpSettings(Request $request, MailchimpService $mailchimp): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'api_key' => ['nullable', 'string', 'max:255'],
+            'server_prefix' => ['nullable', 'string', 'max:40'],
+            'list_id' => ['nullable', 'string', 'max:80'],
+            'webhook_secret' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        AppSetting::setValue('mailchimp.enabled', $validated['enabled'] ? '1' : '0');
+        AppSetting::setValue('mailchimp.server_prefix', $validated['server_prefix'] ?? null);
+        AppSetting::setValue('mailchimp.list_id', $validated['list_id'] ?? null);
+        if (filled($validated['api_key'] ?? null)) {
+            AppSetting::setValue('mailchimp.api_key', $validated['api_key'], true);
+        }
+        if (filled($validated['webhook_secret'] ?? null)) {
+            AppSetting::setValue('mailchimp.webhook_secret', $validated['webhook_secret'], true);
+        }
+
+        return $this->success($mailchimp->payload(), 'Mailchimp settings saved.');
+    }
+
+    public function testAdminMailchimp(MailchimpService $mailchimp): JsonResponse
+    {
+        try {
+            $audience = $mailchimp->testConnection();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Mailchimp connection failed: '.$exception->getMessage(),
+            ], 422);
+        }
+
+        return $this->success($audience, 'Mailchimp audience connected.');
+    }
+
+    public function syncAdminMailchimp(MailchimpService $mailchimp): JsonResponse
+    {
+        try {
+            $result = $mailchimp->syncAll();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Mailchimp sync failed: '.$exception->getMessage(),
+            ], 422);
+        }
+
+        return $this->success($result, "Mailchimp sync complete. {$result['synced']} synced, {$result['failed']} failed.");
+    }
+
+    public function mailchimpWebhook(Request $request, MailchimpService $mailchimp): JsonResponse
+    {
+        if (! $mailchimp->verifyWebhookSignature($request->header('X-Mailchimp-Signature'), $request->getContent())) {
+            return response()->json(['message' => 'Invalid Mailchimp webhook signature.'], 400);
+        }
+
+        $mailchimp->handleWebhook($request->all());
+
+        return $this->success(null, 'Mailchimp webhook received.');
+    }
+
+    public function testAdminEmailNotification(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255'],
+            'type' => ['required', Rule::in([
+                'all',
+                'newsletter_subscription',
+                'event_registration',
+                'opportunity_enquiry',
+                'contact_enquiry',
+                'email_verification',
+                'password_reset',
+                'two_factor_code',
+                'customer_booking_update',
+                'provider_booking_update',
+                'verification_decision',
+                'admin_alert',
+                'announcement',
+            ])],
+        ]);
+
+        $this->assertSmtpConfigured();
+        app('mail.manager')->forgetMailers();
+
+        $notifications = $this->sampleEmailNotifications($validated['type'], $validated['email'], $request->user());
+
+        try {
+            foreach ($notifications as $payload) {
+                if ($payload['notifiable'] instanceof User) {
+                    $payload['notifiable']->notify($payload['notification']);
+                    continue;
+                }
+
+                Notification::route('mail', $validated['email'])->notify($payload['notification']);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Notification test failed: '.$exception->getMessage(),
+            ], 422);
+        }
+
+        return $this->success([
+            'email' => $validated['email'],
+            'type' => $validated['type'],
+            'sent' => count($notifications),
+        ], count($notifications) === 1 ? 'Notification test email sent.' : 'Notification test emails sent.');
     }
 
     public function updateAdminFeatureSettings(Request $request): JsonResponse
@@ -605,6 +774,66 @@ class SubscriptionController extends Controller
             rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/subscriptions',
             ['subscription_id' => $subscription->id, 'user_id' => $subscription->user_id],
         ));
+    }
+
+    private function assertSmtpConfigured(): void
+    {
+        abort_unless(AppSetting::getValue('smtp.enabled', '0') === '1', 422, 'SMTP is not enabled.');
+        abort_if(blank(AppSetting::getValue('smtp.host')), 422, 'SMTP host is not configured.');
+        abort_if(blank(AppSetting::getValue('smtp.port')), 422, 'SMTP port is not configured.');
+        abort_if(blank(AppSetting::getValue('smtp.from_address')), 422, 'SMTP from address is not configured.');
+    }
+
+    private function sampleEmailNotifications(string $type, string $email, User $admin): array
+    {
+        $recipient = new User([
+            'name' => 'BeautyPro HQ Test',
+            'email' => $email,
+            'role' => 'customer',
+        ]);
+        $recipient->setAttribute('id', $admin->id);
+
+        $event = new Event([
+            'title' => 'BPHQ Business Breakfast',
+            'date' => now()->addWeeks(2),
+            'location' => 'Lagos, Nigeria',
+        ]);
+        $registration = new EventRegistration([
+            'name' => 'BeautyPro HQ Test',
+            'email' => $email,
+        ]);
+
+        $opportunity = new Opportunity([
+            'title' => 'Featured Beauty Brand Collaboration',
+            'deadline' => now()->addMonth(),
+        ]);
+        $opportunityEnquiry = new OpportunityEnquiry([
+            'name' => 'BeautyPro HQ Test',
+            'email' => $email,
+        ]);
+
+        $contactEnquiry = new ContactEnquiry([
+            'reason' => 'Partnership',
+            'name' => 'BeautyPro HQ Test',
+            'email' => $email,
+        ]);
+
+        $samples = [
+            'newsletter_subscription' => ['notifiable' => null, 'notification' => new NewsletterSubscriptionConfirmation()],
+            'event_registration' => ['notifiable' => null, 'notification' => new EventRegistrationConfirmation($event, $registration)],
+            'opportunity_enquiry' => ['notifiable' => null, 'notification' => new OpportunityEnquiryConfirmation($opportunity, $opportunityEnquiry)],
+            'contact_enquiry' => ['notifiable' => null, 'notification' => new ContactEnquiryConfirmation($contactEnquiry)],
+            'email_verification' => ['notifiable' => $recipient, 'notification' => new BeautyProVerifyEmailNotification()],
+            'password_reset' => ['notifiable' => $recipient, 'notification' => new BeautyProResetPasswordNotification('TEST-PASSWORD-RESET-TOKEN')],
+            'two_factor_code' => ['notifiable' => $recipient, 'notification' => new TwoFactorCodeNotification('123456', 'login')],
+            'customer_booking_update' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Customer booking update', 'This is a sample customer booking notification.', 'Open bookings', rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings')],
+            'provider_booking_update' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Provider booking update', 'This is a sample provider booking and payment notification.', 'Open bookings', rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/bookings')],
+            'verification_decision' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Verification decision sample', 'This is a sample provider verification decision notification.', 'Open profile', rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/profile')],
+            'admin_alert' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Admin alert sample', 'This is a sample admin alert for activity requiring review.', 'Open admin activity', rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity')],
+            'announcement' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Announcement sample', 'This is a sample announcement email for a selected audience.', 'Open dashboard', rtrim(config('app.frontend_url', config('app.url')), '/').'/customer')],
+        ];
+
+        return $type === 'all' ? array_values($samples) : [$samples[$type]];
     }
 
     private function stripeConfigured(): bool

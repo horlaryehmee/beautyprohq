@@ -3,13 +3,27 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Availability;
 use App\Models\Booking;
+use App\Models\CommunityPost;
+use App\Models\CrmCustomer;
+use App\Models\DigitalProduct;
+use App\Models\EventRegistration;
+use App\Models\Loyalty;
+use App\Models\LoyaltyTransaction;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Payment;
+use App\Models\PaymentAccount;
+use App\Models\PortfolioItem;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
+use App\Models\Review;
+use App\Models\Reward;
+use App\Models\SavedProvider;
+use App\Models\Service;
 use App\Models\Subscription;
+use App\Models\SubscriptionPayment;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\User;
@@ -17,6 +31,7 @@ use App\Models\VerificationRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -120,15 +135,25 @@ class DashboardController extends Controller
 
     public function showUser(User $user): JsonResponse
     {
-        return $this->success($user->load([
+        $user->load([
             'providerProfile.category',
             'providerProfile.services',
             'providerProfile.availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'),
             'providerProfile.bookings' => fn ($query) => $query->with(['customer:id,name,email,phone,created_at', 'service:id,name,price', 'payment:id,booking_id,status,amount,currency'])->latest()->limit(50),
             'providerProfile.verificationRequests' => fn ($query) => $query->latest(),
+            'providerProfile.digitalProducts',
+            'providerProfile.paymentAccounts',
+            'providerProfile.reviews' => fn ($query) => $query->latest()->limit(10),
             'customerBookings.service:id,name',
             'customerBookings.provider.user:id,name',
-        ]));
+            'customerBookings.payment:id,booking_id,status,amount,currency',
+            'savedProviders.user:id,name',
+            'loyalties',
+            'subscriptions' => fn ($query) => $query->latest()->limit(5),
+            'subscriptionPayments' => fn ($query) => $query->latest()->limit(10),
+        ]);
+
+        return $this->success($user->setAttribute('platform_usage', $this->userUsage($user)));
     }
 
     public function updateUser(Request $request, User $user): JsonResponse
@@ -137,7 +162,6 @@ class DashboardController extends Controller
             'name' => ['sometimes', 'string', 'max:120'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
             'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
-            'preferred_currency' => ['sometimes', 'nullable', 'string', 'max:10'],
             'role' => ['sometimes', Rule::in(['provider', 'customer', 'admin'])],
             'is_active' => ['sometimes', 'boolean'],
             'email_verified' => ['sometimes', 'boolean'],
@@ -170,7 +194,7 @@ class DashboardController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $user, $validated): void {
-            $userData = collect($validated)->only(['name', 'email', 'phone', 'preferred_currency', 'role', 'is_active'])->all();
+            $userData = collect($validated)->only(['name', 'email', 'phone', 'role', 'is_active'])->all();
             if (array_key_exists('email_verified', $validated)) {
                 $userData['email_verified_at'] = $validated['email_verified'] ? ($user->email_verified_at ?? now()) : null;
             }
@@ -242,6 +266,125 @@ class DashboardController extends Controller
         ]), 'User updated.');
     }
 
+    public function destroyUser(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'confirmation' => ['required', 'string', Rule::in(['DELETE'])],
+        ]);
+
+        if ($user->is($request->user())) {
+            return response()->json(['message' => 'You cannot delete your own admin account.'], 422);
+        }
+
+        DB::transaction(function () use ($user): void {
+            $user->tokens()->delete();
+            $profile = $user->providerProfile()->first();
+            $providerIds = $profile ? collect([$profile->id]) : collect();
+            $userIds = collect([$user->id]);
+            $bookingIds = Booking::whereIn('customer_id', $userIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->pluck('id');
+            $loyaltyIds = Loyalty::whereIn('customer_id', $userIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->pluck('id');
+
+            EventRegistration::whereIn('user_id', $userIds)->delete();
+            SubscriptionPayment::whereIn('user_id', $userIds)->delete();
+            Subscription::whereIn('user_id', $userIds)->delete();
+            Payment::whereIn('booking_id', $bookingIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->delete();
+            LoyaltyTransaction::whereIn('loyalty_id', $loyaltyIds)->orWhereIn('booking_id', $bookingIds)->delete();
+            Loyalty::whereIn('id', $loyaltyIds)->delete();
+            CrmCustomer::whereIn('customer_id', $userIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->delete();
+            SavedProvider::whereIn('customer_id', $userIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->delete();
+            Review::whereIn('customer_id', $userIds)
+                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
+                ->delete();
+            Booking::whereIn('id', $bookingIds)->delete();
+
+            if ($providerIds->isNotEmpty()) {
+                PaymentAccount::whereIn('provider_id', $providerIds)->delete();
+                DigitalProduct::whereIn('provider_id', $providerIds)->delete();
+                Reward::whereIn('provider_id', $providerIds)->delete();
+                VerificationRequest::whereIn('provider_id', $providerIds)->delete();
+                PortfolioItem::whereIn('provider_id', $providerIds)->delete();
+                Availability::whereIn('provider_id', $providerIds)->delete();
+                Service::whereIn('provider_id', $providerIds)->delete();
+                CommunityPost::whereIn('provider_id', $providerIds)->update(['provider_id' => null]);
+                ProviderProfile::whereIn('id', $providerIds)->delete();
+                Cache::store(app()->runningUnitTests() ? 'array' : 'file')->forget('public.home.payload.v4');
+            }
+
+            $user->delete();
+        });
+
+        return $this->success(null, 'User deleted.');
+    }
+
+    private function userUsage(User $user): array
+    {
+        $profile = $user->providerProfile;
+        $customerBookings = $user->customerBookings;
+        $providerBookings = $profile?->bookings ?? collect();
+        $subscriptions = $user->subscriptions;
+        $subscriptionPayments = $user->subscriptionPayments;
+        $activeSubscription = $subscriptions->firstWhere('status', 'active') ?? $subscriptions->first();
+
+        return [
+            'account' => [
+                'joined_at' => optional($user->created_at)->toDateTimeString(),
+                'last_login_at' => optional($user->last_login_at)->toDateTimeString(),
+                'email_verified' => filled($user->email_verified_at),
+                'two_factor_enabled' => (bool) $user->two_factor_enabled,
+                'is_demo' => (bool) $user->is_demo,
+                'is_guest' => (bool) $user->is_guest,
+            ],
+            'provider' => [
+                'onboarding_complete' => (bool) ($profile?->onboarding_complete ?? false),
+                'onboarding_completed_at' => optional($profile?->onboarding_completed_at)->toDateTimeString(),
+                'terms_accepted_at' => optional($profile?->terms_accepted_at)->toDateTimeString(),
+                'listed' => (bool) ($profile?->is_listed ?? false),
+                'verified' => (bool) ($profile?->verified ?? false),
+                'services' => (int) ($profile?->services?->count() ?? 0),
+                'active_services' => (int) ($profile?->services?->where('is_active', true)->count() ?? 0),
+                'portfolio_links' => count($profile?->portfolio_links ?? []),
+                'booking_questions' => count($profile?->booking_form_fields ?? []),
+                'digital_products' => (int) ($profile?->digitalProducts?->count() ?? 0),
+                'active_digital_products' => (int) ($profile?->digitalProducts?->where('is_active', true)->count() ?? 0),
+                'payment_accounts' => (int) ($profile?->paymentAccounts?->count() ?? 0),
+                'bookings' => (int) $providerBookings->count(),
+                'upcoming_bookings' => (int) $providerBookings->whereIn('status', ['pending', 'confirmed'])->filter(fn ($booking) => optional($booking->date)->isFuture() || optional($booking->date)->isToday())->count(),
+                'completed_bookings' => (int) $providerBookings->where('status', 'completed')->count(),
+                'paid_revenue' => (float) $providerBookings->pluck('payment')->filter(fn ($payment) => $payment?->status === 'paid')->sum('amount'),
+                'reviews' => (int) ($profile?->review_count ?? $profile?->reviews?->count() ?? 0),
+                'rating' => (float) ($profile?->rating ?? 0),
+            ],
+            'customer' => [
+                'bookings' => (int) $customerBookings->count(),
+                'upcoming_bookings' => (int) $customerBookings->whereIn('status', ['pending', 'confirmed'])->filter(fn ($booking) => optional($booking->date)->isFuture() || optional($booking->date)->isToday())->count(),
+                'completed_bookings' => (int) $customerBookings->where('status', 'completed')->count(),
+                'paid_spend' => (float) $customerBookings->pluck('payment')->filter(fn ($payment) => $payment?->status === 'paid')->sum('amount'),
+                'saved_providers' => (int) $user->savedProviders->count(),
+                'loyalty_programs' => (int) $user->loyalties->count(),
+                'loyalty_points' => (int) $user->loyalties->sum('points'),
+            ],
+            'subscription' => [
+                'plan' => $activeSubscription?->plan,
+                'status' => $activeSubscription?->status,
+                'amount' => (float) ($activeSubscription?->amount ?? 0),
+                'renews_at' => optional($activeSubscription?->renews_at)->toDateTimeString(),
+                'payments' => (int) $subscriptionPayments->count(),
+                'paid_total' => (float) $subscriptionPayments->where('status', 'paid')->sum('amount'),
+                'latest_payment_status' => $subscriptionPayments->first()?->status,
+            ],
+        ];
+    }
+
     public function directory(Request $request): JsonResponse
     {
         $providers = ProviderProfile::with(['user:id,name,email,is_active', 'category:id,name,slug', 'services'])
@@ -293,6 +436,7 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:provider_categories,name'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'cover_image' => ['nullable', 'url:http,https', 'max:1000'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'between:0,999'],
         ]);
@@ -312,6 +456,7 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('provider_categories', 'name')->ignore($category)],
             'description' => ['nullable', 'string', 'max:1000'],
+            'cover_image' => ['nullable', 'url:http,https', 'max:1000'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'between:0,999'],
         ]);
@@ -338,17 +483,53 @@ class DashboardController extends Controller
 
     public function subscriptions(Request $request): JsonResponse
     {
-        $subscriptions = Subscription::with(['user:id,name,email,role', 'planDefinition'])
-            ->when($request->search, fn ($query, $search) => $query->where(fn ($searchQuery) => $searchQuery
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'plan' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'between:5,100'],
+        ]);
+
+        $query = Subscription::with(['user:id,name,email,role', 'planDefinition'])
+            ->when($validated['plan'] ?? null, fn ($query, $plan) => $query->where('plan', $plan))
+            ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($validated['search'] ?? null, fn ($query, $search) => $query->where(fn ($searchQuery) => $searchQuery
                 ->where('plan', 'like', "%{$search}%")
                 ->orWhere('status', 'like', "%{$search}%")
                 ->orWhereHas('user', fn ($userQuery) => $userQuery
                     ->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%"))))
-            ->latest()
-            ->paginate($request->integer('per_page', 20));
+                    ->orWhere('email', 'like', "%{$search}%"))));
 
-        return $this->success($subscriptions->items(), meta: $this->paginationMeta($subscriptions));
+        $statsQuery = clone $query;
+        $subscriptions = $query->latest()->paginate($validated['per_page'] ?? 20);
+
+        return $this->success($subscriptions->items(), meta: $this->paginationMeta($subscriptions) + [
+            'stats' => [
+                'active' => (clone $statsQuery)->where('status', 'active')->count(),
+                'total' => (clone $statsQuery)->count(),
+                'monthly_revenue' => (float) (clone $statsQuery)
+                    ->where('status', 'active')
+                    ->whereIn('plan', ['paid', 'pro'])
+                    ->sum('amount'),
+            ],
+            'filters' => [
+                'plans' => Subscription::query()
+                    ->select('plan')
+                    ->distinct()
+                    ->orderBy('plan')
+                    ->pluck('plan')
+                    ->filter()
+                    ->values(),
+                'statuses' => Subscription::query()
+                    ->select('status')
+                    ->distinct()
+                    ->orderBy('status')
+                    ->pluck('status')
+                    ->filter()
+                    ->values(),
+            ],
+        ]);
     }
 
     private function activityFeed(int $limit = 50, string $type = 'all'): array

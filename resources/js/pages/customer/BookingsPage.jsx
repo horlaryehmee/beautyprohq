@@ -20,6 +20,14 @@ import {
 
 const normalize = (value) => Array.isArray(value) ? value : value?.bookings ?? value?.data ?? [];
 const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'rejected'];
+const statusLabel = (status) => status === 'rejected' ? 'declined' : status;
+const filterClass = (status, active) => {
+    if (active && status === 'confirmed') return 'bg-[#027A48] text-white';
+    if (active && status === 'pending') return 'bg-[#B54708] text-white';
+    if (active && status === 'rejected') return 'bg-[#B42318] text-white';
+    if (active) return 'bg-slate-950 text-white';
+    return 'bg-slate-100 text-slate-500';
+};
 
 export default function CustomerBookingsPage() {
     const resource = useApiResource('/customer/bookings', [], { refreshInterval: 15000 });
@@ -88,12 +96,12 @@ export default function CustomerBookingsPage() {
                 <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
                     {filters.map((item) => (
                         <button
-                            className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold capitalize ${filter === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`}
+                            className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold capitalize ${filterClass(item, filter === item)}`}
                             key={item}
                             onClick={() => setFilter(item)}
                             type="button"
                         >
-                            {item}
+                            {statusLabel(item)}
                         </button>
                     ))}
                 </div>

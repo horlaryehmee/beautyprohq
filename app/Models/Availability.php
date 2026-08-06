@@ -13,7 +13,7 @@ class Availability extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'is_demo' => 'boolean'];
     }
 
     public function provider(): BelongsTo

@@ -50,7 +50,7 @@ function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSele
     return (
         <div className="rounded-[1.75rem] border border-stone-200 bg-white p-3 shadow-[0_18px_45px_rgba(45,29,22,.08)]">
             <div className="px-2 pb-3 pt-1">
-                <h2 className="text-2xl font-black tracking-tight text-plum-950">Select a plan</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-plum-950">Select a plan</h2>
                 <p className="mt-1 text-sm font-medium text-stone-500">Choose how you want to start on BeautyPro HQ.</p>
             </div>
 
@@ -62,7 +62,7 @@ function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSele
 
                     return (
                         <button
-                            className={`relative overflow-hidden rounded-2xl border text-left transition duration-300 ${isSelected ? 'border-plum-950 bg-[#241711] text-white shadow-[0_18px_35px_rgba(36,23,17,.18)]' : 'border-stone-200 bg-[#fffdf9] text-plum-950 hover:border-stone-300 hover:bg-white'}`}
+                            className={`relative overflow-hidden rounded-2xl border text-left transition duration-300 ${isSelected ? 'border-plum-950 bg-[#2A1D14] text-white shadow-[0_18px_35px_rgba(36,23,17,.18)]' : 'border-stone-200 bg-[#FFFFFFdf9] text-plum-950 hover:border-stone-300 hover:bg-white'}`}
                             key={plan.key}
                             onClick={() => onSelect(plan.key)}
                             type="button"
@@ -74,13 +74,13 @@ function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSele
                                             <span className={`size-3 rounded-full transition ${isSelected ? 'scale-100 bg-white' : 'scale-0 bg-transparent'}`} />
                                         </span>
                                         <div className="min-w-0">
-                                            <h3 className="text-lg font-black leading-tight">{plan.name}</h3>
+                                            <h3 className="text-lg font-semibold leading-tight">{plan.name}</h3>
                                             <p className={`mt-1 text-sm font-semibold lowercase ${isSelected ? 'text-white/70' : 'text-stone-500'}`}>{description}</p>
                                         </div>
                                     </div>
 
                                     <div className="shrink-0 text-right">
-                                        <p className="text-xl font-black leading-none">{money(price, displayCurrency)}</p>
+                                        <p className="text-xl font-semibold leading-none">{money(price, displayCurrency)}</p>
                                         <p className={`mt-1 text-[11px] font-bold capitalize ${isSelected ? 'text-white/55' : 'text-stone-400'}`}>{plan.billing_period}</p>
                                     </div>
                                 </div>
@@ -159,12 +159,12 @@ export default function RegisterPage() {
             eyebrow={`Step ${step} of 3`}
             title="Join BeautyPro HQ as a professional"
             description="Choose your provider plan first. Customers can book without creating an account."
-            footer={<>Already have an account? <Link to="/login" className="font-black text-rose-700 hover:text-rose-900">Log in</Link></>}
+            footer={<>Already have an account? <Link to="/login" className="font-semibold text-rose-700 hover:text-rose-900">Log in</Link></>}
         >
             <div className="mb-6 grid grid-cols-3 gap-2">
                 {['Plan', 'Account', 'Confirm'].map((label, index) => (
                     <button
-                        className={`rounded-2xl px-3 py-2 text-xs font-black transition ${step === index + 1 ? 'bg-plum-950 text-white' : index + 1 < step ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}
+                        className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${step === index + 1 ? 'bg-plum-950 text-white' : index + 1 < step ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}
                         key={label}
                         onClick={() => index + 1 < step && setStep(index + 1)}
                         type="button"
@@ -180,13 +180,14 @@ export default function RegisterPage() {
                 <div className="space-y-4">
                     <div className="relative flex justify-end">
                         <button
-                            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3.5 text-sm font-black text-plum-950 shadow-sm transition hover:bg-cream-100"
+                            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3.5 text-sm font-semibold text-plum-950 shadow-sm transition hover:bg-cream-100"
                             onClick={() => setCurrencyOpen((value) => !value)}
                             type="button"
                         >
                             <img
                                 alt=""
                                 className="h-4 w-5 rounded-sm object-cover"
+                                onError={(event) => { event.currentTarget.style.display = 'none'; }}
                                 src={currencyFlags[displayCurrency]}
                             />
                             {displayCurrency}
@@ -197,7 +198,7 @@ export default function RegisterPage() {
                             <div className="absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl">
                                 {currencies.map((item) => (
                                     <button
-                                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-black transition ${displayCurrency === item.code ? 'bg-plum-950 text-white' : 'text-plum-950 hover:bg-cream-100'}`}
+                                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${displayCurrency === item.code ? 'bg-plum-950 text-white' : 'text-plum-950 hover:bg-cream-100'}`}
                                         key={item.code}
                                         onClick={() => { setDisplayCurrency(item.code); setCurrencyOpen(false); }}
                                         type="button"
@@ -205,6 +206,7 @@ export default function RegisterPage() {
                                         <img
                                             alt=""
                                             className="h-4 w-5 rounded-sm object-cover"
+                                            onError={(event) => { event.currentTarget.style.display = 'none'; }}
                                             src={currencyFlags[item.code]}
                                         />
                                         <span>{item.code}</span>
@@ -239,8 +241,8 @@ export default function RegisterPage() {
             {step === 3 && (
                 <form className="space-y-4" onSubmit={submit}>
                     <div className="rounded-2xl border border-stone-200 bg-white p-5">
-                        <p className="text-xs font-black uppercase tracking-wide text-stone-400">Selected plan</p>
-                        <h2 className="mt-1 text-xl font-black text-plum-950">{selectedPlan?.name}</h2>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Selected plan</p>
+                        <h2 className="mt-1 text-xl font-semibold text-plum-950">{selectedPlan?.name}</h2>
                         <p className="mt-2 text-sm text-stone-600">You can set your service pricing currency later inside Services.</p>
                     </div>
                     <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-cream-100 p-3 text-xs font-medium leading-5 text-stone-600">

@@ -120,7 +120,7 @@ export default function ProviderPaymentsPage() {
                         return (
                             <div className="rounded-2xl border border-slate-100 p-4" key={gateway.id}>
                                 <div className="flex items-start justify-between gap-3">
-                                    <span className="grid size-11 place-items-center rounded-2xl bg-slate-950 text-xs font-black uppercase text-white">{gateway.name.slice(0, 2)}</span>
+                                    <span className="grid size-11 place-items-center rounded-2xl bg-slate-950 text-xs font-semibold uppercase text-white">{gateway.name.slice(0, 2)}</span>
                                     {(saved?.enabled ?? saved?.is_connected) && <StatusBadge status="active" />}
                                 </div>
                                 <h2 className="mt-4 font-bold text-slate-950">{gateway.name}</h2>

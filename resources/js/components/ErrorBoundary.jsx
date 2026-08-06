@@ -15,6 +15,12 @@ export default class ErrorBoundary extends Component {
         console.error('BeautyPro HQ render error', error, details);
     }
 
+    componentDidUpdate(previousProps) {
+        if (this.state.error && previousProps.resetKey !== this.props.resetKey) {
+            this.setState({ error: null });
+        }
+    }
+
     render() {
         if (!this.state.error) return this.props.children;
 

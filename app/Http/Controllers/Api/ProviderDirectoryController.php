@@ -57,7 +57,7 @@ class ProviderDirectoryController extends Controller
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'filters' => [
-                'categories' => ProviderCategory::where('is_active', true)->withCount(['providers' => fn ($q) => $q->directory()])->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'slug']),
+                'categories' => ProviderCategory::where('is_active', true)->withCount(['providers' => fn ($q) => $q->directory()])->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'slug', 'cover_image']),
                 'service_types' => Service::where('is_active', true)->distinct()->orderBy('service_type')->pluck('service_type'),
                 'locations' => ProviderProfile::directory()->whereNotNull('location')->distinct()->orderBy('location')->pluck('location'),
             ],

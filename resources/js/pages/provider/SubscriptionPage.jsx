@@ -9,6 +9,7 @@ import {
     ErrorState,
     LoadingBlock,
     PageHeader,
+    Pagination,
     StatusBadge,
     apiErrorMessage,
     apiRequest,
@@ -16,16 +17,28 @@ import {
     useDashboardToast,
 } from '../../components/dashboard';
 
-const normalize = (value, key) => Array.isArray(value) ? value : value?.[key] ?? value?.data ?? [];
+const normalize = (value, key) => {
+    if (Array.isArray(value)) return value;
+    const keyed = value?.[key];
+    if (Array.isArray(keyed)) return keyed;
+    if (Array.isArray(keyed?.data)) return keyed.data;
+    if (Array.isArray(value?.data)) return value.data;
+    return [];
+};
+const metaFrom = (value, key) => value?.[key]?.meta ?? value?.meta ?? {};
 
 export default function ProviderSubscriptionPage() {
-    const resource = useApiResource('/provider/subscription', {});
+    const [paymentPage, setPaymentPage] = useState(1);
+    const resource = useApiResource('/provider/subscription', {}, { params: { payments_page: paymentPage, payments_per_page: 10 } });
     const [busy, setBusy] = useState('');
     const [searchParams, setSearchParams] = useSearchParams();
     const { notify } = useDashboardToast();
     const data = resource.data ?? {};
     const plans = normalize(data, 'plans');
     const payments = normalize(data, 'payments');
+    const paymentsMeta = metaFrom(data, 'payments');
+    const paymentPageCount = Number(paymentsMeta.last_page ?? paymentsMeta.lastPage ?? 1);
+    const currentPaymentPage = Number(paymentsMeta.current_page ?? paymentsMeta.currentPage ?? paymentPage);
     const subscription = data.subscription;
     const activePlan = subscription?.plan ?? 'free';
     const paidActive = activePlan === 'paid' && subscription?.status === 'active';
@@ -97,8 +110,8 @@ export default function ProviderSubscriptionPage() {
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Current plan</p>
-                                <h2 className="mt-1 text-2xl font-black capitalize text-slate-950">{activePlan} plan</h2>
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
+                                <h2 className="mt-1 text-2xl font-semibold capitalize text-slate-950">{activePlan} plan</h2>
                                 <p className="mt-1 text-sm text-slate-500">{paidActive ? 'Advanced business tools are active.' : 'Basic listing, reviews, and email notifications are active.'}</p>
                             </div>
                             <StatusBadge status={subscription?.status ?? 'active'} />
@@ -116,7 +129,7 @@ export default function ProviderSubscriptionPage() {
                                         description={isPaid ? 'Advanced features for business operations.' : 'Basic visibility and trust features.'}
                                         action={isCurrent ? <StatusBadge status="active" /> : null}
                                     />
-                                    <p className="text-3xl font-black text-slate-950">
+                                    <p className="text-3xl font-semibold text-slate-950">
                                         <Currency currency={plan.currency} value={plan.price} />
                                         <span className="ml-1 text-sm font-bold text-slate-400">/{plan.billing_period}</span>
                                     </p>
@@ -157,6 +170,7 @@ export default function ProviderSubscriptionPage() {
                                         </tr>
                                     ))}</tbody>
                                 </table>
+                                <Pagination page={currentPaymentPage} pageCount={paymentPageCount} onPageChange={setPaymentPage} />
                             </div>
                         ) : <EmptyState description="Paid plan transactions will appear here." icon="subscription" title="No subscription payments yet" />}
                     </Card>

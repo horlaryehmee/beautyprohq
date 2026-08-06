@@ -29,6 +29,8 @@ const metaFrom = (value) => value?.meta ?? {};
 
 export default function AdminSubscriptionsPage() {
     const [query, setQuery] = useState('');
+    const [planFilter, setPlanFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [editingPlan, setEditingPlan] = useState(null);
     const [form, setForm] = useState({ name: '', price: '', currency: 'NGN', billing_period: 'monthly', features: '' });
     const [saving, setSaving] = useState(false);
@@ -36,21 +38,33 @@ export default function AdminSubscriptionsPage() {
     const { supported } = useCurrency();
     const search = useDebouncedValue(query);
     const [page, setPage] = useState(1);
-    const subscriptionsResource = useApiResource('/admin/subscriptions', [], { params: { page, per_page: 12, search: search || undefined } });
+    const subscriptionsResource = useApiResource('/admin/subscriptions', [], {
+        params: {
+            page,
+            per_page: 8,
+            search: search || undefined,
+            plan: planFilter || undefined,
+            status: statusFilter || undefined,
+        },
+    });
     const plansResource = useApiResource('/admin/subscription-plans', []);
     const subscriptions = normalize(subscriptionsResource.data);
     const plans = normalize(plansResource.data);
     const meta = metaFrom(subscriptionsResource.data);
+    const planOptions = meta.filters?.plans?.length ? meta.filters.plans : ['free', 'pro'];
+    const statusOptions = meta.filters?.statuses?.length ? meta.filters.statuses : ['active', 'expired', 'cancelled', 'pending'];
     const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
     const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
+    const stats = meta.stats ?? {};
 
     const visible = subscriptions;
-    const active = subscriptions.filter((item) => item.status === 'active').length;
-    const monthlyRevenue = subscriptions.filter((item) => item.status === 'active' && ['paid', 'pro'].includes(item.plan)).reduce((sum, item) => sum + Number(item.amount ?? item.plan_amount ?? 0), 0);
+    const active = Number(stats.active ?? subscriptions.filter((item) => item.status === 'active').length);
+    const totalSubscribers = Number(stats.total ?? meta.total ?? subscriptions.length);
+    const monthlyRevenue = Number(stats.monthly_revenue ?? subscriptions.filter((item) => item.status === 'active' && ['paid', 'pro'].includes(item.plan)).reduce((sum, item) => sum + Number(item.amount ?? item.plan_amount ?? 0), 0));
 
     useEffect(() => {
         setPage(1);
-    }, [search]);
+    }, [search, planFilter, statusFilter]);
 
 
     const startEdit = (plan) => {
@@ -108,7 +122,7 @@ export default function AdminSubscriptionsPage() {
 
             <div className="grid gap-4 sm:grid-cols-3">
                 <StatCard icon="subscription" label="Active plans" tone="emerald" value={active} />
-                <StatCard icon="users" label="All subscribers" tone="plum" value={subscriptions.length} />
+                <StatCard icon="users" label="All subscribers" tone="plum" value={totalSubscribers} />
                 <StatCard icon="wallet" label="Monthly paid value" tone="sky" value={<Currency value={monthlyRevenue} />} />
             </div>
 
@@ -120,12 +134,12 @@ export default function AdminSubscriptionsPage() {
                             <article className="rounded-3xl border border-slate-100 p-5" key={plan.id}>
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">{plan.key}</p>
-                                        <h2 className="mt-1 text-xl font-black text-slate-950">{plan.name}</h2>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{plan.key}</p>
+                                        <h2 className="mt-1 text-xl font-semibold text-slate-950">{plan.name}</h2>
                                     </div>
                                     <StatusBadge status={plan.is_active ? 'active' : 'draft'} />
                                 </div>
-                                <p className="mt-4 text-2xl font-black text-slate-950"><Currency currency={plan.currency} value={plan.price} /> <span className="text-sm text-slate-400">/{plan.billing_period}</span></p>
+                                <p className="mt-4 text-2xl font-semibold text-slate-950"><Currency currency={plan.currency} value={plan.price} /> <span className="text-sm text-slate-400">/{plan.billing_period}</span></p>
                                 <ul className="mt-4 space-y-2 text-sm text-slate-600">
                                     {(plan.features ?? []).slice(0, 6).map((feature) => <li className="flex gap-2" key={feature}><span className="mt-2 size-1.5 rounded-full bg-fuchsia-600" />{feature}</li>)}
                                 </ul>
@@ -137,22 +151,34 @@ export default function AdminSubscriptionsPage() {
             </Card>
 
             <Card>
-                <SearchInput className="mb-5" onChange={(event) => setQuery(event.target.value)} placeholder="Search subscriber or plan" value={query} />
+                <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_180px_180px]">
+                    <SearchInput onChange={(event) => setQuery(event.target.value)} placeholder="Search subscriber or plan" value={query} />
+                    <select className={inputClass} onChange={(event) => setPlanFilter(event.target.value)} value={planFilter}>
+                        <option value="">All plans</option>
+                        {planOptions.map((plan) => <option key={plan} value={plan}>{String(plan).replaceAll('_', ' ')}</option>)}
+                    </select>
+                    <select className={inputClass} onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+                        <option value="">All statuses</option>
+                        {statusOptions.map((status) => <option key={status} value={status}>{String(status).replaceAll('_', ' ')}</option>)}
+                    </select>
+                </div>
                 {subscriptionsResource.loading ? <LoadingBlock rows={5} /> : visible.length ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[760px] text-left text-sm">
-                            <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3 font-bold">Member</th><th className="pb-3 font-bold">Plan</th><th className="pb-3 font-bold">Amount</th><th className="pb-3 font-bold">Started</th><th className="pb-3 font-bold">Renews</th><th className="pb-3 text-right font-bold">Status</th></tr></thead>
-                            <tbody>{visible.map((item) => (
-                                <tr className="border-b border-slate-50 last:border-0" key={item.id}>
-                                    <td className="py-3"><div className="flex items-center gap-3"><Avatar name={item.user?.name} size="sm" /><div><p className="font-bold text-slate-900">{item.user?.name ?? 'Member'}</p><p className="text-xs text-slate-400">{item.user?.email ?? item.email}</p></div></div></td>
-                                    <td className="py-3 font-semibold capitalize text-slate-700">{item.plan ?? 'free'}</td>
-                                    <td className="py-3 font-bold text-slate-900"><Currency currency={item.currency} value={item.amount} /></td>
-                                    <td className="py-3 text-slate-500">{formatDate(item.starts_at ?? item.created_at)}</td>
-                                    <td className="py-3 text-slate-500">{formatDate(item.renews_at ?? item.current_period_end)}</td>
-                                    <td className="py-3 text-right"><StatusBadge status={item.status ?? 'active'} /></td>
-                                </tr>
-                            ))}</tbody>
-                        </table>
+                    <div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[760px] text-left text-sm">
+                                <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3 font-bold">Member</th><th className="pb-3 font-bold">Plan</th><th className="pb-3 font-bold">Amount</th><th className="pb-3 font-bold">Started</th><th className="pb-3 font-bold">Renews</th><th className="pb-3 text-right font-bold">Status</th></tr></thead>
+                                <tbody>{visible.map((item) => (
+                                    <tr className="border-b border-slate-50 last:border-0" key={item.id}>
+                                        <td className="py-3"><div className="flex items-center gap-3"><Avatar name={item.user?.name} size="sm" /><div><p className="font-bold text-slate-900">{item.user?.name ?? 'Member'}</p><p className="text-xs text-slate-400">{item.user?.email ?? item.email}</p></div></div></td>
+                                        <td className="py-3 font-semibold capitalize text-slate-700">{item.plan ?? 'free'}</td>
+                                        <td className="py-3 font-bold text-slate-900"><Currency currency={item.currency} value={item.amount} /></td>
+                                        <td className="py-3 text-slate-500">{formatDate(item.starts_at ?? item.created_at)}</td>
+                                        <td className="py-3 text-slate-500">{formatDate(item.renews_at ?? item.current_period_end)}</td>
+                                        <td className="py-3 text-right"><StatusBadge status={item.status ?? 'active'} /></td>
+                                    </tr>
+                                ))}</tbody>
+                            </table>
+                        </div>
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </div>
                 ) : <EmptyState description="Subscription records will appear when members choose a plan." icon="subscription" title="No subscriptions found" />}
@@ -161,7 +187,7 @@ export default function AdminSubscriptionsPage() {
             {editingPlan && (
                 <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setEditingPlan(null)}>
                     <Card className="w-full max-w-2xl rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
-                        <h2 className="text-lg font-black text-slate-950">Edit {editingPlan.name}</h2>
+                        <h2 className="text-lg font-semibold text-slate-950">Edit {editingPlan.name}</h2>
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={savePlan}>
                             <Field label="Plan name"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required value={form.name} /></Field>
                             <Field label="Price"><input className={inputClass} disabled={editingPlan.key === 'free'} min="0" onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} required type="number" value={form.price} /></Field>

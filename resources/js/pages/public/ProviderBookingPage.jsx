@@ -39,7 +39,7 @@ export default function ProviderBookingPage() {
     if (loading) return <PageLoader label="Loading booking page..." />;
     if (error || !profile) {
         return (
-            <div className="page-container py-20">
+            <div className="page-container py-12 sm:py-16">
                 <EmptyState
                     icon="calendar"
                     title="Booking unavailable"
@@ -52,7 +52,7 @@ export default function ProviderBookingPage() {
 
     if (serviceId && !selectedService) {
         return (
-            <div className="page-container py-20">
+            <div className="page-container py-12 sm:py-16">
                 <EmptyState
                     icon="calendar"
                     title="Service unavailable"
@@ -64,9 +64,9 @@ export default function ProviderBookingPage() {
     }
 
     return (
-        <section className="bg-[#fbf9f4] px-3 py-4 sm:px-5 sm:py-8">
+        <section className="bg-[#F7F3ED] px-3 py-4 sm:px-5 sm:py-8">
             <div className="mx-auto max-w-5xl">
-                <Link to={`/providers/${provider}`} className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-[#34231c] shadow-sm">
+                <Link to={`/providers/${provider}`} className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#2A1D14] shadow-sm">
                     <Icon name="chevronLeft" size={15} /> Back to profile
                 </Link>
                 <BookingModal

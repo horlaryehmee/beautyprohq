@@ -21,6 +21,7 @@ export default function LoginPage() {
     const [searchParams] = useSearchParams();
     const [form, setForm] = useState({ email: '', password: '', two_factor_code: '', remember: false });
     const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+    const [twoFactorMethod, setTwoFactorMethod] = useState('email');
     const [errors, setErrors] = useState({});
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,7 @@ export default function LoginPage() {
             const user = await login(form);
             if (user?.two_factor_required) {
                 setTwoFactorRequired(true);
+                setTwoFactorMethod(user.two_factor_method || 'email');
                 update('two_factor_code', '');
                 return;
             }
@@ -56,7 +58,7 @@ export default function LoginPage() {
         <AuthShell
             title="Welcome back"
             description="Log in to manage your bookings, profile, and BeautyPro HQ activity."
-            footer={<>New to BeautyPro HQ? <Link to="/register" className="font-black text-rose-700 hover:text-rose-900">Create an account</Link></>}
+            footer={<>New to BeautyPro HQ? <Link to="/register" className="font-semibold text-rose-700 hover:text-rose-900">Create an account</Link></>}
         >
             <form onSubmit={submit} className="space-y-5">
                 {location.state?.message && <InlineAlert tone="success">{location.state.message}</InlineAlert>}
@@ -71,14 +73,16 @@ export default function LoginPage() {
                                 <input type="checkbox" checked={form.remember} onChange={(event) => update('remember', event.target.checked)} className="size-4 rounded border-stone-300 accent-plum-900" />
                                 Keep me logged in
                             </label>
-                            <Link to="/forgot-password" className="text-xs font-black text-rose-700 hover:text-rose-900">Forgot password?</Link>
+                            <Link to="/forgot-password" className="text-xs font-semibold text-rose-700 hover:text-rose-900">Forgot password?</Link>
                         </div>
                     </>
                 ) : (
                     <>
-                        <InlineAlert tone="success">A verification code has been sent to your email.</InlineAlert>
-                        <FormField label="Verification code" type="text" icon="lock" autoComplete="one-time-code" value={form.two_factor_code} onChange={(event) => update('two_factor_code', event.target.value)} error={errors.two_factor_code} placeholder="6-digit code" required autoFocus />
-                        <button className="text-xs font-black text-rose-700 hover:text-rose-900" onClick={() => { setTwoFactorRequired(false); update('two_factor_code', ''); }} type="button">Use another account</button>
+                        <InlineAlert tone="success">
+                            {twoFactorMethod === 'totp' ? 'Enter the 6-digit code from your authenticator app, or use a backup code.' : 'A verification code has been sent to your email. You can also use a backup code.'}
+                        </InlineAlert>
+                        <FormField label="Verification or backup code" type="text" icon="lock" autoComplete="one-time-code" value={form.two_factor_code} onChange={(event) => update('two_factor_code', event.target.value)} error={errors.two_factor_code} placeholder="6-digit code or backup code" required autoFocus />
+                        <button className="text-xs font-semibold text-rose-700 hover:text-rose-900" onClick={() => { setTwoFactorRequired(false); update('two_factor_code', ''); }} type="button">Use another account</button>
                     </>
                 )}
 

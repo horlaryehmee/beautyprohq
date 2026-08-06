@@ -9,6 +9,11 @@ class PortfolioItem extends Model
 {
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return ['is_demo' => 'boolean'];
+    }
+
     public function provider(): BelongsTo
     {
         return $this->belongsTo(ProviderProfile::class, 'provider_id');

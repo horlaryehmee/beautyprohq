@@ -10,12 +10,24 @@ use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
 use App\Models\User;
+use App\Notifications\ContactEnquiryConfirmation;
+use App\Notifications\EventRegistrationConfirmation;
+use App\Notifications\NewsletterSubscriptionConfirmation;
+use App\Notifications\OpportunityEnquiryConfirmation;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\MailchimpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Notification as NotificationPayload;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class PublicContentController extends Controller
 {
+    public function __construct(private MailchimpService $mailchimp)
+    {
+    }
+
     public function news(Request $request): JsonResponse
     {
         return $this->paginated(News::published()->latest('published_at')->paginate($request->integer('per_page', 12)));
@@ -68,6 +80,8 @@ class PublicContentController extends Controller
             '/admin/event-registrations',
             ['event_id' => $event->id, 'event_registration_id' => $registration->id]
         );
+        $this->sendPublicConfirmation($registration->email, new EventRegistrationConfirmation($event, $registration));
+        $this->mailchimp->syncContact($registration->email, $registration->name, ['Event Attendee', 'Event: '.$event->title]);
 
         return $this->success($registration, 'Your event registration has been received.', 201);
     }
@@ -86,7 +100,29 @@ class PublicContentController extends Controller
 
     public function community(Request $request): JsonResponse
     {
-        return $this->paginated(CommunityPost::published()->with('provider.user:id,name')->latest('published_at')->paginate($request->integer('per_page', 12)));
+        $validated = $request->validate([
+            'type' => ['nullable', 'string', 'max:80'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'between:1,48'],
+        ]);
+
+        $paginator = CommunityPost::published()
+            ->with('provider.user:id,name')
+            ->when($validated['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
+            ->latest('published_at')
+            ->paginate($validated['per_page'] ?? 12);
+
+        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator) + [
+            'filters' => [
+                'types' => CommunityPost::published()
+                    ->select('type')
+                    ->distinct()
+                    ->orderBy('type')
+                    ->pluck('type')
+                    ->filter()
+                    ->values(),
+            ],
+        ]);
     }
 
     public function showCommunity(CommunityPost $communityPost): JsonResponse
@@ -100,6 +136,7 @@ class PublicContentController extends Controller
     {
         $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
         $subscriber = NewsletterSubscriber::updateOrCreate(['email' => strtolower($validated['email'])], ['subscribed_at' => now(), 'unsubscribed_at' => null]);
+        $this->sendPublicConfirmation($subscriber->email, new NewsletterSubscriptionConfirmation());
 
         return $this->success($subscriber, 'You are subscribed to BeautyPro HQ updates.', 201);
     }
@@ -120,6 +157,8 @@ class PublicContentController extends Controller
             '/admin/opportunity-enquiries',
             ['opportunity_id' => $opportunity->id, 'enquiry_id' => $enquiry->id]
         );
+        $this->sendPublicConfirmation($enquiry->email, new OpportunityEnquiryConfirmation($opportunity, $enquiry));
+        $this->mailchimp->syncContact($enquiry->email, $enquiry->name, ['Opportunity Enquiry', 'Opportunity: '.$opportunity->title]);
 
         return $this->success($enquiry, 'Your enquiry has been sent.', 201);
     }
@@ -145,6 +184,8 @@ class PublicContentController extends Controller
             '/admin/activity?type=messages',
             ['contact_enquiry_id' => $enquiry->id]
         );
+        $this->sendPublicConfirmation($enquiry->email, new ContactEnquiryConfirmation($enquiry));
+        $this->mailchimp->syncContact($enquiry->email, $enquiry->name, ['Contact Enquiry', 'Contact Reason: '.$enquiry->reason]);
 
         return $this->success($enquiry, 'Your message has been sent to BeautyPro HQ.', 201);
     }
@@ -159,5 +200,18 @@ class PublicContentController extends Controller
         $url = rtrim(config('app.frontend_url', config('app.url')), '/').$path;
         User::where('role', 'admin')->where('is_active', true)->get()
             ->each->notify(new PlatformUpdateNotification($title, $message, 'Review in admin', $url, $data));
+    }
+
+    private function sendPublicConfirmation(string $email, NotificationPayload $notification): void
+    {
+        try {
+            Notification::route('mail', $email)->notify($notification);
+        } catch (\Throwable $exception) {
+            Log::warning('Public confirmation email failed.', [
+                'email' => $email,
+                'notification' => $notification::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

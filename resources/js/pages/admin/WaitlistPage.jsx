@@ -29,7 +29,7 @@ export default function AdminWaitlistPage() {
         status: subscriber.unsubscribed_at ? 'unsubscribed' : 'active',
     })), [subscribers]);
 
-    const exportWaitlist = async () => {
+    const exportSubscribers = async () => {
         const params = new URLSearchParams();
         if (query) params.set('search', query);
         const response = await fetch(`/api/admin/waitlist/export?${params.toString()}`, {
@@ -45,7 +45,7 @@ export default function AdminWaitlistPage() {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `beautyprohq-waitlist-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `beautyprohq-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -59,10 +59,10 @@ export default function AdminWaitlistPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                description="Emails collected from the coming soon and newsletter forms."
-                eyebrow="Launch"
-                actions={<Button onClick={exportWaitlist} type="button" variant="secondary">Export CSV</Button>}
-                title="Waitlist"
+                description="Emails collected from newsletter and coming soon signup forms."
+                eyebrow="Audience"
+                actions={<Button onClick={exportSubscribers} type="button" variant="secondary">Export CSV</Button>}
+                title="Subscribers"
             />
 
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
@@ -95,7 +95,7 @@ export default function AdminWaitlistPage() {
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>
                 ) : (
-                    <EmptyState description="No waitlist emails match this search yet." icon="bell" title="No emails found" />
+                    <EmptyState description="No subscriber emails match this search yet." icon="bell" title="No emails found" />
                 )}
             </Card>
         </div>

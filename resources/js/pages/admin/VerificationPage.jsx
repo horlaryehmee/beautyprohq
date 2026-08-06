@@ -4,6 +4,14 @@ import { Avatar, Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader,
 const normalize = (value) => Array.isArray(value) ? value : value?.verifications ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
 const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
+const statusLabel = (status) => status === 'rejected' ? 'declined' : status;
+const filterClass = (status, active) => {
+    if (active && status === 'approved') return 'bg-[#027A48] text-white';
+    if (active && status === 'pending') return 'bg-[#B54708] text-white';
+    if (active && status === 'rejected') return 'bg-[#B42318] text-white';
+    if (active) return 'bg-slate-950 text-white';
+    return 'bg-slate-100 text-slate-500';
+};
 
 function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
     const color = tone === 'sky' ? 'bg-sky-50 text-sky-700' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-700' : 'bg-fuchsia-50 text-fuchsia-700';
@@ -14,7 +22,7 @@ function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
             <div className="mt-2 space-y-2">
                 {items.length ? items.map((url) => (
                     <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={url} key={url} rel="noreferrer" target="_blank">
-                        Open link ↗
+                        Open link â†—
                     </a>
                 )) : <p className="text-sm text-slate-400">No links provided.</p>}
             </div>
@@ -51,7 +59,7 @@ export default function AdminVerificationPage() {
             resource.setData((current) => updateResourceData(current, normalize(current).map((item) => item.id === request.id ? { ...item, ...(updated ?? {}), status, admin_notes: notes } : item)));
             setSelected(null);
             setNotes('');
-            notify(status === 'approved' ? 'Provider verified. Badge is now active.' : 'Verification rejected.');
+            notify(status === 'approved' ? 'Provider verified. Badge is now active.' : 'Verification declined.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -64,8 +72,8 @@ export default function AdminVerificationPage() {
             <Card>
                 <div className="mb-5 flex gap-2 overflow-x-auto">
                     {['pending', 'approved', 'rejected', 'all'].map((item) => (
-                        <button className={`rounded-xl px-3.5 py-2 text-sm font-bold capitalize ${filter === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={item} onClick={() => setFilter(item)} type="button">
-                            {item}
+                        <button className={`rounded-xl px-3.5 py-2 text-sm font-bold capitalize ${filterClass(item, filter === item)}`} key={item} onClick={() => setFilter(item)} type="button">
+                            {statusLabel(item)}
                         </button>
                     ))}
                 </div>
@@ -89,7 +97,7 @@ export default function AdminVerificationPage() {
                                                     <p className="truncate text-sm font-bold text-slate-950">{user.name}</p>
                                                     <StatusBadge status={request.status} />
                                                 </div>
-                                                <p className="truncate text-xs text-slate-400">{provider.profession} � {provider.country ?? provider.location}</p>
+                                                <p className="truncate text-xs text-slate-400">{provider.profession} · {provider.country ?? provider.location}</p>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 text-xs">
@@ -114,7 +122,7 @@ export default function AdminVerificationPage() {
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-950">Review {selected.provider?.user?.name ?? selected.user?.name}</h2>
-                                <p className="mt-1 text-sm text-slate-500">Approve only when the provider’s identity and professional proof are acceptable.</p>
+                                <p className="mt-1 text-sm text-slate-500">Approve only when the providerâ€™s identity and professional proof are acceptable.</p>
                             </div>
                             <StatusBadge status={selected.status} />
                         </div>
@@ -133,13 +141,13 @@ export default function AdminVerificationPage() {
 
                         <label className="mt-5 block text-sm font-bold text-slate-700">
                             Admin notes
-                            <textarea className={`${inputClass} mt-1.5 min-h-28`} onChange={(event) => setNotes(event.target.value)} placeholder="Reason for approval/rejection or internal notes" value={notes} />
+                            <textarea className={`${inputClass} mt-1.5 min-h-28`} onChange={(event) => setNotes(event.target.value)} placeholder="Reason for approval/decline or internal notes" value={notes} />
                         </label>
                         <div className="mt-5 flex flex-wrap justify-end gap-2">
                             <Button onClick={() => setSelected(null)} type="button" variant="secondary">Close</Button>
                             {selected.status === 'pending' && (
                                 <>
-                                    <Button busy={isBusy(`${selected.id}-rejected`)} onClick={() => decide(selected, 'rejected')} type="button" variant="danger">Reject</Button>
+                                    <Button busy={isBusy(`${selected.id}-rejected`)} onClick={() => decide(selected, 'rejected')} type="button" variant="danger">Decline</Button>
                                     <Button busy={isBusy(`${selected.id}-approved`)} onClick={() => decide(selected, 'approved')} type="button">Approve & show badge</Button>
                                 </>
                             )}

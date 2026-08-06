@@ -11,7 +11,7 @@ import Icon from '../../components/ui/Icon';
 import SectionHeading from '../../components/ui/SectionHeading';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { Marquee } from '../../components/ui/marquee';
-import { mediaUrl, providerIdentity, responsiveImage, shortDate } from '../../lib/utils';
+import { mediaUrl, providerIdentity, responsiveImage, shortDate, stripHtml } from '../../lib/utils';
 
 function list(value) {
     if (Array.isArray(value)) return value;
@@ -42,7 +42,7 @@ function hasUsableProviderIdentity(provider) {
 }
 
 function plainText(value) {
-    return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return stripHtml(value);
 }
 
 function contactInfo(value) {
@@ -60,6 +60,24 @@ function opportunityTypeLabel(type) {
     };
     if (!type) return 'Opportunity';
     return labels[type] ?? String(type).replaceAll('_', ' ');
+}
+
+function sortNewsEventItems(items) {
+    return [...items].sort((a, b) => new Date(b.published_at ?? b.date ?? b.created_at ?? 0) - new Date(a.published_at ?? a.date ?? a.created_at ?? 0));
+}
+
+function alternatingNewsEvents(newsItems, eventItems) {
+    const news = sortNewsEventItems(newsItems);
+    const events = sortNewsEventItems(eventItems);
+    const ordered = [];
+    const max = Math.max(news.length, events.length);
+
+    for (let index = 0; index < max; index += 1) {
+        if (events[index]) ordered.push(events[index]);
+        if (news[index]) ordered.push(news[index]);
+    }
+
+    return ordered;
 }
 
 function LoadingCards({ count = 3, className = 'grid gap-5 sm:grid-cols-2 lg:grid-cols-3' }) {
@@ -86,13 +104,6 @@ const newsEventFallbacks = [
 
 const fallbackNewsEvents = [
     {
-        id: 'fallback-news-1',
-        _kind: 'news',
-        title: 'Beauty professionals shaping the future of service',
-        excerpt: 'Stories, resources, and practical updates for beauty businesses will appear here.',
-        image: newsEventFallbacks[0],
-    },
-    {
         id: 'fallback-event-1',
         _kind: 'event',
         title: 'Workshops, launches, and community events',
@@ -100,11 +111,11 @@ const fallbackNewsEvents = [
         image: newsEventFallbacks[1],
     },
     {
-        id: 'fallback-news-2',
+        id: 'fallback-news-1',
         _kind: 'news',
-        title: 'Business tips for growing beauty professionals',
-        excerpt: 'Useful guidance for bookings, client care, profile building, and growth.',
-        image: newsEventFallbacks[2],
+        title: 'Beauty professionals shaping the future of service',
+        excerpt: 'Stories, resources, and practical updates for beauty businesses will appear here.',
+        image: newsEventFallbacks[0],
     },
     {
         id: 'fallback-event-2',
@@ -112,6 +123,13 @@ const fallbackNewsEvents = [
         title: 'Member spotlights and industry sessions',
         description: 'Check back for featured sessions, networking moments, and learning opportunities.',
         image: newsEventFallbacks[3],
+    },
+    {
+        id: 'fallback-news-2',
+        _kind: 'news',
+        title: 'Business tips for growing beauty professionals',
+        excerpt: 'Useful guidance for bookings, client care, profile building, and growth.',
+        image: newsEventFallbacks[2],
     },
 ];
 
@@ -182,22 +200,24 @@ function NewsEventCard({ item, index }) {
         sizes: '(min-width: 768px) 25vw, 78vw',
         quality: 70,
     });
-    const copy = item.excerpt ?? item.description ?? item.content;
+    const copy = stripHtml(item.excerpt ?? item.description ?? item.content);
     const cta = kind === 'event' ? 'Register Now' : 'Read More';
     const href = item.slug ? `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}` : '/news-events';
 
     return (
-        <article className="group relative flex h-[320px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)]">
-            <DeferredImage {...imageSource} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
-            <div className="relative z-10 flex h-full flex-col p-6">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
-                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#34231c]">{kind === 'event' ? 'Event' : 'News'}</span>
-                    {date && <span className="text-white/78">{shortDate(date, { year: 'numeric' })}</span>}
+        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm lg:relative lg:flex lg:h-[320px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)]">
+            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
+                <DeferredImage {...imageSource} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" />
+            </div>
+            <div className="hidden lg:absolute lg:inset-0 lg:block lg:bg-gradient-to-b lg:from-black/30 lg:via-black/30 lg:to-black/72" />
+            <div className="relative z-10 flex h-full flex-col p-2.5 lg:p-6">
+                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
+                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{kind === 'event' ? 'Event' : 'News'}</span>
+                    {date && <span className="text-stone-500 lg:text-white/78">{shortDate(date, { year: 'numeric' })}</span>}
                 </div>
-                <h3 className="mt-7 max-w-[15rem] font-display text-2xl font-normal leading-tight">{item.title}</h3>
-                {copy && <p className="mt-4 line-clamp-2 max-w-[13rem] text-xs font-semibold leading-5 text-white/82">{copy}</p>}
-                <Link to={href} className="mt-auto inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
+                <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-7 lg:max-w-[15rem] lg:text-2xl">{stripHtml(item.title)}</h3>
+                {copy && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-[13rem] lg:text-xs lg:font-semibold lg:leading-5 lg:text-white/82">{copy}</p>}
+                <Link to={href} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-auto lg:text-xs lg:text-white">
                     {cta} <Icon name="arrow" size={14} />
                 </Link>
             </div>
@@ -256,7 +276,7 @@ function SaveProviderButton({ provider, light = false }) {
             type="button"
             onClick={toggleSaved}
             disabled={saving}
-            className={`ml-auto grid size-8 place-items-center rounded-sm border transition ${saved ? 'border-white bg-white text-[#7d2e3c]' : light ? 'border-[#241711]/25 text-[#241711]/75 hover:bg-[#f4efe9]' : 'border-white/55 text-white/80 hover:bg-white/12'}`}
+            className={`ml-auto grid size-8 place-items-center rounded-sm border transition ${saved ? 'border-white bg-white text-[#3A2A1F]' : light ? 'border-[#2A1D14]/25 text-[#2A1D14]/75 hover:bg-[#F7F3ED]' : 'border-white/55 text-white/80 hover:bg-white/12'}`}
             aria-label={saved ? 'Remove from saved providers' : 'Save provider'}
         >
             <Icon name="heart" size={15} fill={saved ? 'currentColor' : 'none'} />
@@ -275,12 +295,12 @@ function VerifiedProfessionalCard({ provider }) {
     const hasRating = Number(pro.rating) > 0;
 
     return (
-        <article className="group relative min-h-[330px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.14)]">
-            {pro.photo ? <DeferredImage {...photoSource} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#806c5d] to-[#2f211b]" />}
+        <article className="group relative min-h-[330px] overflow-hidden rounded-lg bg-[#2A1D14] text-white shadow-[0_16px_40px_rgba(45,29,22,.14)]">
+            {pro.photo ? <DeferredImage {...photoSource} alt={pro.name} className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" /> : <div className="absolute inset-0 bg-gradient-to-br from-[#3A2A1F] to-[#2A1D14]" />}
             <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/12 to-black/78" />
             <div className="relative z-10 flex min-h-[330px] flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
-                    <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-black uppercase text-[#34231c]">
+                    <span className="inline-flex max-w-[78%] items-center gap-1 rounded-sm bg-white/85 px-2 py-1 text-[10px] font-semibold uppercase text-[#2A1D14]">
                         <Icon name="map" size={12} />
                         <span className="truncate">{pro.cardLocation}</span>
                     </span>
@@ -293,10 +313,10 @@ function VerifiedProfessionalCard({ provider }) {
                     </h3>
                     <p className="mt-2 text-xs font-bold text-white/82">{pro.profession}</p>
                     <div className="mt-3 flex items-center justify-between gap-3">
-                        <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-black uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
+                        <Link to={`/providers/${pro.slug}`} className="inline-flex min-h-10 items-center justify-center rounded border border-white/20 bg-black/28 px-4 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur transition hover:bg-black/45">
                             View Profile
                         </Link>
-                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-black text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span>}
+                        {hasRating && <span className="inline-flex items-center gap-1 text-xs font-semibold text-white"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-400" />{pro.rating.toFixed(1)} {reviews ? `(${reviews})` : ''}</span>}
                     </div>
                 </div>
             </div>
@@ -321,7 +341,7 @@ export default function HomePage({ onVerifiedProviders }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('/api/home', { headers: { Accept: 'application/json' } });
+            const response = await fetch('/api/home', { cache: 'no-store', headers: { Accept: 'application/json' } });
             const payload = await response.json();
             if (!response.ok) throw new Error(payload?.message || 'We could not load BeautyPro HQ right now.');
             const nextData = payload?.data ?? payload ?? {};
@@ -357,10 +377,9 @@ export default function HomePage({ onVerifiedProviders }) {
         if (verified.length) onVerifiedProviders?.(verified);
     }, [onVerifiedProviders, verified]);
     const newsAndEvents = useMemo(() => {
-        const items = [
-            ...list(data?.news).map((item) => ({ ...item, _kind: 'news' })),
-            ...list(data?.events).map((item) => ({ ...item, _kind: 'event' })),
-        ].sort((a, b) => new Date(b.published_at ?? b.date ?? 0) - new Date(a.published_at ?? a.date ?? 0));
+        const news = list(data?.news).map((item) => ({ ...item, _kind: 'news' }));
+        const events = list(data?.events).map((item) => ({ ...item, _kind: 'event' }));
+        const items = alternatingNewsEvents(news, events);
 
         return items.length ? items : fallbackNewsEvents;
     }, [data]);
@@ -404,7 +423,7 @@ export default function HomePage({ onVerifiedProviders }) {
             {error && (
                 <div className="page-container py-6">
                     <InlineAlert>
-                        {error} <button type="button" onClick={load} className="font-black underline underline-offset-2">Try again</button>
+                        {error} <button type="button" onClick={load} className="font-semibold underline underline-offset-2">Try again</button>
                     </InlineAlert>
                 </div>
             )}
@@ -413,23 +432,23 @@ export default function HomePage({ onVerifiedProviders }) {
                 const pro = providerIdentity(displayProOfWeek);
                 const summary = pro.raw?.spotlight_quote ?? pro.raw?.quote ?? pro.bio;
                 return (
-                    <section className="homepage-deferred bg-[linear-gradient(#f4efe9_0%_45%,#fff_45%_100%)] py-10 sm:py-14">
+                    <section className="homepage-deferred bg-[linear-gradient(#F7F3ED_0%_45%,#FFFFFF_45%_100%)] py-10 sm:py-14">
                         <div className="page-container">
                             <article className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-[0_18px_50px_rgba(60,38,29,.08)]">
                             <div className="grid md:grid-cols-[.78fr_1fr]">
-                                <div className="relative min-h-60 bg-[#e8d9cf] md:min-h-[310px]">
+                                <div className="relative min-h-60 bg-[#DCCCB8] md:min-h-[310px]">
                                     {pro.photo ? <DeferredImage {...responsiveImage(pro.photo, { widths: [400, 560, 720], sizes: '(min-width: 768px) 40vw, 100vw', quality: 70 })} alt={pro.name} className="absolute inset-0 size-full object-cover object-center" fetchPriority="low" rootMargin="100px" /> : <div className="absolute inset-0 grid place-items-center"><Avatar name={pro.name} size="xl" className="scale-125" /></div>}
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 md:hidden">
-                                        <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/70">Pro of the week</p>
+                                        <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-white/70">Pro of the week</p>
                                         <h2 className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold leading-none text-white">{pro.name}<VerifiedBadge show={pro.verified} size="md" /></h2>
                                     </div>
                                 </div>
                                 <div className="flex flex-col justify-center px-5 py-6 sm:px-7 md:px-8 lg:px-10">
-                                    <p className="hidden items-center gap-3 text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59] md:flex">
-                                        <span className="h-px w-10 bg-[#b98a92]" /> Pro of the week
+                                    <p className="hidden items-center gap-3 text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F] md:flex">
+                                        <span className="h-px w-10 bg-[#BFC3C8]" /> Pro of the week
                                     </p>
                                     <div className="mt-0 hidden flex-wrap items-center gap-2 md:mt-4 md:flex">
-                                        <h2 className="font-display text-3xl font-semibold leading-tight text-[#3b2921] lg:text-4xl">{pro.name}</h2>
+                                        <h2 className="font-display text-3xl font-semibold leading-tight text-[#2A1D14] lg:text-4xl">{pro.name}</h2>
                                         <VerifiedBadge show={pro.verified} size="md" />
                                     </div>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-stone-500 md:mt-2">
@@ -438,7 +457,7 @@ export default function HomePage({ onVerifiedProviders }) {
                                         {pro.rating ? <span className="inline-flex items-center gap-1"><Icon name="star" size={13} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating.toFixed(1)}</span> : null}
                                     </div>
                                     {summary && <p className="mt-4 line-clamp-2 max-w-xl text-sm font-semibold leading-6 text-stone-600">{summary}</p>}
-                                    <Link to={`/providers/${pro.slug}`} className="mt-6 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md bg-[#7d2e3c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#682533]">
+                                    <Link to={`/providers/${pro.slug}`} className="mt-6 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md bg-[#3A2A1F] px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#3A2A1F]">
                                         View Profile <Icon name="arrow" size={14} />
                                     </Link>
                                 </div>
@@ -449,62 +468,59 @@ export default function HomePage({ onVerifiedProviders }) {
                 );
             })()}
 
-            <section id="news-events" className="homepage-deferred overflow-hidden bg-white pb-12 pt-16 sm:py-20">
+            <section id="news-events" className="homepage-deferred overflow-hidden bg-white py-8 sm:py-16">
                 <div className="page-container">
-                    <div className="mb-8 flex items-end justify-between gap-4">
+                    <div className="mb-4 flex items-end justify-between gap-4 sm:mb-8">
                         <div>
-                            <h2 className="text-sm font-black uppercase tracking-wide text-[#34231c]">News & Events</h2>
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#2A1D14]">News & Events</h2>
                         </div>
                         <div className="flex items-center gap-2">
                             {newsAndEvents.length > 3 && (
                                 <div className="flex items-center gap-1.5">
-                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous news and events"><Icon name="chevronLeft" size={18} /></button>
-                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next news and events"><Icon name="chevronRight" size={18} /></button>
+                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous news and events"><Icon name="chevronLeft" size={18} /></button>
+                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next news and events"><Icon name="chevronRight" size={18} /></button>
                                 </div>
                             )}
                             {newsAndEvents.length > 0 && (
-                                <Link to="/news-events" className="hidden items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c] sm:inline-flex">
+                                <Link to="/news-events" className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] sm:inline-flex">
                                     View All News & Events <Icon name="arrow" size={14} />
                                 </Link>
                             )}
                         </div>
                     </div>
                     <div className="relative">
-                        {loading ? <LoadingCards count={4} className="flex gap-3 overflow-hidden" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[21rem] lg:w-[23rem]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
+                        {loading ? <LoadingCards count={4} className="grid gap-2.5 lg:flex lg:overflow-hidden" /> : newsAndEvents.length ? <div ref={railRef} className="grid gap-2.5 lg:scrollbar-none lg:flex lg:snap-x lg:snap-mandatory lg:overflow-x-auto lg:pb-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="min-w-0 lg:w-[23rem] lg:shrink-0 lg:snap-start"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>
 
-            <section className="homepage-deferred border-y border-stone-200/70 bg-[#f8f3ee] pb-12 pt-16 sm:py-20">
+            <section className="homepage-deferred border-y border-stone-200/70 bg-[#F7F3ED] py-12 sm:py-16">
                 <div className="page-container">
                     <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="font-display text-2xl font-semibold uppercase leading-tight text-[#34231c]">Verified Beauty Professionals</h2>
-                                <Icon name="shield" size={18} className="text-[#7f7068]" />
-                            </div>
-                            <p className="mt-1 text-xs font-bold text-[#6f625b]">Trusted. Verified. Recommended.</p>
+                            <h2 className="font-display text-2xl font-semibold uppercase leading-tight text-[#2A1D14]">Verified Beauty Professionals</h2>
+                            <p className="mt-1 text-xs font-bold text-[#3A2A1F]">Trusted. Verified. Recommended.</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                             {!loading && filteredVerifiedProviders.length > 1 && (
                                 <div className="flex items-center gap-1.5 sm:hidden">
-                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous verified professional"><Icon name="chevronLeft" size={18} /></button>
-                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#8b7a70] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next verified professional"><Icon name="chevronRight" size={18} /></button>
+                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous verified professional"><Icon name="chevronLeft" size={18} /></button>
+                                    <button type="button" onClick={() => providersRailRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next verified professional"><Icon name="chevronRight" size={18} /></button>
                                 </div>
                             )}
-                            <Link to="/directory" className="hidden items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c] sm:inline-flex">Explore Directory <Icon name="arrow" size={14} /></Link>
+                            <Link to="/directory" className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] sm:inline-flex">Explore Directory <Icon name="arrow" size={14} /></Link>
                         </div>
                     </div>
 
-                    <div className="mb-6 flex items-center gap-2 overflow-x-auto border-y border-[#ded2c7] py-3 scrollbar-none">
+                    <div className="mb-6 flex items-center gap-2 overflow-x-auto border-y border-[#BFC3C8] py-3 scrollbar-none">
                         {providerCategories.map(([value, label]) => (
-                            <button key={value} type="button" onClick={() => setProviderCategory(value)} className={`min-h-9 shrink-0 rounded-full px-4 text-[11px] font-black uppercase tracking-wide transition ${providerCategory === value ? 'bg-[#34231c] text-white' : 'bg-white/70 text-[#6f625b] ring-1 ring-[#ded2c7] hover:bg-white'}`}>
+                            <button key={value} type="button" onClick={() => setProviderCategory(value)} className={`min-h-9 shrink-0 rounded-full px-4 text-[11px] font-semibold uppercase tracking-wide transition ${providerCategory === value ? 'bg-[#2A1D14] text-white' : 'bg-white/70 text-[#3A2A1F] ring-1 ring-[#BFC3C8] hover:bg-white'}`}>
                                 {label}
                             </button>
                         ))}
-                        <span className="mx-1 h-7 w-px shrink-0 bg-[#ded2c7]" aria-hidden="true" />
+                        <span className="mx-1 h-7 w-px shrink-0 bg-[#BFC3C8]" aria-hidden="true" />
                         {providerFilters.map(([value, label]) => (
-                            <button key={value} type="button" onClick={() => toggleProviderFilter(value)} className={`min-h-9 shrink-0 rounded-full px-4 text-[11px] font-black uppercase tracking-wide transition ${activeProviderFilters.includes(value) ? 'bg-[#34231c] text-white' : 'bg-white/70 text-[#6f625b] ring-1 ring-[#ded2c7] hover:bg-white'}`}>
+                            <button key={value} type="button" onClick={() => toggleProviderFilter(value)} className={`min-h-9 shrink-0 rounded-full px-4 text-[11px] font-semibold uppercase tracking-wide transition ${activeProviderFilters.includes(value) ? 'bg-[#2A1D14] text-white' : 'bg-white/70 text-[#3A2A1F] ring-1 ring-[#BFC3C8] hover:bg-white'}`}>
                                 {label}
                             </button>
                         ))}
@@ -515,20 +531,20 @@ export default function HomePage({ onVerifiedProviders }) {
                     </div>
 
                     <div className="mt-7 text-center">
-                        <Link to="/directory" className="inline-flex min-h-12 min-w-[280px] items-center justify-center gap-2 rounded-md border border-[#c9bdb2] bg-white px-8 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-[#fdfaf6]">
+                        <Link to="/directory" className="inline-flex min-h-12 min-w-[280px] items-center justify-center gap-2 rounded-md border border-[#BFC3C8] bg-white px-8 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:bg-[#F7F3ED]">
                             Explore Directory <Icon name="arrow" size={14} />
                         </Link>
                     </div>
                 </div>
             </section>
 
-            <section className="homepage-deferred relative isolate overflow-hidden bg-[#231812] py-20 text-white sm:py-28">
-                <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(148,72,88,.34),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(244,239,233,.18),transparent_24%),linear-gradient(135deg,#2a1b14_0%,#160f0c_54%,#3d1c26_100%)]" />
+            <section className="homepage-deferred relative isolate overflow-hidden bg-[#2A1D14] py-12 text-white sm:py-16">
+                <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(148,72,88,.34),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(244,239,233,.18),transparent_24%),linear-gradient(135deg,#2A1D14_0%,#2A1D14_54%,#2A1D14_100%)]" />
                 <div className="absolute inset-x-0 top-0 -z-10 h-px bg-white/15" />
                 <div className="page-container">
                     <div className="grid gap-10 lg:grid-cols-[.82fr_1.18fr] lg:items-end">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[.22em] text-rose-200">Why Join BPHQ</p>
+                            <p className="text-xs font-semibold uppercase tracking-[.22em] text-rose-200">Why Join BPHQ</p>
                             <h2 className="mt-4 max-w-xl font-display text-4xl font-normal leading-[1.02] sm:text-5xl lg:text-6xl">
                                 Built for beauty professionals ready to move differently.
                             </h2>
@@ -536,10 +552,10 @@ export default function HomePage({ onVerifiedProviders }) {
                                 BeautyPro HQ gives providers and customers one connected place to build trust, manage bookings, and find real opportunities in the beauty industry.
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3">
-                                <Link to="/register?role=provider" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-xs font-black uppercase tracking-wide text-[#2a1b14] transition hover:-translate-y-0.5 hover:bg-[#f4efe9]">
+                                <Link to="/register?role=provider" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:-translate-y-0.5 hover:bg-[#F7F3ED]">
                                     Join BPHQ <Icon name="arrow" size={15} />
                                 </Link>
-                                <Link to="/directory" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 px-6 text-xs font-black uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-white/10">
+                                <Link to="/directory" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-white/10">
                                     Explore Directory <Icon name="arrow" size={15} />
                                 </Link>
                             </div>
@@ -555,7 +571,7 @@ export default function HomePage({ onVerifiedProviders }) {
                                 <article key={title} className="group relative min-h-56 overflow-hidden rounded-3xl border border-white/10 bg-white/[.07] p-6 shadow-[0_24px_70px_rgba(0,0,0,.22)] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-rose-200/35 hover:bg-white/[.11]">
                                     <div className="absolute -right-10 -top-10 size-28 rounded-full bg-rose-200/10 blur-2xl transition duration-300 group-hover:bg-rose-200/20" />
                                     <div className="flex items-center justify-between">
-                                        <span className="grid size-12 place-items-center rounded-2xl bg-white text-[#3d1c26] transition duration-300 group-hover:scale-105 group-hover:bg-rose-100">
+                                        <span className="grid size-12 place-items-center rounded-2xl bg-white text-[#2A1D14] transition duration-300 group-hover:scale-105 group-hover:bg-rose-100">
                                             <Icon name={icon} size={21} />
                                         </span>
                                         <span className="font-display text-5xl font-normal leading-none text-white/10">0{index + 1}</span>
@@ -571,12 +587,12 @@ export default function HomePage({ onVerifiedProviders }) {
             </section>
 
             {false && (
-            <section className="homepage-deferred py-20 sm:py-28">
+            <section className="homepage-deferred py-12 sm:py-16">
                 <div className="page-container">
                     <SectionHeading eyebrow="Made for both sides of beauty" title="One platform. Better beauty experiences." description="Whether you provide the service or book it, BeautyPro HQ keeps the important details close." align="center" />
                     <div className="mx-auto mb-8 flex w-fit rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm" role="tablist">
-                        <button type="button" onClick={() => setAudience('provider')} className={`min-h-10 rounded-xl px-5 text-sm font-black transition ${audience === 'provider' ? 'bg-plum-900 text-white shadow-sm' : 'text-stone-500 hover:text-plum-900'}`}>For providers</button>
-                        <button type="button" onClick={() => setAudience('customer')} className={`min-h-10 rounded-xl px-5 text-sm font-black transition ${audience === 'customer' ? 'bg-plum-900 text-white shadow-sm' : 'text-stone-500 hover:text-plum-900'}`}>For customers</button>
+                        <button type="button" onClick={() => setAudience('provider')} className={`min-h-10 rounded-xl px-5 text-sm font-semibold transition ${audience === 'provider' ? 'bg-plum-900 text-white shadow-sm' : 'text-stone-500 hover:text-plum-900'}`}>For providers</button>
+                        <button type="button" onClick={() => setAudience('customer')} className={`min-h-10 rounded-xl px-5 text-sm font-semibold transition ${audience === 'customer' ? 'bg-plum-900 text-white shadow-sm' : 'text-stone-500 hover:text-plum-900'}`}>For customers</button>
                     </div>
                     <div className="grid gap-5 md:grid-cols-3">
                         {(audience === 'provider' ? [
@@ -589,8 +605,8 @@ export default function HomePage({ onVerifiedProviders }) {
                             ['heart', 'Keep your favourites close', 'Track bookings and rewards while building lasting relationships with professionals you trust.'],
                         ]).map(([icon, title, copy], index) => (
                             <article key={title} className="rounded-3xl border border-stone-200 bg-white p-6 shadow-[0_12px_36px_rgba(70,28,54,.06)] sm:p-7">
-                                <div className="flex items-center justify-between"><span className="grid size-12 place-items-center rounded-2xl bg-rose-50 text-rose-700"><Icon name={icon} /></span><span className="font-display text-4xl font-black text-stone-100">0{index + 1}</span></div>
-                                <h3 className="mt-6 font-display text-xl font-black text-plum-950">{title}</h3><p className="mt-3 text-sm leading-7 text-stone-600">{copy}</p>
+                                <div className="flex items-center justify-between"><span className="grid size-12 place-items-center rounded-2xl bg-rose-50 text-rose-700"><Icon name={icon} /></span><span className="font-display text-4xl font-semibold text-stone-100">0{index + 1}</span></div>
+                                <h3 className="mt-6 font-display text-xl font-semibold text-plum-950">{title}</h3><p className="mt-3 text-sm leading-7 text-stone-600">{copy}</p>
                             </article>
                         ))}
                     </div>
@@ -600,13 +616,13 @@ export default function HomePage({ onVerifiedProviders }) {
 
             )}
 
-            <section id="opportunities" className="homepage-deferred relative overflow-hidden bg-[#f4efe9] py-20 sm:py-28">
+            <section id="opportunities" className="homepage-deferred relative overflow-hidden bg-[#F7F3ED] py-12 sm:py-16">
                 <div className="page-container relative">
-                    <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                    <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[.22em] text-[#8b4b59]">Opportunities</p>
-                            <h2 className="mt-4 max-w-3xl font-display text-4xl font-normal leading-tight text-[#34231c] sm:text-5xl lg:text-6xl">Find the next door into the beauty industry.</h2>
-                            <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-[#6f625b]">
+                            <p className="text-xs font-semibold uppercase tracking-[.22em] text-[#3A2A1F]">Opportunities</p>
+                            <h2 className="mt-4 max-w-3xl font-display text-4xl font-normal leading-tight text-[#2A1D14] sm:text-5xl lg:text-6xl">Find the next door into the beauty industry.</h2>
+                            <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-[#3A2A1F]">
                                 Opportunities reviewed and surfaced for beauty professionals ready to collaborate, apply, speak, partner, and grow.
                             </p>
                         </div>
@@ -615,26 +631,26 @@ export default function HomePage({ onVerifiedProviders }) {
                         </Link>
                     </div>
 
-                    <div className="rounded-[2rem] border border-[#ded2c7] bg-[#fbf8f4] p-3 shadow-[0_22px_70px_rgba(52,35,28,.10)] sm:p-4">
+                    <div className="rounded-[2rem] border border-[#BFC3C8] bg-[#F7F3ED] p-3 shadow-[0_22px_70px_rgba(52,35,28,.10)] sm:p-4">
                         {loading ? (
                             <LoadingCards count={4} className="grid gap-3 md:grid-cols-2" />
                         ) : opportunities.length ? (
                             <div className="grid gap-3">
                                 {opportunities.slice(0, 5).map((item, index) => (
-                                    <article key={item.id} className="group grid gap-4 rounded-[1.4rem] border border-transparent bg-white p-5 transition duration-300 hover:-translate-y-0.5 hover:border-[#c9bdb2] hover:shadow-[0_18px_50px_rgba(52,35,28,.08)] md:grid-cols-[88px_1fr_auto] md:items-center">
+                                    <article key={item.id} className="group grid gap-4 rounded-[1.4rem] border border-transparent bg-white p-5 transition duration-300 hover:-translate-y-0.5 hover:border-[#BFC3C8] hover:shadow-[0_18px_50px_rgba(52,35,28,.08)] md:grid-cols-[88px_1fr_auto] md:items-center">
                                         <div className="flex items-center gap-4 md:block">
-                                            <span className="grid size-14 place-items-center rounded-2xl bg-[#f4efe9] font-display text-2xl font-normal text-[#7d2e3c]">{String(index + 1).padStart(2, '0')}</span>
-                                            <span className="md:hidden text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{opportunityTypeLabel(item.type)}</span>
+                                            <span className="grid size-14 place-items-center rounded-2xl bg-[#F7F3ED] font-display text-2xl font-normal text-[#3A2A1F]">{String(index + 1).padStart(2, '0')}</span>
+                                            <span className="md:hidden text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{opportunityTypeLabel(item.type)}</span>
                                         </div>
                                         <div className="min-w-0">
                                             <div className="hidden md:flex flex-wrap items-center gap-2">
-                                                <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{opportunityTypeLabel(item.type)}</span>
+                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{opportunityTypeLabel(item.type)}</span>
                                                 {item.deadline && <span className="text-[11px] font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}
                                             </div>
-                                            <h3 className="mt-1 font-display text-2xl font-normal leading-tight text-[#34231c]">{item.title ?? item.type}</h3>
-                                            <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#6f625b]">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p>
+                                            <h3 className="mt-1 font-display text-2xl font-normal leading-tight text-[#2A1D14]">{item.title ?? item.type}</h3>
+                                            <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#3A2A1F]">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p>
                                         </div>
-                                        <Link to={`/opportunities/${item.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#34231c] px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#4a2f26] md:justify-self-end">
+                                        <Link to={`/opportunities/${item.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#2A1D14] md:justify-self-end">
                                             View Details <Icon name="arrow" size={14} />
                                         </Link>
                                     </article>
@@ -648,23 +664,23 @@ export default function HomePage({ onVerifiedProviders }) {
             </section>
 
             {false && (
-            <section className="homepage-deferred py-20 sm:py-28">
+            <section className="homepage-deferred py-12 sm:py-16">
                 <div className="page-container">
                     <SectionHeading eyebrow="Open doors" title="Opportunities for beauty talent" description="Find collaborations, jobs, training, and brand opportunities—then send your interest directly." />
-                    {loading ? <LoadingCards count={4} className="grid gap-5 md:grid-cols-2" /> : opportunities.length ? <div className="grid gap-5 md:grid-cols-2">{opportunities.slice(0, 6).map((item) => <article key={item.id} className="group rounded-3xl border border-stone-200 bg-white p-6 transition hover:border-rose-200 hover:shadow-[0_18px_45px_rgba(70,28,54,.08)] sm:p-7"><div className="flex items-start justify-between gap-4"><Badge tone="plum">{opportunityTypeLabel(item.type)}</Badge>{item.deadline && <span className="text-xs font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}</div><h3 className="mt-5 font-display text-xl font-black text-plum-950">{item.title ?? opportunityTypeLabel(item.type)}</h3><p className="mt-2 line-clamp-3 text-sm leading-7 text-stone-600">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p><Link to={`/opportunities/${item.id}`} className="mt-5 inline-flex gap-2 text-sm font-black text-rose-700">View details <Icon name="arrow" size={16} /></Link></article>)}</div> : <EmptyState title="New opportunities are being reviewed" message="Approved opportunities will be published here." />}
+                    {loading ? <LoadingCards count={4} className="grid gap-5 md:grid-cols-2" /> : opportunities.length ? <div className="grid gap-5 md:grid-cols-2">{opportunities.slice(0, 6).map((item) => <article key={item.id} className="group rounded-3xl border border-stone-200 bg-white p-6 transition hover:border-rose-200 hover:shadow-[0_18px_45px_rgba(70,28,54,.08)] sm:p-7"><div className="flex items-start justify-between gap-4"><Badge tone="plum">{opportunityTypeLabel(item.type)}</Badge>{item.deadline && <span className="text-xs font-bold text-stone-400">Closes {shortDate(item.deadline)}</span>}</div><h3 className="mt-5 font-display text-xl font-semibold text-plum-950">{item.title ?? opportunityTypeLabel(item.type)}</h3><p className="mt-2 line-clamp-3 text-sm leading-7 text-stone-600">{item.short_description || contactInfo(item.contact_info).short_description || plainText(item.description)}</p><Link to={`/opportunities/${item.id}`} className="mt-5 inline-flex gap-2 text-sm font-semibold text-rose-700">View details <Icon name="arrow" size={16} /></Link></article>)}</div> : <EmptyState title="New opportunities are being reviewed" message="Approved opportunities will be published here." />}
                 </div>
             </section>
 
             )}
 
-            <section id="community" className="homepage-deferred relative isolate overflow-hidden bg-white py-20 sm:py-28">
-                <div className="absolute -left-24 top-20 -z-10 size-72 rounded-full bg-[#eadfd5]/55 blur-3xl" />
-                <div className="absolute -right-24 bottom-12 -z-10 size-80 rounded-full bg-[#f0dfe2]/35 blur-3xl" />
+            <section id="community" className="homepage-deferred relative isolate overflow-hidden bg-white pb-4 pt-8 sm:pb-5 sm:pt-16">
+                <div className="absolute -left-24 top-20 -z-10 size-72 rounded-full bg-[#DCCCB8]/55 blur-3xl" />
+                <div className="absolute -right-24 bottom-12 -z-10 size-80 rounded-full bg-[#DCCCB8]/35 blur-3xl" />
                 <div className="page-container">
-                    <div className="mx-auto mb-10 max-w-3xl text-center">
-                        <p className="text-xs font-black uppercase tracking-[.22em] text-[#8b4b59]">Community</p>
-                        <h2 className="mt-4 font-display text-4xl font-normal leading-tight text-[#34231c] sm:text-5xl lg:text-6xl">Stories, wins, and real beauty business moments.</h2>
-                        <p className="mx-auto mt-4 max-w-2xl text-sm font-medium leading-7 text-[#6f625b]">
+                    <div className="mx-auto mb-5 max-w-3xl text-center sm:mb-7">
+                        <p className="text-xs font-semibold uppercase tracking-[.22em] text-[#3A2A1F]">Community</p>
+                        <h2 className="mt-3 font-display text-3xl font-normal leading-tight text-[#2A1D14] sm:mt-4 sm:text-5xl lg:text-6xl">Stories, wins, and real beauty business moments.</h2>
+                        <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-6 text-[#3A2A1F] sm:mt-4 sm:leading-7">
                                 Community-driven content from members, spotlights, success stories, events, and day-in-the-life features.
                         </p>
                     </div>
@@ -673,37 +689,53 @@ export default function HomePage({ onVerifiedProviders }) {
                         <LoadingCards count={4} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" />
                     ) : community.length ? (
                         <>
-                            <div className="overflow-hidden rounded-[2rem] border border-[#ded2c7] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)]">
+                            <div className="grid gap-2.5 lg:hidden">
+                                {visibleCommunity.slice(0, 6).map((item, index) => (
+                                    <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id ?? index} className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm transition hover:bg-[#F7F3ED]">
+                                        <div className="aspect-square overflow-hidden bg-[#F7F3ED]">
+                                            <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[index % communityFallbackImages.length], { widths: [120, 180, 260], sizes: '72px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
+                                        </div>
+                                        <div className="min-w-0 p-2.5">
+                                            <span className="text-[9px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
+                                            <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight text-[#2A1D14]">{stripHtml(item.title)}</h3>
+                                            <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F]">{stripHtml(item.excerpt ?? item.content)}</p>
+                                            <span className="mt-1.5 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">Read Story <Icon name="arrow" size={13} /></span>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+
+                            <div className="hidden overflow-hidden rounded-[2rem] border border-[#BFC3C8] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)] lg:block">
                                 <div className="grid lg:grid-cols-[1.08fr_.92fr]">
-                                    <article className="group relative min-h-[520px] overflow-hidden">
+                                    <article className="group relative min-h-[260px] overflow-hidden sm:min-h-[520px]">
                                         <DeferredImage {...responsiveImage(mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0], { widths: [400, 560, 720], sizes: '(min-width: 1024px) 55vw, 100vw', quality: 70 })} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" fetchPriority="low" />
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/15 to-black/72" />
-                                        <div className="relative flex min-h-[520px] flex-col p-7 text-white sm:p-10">
+                                        <div className="relative flex min-h-[260px] flex-col p-4 text-white sm:min-h-[520px] sm:p-10">
                                             <div className="flex items-center justify-between gap-4">
-                                                <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#34231c]">{community[0].type ? String(community[0].type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#2A1D14]">{community[0].type ? String(community[0].type).replaceAll('_', ' ') : 'Community story'}</span>
                                                 <span className="grid size-11 place-items-center rounded-full bg-white/15 backdrop-blur"><Icon name="quote" size={20} /></span>
                                             </div>
                                             <div className="mt-auto max-w-xl">
-                                                <h3 className="font-display text-4xl font-normal leading-tight sm:text-5xl">{community[0].title}</h3>
-                                                <p className="mt-5 line-clamp-3 text-sm font-semibold leading-7 text-white/78">{community[0].excerpt ?? community[0].content}</p>
-                                                <Link to={community[0].id ? `/community/${community[0].id}` : '/community'} className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-[#f4efe9]">
+                                                <h3 className="font-display text-2xl font-normal leading-tight sm:text-5xl">{stripHtml(community[0].title)}</h3>
+                                                <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-white/78 sm:mt-5 sm:line-clamp-3 sm:text-sm sm:leading-7">{stripHtml(community[0].excerpt ?? community[0].content)}</p>
+                                                <Link to={community[0].id ? `/community/${community[0].id}` : '/community'} className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-white px-4 text-[10px] font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:bg-[#F7F3ED] sm:mt-7 sm:min-h-11 sm:px-5 sm:text-xs">
                                                     Read Story <Icon name="arrow" size={14} />
                                                 </Link>
                                             </div>
                                         </div>
                                     </article>
 
-                                    <div className="grid divide-y divide-[#eadfd5]">
+                                    <div className="grid divide-y divide-[#DCCCB8]">
                                         {visibleCommunity.slice(1, 4).map((item, index) => (
-                                            <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
-                                                <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
+                                            <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[116px] grid-cols-[92px_1fr] gap-3 p-3 transition hover:bg-[#F7F3ED] sm:min-h-[172px] sm:grid-cols-[170px_1fr] sm:gap-4 sm:p-5">
+                                                <div className="aspect-square overflow-hidden rounded-xl bg-[#F7F3ED] sm:aspect-auto sm:rounded-2xl">
                                                     <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length], { widths: [240, 360, 520], sizes: '(min-width: 1024px) 170px, 120px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                                 </div>
                                                 <div className="flex min-w-0 flex-col justify-center">
-                                                    <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
-                                                    <h3 className="mt-2 line-clamp-2 font-display text-2xl font-normal leading-tight text-[#34231c]">{item.title}</h3>
-                                                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#6f625b]">{item.excerpt ?? item.content}</p>
-                                                    <span className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#7d2e3c]">Read Story <Icon name="arrow" size={14} /></span>
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                    <h3 className="mt-1 line-clamp-2 font-display text-lg font-normal leading-tight text-[#2A1D14] sm:mt-2 sm:text-2xl">{stripHtml(item.title)}</h3>
+                                                    <p className="mt-1 line-clamp-1 text-xs font-medium leading-5 text-[#3A2A1F] sm:mt-2 sm:line-clamp-2 sm:text-sm sm:leading-6">{stripHtml(item.excerpt ?? item.content)}</p>
+                                                    <span className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] sm:mt-3 sm:text-xs">Read Story <Icon name="arrow" size={14} /></span>
                                                 </div>
                                             </Link>
                                         ))}
@@ -712,15 +744,15 @@ export default function HomePage({ onVerifiedProviders }) {
                             </div>
 
                             {visibleCommunity.length > 4 && (
-                                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="mt-3 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                                     {visibleCommunity.slice(4).map((item, index) => (
-                                        <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
-                                            <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
+                                        <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid grid-cols-[92px_1fr] overflow-hidden rounded-2xl border border-[#BFC3C8] bg-white shadow-[0_10px_28px_rgba(52,35,28,.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)] sm:block sm:rounded-3xl sm:shadow-[0_18px_50px_rgba(52,35,28,.07)]">
+                                            <div className="aspect-square overflow-hidden bg-[#F7F3ED] sm:aspect-[4/3]">
                                                 <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length], { widths: [360, 520, 720], sizes: '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                             </div>
-                                            <div className="p-5">
-                                                <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
-                                                <h3 className="mt-3 line-clamp-2 font-display text-xl font-normal leading-tight text-[#34231c]">{item.title}</h3>
+                                            <div className="min-w-0 p-3 sm:p-5">
+                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                <h3 className="mt-1 line-clamp-2 font-display text-lg font-normal leading-tight text-[#2A1D14] sm:mt-3 sm:text-xl">{stripHtml(item.title)}</h3>
                                             </div>
                                         </Link>
                                     ))}
@@ -728,8 +760,8 @@ export default function HomePage({ onVerifiedProviders }) {
                             )}
 
                             {!showAllCommunity && community.length > 4 && (
-                                <div className="mt-8 text-center">
-                                    <Link to="/community" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#34231c] px-7 text-xs font-black uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-[#4a2f26]">
+                                <div className="mt-5 text-center sm:mt-8">
+                                    <Link to="/community" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-[#2A1D14] sm:min-h-12 sm:px-7">
                                         View Community Stories <Icon name="arrow" size={15} />
                                     </Link>
                                 </div>
@@ -741,42 +773,44 @@ export default function HomePage({ onVerifiedProviders }) {
                 </div>
             </section>
 
-            <section className="homepage-deferred overflow-hidden bg-[#f4efe9] py-14 sm:py-18">
-                <div className="page-container">
-                    <div className="mb-7 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Partner brands & community allies</p>
-                            <h2 className="mt-2 font-display text-3xl font-normal leading-tight text-[#34231c]">Connected with brands shaping beauty.</h2>
-                        </div>
-                        {!partners.length && (
-                            <a href="mailto:partners@beautyprohq.com" className="inline-flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wide text-[#7d2e3c]">
-                                Become a partner <Icon name="arrow" size={15} />
-                            </a>
-                        )}
-                    </div>
-                </div>
-
-                <Marquee pauseOnHover speed={28} className="py-6" trackClassName="gap-14">
-                    {displayPartners.map((partner, index) => {
-                        const logo = mediaUrl(partner.logo_url ?? partner.logo);
-                        const name = partner.name ?? partner;
-                        return (
-                            <div key={partner.id ?? name ?? index} className="flex h-12 min-w-max items-center justify-center">
-                                {logo ? (
-                                    <DeferredImage src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" />
-                                ) : (
-                                    <span className="font-display text-2xl font-normal text-[#6f625b]/75">{name}</span>
-                                )}
+            {false && (
+                <section className="homepage-deferred overflow-hidden bg-[#F7F3ED] py-14 sm:py-18">
+                    <div className="page-container">
+                        <div className="mb-7 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Partner brands & community allies</p>
+                                <h2 className="mt-2 font-display text-3xl font-normal leading-tight text-[#2A1D14]">Connected with brands shaping beauty.</h2>
                             </div>
-                        );
-                    })}
-                </Marquee>
-            </section>
+                            {!partners.length && (
+                                <a href="mailto:partners@beautyprohq.com" className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">
+                                    Become a partner <Icon name="arrow" size={15} />
+                                </a>
+                            )}
+                        </div>
+                    </div>
 
-            <section className="homepage-deferred bg-[#f4efe9] py-20 sm:py-24">
+                    <Marquee pauseOnHover speed={28} className="py-6" trackClassName="gap-14">
+                        {displayPartners.map((partner, index) => {
+                            const logo = mediaUrl(partner.logo_url ?? partner.logo);
+                            const name = partner.name ?? partner;
+                            return (
+                                <div key={partner.id ?? name ?? index} className="flex h-12 min-w-max items-center justify-center">
+                                    {logo ? (
+                                        <DeferredImage src={logo} alt={name} className="max-h-9 max-w-40 object-contain grayscale opacity-70 transition hover:grayscale-0 hover:opacity-100" />
+                                    ) : (
+                                        <span className="font-display text-2xl font-normal text-[#3A2A1F]/75">{name}</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </Marquee>
+                </section>
+            )}
+
+            <section className="homepage-deferred bg-white pb-12 pt-0 sm:pb-14 sm:pt-0">
                 <div className="page-container">
                     <div className="newsletter-panel overflow-hidden rounded-[34px] px-6 py-10 text-white sm:px-10 sm:py-14 lg:flex lg:items-center lg:justify-between lg:gap-12 lg:px-14">
-                        <div className="max-w-xl"><p className="text-xs font-black uppercase tracking-[.18em] text-rose-200">The beauty brief</p><h2 className="mt-3 font-display text-3xl font-black sm:text-4xl">Fresh opportunities, useful news, zero clutter.</h2><p className="mt-3 text-sm leading-7 text-plum-100">Get the best of BeautyPro HQ delivered to your inbox.</p></div>
+                        <div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-rose-200">The beauty brief</p><h2 className="mt-3 font-display text-3xl font-semibold sm:text-4xl">Fresh opportunities, useful news, zero clutter.</h2><p className="mt-3 text-sm leading-7 text-plum-100">Get the best of BeautyPro HQ delivered to your inbox.</p></div>
                         <form onSubmit={subscribe} className="mt-7 flex w-full max-w-lg flex-col gap-2 rounded-2xl bg-white/10 p-2 ring-1 ring-white/15 sm:flex-row lg:mt-0"><label className="flex min-h-12 flex-1 items-center gap-2 px-3"><Icon name="mail" size={18} className="text-rose-200" /><span className="sr-only">Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com" className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-plum-300" /></label><Button type="submit" variant="rose" disabled={newsletterLoading}>{newsletterLoading ? 'Joining…' : 'Join the list'}</Button></form>
                     </div>
                 </div>

@@ -14,6 +14,7 @@ class News extends Model
     {
         return [
             'published_at' => 'datetime',
+            'is_demo' => 'boolean',
             'show_on_homepage' => 'boolean',
         ];
     }

@@ -25,6 +25,19 @@ export function shortDate(value, options = {}) {
     }).format(date);
 }
 
+export function stripHtml(value) {
+    return String(value ?? '')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 export function initials(name = '') {
     return name
         .trim()

@@ -42,7 +42,7 @@ export default function ExpandableTabs({
                         aria-current={isSelected ? 'page' : undefined}
                         aria-label={tab.title}
                         className={cn(
-                            'relative flex h-11 min-w-10 items-center justify-center rounded-xl text-xs font-black transition-[gap,padding,background-color,color] duration-300 ease-out',
+                            'relative flex h-11 min-w-10 items-center justify-center rounded-xl text-xs font-semibold transition-[gap,padding,background-color,color] duration-300 ease-out',
                             isSelected
                                 ? cn('gap-1.5 bg-rose-50 px-3', activeColor)
                                 : 'gap-0 px-[.55rem] text-stone-500 hover:bg-stone-50 hover:text-plum-950',

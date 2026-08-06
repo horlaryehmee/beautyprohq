@@ -22,6 +22,14 @@ import {
 
 const normalize = (value) => Array.isArray(value) ? value : value?.bookings ?? value?.data ?? [];
 const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'rejected'];
+const statusLabel = (status) => status === 'rejected' ? 'declined' : status;
+const filterClass = (status, active) => {
+    if (active && status === 'confirmed') return 'bg-[#027A48] text-white';
+    if (active && status === 'pending') return 'bg-[#B54708] text-white';
+    if (active && status === 'rejected') return 'bg-[#B42318] text-white';
+    if (active) return 'bg-slate-950 text-white';
+    return 'bg-slate-100 text-slate-500 hover:text-slate-900';
+};
 
 export default function ProviderBookingsPage() {
     const [status, setStatus] = useState('all');
@@ -47,7 +55,7 @@ export default function ProviderBookingsPage() {
         try {
             const updated = await apiRequest('patch', `/provider/bookings/${booking.id}/status`, { status: nextStatus, rejection_reason: rejectionReason });
             setBookings((current) => normalize(current).map((item) => item.id === booking.id ? { ...item, ...(updated ?? {}), status: updated?.status ?? nextStatus } : item));
-            notify(`Booking ${nextStatus}.`);
+            notify(`Booking ${statusLabel(nextStatus)}.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -59,7 +67,7 @@ export default function ProviderBookingsPage() {
             <Card>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex gap-2 overflow-x-auto pb-1">
-                        {filters.map((item) => <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold capitalize transition ${status === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500 hover:text-slate-900'}`} key={item} onClick={() => setStatus(item)} type="button">{item}</button>)}
+                        {filters.map((item) => <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold capitalize transition ${filterClass(item, status === item)}`} key={item} onClick={() => setStatus(item)} type="button">{statusLabel(item)}</button>)}
                     </div>
                     <SearchInput className="w-full lg:max-w-xs" onChange={(event) => setQuery(event.target.value)} placeholder="Search customer or service" value={query} />
                 </div>
@@ -106,8 +114,8 @@ export default function ProviderBookingsPage() {
                     <Card className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
                         <div className="flex items-start justify-between gap-4">
                             <div>
-                                <p className="text-xs font-black uppercase tracking-wide text-fuchsia-700">Booking details</p>
-                                <h2 className="mt-1 text-xl font-black text-slate-950">{selectedBooking.service?.name ?? selectedBooking.service_name ?? 'Beauty service'}</h2>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-fuchsia-700">Booking details</p>
+                                <h2 className="mt-1 text-xl font-semibold text-slate-950">{selectedBooking.service?.name ?? selectedBooking.service_name ?? 'Beauty service'}</h2>
                             </div>
                             <Button onClick={() => setSelectedBooking(null)} type="button" variant="secondary">Close</Button>
                         </div>
@@ -125,10 +133,10 @@ export default function ProviderBookingsPage() {
                                 ['Payment', selectedBooking.payment?.status ?? 'unpaid'],
                             ]} />
                         </div>
-                        {selectedBooking.notes && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes}</p></div>}
+                        {selectedBooking.notes && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes}</p></div>}
                         {selectedBooking.custom_fields?.length ? (
                             <div className="mt-4 rounded-2xl border border-slate-100 p-4">
-                                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Extra booking answers</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Extra booking answers</p>
                                 <div className="mt-3 space-y-3">
                                     {selectedBooking.custom_fields.map((field, index) => (
                                         <div key={index}>
@@ -149,7 +157,7 @@ export default function ProviderBookingsPage() {
 function DetailBlock({ title, items }) {
     return (
         <div className="rounded-2xl border border-slate-100 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">{title}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
             <div className="mt-3 space-y-2">
                 {items.map(([label, value]) => (
                     <div className="flex justify-between gap-3 text-sm" key={label}>

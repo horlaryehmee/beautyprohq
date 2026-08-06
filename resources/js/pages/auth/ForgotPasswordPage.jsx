@@ -38,12 +38,12 @@ export default function ForgotPasswordPage() {
             eyebrow="Account recovery"
             title="Reset your password"
             description="Enter the email connected to your account and we will send you a secure reset link."
-            footer={<Link to="/login" className="inline-flex items-center gap-1 font-black text-rose-700 hover:text-rose-900"><Icon name="chevronLeft" size={14} /> Back to login</Link>}
+            footer={<Link to="/login" className="inline-flex items-center gap-1 font-semibold text-rose-700 hover:text-rose-900"><Icon name="chevronLeft" size={14} /> Back to login</Link>}
         >
             {message ? (
                 <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 text-center">
                     <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm"><Icon name="mail" /></span>
-                    <h2 className="mt-4 font-display text-lg font-black text-plum-950">Check your inbox</h2>
+                    <h2 className="mt-4 font-display text-lg font-semibold text-plum-950">Check your inbox</h2>
                     <p className="mt-2 text-sm leading-6 text-emerald-800">{message}</p>
                     <Button variant="secondary" className="mt-5" onClick={() => setMessage('')}>Use another email</Button>
                 </div>

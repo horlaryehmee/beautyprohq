@@ -100,7 +100,7 @@ const sections = [
 function DocumentationAccordion({ title, items, defaultOpen = false }) {
     return (
         <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" open={defaultOpen}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-black text-slate-950">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-slate-950">
                 <span>{title}</span>
                 <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-lg text-slate-500 transition group-open:rotate-45">+</span>
             </summary>

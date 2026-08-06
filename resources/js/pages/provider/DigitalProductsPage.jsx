@@ -86,8 +86,12 @@ export default function ProviderDigitalProductsPage() {
                         {products.map((product) => (
                             <article className="overflow-hidden rounded-2xl border border-slate-100" key={product.id}>
                                 {(product.image_url ?? product.image)
-                                    ? <img alt="" className="h-36 w-full object-cover" src={product.image_url ?? product.image} />
-                                    : <div className="grid h-36 place-items-center bg-gradient-to-br from-fuchsia-50 to-rose-50 text-3xl">BPHQ</div>}
+                                    ? <img alt="" className="h-36 w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={product.image_url ?? product.image} />
+                                    : (
+                                        <div className="grid h-36 place-items-center bg-gradient-to-br from-fuchsia-50 to-rose-50">
+                                            <img src="/brand/bphq-logo-transparent.svg" alt="" className="h-28 w-auto object-contain opacity-80" />
+                                        </div>
+                                    )}
                                 <div className="p-4">
                                     <div className="flex items-start justify-between gap-3">
                                         <h2 className="font-bold text-slate-950">{product.name ?? product.title}</h2>

@@ -156,6 +156,8 @@ export default function ProviderProfilePage() {
 
     const verified = Boolean(profile.verified);
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
+    const activeSubscription = profile.user?.active_subscription ?? profile.user?.activeSubscription;
+    const canEditCoverImage = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
     const profileStrength = Math.min(100, [
         form.name,
         form.provider_category_id,
@@ -288,19 +290,19 @@ export default function ProviderProfilePage() {
             <div className="grid min-w-0 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_320px] xl:gap-5">
                 <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
                     <div className="mb-2 flex items-center justify-between px-1 xl:hidden">
-                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Swipe steps</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Swipe steps</p>
                         <p className="text-[11px] font-bold text-slate-400">{step + 1}/{sections.length}</p>
                     </div>
                     <Card ref={stepRailRef} className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto p-2 xl:mx-0 xl:block xl:space-y-1 xl:p-3">
                         {sections.map(([title, subtitle], index) => (
                             <button ref={(element) => { stepButtonRefs.current[index] = element; }} className={`flex min-w-[132px] shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition xl:w-full xl:min-w-0 xl:gap-3 xl:py-3 ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
-                                <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
-                                <span className="min-w-0"><span className="block truncate text-xs font-black xl:text-sm">{title}</span><span className="hidden text-xs opacity-70 xl:block">{subtitle}</span></span>
+                                <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
+                                <span className="min-w-0"><span className="block truncate text-xs font-semibold xl:text-sm">{title}</span><span className="hidden text-xs opacity-70 xl:block">{subtitle}</span></span>
                             </button>
                         ))}
                     </Card>
                     <div className="pointer-events-none -mt-9 flex justify-end pr-2 xl:hidden">
-                        <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-black text-slate-400 shadow-sm">›</span>
+                        <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-slate-400 shadow-sm">›</span>
                     </div>
                 </aside>
 
@@ -317,7 +319,10 @@ export default function ProviderProfilePage() {
                     {step === 1 && (
                         <div className="grid gap-5 sm:grid-cols-2">
                             <Field label="Profile image URL"><input className={inputClass} onChange={change('profile_photo')} placeholder="https://..." type="url" value={form.profile_photo} /></Field>
-                            <Field label="Cover image URL"><input className={inputClass} onChange={change('cover_image')} placeholder="https://..." type="url" value={form.cover_image} /></Field>
+                            <Field label="Cover image URL">
+                                <input className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={change('cover_image')} placeholder="https://..." type="url" value={form.cover_image} />
+                                {!canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Cover image editing is available on the Pro plan.</p>}
+                            </Field>
                         </div>
                     )}
 
@@ -363,7 +368,7 @@ export default function ProviderProfilePage() {
                                 const slot = form.availability.find((item) => Number(item.day_of_week) === Number(value));
                                 return (
                                     <div className="grid min-w-0 gap-3 rounded-2xl border border-slate-100 p-3 sm:grid-cols-[1fr_150px_150px]" key={value}>
-                                        <label className="flex items-center gap-3 text-sm font-black text-slate-800"><input checked={Boolean(slot)} className="size-4 accent-fuchsia-700" onChange={() => toggleDay(value)} type="checkbox" />{label}</label>
+                                        <label className="flex items-center gap-3 text-sm font-semibold text-slate-800"><input checked={Boolean(slot)} className="size-4 accent-fuchsia-700" onChange={() => toggleDay(value)} type="checkbox" />{label}</label>
                                         <input className={inputClass} disabled={!slot} onChange={(event) => updateSlot(value, { start_time: event.target.value })} type="time" value={slot?.start_time ?? '09:00'} />
                                         <input className={inputClass} disabled={!slot} onChange={(event) => updateSlot(value, { end_time: event.target.value })} type="time" value={slot?.end_time ?? '18:00'} />
                                     </div>
@@ -409,7 +414,7 @@ export default function ProviderProfilePage() {
                     {step === 9 && (
                         <div className="space-y-5">
                             <CardHeader description="This is what admin reviews before awarding the BPHQ verified badge." title="Verification submission" />
-                            {verified ? <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-emerald-600">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-700"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
+                            {verified ? <div className="rounded-2xl bg-[#ECFDF3] p-4 text-sm text-[#027A48] ring-1 ring-[#12B76A]/20"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-[#039855]">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-[#FFFAEB] p-4 text-sm text-[#B54708] ring-1 ring-[#F79009]/24"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
                                 <Field label="Professional information" hint="Include experience, training, specialties, licenses held, and any business registration detail."><textarea className={`${inputClass} min-h-36 resize-y`} onChange={change('professional_info')} value={form.professional_info} /></Field>
                                 <div className="grid gap-4 lg:grid-cols-2">
                                     <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">Certification links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setCertificationUrl(event.target.value)} placeholder="https://certificate-link..." type="url" value={certificationUrl} /><Button onClick={() => addVerificationLink('certification_files', certificationUrl, setCertificationUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} /></div>
@@ -440,7 +445,7 @@ export default function ProviderProfilePage() {
                             </div>
                         </div>
                         <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                            <div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Profile strength</p><p className="text-xs font-black text-slate-700">{profileStrength}%</p></div>
+                            <div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">Profile strength</p><p className="text-xs font-semibold text-slate-700">{profileStrength}%</p></div>
                             <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-400" style={{ width: `${profileStrength}%` }} /></div>
                         </div>
                     </Card>

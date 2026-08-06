@@ -1,21 +1,33 @@
+import { useState } from 'react';
 import Icon from './Icon';
 
 const statusStyles = {
-    active: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
-    approved: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
-    confirmed: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
-    completed: 'bg-sky-50 text-sky-700 ring-sky-600/10',
-    paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
-    published: 'bg-violet-50 text-violet-700 ring-violet-600/10',
-    pending: 'bg-amber-50 text-amber-700 ring-amber-600/10',
-    processing: 'bg-amber-50 text-amber-700 ring-amber-600/10',
-    draft: 'bg-slate-100 text-slate-600 ring-slate-500/10',
-    cancelled: 'bg-rose-50 text-rose-700 ring-rose-600/10',
-    rejected: 'bg-rose-50 text-rose-700 ring-rose-600/10',
-    suspended: 'bg-rose-50 text-rose-700 ring-rose-600/10',
-    failed: 'bg-rose-50 text-rose-700 ring-rose-600/10',
-    unread: 'bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-600/10',
-    featured: 'bg-amber-50 text-amber-700 ring-amber-600/10',
+    active: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    approved: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    confirmed: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    verified: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    completed: 'border-[#B2DDFF] bg-[#EFF8FF] text-[#175CD3]',
+    paid: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    connected: 'border-[#A6F4C5] bg-[#ECFDF3] text-[#027A48]',
+    published: 'border-violet-200 bg-violet-50 text-violet-700',
+    pending: 'border-[#FEDF89] bg-[#FFFAEB] text-[#B54708]',
+    processing: 'border-[#FEDF89] bg-[#FFFAEB] text-[#B54708]',
+    draft: 'border-slate-200 bg-slate-100 text-slate-600',
+    inactive: 'border-slate-200 bg-slate-100 text-slate-600',
+    unverified: 'border-slate-200 bg-white text-slate-600',
+    unpaid: 'border-slate-200 bg-white text-slate-600',
+    empty: 'border-slate-200 bg-white text-slate-600',
+    cancelled: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]',
+    declined: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]',
+    rejected: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]',
+    suspended: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]',
+    failed: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318]',
+    unread: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+    featured: 'border-[#FEDF89] bg-[#FFFAEB] text-[#B54708]',
+};
+
+const statusLabels = {
+    rejected: 'declined',
 };
 
 export const cx = (...values) => values.filter(Boolean).join(' ');
@@ -24,9 +36,9 @@ export function PageHeader({ eyebrow, title, description, actions }) {
     return (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-                {eyebrow && <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-600">{eyebrow}</p>}
-                <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
-                {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>}
+                {eyebrow && <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-bphq-coffee">{eyebrow}</p>}
+                <h1 className="font-display text-[2rem] font-semibold leading-[1.1] text-bphq-espresso sm:text-[2.5rem]">{title}</h1>
+                {description && <p className="mt-2 max-w-2xl text-sm font-normal leading-[1.6] text-bphq-coffee">{description}</p>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
@@ -34,15 +46,15 @@ export function PageHeader({ eyebrow, title, description, actions }) {
 }
 
 export function Card({ children, className = '', padding = true, ...props }) {
-    return <section className={cx('rounded-3xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40', padding && 'p-5 sm:p-6', className)} {...props}>{children}</section>;
+    return <section className={cx('rounded-3xl border border-bphq-chrome/80 bg-white shadow-sm shadow-bphq-beige/40', padding && 'p-5 sm:p-6', className)} {...props}>{children}</section>;
 }
 
 export function CardHeader({ title, description, action }) {
     return (
         <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-                <h2 className="font-bold text-slate-900">{title}</h2>
-                {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+                <h2 className="font-display text-[1.875rem] font-medium leading-[1.15] text-bphq-espresso">{title}</h2>
+                {description && <p className="mt-1 text-sm font-normal leading-[1.6] text-bphq-coffee">{description}</p>}
             </div>
             {action}
         </div>
@@ -74,21 +86,22 @@ export function StatCard({ label, value, note, icon = 'analytics', tone = 'plum'
 
 export function StatusBadge({ status = 'pending' }) {
     const key = String(status).toLowerCase();
-    return <span className={cx('inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold capitalize ring-1 ring-inset', statusStyles[key] ?? 'bg-slate-100 text-slate-600 ring-slate-500/10')}>{String(status).replaceAll('_', ' ')}</span>;
+    const label = statusLabels[key] ?? String(status);
+    return <span className={cx('inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[10px] font-semibold leading-none capitalize shadow-sm sm:min-h-8 sm:px-3 sm:text-xs', statusStyles[key] ?? 'border-slate-200 bg-white text-slate-600')}>{label.replaceAll('_', ' ')}</span>;
 }
 
 export function Button({ children, className = '', variant = 'primary', busy = false, disabled, ...props }) {
     const variants = {
-        primary: 'bg-slate-950 text-white hover:bg-fuchsia-700 shadow-sm',
-        secondary: 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
-        soft: 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100',
-        danger: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
-        ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
+        primary: 'bg-bphq-coffee text-white hover:bg-bphq-espresso shadow-sm',
+        secondary: 'border border-bphq-chrome bg-white text-bphq-espresso hover:bg-bphq-ivory',
+        soft: 'bg-bphq-ivory text-bphq-espresso hover:bg-bphq-beige',
+        danger: 'bg-[#B42318] text-white hover:bg-[#912018] focus:ring-[#FDA29B]',
+        ghost: 'text-bphq-coffee hover:bg-bphq-ivory hover:text-bphq-espresso',
     };
 
     return (
         <button
-            className={cx('inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 disabled:cursor-not-allowed disabled:opacity-50', variants[variant], className)}
+            className={cx('inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold leading-[1.2] transition focus:outline-none focus:ring-2 focus:ring-bphq-beige disabled:cursor-not-allowed disabled:opacity-50', variants[variant], className)}
             disabled={disabled || busy}
             {...props}
         >
@@ -112,7 +125,7 @@ export function Field({ label, error, hint, className = '', children }) {
     );
 }
 
-export const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100';
+export const inputClass = 'w-full rounded-xl border border-bphq-chrome bg-white px-3.5 py-2.5 text-sm text-bphq-espresso outline-none transition placeholder:text-bphq-chrome focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60';
 
 export function SearchInput({ value, onChange, placeholder = 'Search…', className = '' }) {
     return (
@@ -156,11 +169,12 @@ export function ErrorState({ message, onRetry }) {
 }
 
 export function Avatar({ name = 'BeautyPro', src, size = 'md' }) {
+    const [failed, setFailed] = useState(false);
     const sizes = { sm: 'size-9 text-xs', md: 'size-11 text-sm', lg: 'size-16 text-lg' };
     const safeName = String(name || 'BeautyPro');
     const initials = safeName.split(' ').map((word) => word[0]).join('').slice(0, 2).toUpperCase();
-    return src
-        ? <img alt={safeName} className={cx('shrink-0 rounded-2xl object-cover', sizes[size])} src={src} />
+    return src && !failed
+        ? <img alt={safeName} className={cx('shrink-0 rounded-2xl object-cover', sizes[size])} onError={() => setFailed(true)} src={src} />
         : <span className={cx('grid shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-100 to-rose-100 font-bold text-fuchsia-800', sizes[size])}>{initials}</span>;
 }
 

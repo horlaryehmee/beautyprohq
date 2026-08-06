@@ -15,6 +15,7 @@ class Event extends Model
         return [
             'date' => 'datetime',
             'published_at' => 'datetime',
+            'is_demo' => 'boolean',
             'show_on_homepage' => 'boolean',
         ];
     }

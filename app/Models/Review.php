@@ -22,7 +22,7 @@ class Review extends Model
 
     protected function casts(): array
     {
-        return ['is_approved' => 'boolean'];
+        return ['is_approved' => 'boolean', 'is_demo' => 'boolean'];
     }
 
     public function booking(): BelongsTo

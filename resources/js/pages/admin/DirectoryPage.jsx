@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
+import { mediaUrl } from '../../lib/utils';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.providers ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
@@ -15,7 +16,7 @@ export default function AdminDirectoryPage() {
     const [page, setPage] = useState(1);
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, verified: false, is_pro_of_week: false });
-    const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', sort_order: 0, is_active: true });
+    const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', cover_image: '', sort_order: 0, is_active: true });
     const [saving, setSaving] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
     const search = useDebouncedValue(query);
@@ -73,7 +74,7 @@ export default function AdminDirectoryPage() {
         });
     };
 
-    const resetCategoryForm = () => setCategoryForm({ id: null, name: '', description: '', sort_order: 0, is_active: true });
+    const resetCategoryForm = () => setCategoryForm({ id: null, name: '', description: '', cover_image: '', sort_order: 0, is_active: true });
 
     const saveCategory = async (event) => {
         event.preventDefault();
@@ -82,6 +83,7 @@ export default function AdminDirectoryPage() {
             const payload = {
                 name: categoryForm.name,
                 description: categoryForm.description || null,
+                cover_image: categoryForm.cover_image || null,
                 sort_order: Number(categoryForm.sort_order || 0),
                 is_active: Boolean(categoryForm.is_active),
             };
@@ -106,6 +108,7 @@ export default function AdminDirectoryPage() {
         id: category.id,
         name: category.name ?? '',
         description: category.description ?? '',
+        cover_image: category.cover_image ?? '',
         sort_order: category.sort_order ?? 0,
         is_active: Boolean(category.is_active),
     });
@@ -150,7 +153,7 @@ export default function AdminDirectoryPage() {
                         ['pro_of_week', 'Pro of the week'],
                     ].map(([key, label]) => (
                         <button
-                            className={`whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-black transition ${activeTab === key ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}
+                            className={`whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-semibold transition ${activeTab === key ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}
                             key={key}
                             onClick={() => setActiveTab(key)}
                             type="button"
@@ -165,16 +168,23 @@ export default function AdminDirectoryPage() {
                     <div>
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-black text-slate-950">Provider categories</h2>
+                                <h2 className="text-lg font-semibold text-slate-950">Provider categories</h2>
                                 <p className="mt-1 text-sm text-slate-500">These are the categories providers can select for their public profile.</p>
                             </div>
                         </div>
                         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             {categories.map((category) => (
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3" key={category.id}>
+                                    {category.cover_image && (
+                                        <img
+                                            alt=""
+                                            className="mb-3 h-24 w-full rounded-xl object-cover"
+                                            src={mediaUrl(category.cover_image)}
+                                        />
+                                    )}
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
-                                            <p className="text-sm font-black text-slate-950">{category.name}</p>
+                                            <p className="text-sm font-semibold text-slate-950">{category.name}</p>
                                             <p className="mt-1 text-xs font-bold text-slate-400">{Number(category.providers_count ?? 0).toLocaleString()} provider{Number(category.providers_count ?? 0) === 1 ? '' : 's'}</p>
                                         </div>
                                         <StatusBadge status={category.is_active ? 'active' : 'inactive'} />
@@ -188,10 +198,11 @@ export default function AdminDirectoryPage() {
                         </div>
                     </div>
                     <form className="rounded-2xl border border-slate-100 bg-white p-4" onSubmit={saveCategory}>
-                        <h3 className="text-sm font-black text-slate-950">{categoryForm.id ? 'Edit category' : 'Add category'}</h3>
+                        <h3 className="text-sm font-semibold text-slate-950">{categoryForm.id ? 'Edit category' : 'Add category'}</h3>
                         <div className="mt-4 grid gap-3">
                             <Field label="Category name"><input className={inputClass} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="Makeup Artist" required value={categoryForm.name} /></Field>
                             <Field label="Description"><textarea className={`${inputClass} min-h-20`} onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))} value={categoryForm.description} /></Field>
+                            <Field label="Cover image URL"><input className={inputClass} onChange={(event) => setCategoryForm((current) => ({ ...current, cover_image: event.target.value }))} placeholder="https://..." type="url" value={categoryForm.cover_image} /></Field>
                             <div className="grid grid-cols-[1fr_auto] gap-3">
                                 <Field label="Order"><input className={inputClass} min="0" onChange={(event) => setCategoryForm((current) => ({ ...current, sort_order: event.target.value }))} type="number" value={categoryForm.sort_order} /></Field>
                                 <label className="mt-6 flex h-12 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700">
@@ -210,14 +221,14 @@ export default function AdminDirectoryPage() {
             {activeTab === 'pro_of_week' && <Card>
                 <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                     <div>
-                        <h2 className="text-lg font-black text-slate-950">Pro of the week</h2>
+                        <h2 className="text-lg font-semibold text-slate-950">Pro of the week</h2>
                         <p className="mt-1 text-sm leading-6 text-slate-500">Search listed providers and choose who appears in the homepage feature card.</p>
                         {currentProOfWeek && (
                             <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-3">
                                 <Avatar name={currentProOfWeek.user?.name} size="lg" src={currentProOfWeek.profile_photo} />
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-black text-slate-950">{currentProOfWeek.user?.name}</p>
-                                    <p className="truncate text-xs font-semibold text-slate-500">{currentProOfWeek.profession} · {currentProOfWeek.country ?? currentProOfWeek.location}</p>
+                                    <p className="truncate text-sm font-semibold text-slate-950">{currentProOfWeek.user?.name}</p>
+                                    <p className="truncate text-xs font-semibold text-slate-500">{currentProOfWeek.profession} ï¿½ {currentProOfWeek.country ?? currentProOfWeek.location}</p>
                                 </div>
                                 <StatusBadge status="featured" />
                             </div>
@@ -233,10 +244,10 @@ export default function AdminDirectoryPage() {
                                     <button className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${selected ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`} key={provider.id} onClick={() => selectProOfWeek(provider)} type="button">
                                         <Avatar name={user.name} size="md" src={provider.profile_photo} />
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-black text-slate-950">{user.name}</p>
-                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession} · {provider.country ?? provider.location}</p>
+                                            <p className="truncate text-sm font-semibold text-slate-950">{user.name}</p>
+                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession} ï¿½ {provider.country ?? provider.location}</p>
                                         </div>
-                                        {selected ? <StatusBadge status="featured" /> : <span className="text-xs font-black uppercase tracking-wide text-fuchsia-700">Select</span>}
+                                        {selected ? <StatusBadge status="featured" /> : <span className="text-xs font-semibold uppercase tracking-wide text-fuchsia-700">Select</span>}
                                     </button>
                                 );
                             }) : <EmptyState description="Try another provider name, profession, or location." icon="search" title="No providers found" />}
@@ -314,7 +325,7 @@ export default function AdminDirectoryPage() {
             {editing && (
                 <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setEditing(null)}>
                     <Card className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
-                        <h2 className="text-lg font-black text-slate-950">Edit listing</h2>
+                        <h2 className="text-lg font-semibold text-slate-950">Edit listing</h2>
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={saveListing}>
                             <Field className="sm:col-span-2" label="Provider category">
                                 <select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, provider_category_id: event.target.value }))} value={form.provider_category_id}>

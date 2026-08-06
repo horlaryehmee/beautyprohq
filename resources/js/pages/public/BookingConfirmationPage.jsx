@@ -57,29 +57,29 @@ export default function BookingConfirmationPage() {
     }, [cancelled, paymentToken, reference, sessionId]);
 
     return (
-        <section className="min-h-[70vh] bg-[#fbf9f4] px-4 py-16">
+        <section className="min-h-[70vh] bg-[#F7F3ED] px-4 py-16">
             <div className="mx-auto max-w-2xl rounded-[2rem] border border-stone-200 bg-white p-6 text-center shadow-sm sm:p-10">
-                <span className={`mx-auto grid size-16 place-items-center rounded-full ${state === 'success' ? 'bg-emerald-50 text-emerald-600' : state === 'error' || state === 'cancelled' ? 'bg-amber-50 text-amber-600' : 'bg-[#f4efe9] text-[#7d2e3c]'}`}>
+                <span className={`mx-auto grid size-16 place-items-center rounded-full ${state === 'success' ? 'bg-emerald-50 text-emerald-600' : state === 'error' || state === 'cancelled' ? 'bg-amber-50 text-amber-600' : 'bg-[#F7F3ED] text-[#3A2A1F]'}`}>
                     {state === 'verifying' ? <span className="loading-ring loading-ring-small" /> : <Icon name={state === 'success' ? 'check' : 'clock'} size={28} />}
                 </span>
                 <p className="mt-6 section-eyebrow">Booking payment</p>
-                <h1 className="mt-2 font-display text-4xl font-normal text-[#26211e]">{title}</h1>
+                <h1 className="mt-2 font-display text-4xl font-normal text-[#2A1D14]">{title}</h1>
                 <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-stone-600">{message || 'Please wait while we confirm the transaction with the payment gateway.'}</p>
 
                 {payment && (
-                    <div className="mx-auto mt-7 max-w-md rounded-2xl border border-stone-200 bg-[#fffdf8] p-4 text-left text-sm">
+                    <div className="mx-auto mt-7 max-w-md rounded-2xl border border-stone-200 bg-[#FFFFFF] p-4 text-left text-sm">
                         <div className="flex justify-between gap-4 py-2">
                             <span className="text-stone-500">Status</span>
-                            <span className="font-black capitalize text-[#26211e]">{payment.status}</span>
+                            <span className="font-semibold capitalize text-[#2A1D14]">{payment.status}</span>
                         </div>
                         <div className="flex justify-between gap-4 border-t border-stone-100 py-2">
                             <span className="text-stone-500">Amount</span>
-                            <span className="font-black text-[#26211e]">{payment.currency} {Number(payment.amount ?? 0).toLocaleString()}</span>
+                            <span className="font-semibold text-[#2A1D14]">{payment.currency} {Number(payment.amount ?? 0).toLocaleString()}</span>
                         </div>
                         {payment.reference && (
                             <div className="flex justify-between gap-4 border-t border-stone-100 py-2">
                                 <span className="text-stone-500">Reference</span>
-                                <span className="font-black text-[#26211e]">{payment.reference}</span>
+                                <span className="font-semibold text-[#2A1D14]">{payment.reference}</span>
                             </div>
                         )}
                     </div>

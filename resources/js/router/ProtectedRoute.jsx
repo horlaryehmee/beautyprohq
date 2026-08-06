@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LumaSpin from '../components/ui/LumaSpin';
 
 export default function ProtectedRoute({ roles = [] }) {
     const { user, loading } = useAuth();
@@ -9,8 +10,8 @@ export default function ProtectedRoute({ roles = [] }) {
         return (
             <div className="grid min-h-screen place-items-center bg-cream-50" role="status">
                 <div className="text-center">
-                    <span className="mx-auto block h-10 w-10 animate-spin rounded-full border-4 border-rose-100 border-t-plum-700" />
-                    <p className="mt-4 text-sm font-semibold text-plum-800">Preparing your workspace…</p>
+                    <LumaSpin className="mx-auto" />
+                    <p className="mt-4 text-sm font-semibold text-plum-800">Preparing your workspace...</p>
                 </div>
             </div>
         );

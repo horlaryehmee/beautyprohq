@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { collectionFrom } from '../../lib/api';
+import api, { collectionFrom, metaFrom } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
-import { mediaUrl, shortDate } from '../../lib/utils';
+import { mediaUrl, shortDate, stripHtml } from '../../lib/utils';
 
 const fallbackImages = [
     'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1200&q=80',
@@ -33,22 +33,22 @@ function StoryModal({ post, onClose }) {
     if (!post) return null;
 
     return (
-        <div className="fixed inset-0 z-[80] grid place-items-end overflow-y-auto bg-[#1d120e]/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" onMouseDown={onClose}>
+        <div className="fixed inset-0 z-[80] grid place-items-end overflow-y-auto bg-[#2A1D14]/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" onMouseDown={onClose}>
             <article className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem]" onMouseDown={(event) => event.stopPropagation()}>
-                <div className="relative aspect-[16/9] overflow-hidden bg-[#f4efe9]">
-                    <img src={post.image} alt="" className="size-full object-cover" />
-                    <button type="button" onClick={onClose} className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white text-[#34231c] shadow-lg" aria-label="Close">
+                <div className="relative aspect-[16/9] overflow-hidden bg-[#F7F3ED]">
+                    <img src={post.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                    <button type="button" onClick={onClose} className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white text-[#2A1D14] shadow-lg" aria-label="Close">
                         <Icon name="x" size={18} />
                     </button>
                 </div>
                 <div className="p-6 sm:p-8">
-                    <p className="text-xs font-black uppercase tracking-[.16em] text-[#8b4b59]">{post.typeLabel}</p>
-                    <h2 className="mt-3 font-display text-4xl font-normal leading-tight text-[#34231c]">{post.title}</h2>
+                    <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#3A2A1F]">{post.typeLabel}</p>
+                    <h2 className="mt-3 font-display text-4xl font-normal leading-tight text-[#2A1D14]">{stripHtml(post.title)}</h2>
                     <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-stone-500">
                         <span>{post.author}</span>
                         {post.date && <span>{shortDate(post.date)}</span>}
                     </div>
-                    <p className="mt-6 whitespace-pre-line text-sm leading-8 text-stone-600">{post.content ?? post.excerpt}</p>
+                    <p className="mt-6 whitespace-pre-line text-sm leading-8 text-stone-600">{stripHtml(post.content ?? post.excerpt)}</p>
                 </div>
             </article>
         </div>
@@ -57,18 +57,18 @@ function StoryModal({ post, onClose }) {
 
 function StoryRow({ post, selected, onOpen }) {
     return (
-        <button type="button" onClick={() => onOpen(post)} className={`group grid w-full gap-4 rounded-[1.25rem] border p-3 text-left transition sm:grid-cols-[168px_1fr] ${selected ? 'border-[#34231c] bg-[#fbf7f1]' : 'border-[#eadfd5] bg-white hover:border-[#c9bdb2] hover:bg-[#fbf7f1]'}`}>
-            <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#f4efe9] sm:aspect-square">
-                <img src={post.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+        <button type="button" onClick={() => onOpen(post)} className={`group grid w-full grid-cols-[72px_1fr] gap-2.5 rounded-lg border p-2 text-left transition lg:grid-cols-[168px_1fr] lg:gap-4 lg:rounded-[1.25rem] lg:p-3 ${selected ? 'border-[#2A1D14] bg-[#F7F3ED]' : 'border-[#DCCCB8] bg-white hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>
+            <div className="aspect-square overflow-hidden rounded-lg bg-[#F7F3ED] lg:rounded-2xl">
+                <img src={post.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.03]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             </div>
             <div className="min-w-0 py-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-[#f4efe9] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{post.typeLabel}</span>
-                    <span className="text-xs font-bold text-stone-400">{shortDate(post.date)}</span>
+                    <span className="rounded-full bg-[#F7F3ED] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:px-2.5 lg:py-1 lg:text-[10px]">{post.typeLabel}</span>
+                    <span className="text-[10px] font-bold text-stone-400 lg:text-xs">{shortDate(post.date)}</span>
                 </div>
-                <h3 className="mt-3 line-clamp-2 font-display text-2xl font-normal leading-tight text-[#34231c]">{post.title}</h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-stone-600">{post.content ?? post.excerpt}</p>
-                <p className="mt-4 text-xs font-bold text-stone-500">{post.author}</p>
+                <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight text-[#2A1D14] lg:mt-3 lg:text-2xl">{stripHtml(post.title)}</h3>
+                <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-stone-600 lg:mt-2 lg:line-clamp-2 lg:text-sm lg:leading-6">{stripHtml(post.content ?? post.excerpt)}</p>
+                <p className="mt-1 truncate text-[10px] font-bold text-stone-500 lg:mt-4 lg:text-xs">{post.author}</p>
             </div>
         </button>
     );
@@ -77,27 +77,27 @@ function StoryRow({ post, selected, onOpen }) {
 function StoryPreview({ post, onOpen }) {
     if (!post) {
         return (
-            <div className="rounded-[1.5rem] border border-dashed border-[#ded2c7] bg-white p-8 text-center">
-                <p className="font-display text-2xl font-normal text-[#34231c]">Select a story</p>
+            <div className="rounded-[1.5rem] border border-dashed border-[#BFC3C8] bg-white p-8 text-center">
+                <p className="font-display text-2xl font-normal text-[#2A1D14]">Select a story</p>
                 <p className="mt-2 text-sm leading-6 text-stone-500">Community story details will appear here.</p>
             </div>
         );
     }
 
     return (
-        <aside className="overflow-hidden rounded-[1.5rem] border border-[#ded2c7] bg-white">
-            <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
-                <img src={post.image} alt="" className="size-full object-cover" />
+        <aside className="overflow-hidden rounded-[1.5rem] border border-[#BFC3C8] bg-white">
+            <div className="aspect-[4/3] overflow-hidden bg-[#F7F3ED]">
+                <img src={post.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             </div>
             <div className="p-5">
-                <p className="text-xs font-black uppercase tracking-[.16em] text-[#8b4b59]">{post.typeLabel}</p>
-                <h2 className="mt-3 font-display text-3xl font-normal leading-tight text-[#34231c]">{post.title}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#3A2A1F]">{post.typeLabel}</p>
+                <h2 className="mt-3 font-display text-3xl font-normal leading-tight text-[#2A1D14]">{stripHtml(post.title)}</h2>
                 <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-stone-500">
                     <span>{post.author}</span>
                     {post.date && <span>{shortDate(post.date)}</span>}
                 </div>
-                <p className="mt-5 line-clamp-5 text-sm leading-7 text-stone-600">{post.content ?? post.excerpt}</p>
-                <Button onClick={() => onOpen(post)} className="mt-6 w-full rounded-full bg-[#34231c] hover:bg-[#4a2f26]">
+                <p className="mt-5 line-clamp-5 text-sm leading-7 text-stone-600">{stripHtml(post.content ?? post.excerpt)}</p>
+                <Button onClick={() => onOpen(post)} className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]">
                     Open story <Icon name="arrow" size={15} />
                 </Button>
             </div>
@@ -105,10 +105,46 @@ function StoryPreview({ post, onOpen }) {
     );
 }
 
+function PaginationNav({ currentPage, lastPage, onPage }) {
+    if (lastPage <= 1) return null;
+
+    const start = Math.max(1, currentPage - 1);
+    const end = Math.min(lastPage, start + 2);
+    const adjustedStart = Math.max(1, end - 2);
+    const pages = Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+
+    return (
+        <nav className="mt-8 flex items-center justify-center gap-2" aria-label="Community pages">
+            <Button variant="secondary" size="icon" disabled={currentPage <= 1} onClick={() => onPage(currentPage - 1)} aria-label="Previous page"><Icon name="chevronLeft" /></Button>
+            {pages[0] > 1 && (
+                <>
+                    <button type="button" onClick={() => onPage(1)} className="grid size-10 place-items-center rounded-xl border border-stone-200 bg-white text-sm font-semibold text-[#2A1D14]">1</button>
+                    {pages[0] > 2 && <span className="px-1 text-sm font-semibold text-stone-400">...</span>}
+                </>
+            )}
+            {pages.map((page) => (
+                <button key={page} type="button" onClick={() => onPage(page)} aria-current={currentPage === page ? 'page' : undefined} className={`grid size-10 place-items-center rounded-xl text-sm font-semibold transition ${currentPage === page ? 'bg-[#2A1D14] text-white' : 'border border-stone-200 bg-white text-[#2A1D14] hover:bg-[#F7F3ED]'}`}>
+                    {page}
+                </button>
+            ))}
+            {pages.at(-1) < lastPage && (
+                <>
+                    {pages.at(-1) < lastPage - 1 && <span className="px-1 text-sm font-semibold text-stone-400">...</span>}
+                    <button type="button" onClick={() => onPage(lastPage)} className="grid size-10 place-items-center rounded-xl border border-stone-200 bg-white text-sm font-semibold text-[#2A1D14]">{lastPage}</button>
+                </>
+            )}
+            <Button variant="secondary" size="icon" disabled={currentPage >= lastPage} onClick={() => onPage(currentPage + 1)} aria-label="Next page"><Icon name="chevronRight" /></Button>
+        </nav>
+    );
+}
+
 export default function CommunityPage() {
     const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
+    const [meta, setMeta] = useState({});
+    const [filters, setFilters] = useState({});
     const [activeType, setActiveType] = useState('all');
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -116,26 +152,39 @@ export default function CommunityPage() {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get('/community-posts', { params: { per_page: 48 } });
+            const response = await api.get('/community-posts', { params: { page, per_page: 10, type: activeType === 'all' ? undefined : activeType } });
             setPosts(collectionFrom(response).map(normalizePost));
+            setMeta(metaFrom(response));
+            setFilters(response?.data?.filters ?? response?.data?.meta?.filters ?? {});
         } catch (requestError) {
             setError(requestError?.response?.data?.message || 'Community stories could not be loaded.');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [activeType, page]);
 
     useEffect(() => {
         load();
     }, [load]);
 
     const types = useMemo(() => {
-        return Array.from(new Set(posts.map((post) => post.type).filter(Boolean)));
-    }, [posts]);
+        return filters.types?.length ? filters.types : Array.from(new Set(posts.map((post) => post.type).filter(Boolean)));
+    }, [filters.types, posts]);
 
-    const filtered = activeType === 'all' ? posts : posts.filter((post) => post.type === activeType);
-    const preview = filtered[0] ?? posts[0];
+    const preview = posts[0];
     const openPost = (post) => navigate(`/community/${post.id}`);
+    const currentPage = Number(meta.current_page ?? page);
+    const lastPage = Number(meta.last_page ?? 1);
+
+    function selectType(type) {
+        setActiveType(type);
+        setPage(1);
+    }
+
+    function goToPage(nextPage) {
+        setPage(nextPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     return (
         <>
@@ -143,37 +192,37 @@ export default function CommunityPage() {
                 title="Community Stories"
                 description="Read BeautyPro HQ community stories, member spotlights, business wins, event coverage, and day-in-the-life features."
             />
-            <section className="border-b border-[#eadfd5] bg-[#f4efe9] py-10 sm:py-12">
+            <section className="border-b border-[#DCCCB8] bg-[#F7F3ED] py-10 sm:py-12">
                 <div className="page-container">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[.22em] text-[#8b4b59]">Community</p>
-                            <h1 className="mt-3 max-w-4xl font-display text-4xl font-normal leading-tight text-[#34231c] sm:text-6xl">Stories from the BeautyPro HQ community.</h1>
-                            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6f625b]">Spotlights, business wins, event coverage, and behind-the-scenes moments from beauty professionals building with intention.</p>
+                            <p className="text-xs font-semibold uppercase tracking-[.22em] text-[#3A2A1F]">Community</p>
+                            <h1 className="mt-3 max-w-4xl font-display text-3xl font-normal leading-tight text-[#2A1D14] sm:text-6xl">Stories from the BeautyPro HQ community.</h1>
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#3A2A1F] sm:mt-4 sm:leading-7">Spotlights, business wins, event coverage, and behind-the-scenes moments from beauty professionals building with intention.</p>
                         </div>
-                        <a href="mailto:community@beautyprohq.com" className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-full bg-[#34231c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#4a2f26]">
+                        <a href="mailto:community@beautyprohq.com" className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#2A1D14]">
                             Submit story <Icon name="mail" size={15} />
                         </a>
                     </div>
                 </div>
             </section>
 
-            <section className="bg-white py-8 sm:py-10">
+            <section className="bg-white py-5 sm:py-10">
                 <div className="page-container">
-                    <div className="grid gap-6 lg:grid-cols-[260px_1fr_360px]">
-                        <aside className="h-fit rounded-[1.5rem] border border-[#eadfd5] bg-[#fbf8f4] p-3 lg:sticky lg:top-24">
-                            <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Filters</p>
-                            <div className="grid gap-1">
-                                <button type="button" onClick={() => setActiveType('all')} className={`rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${activeType === 'all' ? 'bg-[#34231c] text-white' : 'text-[#6f625b] hover:bg-white hover:text-[#34231c]'}`}>
+                    <div className="grid gap-4 lg:grid-cols-[260px_1fr_360px] lg:gap-6">
+                        <aside className="h-fit rounded-[1.5rem] border border-[#DCCCB8] bg-[#F7F3ED] p-2.5 lg:sticky lg:top-24 lg:p-3">
+                            <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Filters</p>
+                            <div className="flex gap-1 overflow-x-auto scrollbar-none lg:grid lg:overflow-visible">
+                                <button type="button" onClick={() => selectType('all')} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeType === 'all' ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>
                                     All stories
                                 </button>
                                 {types.map((type) => (
-                                    <button key={type} type="button" onClick={() => setActiveType(type)} className={`rounded-2xl px-4 py-3 text-left text-sm font-bold capitalize transition ${activeType === type ? 'bg-[#34231c] text-white' : 'text-[#6f625b] hover:bg-white hover:text-[#34231c]'}`}>
+                                    <button key={type} type="button" onClick={() => selectType(type)} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold capitalize transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeType === type ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>
                                         {typeLabel(type)}
                                     </button>
                                 ))}
                             </div>
-                            <Button variant="secondary" onClick={load} disabled={loading} className="mt-4 w-full">
+                            <Button variant="secondary" onClick={load} disabled={loading} className="mt-3 w-full lg:mt-4">
                                 Refresh <Icon name="refresh" size={15} />
                             </Button>
                         </aside>
@@ -182,13 +231,16 @@ export default function CommunityPage() {
                             {error && <InlineAlert className="mb-6">{error} <button type="button" onClick={load} className="ml-1 underline">Try again</button></InlineAlert>}
 
                             {loading ? (
-                                <div className="grid gap-4">
-                                    {Array.from({ length: 5 }).map((_, index) => <div key={index} className="rounded-[1.25rem] border border-stone-200 bg-white p-3"><div className="grid gap-4 sm:grid-cols-[168px_1fr]"><div className="skeleton aspect-square rounded-2xl" /><div className="space-y-3 py-2"><div className="skeleton h-3 w-24 rounded" /><div className="skeleton h-8 w-4/5 rounded" /><div className="skeleton h-4 w-full rounded" /><div className="skeleton h-4 w-2/3 rounded" /></div></div></div>)}
+                                <div className="grid gap-3 sm:gap-4">
+                                    {Array.from({ length: 5 }).map((_, index) => <div key={index} className="rounded-lg border border-stone-200 bg-white p-2 lg:rounded-[1.25rem] lg:p-3"><div className="grid grid-cols-[72px_1fr] gap-2.5 lg:grid-cols-[168px_1fr] lg:gap-4"><div className="skeleton aspect-square rounded-lg lg:rounded-2xl" /><div className="space-y-1.5 py-1 lg:space-y-3 lg:py-2"><div className="skeleton h-3 w-24 rounded" /><div className="skeleton h-5 w-4/5 rounded lg:h-8" /><div className="skeleton h-3 w-full rounded lg:h-4" /><div className="skeleton h-3 w-2/3 rounded lg:h-4" /></div></div></div>)}
                                 </div>
-                            ) : filtered.length ? (
-                                <div className="grid gap-3">
-                                    {filtered.map((post) => <StoryRow key={post.id} post={post} selected={preview?.id === post.id} onOpen={openPost} />)}
-                                </div>
+                            ) : posts.length ? (
+                                <>
+                                    <div className="grid gap-3">
+                                        {posts.map((post) => <StoryRow key={post.id} post={post} selected={preview?.id === post.id} onOpen={openPost} />)}
+                                    </div>
+                                    <PaginationNav currentPage={currentPage} lastPage={lastPage} onPage={goToPage} />
+                                </>
                             ) : !error && (
                                 <EmptyState icon="heart" title="No community stories yet" message="Approved member spotlights, wins, and event coverage will appear here." />
                             )}

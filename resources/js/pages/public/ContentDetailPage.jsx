@@ -1,11 +1,11 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api, { collectionFrom, unwrap } from '../../lib/api';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
 import { buttonClass } from '../../components/ui/Button';
-import { mediaUrl, shortDate } from '../../lib/utils';
+import { mediaUrl, shortDate, stripHtml } from '../../lib/utils';
 
 const fallbacks = {
     news: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1600&q=80',
@@ -37,10 +37,6 @@ function typeLabel(type, item = {}) {
 
 function bodyFor(type, item = {}) {
     return type === 'event' ? item.description : item.content;
-}
-
-function stripHtml(value) {
-    return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function readingTime(content) {
@@ -81,12 +77,12 @@ function DetailPanel({ item, type, onShare }) {
     return (
         <aside className="lg:sticky lg:top-24">
             <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_45px_rgba(52,35,28,.06)]">
-                <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">{type === 'event' ? 'Event details' : 'Article details'}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">{type === 'event' ? 'Event details' : 'Article details'}</p>
                 <dl className="mt-4 space-y-4">
                     {details.map(([label, value]) => (
                         <div key={label}>
-                            <dt className="text-[11px] font-black uppercase tracking-wide text-stone-400">{label}</dt>
-                            <dd className="mt-1 text-sm font-bold leading-6 text-[#34231c]">{value}</dd>
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">{label}</dt>
+                            <dd className="mt-1 text-sm font-bold leading-6 text-[#2A1D14]">{value}</dd>
                         </div>
                     ))}
                 </dl>
@@ -96,16 +92,16 @@ function DetailPanel({ item, type, onShare }) {
                             Register <Icon name="arrow" size={15} />
                         </a>
                     )}
-                    <button type="button" onClick={onShare} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:border-[#8b4b59] hover:text-[#8b4b59]">
+                    <button type="button" onClick={onShare} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-5 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:border-[#3A2A1F] hover:text-[#3A2A1F]">
                         Share <Icon name="external" size={15} />
                     </button>
                 </div>
             </div>
 
             {item.excerpt && (
-                <div className="mt-4 rounded-lg bg-[#34231c] p-5 text-white">
-                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-rose-200">Key takeaway</p>
-                    <p className="mt-3 text-sm font-semibold leading-7 text-white/86">{item.excerpt}</p>
+                <div className="mt-4 rounded-lg bg-[#2A1D14] p-5 text-white">
+                    <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-rose-200">Key takeaway</p>
+                    <p className="mt-3 text-sm font-semibold leading-7 text-white/86">{stripHtml(item.excerpt)}</p>
                 </div>
             )}
         </aside>
@@ -147,44 +143,44 @@ function EventRegistrationForm({ event }) {
     };
 
     return (
-        <section id="event-registration" className="mt-10 scroll-mt-24 rounded-lg border border-stone-200 bg-[#fbf8f5] p-5 sm:p-6">
+        <section id="event-registration" className="mt-10 scroll-mt-24 rounded-lg border border-stone-200 bg-[#F7F3ED] p-5 sm:p-6">
             <div className="max-w-2xl">
-                <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Event registration</p>
-                <h2 className="mt-2 font-display text-3xl font-normal leading-tight text-[#34231c]">Reserve your place</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Event registration</p>
+                <h2 className="mt-2 font-display text-3xl font-normal leading-tight text-[#2A1D14]">Reserve your place</h2>
             </div>
 
             <form className="mt-6 grid gap-4" onSubmit={submit}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block">
-                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Full name</span>
-                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('name', input.target.value)} required value={form.name} />
+                        <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Full name</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('name', input.target.value)} required value={form.name} />
                     </label>
                     <label className="block">
-                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Email address</span>
-                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('email', input.target.value)} required type="email" value={form.email} />
+                        <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Email address</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('email', input.target.value)} required type="email" value={form.email} />
                     </label>
                     <label className="block">
-                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Phone number</span>
-                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('phone', input.target.value)} value={form.phone} />
+                        <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Phone number</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('phone', input.target.value)} value={form.phone} />
                     </label>
                     <label className="block">
-                        <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Professional role</span>
-                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('professional_role', input.target.value)} placeholder="Makeup artist, educator, founder..." value={form.professional_role} />
+                        <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Professional role</span>
+                        <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('professional_role', input.target.value)} placeholder="Makeup artist, educator, founder..." value={form.professional_role} />
                     </label>
                 </div>
                 <label className="block">
-                    <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Business or brand name</span>
-                    <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('business_name', input.target.value)} value={form.business_name} />
+                    <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Business or brand name</span>
+                    <input className="w-full rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('business_name', input.target.value)} value={form.business_name} />
                 </label>
                 <label className="block">
-                    <span className="mb-1.5 block text-sm font-bold text-[#34231c]">Notes</span>
-                    <textarea className="min-h-28 w-full resize-y rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm leading-6 text-[#34231c] outline-none transition focus:border-[#8b4b59] focus:ring-4 focus:ring-[#8b4b59]/10" onChange={(input) => update('notes', input.target.value)} placeholder="Share accessibility needs, questions, or what you hope to get from the event." value={form.notes} />
+                    <span className="mb-1.5 block text-sm font-bold text-[#2A1D14]">Notes</span>
+                    <textarea className="min-h-28 w-full resize-y rounded-md border border-stone-200 bg-white px-3.5 py-3 text-sm leading-6 text-[#2A1D14] outline-none transition focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" onChange={(input) => update('notes', input.target.value)} placeholder="Share accessibility needs, questions, or what you hope to get from the event." value={form.notes} />
                 </label>
 
                 {message && <p className="rounded-md bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{message}</p>}
                 {error && <p className="rounded-md bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</p>}
 
-                <button className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full bg-[#7d2e3c] px-6 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#682533] disabled:cursor-not-allowed disabled:opacity-60" disabled={saving} type="submit">
+                <button className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full bg-[#3A2A1F] px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#3A2A1F] disabled:cursor-not-allowed disabled:opacity-60" disabled={saving} type="submit">
                     {saving ? 'Submitting...' : 'Register for event'} <Icon name="arrow" size={15} />
                 </button>
             </form>
@@ -199,13 +195,13 @@ function RelatedCard({ item, type }) {
         : `/news-events/${type === 'event' ? 'events' : 'news'}/${item.slug}`;
 
     return (
-        <Link to={href} className="group grid w-64 shrink-0 gap-3 bg-transparent transition hover:-translate-y-0.5 sm:w-auto sm:rounded-3xl sm:border sm:border-[#eadfd5] sm:bg-white sm:p-3 sm:hover:shadow-[0_18px_45px_rgba(52,35,28,.08)]">
-            <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9] sm:rounded-2xl">
-                <img src={image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" />
+        <Link to={href} className="group grid w-64 shrink-0 gap-3 bg-transparent transition hover:-translate-y-0.5 sm:w-auto sm:rounded-3xl sm:border sm:border-[#DCCCB8] sm:bg-white sm:p-3 sm:hover:shadow-[0_18px_45px_rgba(52,35,28,.08)]">
+            <div className="aspect-[4/3] overflow-hidden bg-[#F7F3ED] sm:rounded-2xl">
+                <img src={image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             </div>
             <div className="px-1 pb-2">
-                <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#8b4b59]">{typeLabel(type, item)}</p>
-                <h3 className="mt-2 line-clamp-2 font-display text-2xl font-normal leading-tight text-[#34231c]">{item.title}</h3>
+                <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#3A2A1F]">{typeLabel(type, item)}</p>
+                <h3 className="mt-2 line-clamp-2 font-display text-2xl font-normal leading-tight text-[#2A1D14]">{stripHtml(item.title)}</h3>
             </div>
         </Link>
     );
@@ -270,7 +266,7 @@ export default function ContentDetailPage({ type = 'news' }) {
 
     if (loading) {
         return (
-            <section className="bg-[#f4efe9] py-16">
+            <section className="bg-[#F7F3ED] py-16">
                 <div className="page-container">
                     <div className="mx-auto max-w-5xl rounded-[2rem] bg-white p-5">
                         <div className="skeleton aspect-[16/8] rounded-[1.5rem]" />
@@ -300,7 +296,7 @@ export default function ContentDetailPage({ type = 'news' }) {
     async function shareContent() {
         const url = window.location.href;
         if (navigator.share) {
-            await navigator.share({ title: normalized.title, url }).catch(() => {});
+            await navigator.share({ title: stripHtml(normalized.title), url }).catch(() => {});
             return;
         }
         await navigator.clipboard?.writeText(url).catch(() => {});
@@ -309,39 +305,39 @@ export default function ContentDetailPage({ type = 'news' }) {
     return (
         <>
             <Seo
-                title={normalized.seo_title || normalized.title}
+                title={stripHtml(normalized.seo_title || normalized.title)}
                 description={normalized.seo_description || normalized.excerpt || stripHtml(normalized.body).slice(0, 160)}
                 image={normalized.image}
                 type="article"
             />
             <div className="fixed inset-x-0 top-0 z-[100] h-1 bg-transparent">
-                <div className="h-full bg-[#7d2e3c] transition-[width] duration-100" style={{ width: `${progress}%` }} />
+                <div className="h-full bg-[#3A2A1F] transition-[width] duration-100" style={{ width: `${progress}%` }} />
             </div>
 
             <section className="bg-white">
                 <div className="relative">
                     <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4 py-4 sm:px-8">
-                        <button type="button" onClick={() => navigate(backPath(type))} className="grid size-10 place-items-center rounded-full bg-white/90 text-[#241711] shadow-sm backdrop-blur" aria-label="Go back">
+                        <button type="button" onClick={() => navigate(backPath(type))} className="grid size-10 place-items-center rounded-full bg-white/90 text-[#2A1D14] shadow-sm backdrop-blur" aria-label="Go back">
                             <Icon name="chevronLeft" size={20} />
                         </button>
                         <div className="flex gap-2">
-                            <button type="button" className="grid size-10 place-items-center rounded-full bg-white/90 text-[#241711] shadow-sm backdrop-blur" aria-label="Save article">
+                            <button type="button" className="grid size-10 place-items-center rounded-full bg-white/90 text-[#2A1D14] shadow-sm backdrop-blur" aria-label="Save article">
                                 <Icon name="heart" size={18} />
                             </button>
-                            <button type="button" onClick={shareContent} className="grid size-10 place-items-center rounded-full bg-white/90 text-[#241711] shadow-sm backdrop-blur" aria-label="Share article">
+                            <button type="button" onClick={shareContent} className="grid size-10 place-items-center rounded-full bg-white/90 text-[#2A1D14] shadow-sm backdrop-blur" aria-label="Share article">
                                 <Icon name="external" size={17} />
                             </button>
                         </div>
                     </div>
 
-                    <div className="relative h-[460px] overflow-hidden bg-[#d8d3cc] sm:h-[560px] lg:h-[660px]">
-                        <img src={normalized.image} alt="" className="size-full object-cover" />
+                    <div className="relative h-[460px] overflow-hidden bg-[#DCCCB8] sm:h-[560px] lg:h-[660px]">
+                        <img src={normalized.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/20 to-black/10" />
                         <div className="absolute inset-x-0 bottom-0">
                             <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-6 lg:pb-12">
-                                <span className="inline-block bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[.16em] text-[#241711]">{normalized.label}</span>
-                                <h1 className="mt-4 max-w-4xl font-display text-[2.65rem] font-normal leading-[.96] tracking-[-.02em] text-white sm:text-6xl lg:text-7xl">{normalized.title}</h1>
-                                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-[.14em] text-white/80">
+                                <span className="inline-block bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#2A1D14]">{normalized.label}</span>
+                                <h1 className="mt-4 max-w-4xl font-display text-[2.65rem] font-normal leading-[.96] tracking-normal text-white sm:text-6xl lg:text-7xl">{stripHtml(normalized.title)}</h1>
+                                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold uppercase tracking-[.14em] text-white/80">
                                     <span>By {normalized.author}</span>
                                     {normalized.date && <span>{shortDate(normalized.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                                     {type !== 'event' && <span>{normalized.readingTime} min read</span>}
@@ -355,11 +351,11 @@ export default function ContentDetailPage({ type = 'news' }) {
                 <article className="mx-auto grid max-w-6xl gap-8 px-5 pb-12 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:pb-16 lg:pt-12">
                     <div className="min-w-0">
                         <div className="mb-8 flex items-center gap-4 border-b border-stone-200 pb-6">
-                            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#f4efe9] font-display text-xl font-normal text-[#241711]">
+                            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-[#F7F3ED] font-display text-xl font-normal text-[#2A1D14]">
                                 {String(normalized.author || 'B').slice(0, 1)}
                             </div>
                             <div className="min-w-0">
-                                <p className="truncate text-xs font-black uppercase tracking-[.14em] text-[#241711]">Published by {normalized.author}</p>
+                                <p className="truncate text-xs font-semibold uppercase tracking-[.14em] text-[#2A1D14]">Published by {normalized.author}</p>
                                 <p className="mt-1 text-xs font-semibold text-stone-500">
                                     {normalized.date ? shortDate(normalized.date) : 'BeautyPro HQ'}{normalized.location ? ` / ${normalized.location}` : ''}
                                 </p>
@@ -367,8 +363,8 @@ export default function ContentDetailPage({ type = 'news' }) {
                         </div>
 
                         {normalized.excerpt && (
-                            <p className="mb-8 border-l-2 border-[#7d2e3c] pl-5 font-display text-2xl font-normal italic leading-tight text-[#34231c] sm:text-3xl">
-                                {normalized.excerpt}
+                            <p className="mb-8 border-l-2 border-[#3A2A1F] pl-5 font-display text-2xl font-normal italic leading-tight text-[#2A1D14] sm:text-3xl">
+                                {stripHtml(normalized.excerpt)}
                             </p>
                         )}
 
@@ -388,14 +384,14 @@ export default function ContentDetailPage({ type = 'news' }) {
             </section>
 
             {related.length > 0 && (
-                <section className="border-t border-stone-200 bg-[#f4efe9] py-8 sm:py-12">
+                <section className="border-t border-stone-200 bg-[#F7F3ED] py-8 sm:py-12">
                     <div className="px-5 sm:page-container">
                         <div className="mb-6 flex items-end justify-between gap-4">
                             <div>
-                                <p className="text-xs font-black uppercase tracking-[.18em] text-[#8b4b59]">Keep reading</p>
-                                <h2 className="mt-2 font-display text-3xl font-normal text-[#34231c]">Related updates</h2>
+                                <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Keep reading</p>
+                                <h2 className="mt-2 font-display text-3xl font-normal text-[#2A1D14]">Related updates</h2>
                             </div>
-                            <Link to={backPath(type)} className="hidden text-xs font-black uppercase tracking-wide text-[#7d2e3c] sm:inline-flex">View all</Link>
+                            <Link to={backPath(type)} className="hidden text-xs font-semibold uppercase tracking-wide text-[#3A2A1F] sm:inline-flex">View all</Link>
                         </div>
                         <div className="flex gap-4 overflow-x-auto pb-3 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3 [&::-webkit-scrollbar]:hidden">
                             {related.map((entry) => <RelatedCard key={entry.id} item={entry} type={type} />)}

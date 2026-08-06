@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { collectionFrom } from '../../lib/api';
+import api, { collectionFrom, metaFrom } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
-import { mediaUrl, shortDate } from '../../lib/utils';
+import { mediaUrl, shortDate, stripHtml } from '../../lib/utils';
 
 const fallbackImages = [
     'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
@@ -61,7 +61,7 @@ function normalize(item, kind, index) {
         date,
         sortDate: date ? new Date(date).getTime() : 0,
         image: mediaUrl(item.image_url ?? item.image) ?? fallbackImages[index % fallbackImages.length],
-        summary: item.excerpt ?? item.description ?? item.content,
+        summary: stripHtml(item.excerpt ?? item.description ?? item.content),
         cta: kind === 'event' ? 'View event' : 'Read more',
         href: item.slug ? `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}` : null,
     };
@@ -71,17 +71,19 @@ function FeaturedCard({ item, onOpen }) {
     if (!item) return null;
 
     return (
-        <article className="group relative flex min-h-[360px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)] sm:min-h-[430px]">
-            <img src={item.image} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/25 to-black/76" />
-            <div className="relative z-10 flex h-full min-h-[360px] flex-col p-6 sm:min-h-[430px] sm:p-8">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
-                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#34231c]">{item.kind === 'event' ? 'Event' : 'News'}</span>
-                    {item.date && <span className="text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
+        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm lg:relative lg:flex lg:min-h-[430px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)]">
+            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
+                <img src={item.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+            </div>
+            <div className="relative hidden lg:block lg:absolute lg:inset-0 lg:bg-gradient-to-b lg:from-black/30 lg:via-black/25 lg:to-black/76" />
+            <div className="relative z-10 flex h-full min-h-0 flex-col p-2.5 lg:min-h-[430px] lg:p-8">
+                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
+                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{item.kind === 'event' ? 'Event' : 'News'}</span>
+                    {item.date && <span className="text-stone-500 lg:text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
                 </div>
-                <h2 className="mt-auto max-w-2xl font-display text-4xl font-normal leading-tight sm:text-5xl">{item.title}</h2>
-                {item.summary && <p className="mt-4 line-clamp-2 max-w-xl text-sm font-semibold leading-6 text-white/82">{item.summary}</p>}
-                <button type="button" onClick={() => onOpen(item)} className="mt-6 inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
+                <h2 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-auto lg:max-w-2xl lg:text-5xl">{stripHtml(item.title)}</h2>
+                {item.summary && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-xl lg:text-sm lg:font-semibold lg:leading-6 lg:text-white/82">{item.summary}</p>}
+                <button type="button" onClick={() => onOpen(item)} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-6 lg:text-xs lg:text-white">
                     {item.cta} <Icon name="arrow" size={14} />
                 </button>
             </div>
@@ -91,17 +93,19 @@ function FeaturedCard({ item, onOpen }) {
 
 function UpdateCard({ item, onOpen }) {
     return (
-        <article className="group relative flex h-[320px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(52,35,28,.14)]">
-            <img src={item.image} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
-            <div className="relative z-10 flex h-full flex-col p-6">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
-                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#34231c]">{item.kind === 'event' ? 'Event' : 'News'}</span>
-                    {item.date && <span className="text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
+        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm transition duration-300 hover:border-[#BFC3C8] hover:bg-[#F7F3ED] lg:relative lg:flex lg:h-[320px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)] lg:hover:-translate-y-1 lg:hover:shadow-[0_26px_70px_rgba(52,35,28,.14)]">
+            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
+                <img src={item.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+            </div>
+            <div className="relative hidden lg:block lg:absolute lg:inset-0 lg:bg-gradient-to-b lg:from-black/30 lg:via-black/30 lg:to-black/72" />
+            <div className="relative z-10 flex h-full flex-col p-2.5 lg:p-6">
+                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
+                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{item.kind === 'event' ? 'Event' : 'News'}</span>
+                    {item.date && <span className="text-stone-500 lg:text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
                 </div>
-                <h3 className="mt-7 max-w-[15rem] font-display text-2xl font-normal leading-tight">{item.title}</h3>
-                {item.summary && <p className="mt-4 line-clamp-2 max-w-[13rem] text-xs font-semibold leading-5 text-white/82">{item.summary}</p>}
-                <button type="button" onClick={() => onOpen(item)} className="mt-auto inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
+                <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-7 lg:max-w-[15rem] lg:text-2xl">{stripHtml(item.title)}</h3>
+                {item.summary && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-[13rem] lg:text-xs lg:font-semibold lg:leading-5 lg:text-white/82">{item.summary}</p>}
+                <button type="button" onClick={() => onOpen(item)} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-auto lg:text-xs lg:text-white">
                     {item.cta} <Icon name="arrow" size={14} />
                 </button>
             </div>
@@ -113,25 +117,25 @@ function DetailModal({ item, onClose }) {
     if (!item) return null;
 
     return (
-        <div className="fixed inset-0 z-[80] grid place-items-end overflow-y-auto bg-[#1d120e]/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" onMouseDown={onClose}>
+        <div className="fixed inset-0 z-[80] grid place-items-end overflow-y-auto bg-[#2A1D14]/45 p-0 backdrop-blur-sm sm:place-items-center sm:p-5" onMouseDown={onClose}>
             <article className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem]" onMouseDown={(event) => event.stopPropagation()}>
-                <div className="relative aspect-[16/9] overflow-hidden bg-[#f4efe9]">
-                    <img src={item.image} alt="" className="size-full object-cover" />
-                    <button type="button" onClick={onClose} className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white text-[#34231c] shadow-lg" aria-label="Close">
+                <div className="relative aspect-[16/9] overflow-hidden bg-[#F7F3ED]">
+                    <img src={item.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                    <button type="button" onClick={onClose} className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white text-[#2A1D14] shadow-lg" aria-label="Close">
                         <Icon name="x" size={18} />
                     </button>
                 </div>
                 <div className="p-6 sm:p-8">
-                    <div className="flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-wide text-[#8b4b59]">
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">
                         <span>{item.kind}</span>
                         <span className="text-stone-300">/</span>
                         <span>{shortDate(item.date)}</span>
                         {item.location && <><span className="text-stone-300">/</span><span>{item.location}</span></>}
                     </div>
-                    <h2 className="mt-4 font-display text-4xl font-normal leading-tight text-[#34231c]">{item.title}</h2>
-                    <p className="mt-5 whitespace-pre-line text-sm leading-8 text-stone-600">{item.content ?? item.description ?? item.summary}</p>
+                    <h2 className="mt-4 font-display text-4xl font-normal leading-tight text-[#2A1D14]">{stripHtml(item.title)}</h2>
+                    <p className="mt-5 whitespace-pre-line text-sm leading-8 text-stone-600">{stripHtml(item.content ?? item.description ?? item.summary)}</p>
                     {item.registration_url && (
-                        <a href={item.registration_url} target="_blank" rel="noreferrer" className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#34231c] px-6 text-xs font-black uppercase tracking-wide text-white">
+                        <a href={item.registration_url} target="_blank" rel="noreferrer" className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-6 text-xs font-semibold uppercase tracking-wide text-white">
                             Register now <Icon name="arrow" size={14} />
                         </a>
                     )}
@@ -141,31 +145,85 @@ function DetailModal({ item, onClose }) {
     );
 }
 
+function PaginationNav({ currentPage, lastPage, onPage }) {
+    if (lastPage <= 1) return null;
+
+    const start = Math.max(1, currentPage - 1);
+    const end = Math.min(lastPage, start + 2);
+    const adjustedStart = Math.max(1, end - 2);
+    const pages = Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+
+    return (
+        <nav className="mt-8 flex items-center justify-center gap-2" aria-label="Updates pages">
+            <Button variant="secondary" size="icon" disabled={currentPage <= 1} onClick={() => onPage(currentPage - 1)} aria-label="Previous page"><Icon name="chevronLeft" /></Button>
+            {pages[0] > 1 && (
+                <>
+                    <button type="button" onClick={() => onPage(1)} className="grid size-10 place-items-center rounded-xl border border-stone-200 bg-white text-sm font-semibold text-[#2A1D14]">1</button>
+                    {pages[0] > 2 && <span className="px-1 text-sm font-semibold text-stone-400">...</span>}
+                </>
+            )}
+            {pages.map((page) => (
+                <button key={page} type="button" onClick={() => onPage(page)} aria-current={currentPage === page ? 'page' : undefined} className={`grid size-10 place-items-center rounded-xl text-sm font-semibold transition ${currentPage === page ? 'bg-[#2A1D14] text-white' : 'border border-stone-200 bg-white text-[#2A1D14] hover:bg-[#F7F3ED]'}`}>
+                    {page}
+                </button>
+            ))}
+            {pages.at(-1) < lastPage && (
+                <>
+                    {pages.at(-1) < lastPage - 1 && <span className="px-1 text-sm font-semibold text-stone-400">...</span>}
+                    <button type="button" onClick={() => onPage(lastPage)} className="grid size-10 place-items-center rounded-xl border border-stone-200 bg-white text-sm font-semibold text-[#2A1D14]">{lastPage}</button>
+                </>
+            )}
+            <Button variant="secondary" size="icon" disabled={currentPage >= lastPage} onClick={() => onPage(currentPage + 1)} aria-label="Next page"><Icon name="chevronRight" /></Button>
+        </nav>
+    );
+}
+
 export default function NewsEventsPage({ initialTab = 'all' }) {
     const navigate = useNavigate();
     const [news, setNews] = useState([]);
     const [events, setEvents] = useState([]);
+    const [newsMeta, setNewsMeta] = useState({});
+    const [eventsMeta, setEventsMeta] = useState({});
     const [selected, setSelected] = useState(null);
     const [active, setActive] = useState(initialTab);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const standalone = initialTab === 'news' || initialTab === 'event';
+    const pageKind = standalone ? initialTab : active;
 
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const [newsResponse, eventsResponse] = await Promise.all([
-                api.get('/news', { params: { per_page: 24 } }),
-                api.get('/events', { params: { per_page: 24 } }),
-            ]);
-            setNews(collectionFrom(newsResponse));
-            setEvents(collectionFrom(eventsResponse));
+            if (pageKind === 'news') {
+                const newsResponse = await api.get('/news', { params: { page, per_page: 9 } });
+                setNews(collectionFrom(newsResponse));
+                setNewsMeta(metaFrom(newsResponse));
+                setEvents([]);
+                setEventsMeta({});
+            } else if (pageKind === 'event') {
+                const eventsResponse = await api.get('/events', { params: { page, per_page: 9 } });
+                setEvents(collectionFrom(eventsResponse));
+                setEventsMeta(metaFrom(eventsResponse));
+                setNews([]);
+                setNewsMeta({});
+            } else {
+                const [newsResponse, eventsResponse] = await Promise.all([
+                    api.get('/news', { params: { page, per_page: 6 } }),
+                    api.get('/events', { params: { page, per_page: 6 } }),
+                ]);
+                setNews(collectionFrom(newsResponse));
+                setNewsMeta(metaFrom(newsResponse));
+                setEvents(collectionFrom(eventsResponse));
+                setEventsMeta(metaFrom(eventsResponse));
+            }
         } catch (requestError) {
             setError(requestError?.response?.data?.message || 'News and events could not be loaded.');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [page, pageKind]);
 
     useEffect(() => {
         load();
@@ -173,6 +231,7 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
 
     useEffect(() => {
         setActive(initialTab);
+        setPage(1);
     }, [initialTab]);
 
     const items = useMemo(() => {
@@ -194,8 +253,6 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
         setSelected(item);
     }
 
-    const standalone = initialTab === 'news' || initialTab === 'event';
-    const pageKind = standalone ? initialTab : active;
     const pageTitle = initialTab === 'event' ? 'Events' : initialTab === 'news' ? 'News' : 'News & Events';
     const pageSubtitle = initialTab === 'event'
         ? 'Upcoming beauty industry events, workshops, launches, and professional gatherings.'
@@ -205,6 +262,22 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
     const filtered = pageKind === 'all' ? items : items.filter((item) => item.kind === pageKind);
     const featured = filtered[0] ?? items[0];
     const gridItems = standalone ? filtered : filtered.filter((item) => item !== featured);
+    const currentPage = Number((pageKind === 'event' ? eventsMeta : pageKind === 'news' ? newsMeta : { current_page: page }).current_page ?? page);
+    const lastPage = Number(pageKind === 'event'
+        ? (eventsMeta.last_page ?? 1)
+        : pageKind === 'news'
+            ? (newsMeta.last_page ?? 1)
+            : Math.max(Number(newsMeta.last_page ?? 1), Number(eventsMeta.last_page ?? 1)));
+
+    function changeTab(tab) {
+        setActive(tab);
+        setPage(1);
+    }
+
+    function goToPage(nextPage) {
+        setPage(nextPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     return (
         <>
@@ -216,7 +289,7 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                 <div className="page-container">
                     <div className="mb-5 flex items-center justify-between gap-4">
                         <div>
-                            <h1 className="font-display text-3xl font-normal leading-none text-[#34231c] sm:text-4xl">{pageTitle}</h1>
+                            <h1 className="font-display text-3xl font-normal leading-none text-[#2A1D14] sm:text-4xl">{pageTitle}</h1>
                             <p className="mt-1 max-w-xl text-xs font-semibold text-stone-500 sm:text-sm">{pageSubtitle}</p>
                         </div>
                         <Button variant="secondary" onClick={load} disabled={loading} className="hidden sm:inline-flex">
@@ -225,9 +298,9 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                     </div>
 
                     <div className={`mb-6 flex items-center justify-between gap-4 ${standalone ? 'hidden' : ''}`}>
-                        <div className="flex overflow-x-auto rounded-full border border-[#ded2c7] bg-[#f8f3ee] p-1">
+                        <div className="flex overflow-x-auto rounded-full border border-[#BFC3C8] bg-[#F7F3ED] p-1">
                             {['all', 'news', 'event'].map((tab) => (
-                                <button key={tab} type="button" onClick={() => setActive(tab)} className={`min-h-10 rounded-full px-5 text-xs font-black uppercase tracking-wide transition ${active === tab ? 'bg-[#34231c] text-white shadow-sm' : 'text-[#6f625b] hover:bg-white'}`}>
+                                <button key={tab} type="button" onClick={() => changeTab(tab)} className={`min-h-10 rounded-full px-5 text-xs font-semibold uppercase tracking-wide transition ${active === tab ? 'bg-[#2A1D14] text-white shadow-sm' : 'text-[#3A2A1F] hover:bg-white'}`}>
                                     {tab === 'all' ? 'All updates' : tab === 'event' ? 'Events' : 'News'}
                                 </button>
                             ))}
@@ -240,17 +313,18 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                     {error && <InlineAlert className="mb-6">{error} <button type="button" onClick={load} className="ml-1 underline">Try again</button></InlineAlert>}
 
                     {loading ? (
-                        <div className="grid gap-5 md:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, index) => <div key={index} className="skeleton h-[320px] rounded-lg" />)}
+                        <div className="grid gap-2.5 lg:gap-5 lg:grid-cols-3">
+                            {Array.from({ length: 6 }).map((_, index) => <div key={index} className="skeleton h-[72px] rounded-lg lg:h-[320px]" />)}
                         </div>
                     ) : filtered.length ? (
                         <>
                             {!standalone && <FeaturedCard item={featured} onOpen={openItem} />}
                             {gridItems.length > 0 && (
-                                <div className={`${standalone ? '' : 'mt-8'} grid gap-5 sm:grid-cols-2 lg:grid-cols-3`}>
+                                <div className={`${standalone ? '' : 'mt-2 lg:mt-8'} grid gap-2.5 lg:gap-5 lg:grid-cols-3`}>
                                     {gridItems.map((item) => <UpdateCard key={`${item.kind}-${item.id}`} item={item} onOpen={openItem} />)}
                                 </div>
                             )}
+                            <PaginationNav currentPage={currentPage} lastPage={lastPage} onPage={goToPage} />
                         </>
                     ) : !error && (
                         <EmptyState icon="calendar" title="No updates found" message="Published news and upcoming events will appear here." />

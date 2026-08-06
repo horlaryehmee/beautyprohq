@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, inputClass, useDashboardToast } from '../../components/dashboard';
+import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, usePagination } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 
@@ -22,8 +22,58 @@ function verifiedState(user) {
     return profile?.verification_requests?.[0]?.status ?? 'pending';
 }
 
+function verificationControlClass(status, active) {
+    if (active && status === 'approved') return 'bg-[#027A48] text-white';
+    if (active && status === 'pending') return 'bg-[#B54708] text-white';
+    if (active && status === 'rejected') return 'bg-[#B42318] text-white';
+    return 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+}
+
 function latestVerification(user) {
     return (user?.provider_profile ?? user?.providerProfile)?.verification_requests?.[0] ?? null;
+}
+
+function usageValue(value) {
+    return Number(value ?? 0).toLocaleString();
+}
+
+function money(value, currency = 'NGN') {
+    return `${currency} ${Number(value ?? 0).toLocaleString()}`;
+}
+
+function OnboardingChecklist({ form, profile, hasProviderControls }) {
+    if (!hasProviderControls) return null;
+
+    const checks = [
+        ['General', Boolean(form.name && profile.provider_category_id && profile.profession && profile.bio)],
+        ['Images', Boolean(profile.profile_photo && profile.cover_image)],
+        ['Contact', Boolean(profile.contact_email && profile.contact_phone)],
+        ['Socials', Object.values(profile.social_links ?? {}).some(Boolean)],
+        ['Location', Boolean(profile.location && profile.country && profile.city)],
+        ['Pricing', Boolean(profile.default_currency && profile.base_price)],
+        ['Work hours', Boolean((profile.availability ?? []).length)],
+    ];
+    const complete = checks.filter(([, value]) => value).length;
+
+    return (
+        <Card>
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-950">Onboarding alignment</h2>
+                    <p className="mt-1 text-sm text-slate-500">Matches the provider setup sections.</p>
+                </div>
+                <StatusBadge status={`${complete}/${checks.length}`} />
+            </div>
+            <div className="mt-4 grid gap-2">
+                {checks.map(([label, done]) => (
+                    <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm" key={label}>
+                        <span className="font-semibold text-slate-700">{label}</span>
+                        <StatusBadge status={done ? 'completed' : 'pending'} />
+                    </div>
+                ))}
+            </div>
+        </Card>
+    );
 }
 
 function ImageUpload({ value, onChange }) {
@@ -72,6 +122,8 @@ export default function AdminUserDetailPage() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState('');
     const [error, setError] = useState('');
 
     const load = useCallback(async () => {
@@ -90,7 +142,6 @@ export default function AdminUserDetailPage() {
                 name: data.name ?? '',
                 email: data.email ?? '',
                 phone: data.phone ?? '',
-                preferred_currency: data.preferred_currency ?? '',
                 role: data.role ?? 'customer',
                 is_active: Boolean(data.is_active ?? true),
                 email_verified: Boolean(data.email_verified_at),
@@ -136,6 +187,12 @@ export default function AdminUserDetailPage() {
     const profile = form?.provider_profile ?? {};
     const hasProviderControls = form?.role === 'provider' || Boolean(user?.provider_profile ?? user?.providerProfile);
     const providerBookings = (user?.provider_profile ?? user?.providerProfile)?.bookings ?? [];
+    const {
+        page: providerBookingsPage,
+        setPage: setProviderBookingsPage,
+        pageCount: providerBookingsPageCount,
+        pagedItems: pagedProviderBookings,
+    } = usePagination(providerBookings, 5);
     const bookedCustomers = useMemo(() => {
         const seen = new Set();
         return providerBookings
@@ -192,6 +249,24 @@ export default function AdminUserDetailPage() {
         }
     };
 
+    const deleteUser = async () => {
+        if (deleteConfirm !== 'DELETE') {
+            notify('Type DELETE to confirm user deletion.', 'error');
+            return;
+        }
+
+        setDeleting(true);
+        try {
+            await apiRequest('delete', `/admin/users/${id}`, { confirmation: deleteConfirm });
+            notify('User deleted.');
+            navigate('/admin/users', { replace: true });
+        } catch (requestError) {
+            notify(apiErrorMessage(requestError), 'error');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const setVerification = (status) => {
         update({
             verification_status: status,
@@ -200,6 +275,11 @@ export default function AdminUserDetailPage() {
     };
 
     const latest = useMemo(() => latestVerification(user), [user]);
+    const usage = user?.platform_usage ?? {};
+    const providerUsage = usage.provider ?? {};
+    const customerUsage = usage.customer ?? {};
+    const subscriptionUsage = usage.subscription ?? {};
+    const accountUsage = usage.account ?? {};
 
     if (loading) return <Card><LoadingBlock rows={8} /></Card>;
     if (error || !form) return <ErrorState message={error || 'User not found.'} onRetry={load} />;
@@ -236,7 +316,6 @@ export default function AdminUserDetailPage() {
                             <Field label="Name"><input className={inputClass} onChange={(event) => update({ name: event.target.value })} required value={form.name} /></Field>
                             <Field label="Email"><input className={inputClass} onChange={(event) => update({ email: event.target.value })} required type="email" value={form.email} /></Field>
                             <Field label="Phone"><input className={inputClass} onChange={(event) => update({ phone: event.target.value })} value={form.phone ?? ''} /></Field>
-                            <Field label="Preferred currency"><input className={inputClass} onChange={(event) => update({ preferred_currency: event.target.value })} placeholder="NGN" value={form.preferred_currency ?? ''} /></Field>
                             <Field label="Role">
                                 <select className={inputClass} onChange={(event) => update({ role: event.target.value })} value={form.role}>
                                     <option value="customer">Customer</option>
@@ -322,7 +401,7 @@ export default function AdminUserDetailPage() {
                                     </Field>
                                 ))}
                             </div>
-                            <Field className="mt-4" label="Portfolio links" hint="One link per line.">
+                            <Field className="mt-4" label="Portfolio / verification links" hint="One link per line. This is added after onboarding and supports portfolio display or verification review.">
                                 <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateProfile({ portfolio_links: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })} value={(profile.portfolio_links ?? []).join('\n')} />
                             </Field>
                         </Card>
@@ -360,6 +439,7 @@ export default function AdminUserDetailPage() {
                                 <StatusBadge status={`${bookedCustomers.length} customers`} />
                             </div>
                             {providerBookings.length ? (
+                                <>
                                 <div className="mt-5 overflow-x-auto">
                                     <table className="w-full min-w-[920px] text-left text-sm">
                                         <thead>
@@ -372,7 +452,7 @@ export default function AdminUserDetailPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {providerBookings.map((booking) => {
+                                            {pagedProviderBookings.map((booking) => {
                                                 const customer = booking.customer ?? {};
                                                 const payment = booking.payment ?? {};
                                                 return (
@@ -408,6 +488,8 @@ export default function AdminUserDetailPage() {
                                         </tbody>
                                     </table>
                                 </div>
+                                <Pagination page={providerBookingsPage} pageCount={providerBookingsPageCount} onPageChange={setProviderBookingsPage} />
+                                </>
                             ) : (
                                 <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No customer bookings have been recorded for this provider yet.</p>
                             )}
@@ -424,9 +506,9 @@ export default function AdminUserDetailPage() {
                                 {[
                                     ['approved', 'Verify'],
                                     ['pending', 'Pending'],
-                                    ['rejected', 'Reject'],
+                                    ['rejected', 'Decline'],
                                 ].map(([status, label]) => (
-                                    <button key={status} type="button" onClick={() => setVerification(status)} className={`rounded-xl px-3 py-2 text-sm font-bold transition ${form.verification_status === status ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    <button key={status} type="button" onClick={() => setVerification(status)} className={`rounded-xl px-3 py-2 text-sm font-bold transition ${verificationControlClass(status, form.verification_status === status)}`}>
                                         {label}
                                     </button>
                                 ))}
@@ -471,7 +553,83 @@ export default function AdminUserDetailPage() {
                             <p><span className="font-bold text-slate-900">Account:</span> {form.is_active ? 'Active' : 'Suspended'}</p>
                             <p><span className="font-bold text-slate-900">Email:</span> {form.email_verified ? 'Verified' : 'Not verified'}</p>
                             {hasProviderControls && <p><span className="font-bold text-slate-900">Provider:</span> {profile.verified ? 'Verified' : 'Not verified'}</p>}
+                            <p><span className="font-bold text-slate-900">Joined:</span> {formatDate(accountUsage.joined_at ?? user?.created_at)}</p>
+                            <p><span className="font-bold text-slate-900">Last login:</span> {formatDate(accountUsage.last_login_at ?? user?.last_login_at)}</p>
                         </div>
+                    </Card>
+
+                    <OnboardingChecklist form={form} profile={profile} hasProviderControls={hasProviderControls} />
+
+                    <Card>
+                        <h2 className="text-lg font-bold text-slate-950">Platform usage</h2>
+                        <div className="mt-4 grid gap-3 text-sm">
+                            {hasProviderControls && (
+                                <>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Provider activity</p>
+                                        <div className="mt-2 grid grid-cols-2 gap-2 text-slate-600">
+                                            <p><span className="font-bold text-slate-900">{usageValue(providerUsage.services)}</span> services</p>
+                                            <p><span className="font-bold text-slate-900">{usageValue(providerUsage.bookings)}</span> bookings</p>
+                                            <p><span className="font-bold text-slate-900">{usageValue(providerUsage.digital_products)}</span> products</p>
+                                            <p><span className="font-bold text-slate-900">{usageValue(providerUsage.reviews)}</span> reviews</p>
+                                        </div>
+                                        <p className="mt-2 text-xs font-semibold text-slate-500">Revenue tracked: {money(providerUsage.paid_revenue)}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Provider controls</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <StatusBadge status={providerUsage.listed ? 'active' : 'suspended'} />
+                                            <StatusBadge status={providerUsage.verified ? 'verified' : 'unverified'} />
+                                            <StatusBadge status={providerUsage.onboarding_complete ? 'completed' : 'pending'} />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Customer activity</p>
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-slate-600">
+                                    <p><span className="font-bold text-slate-900">{usageValue(customerUsage.bookings)}</span> bookings</p>
+                                    <p><span className="font-bold text-slate-900">{usageValue(customerUsage.saved_providers)}</span> saved pros</p>
+                                    <p><span className="font-bold text-slate-900">{usageValue(customerUsage.loyalty_programs)}</span> loyalty</p>
+                                    <p><span className="font-bold text-slate-900">{usageValue(customerUsage.loyalty_points)}</span> points</p>
+                                </div>
+                                <p className="mt-2 text-xs font-semibold text-slate-500">Spend tracked: {money(customerUsage.paid_spend)}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Subscription</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <StatusBadge status={subscriptionUsage.status ?? 'inactive'} />
+                                    {subscriptionUsage.plan && <StatusBadge status={subscriptionUsage.plan} />}
+                                </div>
+                                <p className="mt-2 text-xs font-semibold text-slate-500">Paid total: {money(subscriptionUsage.paid_total)}</p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">Renews: {formatDate(subscriptionUsage.renews_at)}</p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="border-[#FECDCA] bg-[#FEF3F2]">
+                        <h2 className="text-lg font-bold text-[#B42318]">Delete user data</h2>
+                        <p className="mt-2 text-sm leading-6 text-[#912018]">
+                            Permanently deletes this user and related platform records, including provider profile data, bookings, payments, subscriptions, CRM, loyalty, saved providers, and verification records. This cannot be undone.
+                        </p>
+                        <Field className="mt-4" label="Type DELETE to confirm">
+                            <input
+                                className={`${inputClass} border-[#FDA29B] focus:border-[#B42318] focus:ring-[#FEE4E2]`}
+                                onChange={(event) => setDeleteConfirm(event.target.value)}
+                                placeholder="DELETE"
+                                value={deleteConfirm}
+                            />
+                        </Field>
+                        <Button
+                            busy={deleting}
+                            className="mt-4 w-full"
+                            disabled={deleteConfirm !== 'DELETE' || deleting}
+                            onClick={deleteUser}
+                            type="button"
+                            variant="danger"
+                        >
+                            Delete user permanently
+                        </Button>
                     </Card>
                 </div>
             </div>

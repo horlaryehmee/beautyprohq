@@ -94,7 +94,7 @@ export default function ProviderContentCalendarPage() {
                 <div className="grid gap-3 sm:grid-cols-[180px_1fr_auto]">
                     <input className={inputClass} onChange={(event) => setMonth(event.target.value)} type="month" value={month} />
                     <div className="flex flex-wrap gap-2">
-                        {['all', 'idea', 'planned', 'created', 'posted'].map((item) => <button key={item} type="button" onClick={() => setStatus(item)} className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition ${status === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{item}</button>)}
+                        {['all', 'idea', 'planned', 'created', 'posted'].map((item) => <button key={item} type="button" onClick={() => setStatus(item)} className={`rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${status === item ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{item}</button>)}
                     </div>
                 </div>
             </Card>
@@ -109,7 +109,7 @@ export default function ProviderContentCalendarPage() {
                                     <div className="grid gap-3 py-4 first:pt-0 last:pb-0 md:grid-cols-[1fr_auto]" key={item.id}>
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="font-black text-slate-950">{item.title}</h3>
+                                                <h3 className="font-semibold text-slate-950">{item.title}</h3>
                                                 <StatusBadge status={item.status} />
                                             </div>
                                             <p className="mt-1 text-sm text-slate-500">{[item.channel, item.content_type].filter(Boolean).join(' · ') || 'No channel/type set'}</p>
@@ -130,7 +130,7 @@ export default function ProviderContentCalendarPage() {
             {showForm && (
                 <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setShowForm(false)}>
                     <Card className="w-full max-w-2xl rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
-                        <h2 className="text-lg font-black text-slate-950">{editing ? 'Edit content item' : 'Add content item'}</h2>
+                        <h2 className="text-lg font-semibold text-slate-950">{editing ? 'Edit content item' : 'Add content item'}</h2>
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={save}>
                             <Field label="Date"><input className={inputClass} onChange={update('scheduled_date')} required type="date" value={form.scheduled_date} /></Field>
                             <Field label="Status"><select className={inputClass} onChange={update('status')} value={form.status}>{['idea', 'planned', 'created', 'posted'].map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>

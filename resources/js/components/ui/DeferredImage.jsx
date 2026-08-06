@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export default function DeferredImage({ src, srcSet, sizes, loading = 'lazy', rootMargin = '250px', ...props }) {
+export default function DeferredImage({ src, srcSet, sizes, loading = 'lazy', rootMargin = '250px', onError, ...props }) {
     const imageRef = useRef(null);
 
     useEffect(() => {
@@ -38,6 +38,10 @@ export default function DeferredImage({ src, srcSet, sizes, loading = 'lazy', ro
             sizes={loading === 'eager' ? sizes : undefined}
             loading={loading}
             decoding="async"
+            onError={(event) => {
+                event.currentTarget.style.display = 'none';
+                onError?.(event);
+            }}
             {...props}
         />
     );

@@ -181,7 +181,7 @@ function ImageUploader({ value, onChange }) {
     return (
         <div>
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                {value ? <img src={value} alt="" className="aspect-[16/10] w-full object-cover" /> : <div className="grid aspect-[16/10] place-items-center text-xs font-bold uppercase tracking-wide text-slate-400">No featured image</div>}
+                {value ? <img src={value} alt="" className="aspect-[16/10] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid aspect-[16/10] place-items-center text-xs font-bold uppercase tracking-wide text-slate-400">No featured image</div>}
             </div>
             <div className="mt-3 grid gap-2">
                 <label className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-fuchsia-700">
@@ -202,9 +202,9 @@ function PreviewCard({ form, type }) {
 
     return (
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            {form.image ? <img src={form.image} alt="" className="aspect-[16/9] w-full object-cover" /> : <div className="grid aspect-[16/9] place-items-center bg-slate-100 text-xs font-bold uppercase tracking-wide text-slate-400">Image preview</div>}
+            {form.image ? <img src={form.image} alt="" className="aspect-[16/9] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid aspect-[16/9] place-items-center bg-slate-100 text-xs font-bold uppercase tracking-wide text-slate-400">Image preview</div>}
             <div className="p-5">
-                <p className="text-[10px] font-black uppercase tracking-[.16em] text-fuchsia-700">{label}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-fuchsia-700">{label}</p>
                 <h3 className="mt-3 font-serif text-3xl font-normal leading-tight text-slate-950">{form.title || 'Untitled content'}</h3>
                 <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-500">{form.excerpt || stripHtml(body) || 'Summary preview will appear here.'}</p>
             </div>
@@ -353,7 +353,7 @@ export default function AdminContentEditorPage() {
                                 <textarea className={`${inputClass} min-h-24 resize-y`} maxLength={170} onChange={(event) => updateForm({ seo_description: event.target.value })} placeholder="Recommended: 140–160 characters" value={form.seo_description ?? ''} />
                             </Field>
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="line-clamp-1 text-base text-blue-700">{form.seo_title || form.title || 'SEO title preview'}</p>
+                                <p className="line-clamp-1 text-base text-bphq-coffee">{form.seo_title || form.title || 'SEO title preview'}</p>
                                 <p className="mt-1 text-xs text-emerald-700">beautyprohq.com{publicPath ?? '/...'}</p>
                                 <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600">{seoDescription || 'SEO description preview.'}</p>
                             </div>

@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <AuthShell eyebrow="Choose a new password" title="Create a secure password" description="Use at least eight characters and avoid a password you use elsewhere." footer={<Link to="/forgot-password" className="font-black text-rose-700 hover:text-rose-900">Request a new reset link</Link>}>
+        <AuthShell eyebrow="Choose a new password" title="Create a secure password" description="Use at least eight characters and avoid a password you use elsewhere." footer={<Link to="/forgot-password" className="font-semibold text-rose-700 hover:text-rose-900">Request a new reset link</Link>}>
             {!token ? <InlineAlert>This reset link is missing its secure token. Request a new link to continue.</InlineAlert> : (
                 <form onSubmit={submit} className="space-y-5">
                     {error && <InlineAlert>{error}</InlineAlert>}

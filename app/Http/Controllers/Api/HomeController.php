@@ -74,6 +74,6 @@ class HomeController extends Controller
         });
 
         return $this->success($data)
-            ->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300');
+            ->header('Cache-Control', 'no-cache, max-age=0, must-revalidate');
     }
 }

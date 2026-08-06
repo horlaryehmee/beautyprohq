@@ -121,24 +121,24 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#fbf8f4] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
-                <div className="flex h-16 items-center justify-between px-4">
-                    <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
+            <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
+                <div className="flex h-24 items-center justify-between px-4">
+                    <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
                     <Logo className="scale-90" />
-                    <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#26211e]" aria-label="Account">
+                    <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                         <Icon name="user" size={24} />
                     </Link>
                 </div>
             </header>
 
             <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
-                <button type="button" className={`absolute inset-0 bg-[#1f1510]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
-                <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#fbf8f4] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+                <button type="button" className={`absolute inset-0 bg-[#2A1D14]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
+                <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#F7F3ED] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
                         <Logo />
-                        <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#26211e] shadow-sm" aria-label="Close navigation">
+                        <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#2A1D14] shadow-sm" aria-label="Close navigation">
                             <Icon name="x" size={20} />
                         </button>
                     </div>
@@ -146,12 +146,12 @@ export default function PublicLayout() {
                     <nav className="flex-1 overflow-y-auto px-4 py-5" aria-label="Full mobile navigation">
                         <div className="grid gap-1">
                             {links.map((link) => link.action === 'contact' ? (
-                                <button key={link.label} type="button" onClick={openContact} className="flex min-h-12 items-center justify-between rounded-2xl px-4 text-left text-sm font-black text-[#26211e] transition hover:bg-white">
+                                <button key={link.label} type="button" onClick={openContact} className="flex min-h-12 items-center justify-between rounded-2xl px-4 text-left text-sm font-semibold text-[#2A1D14] transition hover:bg-white">
                                     <span>{link.label}</span>
                                     <Icon name="chevronRight" size={15} />
                                 </button>
                             ) : (
-                                <NavLink key={link.label} to={link.to} end={link.end} className={({ isActive }) => `flex min-h-12 items-center justify-between rounded-2xl px-4 text-sm font-black transition ${isActive ? 'bg-[#241711] text-white' : 'text-[#26211e] hover:bg-white'}`}>
+                                <NavLink key={link.label} to={link.to} end={link.end} className={({ isActive }) => `flex min-h-12 items-center justify-between rounded-2xl px-4 text-sm font-semibold transition ${isActive ? 'bg-[#2A1D14] text-white' : 'text-[#2A1D14] hover:bg-white'}`}>
                                     <span>{link.label}</span>
                                     <Icon name="chevronRight" size={15} />
                                 </NavLink>
@@ -162,13 +162,13 @@ export default function PublicLayout() {
                     <div className="border-t border-stone-200 p-4">
                         {user ? (
                             <div className="grid gap-2">
-                                <Link to={dashboardPath(user.role)} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Dashboard</Link>
-                                <button type="button" onClick={handleLogout} className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Log out</button>
+                                <Link to={dashboardPath(user.role)} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#2A1D14] px-4 text-sm font-semibold text-white">Dashboard</Link>
+                                <button type="button" onClick={handleLogout} className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14]">Log out</button>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-2">
-                                <Link to="/login" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-black text-[#241711]">Login</Link>
-                                <Link to="/register" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#241711] px-4 text-sm font-black text-white">Join BPHQ</Link>
+                                <Link to="/login" className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14]">Login</Link>
+                                <Link to="/register" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#2A1D14] px-4 text-sm font-semibold text-white">Join BPHQ</Link>
                             </div>
                         )}
                     </div>
@@ -185,7 +185,7 @@ export default function PublicLayout() {
             </nav>}
 
             <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
-                <div className="page-container flex h-18 items-center justify-between gap-5">
+                <div className="page-container flex h-28 items-center justify-between gap-5">
                     <Logo />
 
                     <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
@@ -226,7 +226,7 @@ export default function PublicLayout() {
                         <p className="mt-5 text-sm leading-7 text-plum-100">The trusted home for beauty professionals and customers to discover, book, grow, and build lasting relationships.</p>
                     </div>
                     <div>
-                        <p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-rose-200">Explore</p>
+                        <p className="mb-4 text-xs font-semibold uppercase tracking-[.16em] text-rose-200">Explore</p>
                         <div className="flex flex-col gap-3 text-sm font-semibold text-plum-100">
                             <Link to="/directory" className="hover:text-white">Professional directory</Link>
                             <Link to="/news-events" className="hover:text-white">News & events</Link>
@@ -235,7 +235,7 @@ export default function PublicLayout() {
                         </div>
                     </div>
                     <div>
-                        <p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-rose-200">For professionals</p>
+                        <p className="mb-4 text-xs font-semibold uppercase tracking-[.16em] text-rose-200">For professionals</p>
                         <div className="flex flex-col gap-3 text-sm font-semibold text-plum-100">
                             <Link to="/register?role=provider" className="hover:text-white">Create a provider profile</Link>
                             <Link to="/login" className="hover:text-white">Provider login</Link>
@@ -243,7 +243,7 @@ export default function PublicLayout() {
                         </div>
                     </div>
                     <div>
-                        <p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-rose-200">Legal</p>
+                        <p className="mb-4 text-xs font-semibold uppercase tracking-[.16em] text-rose-200">Legal</p>
                         <div className="flex flex-col gap-3 text-sm font-semibold text-plum-100">
                             <Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
                             <Link to="/terms-and-conditions" className="hover:text-white">Terms & Conditions</Link>

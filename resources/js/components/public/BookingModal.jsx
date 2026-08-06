@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import api, { apiError, ensureCsrfCookie, unwrap } from '../../lib/api';
-import { currency, providerIdentity } from '../../lib/utils';
+import { currency, providerIdentity, stripHtml } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Button from '../ui/Button';
@@ -115,9 +115,9 @@ function monthLabel(offset = 0) {
 function ProviderSummary({ pro }) {
     return (
         <div className="flex items-center gap-3">
-            {pro.photo ? <img src={pro.photo} alt="" className="size-14 rounded-full object-cover" /> : <span className="grid size-14 place-items-center rounded-full bg-[#34231c] font-display text-xl text-white">{String(pro.name || 'B').slice(0, 1)}</span>}
+            {pro.photo ? <img src={pro.photo} alt="" className="size-14 rounded-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <span className="grid size-14 place-items-center rounded-full bg-[#2A1D14] font-display text-xl text-white">{String(pro.name || 'B').slice(0, 1)}</span>}
             <div className="min-w-0">
-                <p className="truncate font-bold text-[#34231c]">{pro.name}</p>
+                <p className="truncate font-bold text-[#2A1D14]">{pro.name}</p>
                 <p className="truncate text-sm text-stone-500">{pro.profession}</p>
                 {pro.cardLocation && <p className="mt-0.5 truncate text-xs font-bold text-stone-400">{pro.cardLocation}</p>}
             </div>
@@ -128,10 +128,10 @@ function ProviderSummary({ pro }) {
 function SummaryRow({ icon, label, value }) {
     return (
         <div className="flex gap-3">
-            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-white text-[#8b4b59]"><Icon name={icon} size={16} /></span>
+            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-white text-[#3A2A1F]"><Icon name={icon} size={16} /></span>
             <div>
-                <p className="text-[10px] font-black uppercase tracking-wide text-stone-400">{label}</p>
-                <p className="mt-0.5 text-sm font-bold leading-5 text-[#34231c]">{value}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">{label}</p>
+                <p className="mt-0.5 text-sm font-bold leading-5 text-[#2A1D14]">{value}</p>
             </div>
         </div>
     );
@@ -145,7 +145,7 @@ function Stepper({ step }) {
                 const active = step === index + 1;
                 const done = step > index + 1;
                 return (
-                    <div key={label} className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-wide ${active ? 'bg-[#34231c] text-white' : done ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f4efe9] text-stone-500'}`}>
+                    <div key={label} className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wide ${active ? 'bg-[#2A1D14] text-white' : done ? 'bg-emerald-50 text-emerald-700' : 'bg-[#F7F3ED] text-stone-500'}`}>
                         <span className="grid size-6 place-items-center rounded-full bg-white/20">{done ? <Icon name="check" size={13} /> : index + 1}</span>
                         {label}
                     </div>
@@ -287,8 +287,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     function renderProviderQuestions() {
         if (!bookingFields.length) return null;
         return (
-            <div className="space-y-3 rounded-2xl border border-stone-200 bg-[#fbf8f4] p-4">
-                <p className="text-xs font-black uppercase tracking-wide text-[#8b4b59]">Provider questions</p>
+            <div className="space-y-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">Provider questions</p>
                 {bookingFields.map((field, index) => {
                     const key = `field_${index}`;
                     const type = field.type ?? 'text';
@@ -297,16 +297,16 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                     if (type === 'textarea') return <FormField key={key} as="textarea" label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={1000} required={Boolean(field.required)} />;
                     if (type === 'select') {
                         return (
-                            <label className="block text-sm font-bold text-[#34231c]" key={key}>
+                            <label className="block text-sm font-bold text-[#2A1D14]" key={key}>
                                 {label}
-                                <select className="mt-2 min-h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#34231c] outline-none focus:border-[#8b4b59]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} required={Boolean(field.required)} value={customFields[key] ?? ''}>
+                                <select className="mt-2 min-h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14] outline-none focus:border-[#3A2A1F]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} required={Boolean(field.required)} value={customFields[key] ?? ''}>
                                     <option value="">Choose an option</option>
                                     {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                                 </select>
                             </label>
                         );
                     }
-                    if (type === 'checkbox') return <label className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#34231c]" key={key}><input checked={Boolean(customFields[key])} className="mt-1 size-4 accent-[#8b4b59]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.checked }))} required={Boolean(field.required)} type="checkbox" />{field.label}</label>;
+                    if (type === 'checkbox') return <label className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#2A1D14]" key={key}><input checked={Boolean(customFields[key])} className="mt-1 size-4 accent-[#3A2A1F]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.checked }))} required={Boolean(field.required)} type="checkbox" />{field.label}</label>;
                     return <FormField key={key} label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={255} required={Boolean(field.required)} />;
                 })}
             </div>
@@ -318,10 +318,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 <div className="shrink-0 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#8b4b59]">Booking</p>
-                            <h2 id="booking-title" className="mt-0.5 truncate font-display text-xl font-normal text-[#34231c] sm:text-2xl">Book with {pro.name}</h2>
+                            <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Booking</p>
+                            <h2 id="booking-title" className="mt-0.5 truncate font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">Book with {pro.name}</h2>
                         </div>
-                        <button type="button" className="grid size-10 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:text-[#34231c]" onClick={onClose} aria-label={standalone ? 'Go back' : 'Close booking form'}><Icon name={standalone ? 'chevronLeft' : 'x'} /></button>
+                        <button type="button" className="grid size-10 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:text-[#2A1D14]" onClick={onClose} aria-label={standalone ? 'Go back' : 'Close booking form'}><Icon name={standalone ? 'chevronLeft' : 'x'} /></button>
                     </div>
                     <div className="mt-3"><Stepper step={step} /></div>
                 </div>
@@ -333,7 +333,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                         {error && <div className="border-b border-stone-200 p-4 sm:px-6"><InlineAlert>{error}</InlineAlert></div>}
 
                         <div className="grid min-h-0 flex-1 lg:grid-cols-[310px_1fr]">
-                            <aside className="hidden border-b border-stone-200 bg-[#fbf8f4] p-5 lg:block lg:border-b-0 lg:border-r lg:p-6">
+                            <aside className="hidden border-b border-stone-200 bg-[#F7F3ED] p-5 lg:block lg:border-b-0 lg:border-r lg:p-6">
                                 <ProviderSummary pro={pro} />
                                 <div className="mt-7 space-y-4">
                                     <SummaryRow icon="scissors" label="Service" value={selectedService?.name ?? 'Choose a service'} />
@@ -341,14 +341,14 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     <SummaryRow icon="clock" label="Time" value={time ? displayTime(time) : 'Choose a time'} />
                                 </div>
                                 {selectedService && (
-                                    <div className="mt-7 rounded-2xl border border-[#eadfd5] bg-white p-4">
-                                        <p className="text-xs font-black uppercase tracking-wide text-[#8b4b59]">Total</p>
-                                        <p className="mt-1 font-display text-3xl font-normal text-[#34231c]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</p>
+                                    <div className="mt-7 rounded-2xl border border-[#DCCCB8] bg-white p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">Total</p>
+                                        <p className="mt-1 font-display text-3xl font-normal text-[#2A1D14]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</p>
                                         <p className="mt-1 text-xs font-bold text-stone-500">{selectedService.duration_minutes ?? 30} minutes</p>
-                                        {selectedService.description && <p className="mt-3 text-xs leading-5 text-stone-600">{selectedService.description}</p>}
+                                        {selectedService.description && <p className="mt-3 text-xs leading-5 text-stone-600">{stripHtml(selectedService.description)}</p>}
                                         {user?.role === 'customer' && provider?.loyalty_enabled && Number(provider?.loyalty_points_required ?? 0) > 0 && (
-                                            <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#fbf7f1] p-3 text-xs font-bold leading-5 text-[#34231c]">
-                                                <input checked={redeemLoyalty} className="mt-0.5 size-4 accent-[#8b4b59]" onChange={(event) => setRedeemLoyalty(event.target.checked)} type="checkbox" />
+                                            <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#F7F3ED] p-3 text-xs font-bold leading-5 text-[#2A1D14]">
+                                                <input checked={redeemLoyalty} className="mt-0.5 size-4 accent-[#3A2A1F]" onChange={(event) => setRedeemLoyalty(event.target.checked)} type="checkbox" />
                                                 Use {Number(provider.loyalty_points_required).toLocaleString()} loyalty points for this booking request.
                                             </label>
                                         )}
@@ -362,18 +362,18 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <section>
                                             <div className="flex items-end justify-between gap-3">
                                                 <div>
-                                                    <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">{initialService ? 'Selected service' : 'Choose service'}</h3>
+                                                    <h3 className="font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">{initialService ? 'Selected service' : 'Choose service'}</h3>
                                                     <p className="text-xs font-semibold text-stone-500">{initialService ? 'This booking is based on the service selected from the profile.' : 'Swipe to see more services.'}</p>
                                                 </div>
-                                                {selectedService && <span className="shrink-0 rounded-full bg-[#f4efe9] px-3 py-1 text-xs font-black text-[#7d2e3c]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</span>}
+                                                {selectedService && <span className="shrink-0 rounded-full bg-[#F7F3ED] px-3 py-1 text-xs font-semibold text-[#3A2A1F]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</span>}
                                             </div>
                                             <div className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
                                                 {availableServices.map((service) => (
-                                                    <button key={service.id} type="button" onClick={() => setServiceId(String(service.id))} className={`min-w-[76vw] snap-start rounded-2xl border p-4 text-left transition sm:min-w-0 ${String(serviceId) === String(service.id) ? 'border-[#34231c] bg-[#34231c] text-white' : 'border-stone-200 bg-white text-[#34231c] hover:border-[#c9bdb2]'}`}>
+                                                    <button key={service.id} type="button" onClick={() => setServiceId(String(service.id))} className={`min-w-[76vw] snap-start rounded-2xl border p-4 text-left transition sm:min-w-0 ${String(serviceId) === String(service.id) ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8]'}`}>
                                                         <p className="line-clamp-1 font-bold">{service.name}</p>
-                                                        <div className="mt-2 flex items-center justify-between gap-3 text-xs font-black">
+                                                        <div className="mt-2 flex items-center justify-between gap-3 text-xs font-semibold">
                                                             <span className={String(serviceId) === String(service.id) ? 'text-white/70' : 'text-stone-500'}>{service.duration_minutes ?? 30} mins</span>
-                                                            <span className={String(serviceId) === String(service.id) ? 'text-white' : 'text-[#7d2e3c]'}>{currency(service.price, service.currency ?? 'NGN')}</span>
+                                                            <span className={String(serviceId) === String(service.id) ? 'text-white' : 'text-[#3A2A1F]'}>{currency(service.price, service.currency ?? 'NGN')}</span>
                                                         </div>
                                                     </button>
                                                 ))}
@@ -383,19 +383,19 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <section>
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
-                                                    <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">Pick date</h3>
+                                                    <h3 className="font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">Pick date</h3>
                                                     <p className="text-xs font-semibold text-stone-500">Swipe days or change month.</p>
                                                 </div>
                                                 <div className="flex items-center gap-1 rounded-full border border-stone-200 bg-white p-1">
                                                     <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-stone-500 disabled:opacity-30"><Icon name="chevronLeft" size={16} /></button>
-                                                    <span className="min-w-28 text-center text-xs font-black text-[#34231c]">{monthLabel(monthOffset)}</span>
+                                                    <span className="min-w-28 text-center text-xs font-semibold text-[#2A1D14]">{monthLabel(monthOffset)}</span>
                                                     <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-stone-500"><Icon name="chevronRight" size={16} /></button>
                                                 </div>
                                             </div>
                                             <div className="-mx-4 mt-3 flex snap-x gap-2 overflow-x-auto px-4 pb-2">
                                                 {days.map((item) => (
-                                                    <button key={item.value} type="button" onClick={() => setDate(item.value)} className={`min-h-20 min-w-16 snap-start rounded-2xl border p-2 text-center transition ${date === item.value ? 'border-[#34231c] bg-[#34231c] text-white shadow-lg shadow-stone-200' : 'border-stone-200 bg-white text-[#34231c] hover:border-[#c9bdb2] hover:bg-[#fbf7f1]'}`}>
-                                                        <span className="block text-[10px] font-black uppercase tracking-wide opacity-70">{item.weekday}</span>
+                                                    <button key={item.value} type="button" onClick={() => setDate(item.value)} className={`min-h-20 min-w-16 snap-start rounded-2xl border p-2 text-center transition ${date === item.value ? 'border-[#2A1D14] bg-[#2A1D14] text-white shadow-lg shadow-stone-200' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>
+                                                        <span className="block text-[10px] font-semibold uppercase tracking-wide opacity-70">{item.weekday}</span>
                                                         <span className="mt-1 block font-display text-2xl font-normal">{item.day}</span>
                                                         <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wide opacity-70">{item.month}</span>
                                                     </button>
@@ -403,7 +403,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             </div>
                                             <label className="mt-2 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-500">
                                                 Other date
-                                                <input type="date" min={localDateString()} value={date} onChange={(event) => setDate(event.target.value)} className="ml-auto bg-transparent text-sm font-bold text-[#34231c] outline-none" />
+                                                <input type="date" min={localDateString()} value={date} onChange={(event) => setDate(event.target.value)} className="ml-auto bg-transparent text-sm font-bold text-[#2A1D14] outline-none" />
                                             </label>
                                         </section>
                                     </div>
@@ -413,20 +413,20 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     <section>
                                         <div className="flex items-end justify-between gap-3">
                                             <div>
-                                                <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">Pick time</h3>
+                                                <h3 className="font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">Pick time</h3>
                                                 <p className="mt-1 text-xs font-semibold leading-5 text-stone-500">{date ? fullDate(date) : 'Select a date to view available times.'}</p>
                                             </div>
-                                            <button type="button" onClick={() => setStep(1)} className="shrink-0 rounded-full bg-[#f4efe9] px-3 py-2 text-xs font-black text-[#34231c]">Change date</button>
+                                            <button type="button" onClick={() => setStep(1)} className="shrink-0 rounded-full bg-[#F7F3ED] px-3 py-2 text-xs font-semibold text-[#2A1D14]">Change date</button>
                                         </div>
                                         <div className="mt-4 min-h-48">
                                             {loadingSlots ? (
                                                 <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-5 text-sm font-semibold text-stone-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-black transition sm:text-sm ${time === slot ? 'border-[#34231c] bg-[#34231c] text-white' : 'border-stone-200 bg-white text-[#34231c] hover:border-[#c9bdb2] hover:bg-[#fbf7f1]'}`}>{displayTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${time === slot ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>{displayTime(slot)}</button>)}
                                                 </div>
                                             ) : (
-                                                <p className="rounded-2xl border border-dashed border-stone-200 bg-[#fbf8f4] p-5 text-sm leading-6 text-stone-500">No open times for this date. Go back and try another day.</p>
+                                                <p className="rounded-2xl border border-dashed border-stone-200 bg-[#F7F3ED] p-5 text-sm leading-6 text-stone-500">No open times for this date. Go back and try another day.</p>
                                             )}
                                         </div>
                                     </section>
@@ -435,11 +435,11 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 {step === 3 && (
                                     <section className="mx-auto max-w-2xl space-y-4">
                                         <div>
-                                            <h3 className="font-display text-xl font-normal text-[#34231c] sm:text-2xl">Booking details</h3>
+                                            <h3 className="font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">Booking details</h3>
                                             <p className="mt-1 text-xs font-semibold leading-5 text-stone-500">Name, email and phone number are required. Note is optional.</p>
                                         </div>
-                                        <div className="grid gap-3 rounded-2xl border border-stone-200 bg-[#fbf8f4] p-4 sm:grid-cols-3">
-                                            <p className="text-xs font-black uppercase tracking-wide text-[#8b4b59]">Person booking</p>
+                                        <div className="grid gap-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4 sm:grid-cols-3">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">Person booking</p>
                                             <FormField label="Name" value={customer.name} onChange={(event) => setCustomer((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" required />
                                             <FormField label="Email" type="email" value={customer.email} onChange={(event) => setCustomer((current) => ({ ...current, email: event.target.value }))} placeholder="name@example.com" required />
                                             <FormField label="Phone number" value={customer.phone} onChange={(event) => setCustomer((current) => ({ ...current, phone: event.target.value }))} placeholder="+234..." required />
@@ -451,20 +451,20 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
                                 {step === 4 && (
                                     <section className="mx-auto max-w-2xl">
-                                        <h3 className="font-display text-2xl font-normal text-[#34231c]">Review and payment</h3>
-                                        <div className="mt-5 divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-[#fffdf8] p-4 text-sm">
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Service</span><span className="font-black text-[#34231c]">{selectedService?.name}</span></div>
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Date</span><span className="font-black text-[#34231c]">{fullDate(date)}</span></div>
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Time</span><span className="font-black text-[#34231c]">{displayTime(time)}</span></div>
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Customer</span><span className="font-black text-[#34231c]">{customer.name}</span></div>
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Amount</span><span className="font-black text-[#7d2e3c]">{currency(selectedService?.price, selectedService?.currency ?? 'NGN')}</span></div>
+                                        <h3 className="font-display text-2xl font-normal text-[#2A1D14]">Review and payment</h3>
+                                        <div className="mt-5 divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-[#FFFFFF] p-4 text-sm">
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Service</span><span className="font-semibold text-[#2A1D14]">{selectedService?.name}</span></div>
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Date</span><span className="font-semibold text-[#2A1D14]">{fullDate(date)}</span></div>
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Time</span><span className="font-semibold text-[#2A1D14]">{displayTime(time)}</span></div>
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Customer</span><span className="font-semibold text-[#2A1D14]">{customer.name}</span></div>
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Amount</span><span className="font-semibold text-[#3A2A1F]">{currency(selectedService?.price, selectedService?.currency ?? 'NGN')}</span></div>
                                         </div>
                                         {!checkoutUrl ? (
-                                            <Button type="button" className="mt-6 w-full rounded-full bg-[#34231c] hover:bg-[#4a2f26]" disabled={submitting} onClick={createBookingAndCheckout}>
+                                            <Button type="button" className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]" disabled={submitting} onClick={createBookingAndCheckout}>
                                                 {submitting ? 'Creating booking...' : 'Create booking and continue to payment'} <Icon name="arrow" size={16} />
                                             </Button>
                                         ) : (
-                                            <a className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#34231c] px-5 text-sm font-black text-white transition hover:bg-[#4a2f26]" href={checkoutUrl}>
+                                            <a className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-5 text-sm font-semibold text-white transition hover:bg-[#2A1D14]" href={checkoutUrl}>
                                                 Pay securely now <Icon name="arrow" size={16} />
                                             </a>
                                         )}
@@ -474,7 +474,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
                                 <div className={`${standalone ? 'fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 lg:static lg:px-0 lg:pb-0' : 'sticky bottom-0 -mx-4 px-4 py-3 sm:mx-0 sm:px-0'} mt-auto flex flex-col-reverse gap-2 border-t border-stone-200 bg-white/95 backdrop-blur sm:flex-row sm:justify-between`}>
                                     <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep((current) => Math.max(1, current - 1))}>{step === 1 ? 'Cancel' : 'Back'}</Button>
-                                    {step < 4 && <Button type="button" onClick={nextStep} className="rounded-full bg-[#34231c] hover:bg-[#4a2f26]">Continue <Icon name="arrow" size={16} /></Button>}
+                                    {step < 4 && <Button type="button" onClick={nextStep} className="rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]">Continue <Icon name="arrow" size={16} /></Button>}
                                 </div>
                             </main>
                         </div>
@@ -488,7 +488,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     }
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#1f1512]/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#2A1D14]/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
             {content}
         </div>
     );

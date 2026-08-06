@@ -12,7 +12,7 @@ class Opportunity extends Model
 
     protected function casts(): array
     {
-        return ['contact_info' => 'array', 'deadline' => 'date:Y-m-d', 'published_at' => 'datetime'];
+        return ['contact_info' => 'array', 'deadline' => 'date:Y-m-d', 'published_at' => 'datetime', 'is_demo' => 'boolean'];
     }
 
     public function scopePublished(Builder $query): Builder

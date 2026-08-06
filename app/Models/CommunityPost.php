@@ -12,7 +12,7 @@ class CommunityPost extends Model
 
     protected function casts(): array
     {
-        return ['published_at' => 'datetime'];
+        return ['published_at' => 'datetime', 'is_demo' => 'boolean'];
     }
 
     public function scopePublished(Builder $query): Builder

@@ -112,7 +112,7 @@ function ProviderOnboardingContent() {
         <div className="min-h-screen bg-slate-50 px-4 py-8 lg:px-8">
             <div className="mx-auto max-w-6xl">
                 <div className="mb-8">
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-fuchsia-700">Provider setup</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-700">Provider setup</p>
                     <h1 className="mt-2 font-display text-4xl font-normal text-slate-950">Your listing details</h1>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Let’s help you set up your page.</p>
                 </div>
@@ -122,9 +122,9 @@ function ProviderOnboardingContent() {
                         <Card className="p-3">
                             {sections.map(([title, subtitle], index) => (
                                 <button className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
-                                    <span className={`grid size-7 place-items-center rounded-full text-xs font-black ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
+                                    <span className={`grid size-7 place-items-center rounded-full text-xs font-semibold ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
                                     <span>
-                                        <span className="block text-sm font-black">{title}</span>
+                                        <span className="block text-sm font-semibold">{title}</span>
                                         <span className="block text-xs opacity-70">{subtitle}</span>
                                     </span>
                                 </button>
@@ -202,7 +202,7 @@ function ProviderOnboardingContent() {
                                     const slot = form.availability.find((item) => Number(item.day_of_week) === Number(value));
                                     return (
                                         <div className="grid gap-3 rounded-2xl border border-slate-100 p-3 sm:grid-cols-[1fr_150px_150px]" key={value}>
-                                            <label className="flex items-center gap-3 text-sm font-black text-slate-800">
+                                            <label className="flex items-center gap-3 text-sm font-semibold text-slate-800">
                                                 <input checked={Boolean(slot)} className="size-4 accent-fuchsia-700" onChange={() => toggleDay(value)} type="checkbox" />
                                                 {label}
                                             </label>
@@ -217,7 +217,7 @@ function ProviderOnboardingContent() {
                         {step === 7 && (
                             <div className="space-y-5">
                                 <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
-                                    <h2 className="font-black text-slate-950">BeautyPro HQ provider terms</h2>
+                                    <h2 className="font-semibold text-slate-950">BeautyPro HQ provider terms</h2>
                                     <p className="mt-3">You agree to provide accurate listing information, honour confirmed appointments, communicate professionally with customers, and keep your pricing, availability, and contact details current.</p>
                                     <p className="mt-3">You are responsible for your services, customer communication, external links, payment accounts, and compliance with applicable laws in your location.</p>
                                 </div>

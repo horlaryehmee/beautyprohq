@@ -121,7 +121,7 @@ export default function AdminMediaPage() {
 
                     <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                         {preview && isImage(preview) && preview.url ? (
-                            <img alt="" className="aspect-[16/10] w-full object-cover" src={preview.url} />
+                            <img alt="" className="aspect-[16/10] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={preview.url} />
                         ) : (
                             <div className="grid aspect-[16/10] place-items-center px-5 text-center">
                                 <div>
@@ -181,9 +181,9 @@ export default function AdminMediaPage() {
                             {items.map((item) => (
                                 <a className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-fuchsia-200 hover:shadow-sm" href={item.url} key={item.path} rel="noreferrer" target="_blank">
                                     {isImage(item) ? (
-                                        <img alt="" className="aspect-[4/3] w-full bg-slate-100 object-cover" src={item.url} />
+                                        <img alt="" className="aspect-[4/3] w-full bg-slate-100 object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={item.url} />
                                     ) : (
-                                        <div className="grid aspect-[4/3] place-items-center bg-slate-100 text-sm font-black uppercase tracking-[.16em] text-slate-400">PDF</div>
+                                        <div className="grid aspect-[4/3] place-items-center bg-slate-100 text-sm font-semibold uppercase tracking-[.16em] text-slate-400">PDF</div>
                                     )}
                                     <div className="space-y-1 p-4">
                                         <p className="truncate text-sm font-bold text-slate-900">{item.name ?? item.filename}</p>

@@ -118,23 +118,40 @@ class AuthController extends Controller
         }
 
         if ($user->two_factor_enabled) {
+            $method = $user->two_factor_method ?: 'email';
+
             if (! filled($credentials['two_factor_code'] ?? null)) {
-                $this->sendTwoFactorCode($user, 'login');
+                if ($method === 'email') {
+                    $this->sendTwoFactorCode($user, 'login');
+                }
 
                 return $this->success([
                     'two_factor_required' => true,
                     'email' => $user->email,
-                ], 'Enter the verification code sent to your email.');
+                    'two_factor_method' => $method,
+                ], $method === 'totp' ? 'Enter the code from your authenticator app.' : 'Enter the verification code sent to your email.');
             }
 
-            if (! $this->validTwoFactorCode($user, $credentials['two_factor_code'])) {
+            $usedRecoveryCode = false;
+            $validCode = $method === 'totp'
+                ? $this->validTotpCode($user, $credentials['two_factor_code'])
+                : $this->validTwoFactorCode($user, $credentials['two_factor_code']);
+
+            if (! $validCode) {
+                $validCode = $this->useRecoveryCode($user, $credentials['two_factor_code']);
+                $usedRecoveryCode = $validCode;
+            }
+
+            if (! $validCode) {
                 return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
             }
 
-            $user->forceFill([
-                'two_factor_code_hash' => null,
-                'two_factor_code_expires_at' => null,
-            ])->save();
+            if ($method === 'email' && ! $usedRecoveryCode) {
+                $user->forceFill([
+                    'two_factor_code_hash' => null,
+                    'two_factor_code_expires_at' => null,
+                ])->save();
+            }
         }
 
         if ($request->hasSession()) {
@@ -157,34 +174,104 @@ class AuthController extends Controller
 
     public function twoFactorStatus(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         return $this->success([
-            'enabled' => (bool) $request->user()->two_factor_enabled,
-            'confirmed_at' => $request->user()->two_factor_confirmed_at,
+            'enabled' => (bool) $user->two_factor_enabled,
+            'method' => $user->two_factor_method ?: 'email',
+            'confirmed_at' => $user->two_factor_confirmed_at,
+            'recovery_codes_count' => collect($user->two_factor_recovery_codes ?? [])->count(),
         ]);
     }
 
     public function enableTwoFactor(Request $request): JsonResponse
     {
-        $this->sendTwoFactorCode($request->user(), 'enable');
+        $validated = $request->validate([
+            'method' => ['nullable', Rule::in(['email', 'totp'])],
+        ]);
+        $method = $validated['method'] ?? 'email';
+        $user = $request->user();
 
-        return $this->success(null, 'A confirmation code has been sent to your email.');
+        if ($method === 'totp') {
+            $secret = $this->generateTotpSecret();
+            $user->forceFill([
+                'two_factor_method' => 'totp',
+                'two_factor_totp_secret' => $secret,
+                'two_factor_code_hash' => null,
+                'two_factor_code_expires_at' => null,
+            ])->save();
+
+            return $this->success([
+                'method' => 'totp',
+                'secret' => $secret,
+                'setup_uri' => $this->totpSetupUri($user, $secret),
+            ], 'Add this setup key to your authenticator app, then enter the 6-digit code.');
+        }
+
+        $user->forceFill([
+            'two_factor_method' => 'email',
+            'two_factor_totp_secret' => null,
+        ])->save();
+        $this->sendTwoFactorCode($user, 'enable');
+
+        return $this->success(['method' => 'email'], 'A confirmation code has been sent to your email.');
     }
 
     public function confirmTwoFactor(Request $request): JsonResponse
     {
-        $validated = $request->validate(['code' => ['required', 'string']]);
+        $validated = $request->validate([
+            'code' => ['required', 'string'],
+            'method' => ['nullable', Rule::in(['email', 'totp'])],
+        ]);
         $user = $request->user();
+        $method = $validated['method'] ?? ($user->two_factor_method ?: 'email');
 
-        abort_unless($this->validTwoFactorCode($user, $validated['code']), 422, 'The confirmation code is invalid or expired.');
+        $validCode = $method === 'totp'
+            ? $this->validTotpCode($user, $validated['code'])
+            : $this->validTwoFactorCode($user, $validated['code']);
+
+        abort_unless($validCode, 422, 'The confirmation code is invalid or expired.');
+
+        $recoveryCodes = $this->generateRecoveryCodes();
 
         $user->forceFill([
             'two_factor_enabled' => true,
+            'two_factor_method' => $method,
             'two_factor_confirmed_at' => now(),
             'two_factor_code_hash' => null,
             'two_factor_code_expires_at' => null,
+            'two_factor_recovery_codes' => $this->hashRecoveryCodes($recoveryCodes),
         ])->save();
 
-        return $this->success(['enabled' => true, 'confirmed_at' => $user->two_factor_confirmed_at], 'Two-factor authentication enabled.');
+        return $this->success([
+            'enabled' => true,
+            'method' => $method,
+            'confirmed_at' => $user->two_factor_confirmed_at,
+            'recovery_codes' => $recoveryCodes,
+            'recovery_codes_count' => count($recoveryCodes),
+        ], 'Two-factor authentication enabled.');
+    }
+
+    public function regenerateRecoveryCodes(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['password' => ['required', 'string']]);
+        $user = $request->user();
+
+        abort_unless($user->two_factor_enabled, 422, 'Enable two-factor authentication before generating backup codes.');
+        abort_unless(Hash::check($validated['password'], $user->password), 422, 'The password is incorrect.');
+
+        $recoveryCodes = $this->generateRecoveryCodes();
+        $user->forceFill([
+            'two_factor_recovery_codes' => $this->hashRecoveryCodes($recoveryCodes),
+        ])->save();
+
+        return $this->success([
+            'enabled' => true,
+            'method' => $user->two_factor_method ?: 'email',
+            'confirmed_at' => $user->two_factor_confirmed_at,
+            'recovery_codes' => $recoveryCodes,
+            'recovery_codes_count' => count($recoveryCodes),
+        ], 'New backup codes generated.');
     }
 
     public function disableTwoFactor(Request $request): JsonResponse
@@ -194,12 +281,15 @@ class AuthController extends Controller
 
         $request->user()->forceFill([
             'two_factor_enabled' => false,
+            'two_factor_method' => 'email',
             'two_factor_confirmed_at' => null,
             'two_factor_code_hash' => null,
             'two_factor_code_expires_at' => null,
+            'two_factor_totp_secret' => null,
+            'two_factor_recovery_codes' => null,
         ])->save();
 
-        return $this->success(['enabled' => false], 'Two-factor authentication disabled.');
+        return $this->success(['enabled' => false, 'method' => 'email'], 'Two-factor authentication disabled.');
     }
 
     public function logout(Request $request): JsonResponse
@@ -308,5 +398,124 @@ class AuthController extends Controller
             && $user->two_factor_code_expires_at
             && now()->lessThanOrEqualTo($user->two_factor_code_expires_at)
             && Hash::check(trim($code), $user->two_factor_code_hash);
+    }
+
+    private function generateRecoveryCodes(): array
+    {
+        return collect(range(1, 8))
+            ->map(fn () => strtoupper(Str::random(5).'-'.Str::random(5)))
+            ->all();
+    }
+
+    private function hashRecoveryCodes(array $codes): array
+    {
+        return collect($codes)
+            ->map(fn (string $code) => Hash::make($this->normaliseRecoveryCode($code)))
+            ->all();
+    }
+
+    private function useRecoveryCode(User $user, string $code): bool
+    {
+        $codes = collect($user->two_factor_recovery_codes ?? []);
+        $normalised = $this->normaliseRecoveryCode($code);
+        $matchedIndex = $codes->search(fn (string $hash) => Hash::check($normalised, $hash));
+
+        if ($matchedIndex === false) {
+            return false;
+        }
+
+        $remaining = $codes->reject(fn ($_hash, int $index) => $index === $matchedIndex)->values()->all();
+        $user->forceFill(['two_factor_recovery_codes' => $remaining])->save();
+
+        return true;
+    }
+
+    private function normaliseRecoveryCode(string $code): string
+    {
+        return strtoupper(preg_replace('/[^A-Z0-9]/', '', $code));
+    }
+
+    private function generateTotpSecret(): string
+    {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        $bytes = random_bytes(20);
+        $bits = '';
+
+        foreach (str_split($bytes) as $byte) {
+            $bits .= str_pad(decbin(ord($byte)), 8, '0', STR_PAD_LEFT);
+        }
+
+        return collect(str_split($bits, 5))
+            ->map(fn (string $chunk) => $alphabet[bindec(str_pad($chunk, 5, '0'))])
+            ->implode('');
+    }
+
+    private function totpSetupUri(User $user, string $secret): string
+    {
+        $issuer = 'BeautyPro HQ';
+        $label = $issuer.':'.$user->email;
+
+        return 'otpauth://totp/'.rawurlencode($label).'?'.http_build_query([
+            'secret' => $secret,
+            'issuer' => $issuer,
+            'algorithm' => 'SHA1',
+            'digits' => 6,
+            'period' => 30,
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    private function validTotpCode(User $user, string $code): bool
+    {
+        $secret = $user->two_factor_totp_secret;
+        $code = preg_replace('/\s+/', '', $code);
+
+        if (! $secret || ! preg_match('/^\d{6}$/', $code)) {
+            return false;
+        }
+
+        $counter = intdiv(time(), 30);
+
+        for ($window = -1; $window <= 1; $window++) {
+            if (hash_equals($this->totpCode($secret, $counter + $window), $code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function totpCode(string $secret, int $counter): string
+    {
+        $key = $this->base32Decode($secret);
+        $binaryCounter = pack('N2', intdiv($counter, 0x100000000), $counter % 0x100000000);
+        $hash = hash_hmac('sha1', $binaryCounter, $key, true);
+        $offset = ord(substr($hash, -1)) & 0x0f;
+        $value = unpack('N', substr($hash, $offset, 4))[1] & 0x7fffffff;
+
+        return str_pad((string) ($value % 1000000), 6, '0', STR_PAD_LEFT);
+    }
+
+    private function base32Decode(string $secret): string
+    {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        $secret = strtoupper(preg_replace('/[^A-Z2-7]/', '', $secret));
+        $bits = '';
+
+        foreach (str_split($secret) as $char) {
+            $position = strpos($alphabet, $char);
+            if ($position === false) {
+                continue;
+            }
+            $bits .= str_pad(decbin($position), 5, '0', STR_PAD_LEFT);
+        }
+
+        $decoded = '';
+        foreach (str_split($bits, 8) as $byte) {
+            if (strlen($byte) === 8) {
+                $decoded .= chr(bindec($byte));
+            }
+        }
+
+        return $decoded;
     }
 }
