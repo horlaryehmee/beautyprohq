@@ -205,19 +205,17 @@ function NewsEventCard({ item, index }) {
     const href = item.slug ? `/news-events/${kind === 'event' ? 'events' : 'news'}/${item.slug}` : '/news-events';
 
     return (
-        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm lg:relative lg:flex lg:h-[320px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)]">
-            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
-                <DeferredImage {...imageSource} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" />
-            </div>
-            <div className="hidden lg:absolute lg:inset-0 lg:block lg:bg-gradient-to-b lg:from-black/30 lg:via-black/30 lg:to-black/72" />
-            <div className="relative z-10 flex h-full flex-col p-2.5 lg:p-6">
-                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
-                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{kind === 'event' ? 'Event' : 'News'}</span>
-                    {date && <span className="text-stone-500 lg:text-white/78">{shortDate(date, { year: 'numeric' })}</span>}
+        <article className="group relative flex h-[320px] overflow-hidden rounded-lg bg-[#34231c] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)]">
+            <DeferredImage {...imageSource} alt="" className="absolute inset-0 size-full object-cover transition duration-500 group-hover:scale-[1.04]" fetchPriority="low" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
+            <div className="relative z-10 flex h-full flex-col p-6">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide">
+                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#34231c]">{kind === 'event' ? 'Event' : 'News'}</span>
+                    {date && <span className="text-white/78">{shortDate(date, { year: 'numeric' })}</span>}
                 </div>
-                <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-7 lg:max-w-[15rem] lg:text-2xl">{stripHtml(item.title)}</h3>
-                {copy && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-[13rem] lg:text-xs lg:font-semibold lg:leading-5 lg:text-white/82">{copy}</p>}
-                <Link to={href} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-auto lg:text-xs lg:text-white">
+                <h3 className="mt-7 line-clamp-2 max-w-[15rem] font-display text-2xl font-normal leading-tight">{stripHtml(item.title)}</h3>
+                {copy && <p className="mt-4 line-clamp-2 max-w-[13rem] text-xs font-semibold leading-5 text-white/82">{copy}</p>}
+                <Link to={href} className="mt-auto inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
                     {cta} <Icon name="arrow" size={14} />
                 </Link>
             </div>
@@ -468,28 +466,20 @@ export default function HomePage({ onVerifiedProviders }) {
                 );
             })()}
 
-            <section id="news-events" className="homepage-deferred overflow-hidden bg-white py-8 sm:py-16">
+            <section id="news-events" className="homepage-deferred overflow-hidden bg-white py-7 sm:py-20">
                 <div className="page-container">
-                    <div className="mb-4 flex items-end justify-between gap-4 sm:mb-8">
+                    <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
-                            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#2A1D14]">News & Events</h2>
+                            <h2 className="text-sm font-black uppercase tracking-wide text-[#34231c]">News & Events</h2>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {newsAndEvents.length > 3 && (
-                                <div className="flex items-center gap-1.5">
-                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Previous news and events"><Icon name="chevronLeft" size={18} /></button>
-                                    <button type="button" onClick={() => railRef.current?.scrollBy({ left: 300, behavior: 'smooth' })} className="grid size-9 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-[0_8px_22px_rgba(45,29,22,.1)] ring-1 ring-stone-200" aria-label="Next news and events"><Icon name="chevronRight" size={18} /></button>
-                                </div>
-                            )}
-                            {newsAndEvents.length > 0 && (
-                                <Link to="/news-events" className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] sm:inline-flex">
-                                    View All News & Events <Icon name="arrow" size={14} />
-                                </Link>
-                            )}
-                        </div>
+                        {newsAndEvents.length > 0 && (
+                            <Link to="/news-events" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#34231c]">
+                                View All News & Events <Icon name="arrow" size={14} />
+                            </Link>
+                        )}
                     </div>
                     <div className="relative">
-                        {loading ? <LoadingCards count={4} className="grid gap-2.5 lg:flex lg:overflow-hidden" /> : newsAndEvents.length ? <div ref={railRef} className="grid gap-2.5 lg:scrollbar-none lg:flex lg:snap-x lg:snap-mandatory lg:overflow-x-auto lg:pb-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="min-w-0 lg:w-[23rem] lg:shrink-0 lg:snap-start"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
+                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[315px]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>
