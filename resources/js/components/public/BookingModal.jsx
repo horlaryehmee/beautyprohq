@@ -226,6 +226,11 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         const serviceTypes = new Set(availableServices.map((service) => service.service_type).filter(Boolean));
         return Math.max(1, serviceTypes.size || (selectedService?.service_type ? 1 : 0));
     }, [availableServices, selectedService]);
+    const serviceTypeLabel = selectedService?.service_type ? String(selectedService.service_type).replaceAll('_', ' ') : null;
+    const serviceLocationLabel = locationOptionCount > 1
+        ? `${locationOptionCount} location options`
+        : (serviceTypeLabel ? serviceTypeLabel : `${locationOptionCount} location option`);
+    const selectedServiceDescription = selectedService?.description ? stripHtml(selectedService.description) : '';
 
     useEffect(() => {
         if (!open) return undefined;
@@ -378,79 +383,77 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     }
 
     const standaloneScheduler = standalone && step <= 2 ? (
-        <section className="min-h-screen overflow-hidden border-slate-200 bg-white text-slate-950 lg:rounded-[1.15rem] lg:border" aria-labelledby="booking-title">
+        <section className="min-h-screen overflow-hidden border-slate-200 bg-white text-slate-950 lg:min-h-[calc(100dvh-4rem)] lg:rounded-[1rem] lg:border" aria-labelledby="booking-title">
             {user && user.role !== 'customer' ? (
                 <div className="p-7"><InlineAlert>Provider and admin accounts cannot create customer bookings from this page.</InlineAlert></div>
             ) : (
-                <div className="grid min-h-screen lg:grid-cols-[31%_39%_30%]">
-                    <aside className="border-slate-200 px-8 py-10 lg:border-r">
-                        <h1 id="booking-title" className="text-[30px] font-bold leading-tight text-slate-950">{selectedService?.name ?? 'Consultation'}</h1>
-                        <div className="mt-5 space-y-3 text-[15px] font-medium text-slate-950">
-                            <div className="flex items-center gap-2"><Icon name="clock" size={16} /> {durationLabel}</div>
-                            <div className="flex items-center gap-2"><Icon name="map" size={16} /> {locationOptionCount} location option{locationOptionCount === 1 ? '' : 's'}</div>
-                            <div className="flex items-center gap-2"><Icon name="calendar" size={16} /> {timezoneLabel}</div>
+                <div className="grid min-h-screen lg:min-h-[calc(100dvh-4rem)] lg:grid-cols-[30%_38%_32%] xl:grid-cols-[31%_39%_30%]">
+                    <aside className="border-b border-slate-200 px-4 py-4 sm:px-5 lg:border-b-0 lg:border-r lg:px-6 lg:py-7 xl:px-8">
+                        <h1 id="booking-title" className="text-2xl font-bold leading-tight text-slate-950 lg:text-[26px] xl:text-[30px]">{selectedService?.name ?? 'Service'}</h1>
+                        <div className="mt-3 space-y-2 text-sm font-medium capitalize text-slate-950 lg:mt-4 lg:text-[15px]">
+                            <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
+                            <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
+                            <div className="flex items-center gap-2 normal-case"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
                         </div>
-                        <p className="mt-7 max-w-sm text-base leading-7 text-slate-950">
-                            {selectedService?.description ? stripHtml(selectedService.description) : "Ready to bring your vision to life? Let's get started with a quick call to better understand your needs and craft the perfect solution for you."}
-                        </p>
+                        {selectedServiceDescription && <p className="mt-4 max-w-sm text-sm leading-6 text-slate-950 lg:mt-6 lg:text-base lg:leading-7">{selectedServiceDescription}</p>}
                     </aside>
 
-                    <section className="border-slate-200 px-8 py-10 lg:border-r">
+                    <section className="border-b border-slate-200 px-4 py-4 sm:px-5 lg:border-b-0 lg:border-r lg:px-6 lg:py-7 xl:px-8">
                         <div className="flex items-center justify-between gap-4">
-                            <h2 className="text-xl font-bold text-slate-950">{monthLabel(monthOffset)}</h2>
-                            <div className="flex items-center gap-5">
-                                <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-slate-500 disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={18} /></button>
-                                <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-red-500" aria-label="Next month"><Icon name="chevronRight" size={18} /></button>
+                            <h2 className="text-lg font-bold text-slate-950 lg:text-xl">{monthLabel(monthOffset)}</h2>
+                            <div className="flex items-center gap-3 lg:gap-5">
+                                <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-slate-500 disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={17} /></button>
+                                <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-red-500" aria-label="Next month"><Icon name="chevronRight" size={17} /></button>
                             </div>
                         </div>
 
-                        <div className="mt-8 rounded-[1.35rem] border border-slate-200 bg-[#EFF4FA] p-6">
-                            <div className="grid grid-cols-7 text-center text-xs font-medium uppercase text-slate-500">
+                        <div className="mt-4 rounded-2xl border border-slate-200 bg-[#EFF4FA] p-3 sm:p-4 lg:mt-6 xl:p-6">
+                            <div className="grid grid-cols-7 text-center text-[11px] font-medium uppercase text-slate-500 lg:text-xs">
                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}
                             </div>
-                            <div className="mt-8 grid grid-cols-7 gap-y-2 text-center text-sm">
+                            <div className="mt-4 grid grid-cols-7 gap-y-1.5 text-center text-sm lg:mt-6 lg:gap-y-2 xl:mt-8">
                                 {calendarDays.map((item) => item.blank ? (
-                                    <span key={item.key} className="h-14" />
+                                    <span key={item.key} className="h-9 sm:h-10 lg:h-12 xl:h-14" />
                                 ) : (
                                     <button
                                         key={item.key}
                                         type="button"
                                         disabled={item.disabled}
                                         onClick={() => chooseDate(item.value)}
-                                        className={`relative mx-auto grid size-14 place-items-center rounded-2xl border text-sm transition ${date === item.value ? 'border-red-500 bg-red-500 font-bold text-white shadow-lg shadow-red-100' : item.disabled ? 'border-transparent text-slate-300' : 'border-slate-200 bg-white text-slate-950 shadow-md shadow-slate-200/70 hover:border-slate-300'} `}
+                                        className={`relative mx-auto grid size-9 place-items-center rounded-xl border text-xs transition sm:size-10 lg:size-12 lg:rounded-2xl lg:text-sm xl:size-14 ${date === item.value ? 'border-red-500 bg-red-500 font-bold text-white shadow-lg shadow-red-100' : item.disabled ? 'border-transparent text-slate-300' : 'border-slate-200 bg-white text-slate-950 shadow-sm shadow-slate-200/70 hover:border-slate-300 lg:shadow-md'} `}
                                     >
                                         {item.day}
-                                        {item.today && date !== item.value && <span className="absolute bottom-2 size-1 rounded-full bg-red-300" />}
-                                        {date === item.value && <span className="absolute bottom-2 size-1.5 rounded-full bg-white" />}
+                                        {item.today && date !== item.value && <span className="absolute bottom-1 size-1 rounded-full bg-red-300 lg:bottom-2" />}
+                                        {date === item.value && <span className="absolute bottom-1 size-1.5 rounded-full bg-white lg:bottom-2" />}
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="mt-9">
-                            <p className="text-base font-bold text-slate-950">Timezone</p>
-                            <button type="button" className="mt-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 text-left text-sm font-bold text-slate-950">
+                        <div className="mt-4 lg:mt-7 xl:mt-9">
+                            <p className="text-sm font-bold text-slate-950 lg:text-base">Timezone</p>
+                            <button type="button" className="mt-2 flex min-h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-950 lg:mt-3 lg:min-h-11 lg:px-4">
                                 <span className="flex min-w-0 items-center gap-2"><Icon name="calendar" size={15} /> <span className="truncate">{timezoneLabel}</span></span>
                                 <Icon name="chevronDown" size={16} className="text-slate-500" />
                             </button>
-                            <p className="mt-3 text-xs leading-5 text-slate-500">Auto-detected from your device: {timezoneLabel}. Times are shown in this timezone. The calendar owner uses {timezone}.</p>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">Auto-detected from your device: {timezoneLabel}. Times are shown in this timezone. The calendar owner uses {timezone}.</p>
                         </div>
                     </section>
 
-                    <aside className="min-h-0 px-8 py-10">
+                    <aside className="min-h-0 px-4 py-4 sm:px-5 lg:px-6 lg:py-7 xl:px-8">
                         <div className="flex items-center justify-between gap-4">
-                            <h2 className="text-xl font-bold text-slate-950">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</h2>
+                            <h2 className="text-lg font-bold text-slate-950 lg:text-xl">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</h2>
                             <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-1 text-xs font-bold">
                                 <span className="rounded-md bg-red-500 px-2 py-1 text-white">12h</span>
                                 <span className="px-2 py-1 text-slate-500">24h</span>
                             </div>
                         </div>
-                        <div className="mt-6 max-h-[calc(100dvh-8rem)] space-y-4 overflow-y-auto pr-1">
+                        <div className="mt-4 max-h-none space-y-2.5 overflow-y-auto pr-1 lg:max-h-[calc(100dvh-8rem)] lg:space-y-3 xl:space-y-4">
                             {loadingSlots ? (
-                                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
+                                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                             ) : slots.length ? (
                                 slots.map((slot) => (
-                                    <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-14 w-full rounded-lg border px-5 text-left text-base font-medium transition ${time === slot ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>
+                                    <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-11 w-full rounded-lg border px-4 text-left text-sm font-medium transition lg:min-h-12 lg:text-[15px] xl:min-h-14 xl:px-5 xl:text-base ${time === slot ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>
                                         {displayTime(slot)}
                                     </button>
                                 ))
@@ -458,7 +461,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 <p className="rounded-lg border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Choose another day.</p>
                             )}
                             {time && (
-                                <Button type="button" onClick={() => setStep(3)} className="w-full rounded-lg bg-red-500 hover:bg-red-600">Continue</Button>
+                                <Button type="button" onClick={() => setStep(3)} className="min-h-11 w-full rounded-lg bg-red-500 hover:bg-red-600">Continue</Button>
                             )}
                         </div>
                     </aside>
