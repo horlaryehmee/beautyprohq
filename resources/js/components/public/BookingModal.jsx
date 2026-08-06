@@ -216,6 +216,7 @@ const phoneCountries = [
 function CountryPhoneField({ value, onChange }) {
     const selectedCountry = phoneCountries.find((country) => value?.startsWith(country[2])) ?? phoneCountries[0];
     const localNumber = String(value ?? '').replace(selectedCountry[2], '').trim();
+    const selectedFlagUrl = `https://flagcdn.com/w40/${selectedCountry[0].toLowerCase()}.png`;
 
     function updateCountry(countryCode) {
         const nextCountry = phoneCountries.find((country) => country[0] === countryCode) ?? phoneCountries[0];
@@ -231,7 +232,12 @@ function CountryPhoneField({ value, onChange }) {
             Phone number
             <div className="mt-1.5 flex min-h-12 overflow-hidden rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
                 <span className="relative flex w-16 items-center justify-center gap-1 border-r border-stone-200 bg-white text-base">
-                    <span>{selectedCountry[3]}</span>
+                    <img
+                        src={selectedFlagUrl}
+                        alt={`${selectedCountry[1]} flag`}
+                        className="h-4 w-6 rounded-[2px] object-cover"
+                        loading="lazy"
+                    />
                     <Icon name="chevronDown" size={13} className="text-plum-950" />
                     <select
                         className="absolute inset-0 cursor-pointer opacity-0"
