@@ -479,7 +479,7 @@ export default function HomePage({ onVerifiedProviders }) {
                         )}
                     </div>
                     <div className="relative">
-                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[315px]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
+                        {loading ? <LoadingCards count={4} className="grid gap-4 md:grid-cols-4" /> : newsAndEvents.length ? <div ref={railRef} className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">{visibleNewsAndEvents.map((item, index) => <div key={`${item._kind}-${item.id ?? index}`} className="w-[78vw] shrink-0 snap-start sm:w-[315px]"><NewsEventCard item={item} index={index} /></div>)}</div> : <EmptyState icon="calendar" title="More updates are on the way" message="News and event posts will appear here as they are published." />}
                     </div>
                 </div>
             </section>
