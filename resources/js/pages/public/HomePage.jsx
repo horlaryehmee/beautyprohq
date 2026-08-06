@@ -466,7 +466,7 @@ export default function HomePage({ onVerifiedProviders }) {
                 );
             })()}
 
-            <section id="news-events" className="homepage-deferred overflow-hidden bg-white py-7 sm:py-20">
+            <section id="news-events" className="homepage-deferred overflow-hidden bg-white pb-8 pt-14 sm:py-20">
                 <div className="page-container">
                     <div className="mb-8 flex items-end justify-between gap-4">
                         <div>
