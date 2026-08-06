@@ -484,9 +484,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     function TimezoneSelect({ compact = false }) {
         return (
             <label className="relative block">
-                <Icon name="calendar" size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Icon name="calendar" size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-bphq-coffee/70" />
                 <select
-                    className={`w-full appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-left text-sm font-bold text-slate-950 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100 ${compact ? 'min-h-10' : 'min-h-11'}`}
+                    className={`w-full appearance-none rounded-xl border border-bphq-chrome bg-white pl-10 pr-9 text-left text-sm font-bold text-bphq-espresso outline-none transition focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60 ${compact ? 'min-h-10' : 'min-h-11'}`}
                     value={selectedTimezone}
                     onChange={(event) => setSelectedTimezone(event.target.value)}
                 >
@@ -494,7 +494,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                         <option key={timezone} value={timezone}>{timezoneDisplayName(timezone)}</option>
                     ))}
                 </select>
-                <Icon name="chevronDown" size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Icon name="chevronDown" size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-bphq-coffee/70" />
             </label>
         );
     }
@@ -570,33 +570,33 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     }
 
     const standaloneScheduler = standalone && step <= 2 ? (
-        <section className="mx-auto w-full max-w-md bg-[#F6F9FC] px-3 py-3 text-slate-950 sm:px-4 sm:py-5 lg:max-w-7xl lg:overflow-hidden lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-0" aria-labelledby="booking-title">
+        <section className="mx-auto w-full max-w-md bg-bphq-ivory px-3 py-3 text-bphq-espresso sm:px-4 sm:py-5 lg:max-w-7xl lg:overflow-hidden lg:rounded-2xl lg:border lg:border-bphq-chrome/80 lg:bg-white lg:p-0 lg:shadow-sm lg:shadow-bphq-beige/40" aria-labelledby="booking-title">
             {user && user.role !== 'customer' ? (
                 <div className="p-4 lg:p-7"><InlineAlert>Provider and admin accounts cannot create customer bookings from this page.</InlineAlert></div>
             ) : (
                 <div className="grid gap-4 lg:grid-cols-[0.8fr_1fr_0.75fr] lg:gap-0">
-                    <aside className={`${step <= 2 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-slate-200 lg:p-8`}>
-                        <h1 id="booking-title" className="text-2xl font-black leading-tight text-slate-950 lg:text-3xl">{selectedService?.name ?? 'Service'}</h1>
-                        {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14] lg:text-xl">{selectedServicePrice}</p>}
-                        <div className="mt-3 space-y-2 text-sm font-medium capitalize text-slate-950">
+                    <aside className={`${step <= 2 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-bphq-chrome/80 lg:bg-bphq-ivory/70 lg:p-8`}>
+                        <h1 id="booking-title" className="font-display text-2xl font-semibold leading-tight text-bphq-espresso lg:text-3xl">{selectedService?.name ?? 'Service'}</h1>
+                        {selectedServicePrice && <p className="mt-2 text-lg font-black text-bphq-coffee lg:text-xl">{selectedServicePrice}</p>}
+                        <div className="mt-3 space-y-2 text-sm font-medium capitalize text-bphq-espresso">
                             <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                             <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
                             <div className="flex items-center gap-2 normal-case"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
                         </div>
-                        {selectedServiceDescription && <p className="mt-4 max-w-sm text-sm leading-6 text-slate-950 lg:mt-6 lg:text-base lg:leading-7">{selectedServiceDescription}</p>}
+                        {selectedServiceDescription && <p className="mt-4 max-w-sm text-sm leading-6 text-bphq-coffee lg:mt-6 lg:text-base lg:leading-7">{selectedServiceDescription}</p>}
                     </aside>
 
-                    <section className={`${step === 1 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-slate-200 lg:p-8`}>
+                    <section className={`${step === 1 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-bphq-chrome/80 lg:p-8`}>
                         <div className="flex items-center justify-between gap-4">
-                            <h2 className="text-lg font-black text-slate-950 lg:text-xl">{monthLabel(monthOffset)}</h2>
+                            <h2 className="font-display text-lg font-semibold text-bphq-espresso lg:text-xl">{monthLabel(monthOffset)}</h2>
                             <div className="flex items-center gap-1">
-                                <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-slate-500 disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={17} /></button>
-                                <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-red-500" aria-label="Next month"><Icon name="chevronRight" size={17} /></button>
+                                <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-bphq-coffee/70 transition hover:bg-bphq-ivory disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={17} /></button>
+                                <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-bphq-coffee transition hover:bg-bphq-ivory" aria-label="Next month"><Icon name="chevronRight" size={17} /></button>
                             </div>
                         </div>
 
-                        <div className="mt-4 rounded-3xl border border-slate-200 bg-[#EFF4FA] p-2 sm:p-3 lg:mt-6">
-                            <div className="grid grid-cols-7 text-center text-[11px] font-medium uppercase text-slate-500 lg:text-xs">
+                        <div className="mt-4 rounded-3xl border border-bphq-chrome/80 bg-bphq-ivory p-2 sm:p-3 lg:mt-6">
+                            <div className="grid grid-cols-7 text-center text-[11px] font-medium uppercase text-bphq-coffee/70 lg:text-xs">
                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}
                             </div>
                             <div className="mt-3 grid grid-cols-7 gap-1.5 text-center text-sm sm:gap-2 lg:mt-5">
@@ -608,10 +608,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         type="button"
                                         disabled={item.disabled}
                                         onClick={() => chooseDate(item.value)}
-                                        className={`relative grid h-10 w-full place-items-center rounded-2xl border text-xs transition sm:h-12 lg:h-14 lg:text-sm ${date === item.value ? 'border-red-500 bg-red-500 font-bold text-white shadow-lg shadow-red-100' : item.disabled ? 'border-transparent text-slate-300' : 'border-slate-200 bg-white text-slate-950 shadow-sm shadow-slate-200/70 hover:border-slate-300 lg:shadow-md'} `}
+                                        className={`relative grid h-10 w-full place-items-center rounded-2xl border text-xs transition sm:h-12 lg:h-14 lg:text-sm ${date === item.value ? 'border-bphq-espresso bg-bphq-espresso font-bold text-white shadow-lg shadow-bphq-beige/70' : item.disabled ? 'border-transparent text-bphq-chrome' : 'border-bphq-chrome/70 bg-white text-bphq-espresso shadow-sm shadow-bphq-beige/40 hover:border-bphq-coffee lg:shadow-md'} `}
                                     >
                                         {item.day}
-                                        {item.today && date !== item.value && <span className="absolute bottom-1 size-1 rounded-full bg-red-300 lg:bottom-2" />}
+                                        {item.today && date !== item.value && <span className="absolute bottom-1 size-1 rounded-full bg-bphq-coffee lg:bottom-2" />}
                                         {date === item.value && <span className="absolute bottom-1 size-1.5 rounded-full bg-white lg:bottom-2" />}
                                     </button>
                                 ))}
@@ -619,30 +619,30 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                         </div>
 
                         <div className="mt-5 lg:mt-8">
-                            <p className="text-sm font-black text-slate-950 lg:text-lg">Timezone</p>
+                            <p className="text-sm font-black text-bphq-espresso lg:text-lg">Timezone</p>
                             <div className="mt-2"><TimezoneSelect /></div>
-                            <p className="mt-2 text-xs leading-5 text-slate-500">Times are shown in {timezoneLabel}. The provider calendar uses {timezoneDisplayName(providerTimezone)}.</p>
+                            <p className="mt-2 text-xs leading-5 text-bphq-coffee/70">Times are shown in {timezoneLabel}. The provider calendar uses {timezoneDisplayName(providerTimezone)}.</p>
                         </div>
                     </section>
 
                     <aside className={`${step === 2 ? 'block' : 'hidden'} min-h-0 lg:block lg:p-8`}>
                         <div className="flex items-center justify-between gap-4">
-                            <button type="button" onClick={() => setStep(1)} className="flex items-center gap-3 text-sm font-bold text-slate-950 lg:pointer-events-none lg:cursor-default">
-                                <span className="grid size-9 place-items-center rounded-full border border-slate-200 bg-white lg:hidden"><Icon name="chevronLeft" size={16} /></span>
+                            <button type="button" onClick={() => setStep(1)} className="flex items-center gap-3 text-sm font-bold text-bphq-espresso lg:pointer-events-none lg:cursor-default">
+                                <span className="grid size-9 place-items-center rounded-full border border-bphq-chrome bg-white lg:hidden"><Icon name="chevronLeft" size={16} /></span>
                                 <span className="text-lg font-black lg:text-xl">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</span>
                             </button>
                         </div>
                         <div className="mt-4 max-h-none space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(100dvh-10rem)] lg:space-y-4">
                             {loadingSlots ? (
-                                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
+                                <div className="flex items-center gap-2 rounded-lg border border-bphq-chrome bg-white p-4 text-sm font-semibold text-bphq-coffee"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                             ) : slots.length ? (
                                 slots.map((slot) => (
-                                    <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-11 w-full rounded-lg border px-4 text-left text-sm font-medium transition lg:min-h-14 lg:px-5 lg:text-base ${time === slot ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>
+                                    <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-11 w-full rounded-lg border px-4 text-left text-sm font-medium transition lg:min-h-14 lg:px-5 lg:text-base ${time === slot ? 'border-bphq-espresso bg-bphq-espresso text-white' : 'border-bphq-chrome bg-white text-bphq-espresso hover:border-bphq-coffee hover:bg-bphq-ivory'}`}>
                                         {displaySlotTime(slot)}
                                     </button>
                                 ))
                             ) : (
-                                <p className="rounded-lg border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Choose another day.</p>
+                                <p className="rounded-lg border border-dashed border-bphq-chrome bg-white p-5 text-sm leading-6 text-bphq-coffee">No open times for this date. Choose another day.</p>
                             )}
                         </div>
                     </aside>
@@ -652,7 +652,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     ) : null;
 
     const content = standaloneScheduler ?? (
-            <section className={`flex w-full flex-col overflow-hidden ${standalone ? 'min-h-[calc(100dvh-2rem)] bg-[#F6F9FC] lg:min-h-[calc(100dvh-5rem)] lg:rounded-[1.5rem] lg:border lg:border-stone-200 lg:bg-white lg:shadow-sm' : 'h-[100dvh] rounded-t-[2rem] bg-white shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-[2rem]'}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="booking-title">
+            <section className={`flex w-full flex-col overflow-hidden ${standalone ? 'min-h-[calc(100dvh-2rem)] bg-bphq-ivory lg:min-h-[calc(100dvh-5rem)] lg:rounded-[1.5rem] lg:border lg:border-bphq-chrome/80 lg:bg-white lg:shadow-sm lg:shadow-bphq-beige/40' : 'h-[100dvh] rounded-t-[2rem] bg-white shadow-2xl sm:h-auto sm:max-h-[94vh] sm:max-w-6xl sm:rounded-[2rem]'}`} role={standalone ? undefined : 'dialog'} aria-modal={standalone ? undefined : true} aria-labelledby="booking-title">
                 <div className={`shrink-0 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4 ${standalone ? 'hidden' : ''}`}>
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
@@ -694,14 +694,14 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 )}
                             </aside>
 
-                            <main className={`flex min-h-0 min-w-0 flex-col overflow-y-auto ${standalone ? 'px-3 py-3 pb-28 lg:px-6 lg:py-6' : 'px-4 py-4 pb-28 lg:p-6'}`}>
+                            <main className={`flex min-h-0 min-w-0 flex-col overflow-y-auto ${standalone ? 'px-3 py-3 pb-28 lg:bg-white lg:px-6 lg:py-6' : 'px-4 py-4 pb-28 lg:p-6'}`}>
                                 {step === 1 && (
                                     <div className="space-y-5">
                                         <section className={`${standalone ? 'block lg:hidden' : 'hidden'}`}>
                                             <div className="px-0 pb-4 pt-1">
-                                                <h1 className="text-[22px] font-bold leading-tight text-slate-950">{selectedService?.name ?? 'Consultation'}</h1>
-                                                {selectedServicePrice && <p className="mt-2 text-base font-black text-[#2A1D14]">{selectedServicePrice}</p>}
-                                                <div className="mt-4 space-y-2 text-[13px] font-medium text-slate-950">
+                                                <h1 className="font-display text-[24px] font-semibold leading-tight text-bphq-espresso">{selectedService?.name ?? 'Consultation'}</h1>
+                                                {selectedServicePrice && <p className="mt-2 text-base font-black text-bphq-coffee">{selectedServicePrice}</p>}
+                                                <div className="mt-4 space-y-2 text-[13px] font-medium text-bphq-espresso">
                                                     <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                     <div className="flex items-center gap-2"><Icon name="map" size={15} /> {locationOptionCount} location option{locationOptionCount === 1 ? '' : 's'}</div>
                                                     <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
@@ -709,15 +709,15 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             </div>
 
                                             <div className="mt-8 flex items-center justify-between">
-                                                <h2 className="text-base font-bold text-slate-950">{monthLabel(monthOffset)}</h2>
+                                                <h2 className="font-display text-base font-semibold text-bphq-espresso">{monthLabel(monthOffset)}</h2>
                                                 <div className="flex items-center gap-5">
-                                                    <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-slate-500 disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={18} /></button>
-                                                    <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-red-500" aria-label="Next month"><Icon name="chevronRight" size={18} /></button>
+                                                    <button type="button" disabled={monthOffset === 0} onClick={() => setMonthOffset((current) => Math.max(0, current - 1))} className="grid size-8 place-items-center rounded-full text-bphq-coffee/70 disabled:opacity-30" aria-label="Previous month"><Icon name="chevronLeft" size={18} /></button>
+                                                    <button type="button" onClick={() => setMonthOffset((current) => current + 1)} className="grid size-8 place-items-center rounded-full text-bphq-coffee" aria-label="Next month"><Icon name="chevronRight" size={18} /></button>
                                                 </div>
                                             </div>
 
-                                            <div className="mt-6 rounded-[1.35rem] border border-slate-200 bg-[#EFF4FA] p-4">
-                                                <div className="grid grid-cols-7 text-center text-xs font-medium uppercase text-slate-500">
+                                            <div className="mt-6 rounded-[1.35rem] border border-bphq-chrome/80 bg-bphq-ivory p-4">
+                                                <div className="grid grid-cols-7 text-center text-xs font-medium uppercase text-bphq-coffee/70">
                                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}
                                                 </div>
                                                 <div className="mt-5 grid grid-cols-7 gap-y-2 text-center text-sm">
@@ -729,19 +729,19 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                             type="button"
                                                             disabled={item.disabled}
                                                             onClick={() => chooseDate(item.value)}
-                                                            className={`relative mx-auto grid size-10 place-items-center rounded-2xl border text-sm transition ${date === item.value ? 'border-slate-300 bg-white font-bold text-slate-950 shadow-md' : item.disabled ? 'border-transparent text-slate-300' : 'border-transparent text-slate-400 hover:bg-white hover:text-slate-950'}`}
+                                                            className={`relative mx-auto grid size-10 place-items-center rounded-2xl border text-sm transition ${date === item.value ? 'border-bphq-espresso bg-bphq-espresso font-bold text-white shadow-md shadow-bphq-beige/70' : item.disabled ? 'border-transparent text-bphq-chrome' : 'border-transparent text-bphq-coffee/70 hover:bg-white hover:text-bphq-espresso'}`}
                                                         >
                                                             {item.day}
-                                                            {item.today && date !== item.value && <span className="absolute bottom-1 size-1 rounded-full bg-red-300" />}
+                                                            {item.today && date !== item.value && <span className="absolute bottom-1 size-1 rounded-full bg-bphq-coffee" />}
                                                         </button>
                                                     ))}
                                                 </div>
                                             </div>
 
                                             <div className="mt-5">
-                                                <p className="text-sm font-bold text-slate-950">Timezone</p>
+                                                <p className="text-sm font-bold text-bphq-espresso">Timezone</p>
                                                 <div className="mt-2"><TimezoneSelect /></div>
-                                                <p className="mt-2 text-xs text-slate-500">Times are shown in {timezoneLabel}.</p>
+                                                <p className="mt-2 text-xs text-bphq-coffee/70">Times are shown in {timezoneLabel}.</p>
                                             </div>
                                         </section>
 
@@ -798,32 +798,32 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 {step === 2 && (
                                     <section className={standalone ? 'lg:hidden' : 'hidden'}>
                                         <div>
-                                            <h1 className="text-[22px] font-bold leading-tight text-slate-950">{selectedService?.name ?? 'Consultation'}</h1>
-                                            {selectedServicePrice && <p className="mt-2 text-base font-black text-[#2A1D14]">{selectedServicePrice}</p>}
-                                            <div className="mt-4 space-y-2 text-[13px] font-medium text-slate-950">
+                                            <h1 className="font-display text-[24px] font-semibold leading-tight text-bphq-espresso">{selectedService?.name ?? 'Consultation'}</h1>
+                                            {selectedServicePrice && <p className="mt-2 text-base font-black text-bphq-coffee">{selectedServicePrice}</p>}
+                                            <div className="mt-4 space-y-2 text-[13px] font-medium text-bphq-espresso">
                                                 <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                 <div className="flex items-center gap-2"><Icon name="map" size={15} /> {locationOptionCount} location option{locationOptionCount === 1 ? '' : 's'}</div>
                                                 <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
                                             </div>
-                                            {selectedService?.description && <p className="mt-5 text-sm leading-7 text-slate-950">{stripHtml(selectedService.description)}</p>}
+                                            {selectedService?.description && <p className="mt-5 text-sm leading-7 text-bphq-coffee">{stripHtml(selectedService.description)}</p>}
                                         </div>
 
                                         <div className="mt-8 flex items-center justify-between gap-3">
                                             <div className="flex min-w-0 items-center gap-3">
-                                                <button type="button" onClick={() => setStep(1)} className="grid size-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-950" aria-label="Back to date"><Icon name="chevronLeft" size={18} /></button>
-                                                <p className="truncate text-sm font-bold text-slate-950">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</p>
+                                                <button type="button" onClick={() => setStep(1)} className="grid size-9 shrink-0 place-items-center rounded-full border border-bphq-chrome bg-white text-bphq-espresso" aria-label="Back to date"><Icon name="chevronLeft" size={18} /></button>
+                                                <p className="truncate text-sm font-bold text-bphq-espresso">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</p>
                                             </div>
                                         </div>
 
                                         <div className="mt-4 min-h-48">
                                             {loadingSlots ? (
-                                                <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
+                                                <div className="flex items-center gap-2 rounded-md border border-bphq-chrome bg-white p-4 text-sm font-semibold text-bphq-coffee"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="space-y-3">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>{displaySlotTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-bphq-espresso bg-bphq-espresso text-white' : 'border-bphq-chrome bg-white text-bphq-espresso hover:border-bphq-coffee hover:bg-bphq-ivory'}`}>{displaySlotTime(slot)}</button>)}
                                                 </div>
                                             ) : (
-                                                <p className="rounded-md border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Go back and try another day.</p>
+                                                <p className="rounded-md border border-dashed border-bphq-chrome bg-white p-5 text-sm leading-6 text-bphq-coffee">No open times for this date. Go back and try another day.</p>
                                             )}
                                         </div>
                                     </section>
@@ -856,9 +856,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     <section className="mx-auto w-full max-w-md space-y-5 lg:max-w-5xl">
                                         <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
                                             <aside className="hidden border-r border-stone-200 pr-8 lg:block">
-                                                <h2 className="text-3xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
-                                                {selectedServicePrice && <p className="mt-2 text-xl font-black text-[#2A1D14]">{selectedServicePrice}</p>}
-                                                <div className="mt-4 grid gap-2 text-sm font-medium text-gray-700">
+                                                <h2 className="font-display text-3xl font-semibold leading-tight text-bphq-espresso">{selectedService?.name ?? 'Service'}</h2>
+                                                {selectedServicePrice && <p className="mt-2 text-xl font-black text-bphq-coffee">{selectedServicePrice}</p>}
+                                                <div className="mt-4 grid gap-2 text-sm font-medium text-bphq-coffee">
                                                     <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                     <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
                                                     <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {displaySlotTime(time)}, {fullDate(date)}</div>
@@ -867,16 +867,16 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             </aside>
                                             <div className="space-y-5 lg:pl-8">
                                                 <div className="flex items-center gap-3">
-                                                    <button type="button" onClick={() => setStep(2)} className="grid size-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-900" aria-label="Back to time"><Icon name="chevronLeft" size={16} /></button>
+                                                    <button type="button" onClick={() => setStep(2)} className="grid size-9 place-items-center rounded-full border border-bphq-chrome bg-white text-bphq-espresso" aria-label="Back to time"><Icon name="chevronLeft" size={16} /></button>
                                                     <div>
-                                                        <h3 className="text-lg font-black text-gray-900">Enter Details</h3>
-                                                        <p className="mt-0.5 text-xs font-semibold leading-5 text-gray-500">Name, email and phone number are required.</p>
+                                                        <h3 className="font-display text-lg font-semibold text-bphq-espresso">Enter Details</h3>
+                                                        <p className="mt-0.5 text-xs font-semibold leading-5 text-bphq-coffee/70">Name, email and phone number are required.</p>
                                                     </div>
                                                 </div>
                                                 <div className="lg:hidden">
-                                                    <h2 className="text-2xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
-                                                    {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14]">{selectedServicePrice}</p>}
-                                                    <div className="mt-3 grid gap-2 text-sm font-medium text-gray-700">
+                                                    <h2 className="font-display text-2xl font-semibold leading-tight text-bphq-espresso">{selectedService?.name ?? 'Service'}</h2>
+                                                    {selectedServicePrice && <p className="mt-2 text-lg font-black text-bphq-coffee">{selectedServicePrice}</p>}
+                                                    <div className="mt-3 grid gap-2 text-sm font-medium text-bphq-coffee">
                                                         <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                         <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {displaySlotTime(time)}, {fullDate(date)}</div>
                                                         <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>

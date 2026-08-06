@@ -1,1 +1,0 @@
-import{j as r,O as t}from"./main-8dVX-sSj.js";import{C as o}from"./CurrencyContext-BF0NfRc2.js";import"./api-DPWTVFgP.js";import"./index-Cb4jjC6W.js";function m(){return r.jsx(o,{children:r.jsx(t,{})})}export{m as default};
