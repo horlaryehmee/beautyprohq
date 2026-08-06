@@ -215,31 +215,37 @@ const phoneCountries = [
 
 function CountryPhoneField({ value, onChange }) {
     const selectedCountry = phoneCountries.find((country) => value?.startsWith(country[2])) ?? phoneCountries[0];
+    const localNumber = String(value ?? '').replace(selectedCountry[2], '').trim();
 
-    function updateCountry(dialCode) {
-        const currentWithoutDial = String(value ?? '').replace(/^\+\d+\s*/, '').trim();
-        onChange(`${dialCode}${currentWithoutDial ? ` ${currentWithoutDial}` : ''}`);
+    function updateCountry(countryCode) {
+        const nextCountry = phoneCountries.find((country) => country[0] === countryCode) ?? phoneCountries[0];
+        onChange(`${nextCountry[2]}${localNumber ? ` ${localNumber}` : ''}`);
+    }
+
+    function updateLocalNumber(nextValue) {
+        onChange(`${selectedCountry[2]}${nextValue ? ` ${nextValue}` : ''}`);
     }
 
     return (
         <label className="block text-sm font-bold text-plum-950">
-            Phone number
+            WhatsApp Number
             <div className="mt-1.5 flex min-h-12 overflow-hidden rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
                 <select
-                    className="w-28 border-r border-stone-200 bg-white px-2 text-xs font-bold text-plum-950 outline-none sm:w-36"
-                    value={selectedCountry[2]}
+                    className="w-16 border-r border-stone-200 bg-white px-2 text-sm font-bold text-plum-950 outline-none"
+                    value={selectedCountry[0]}
                     onChange={(event) => updateCountry(event.target.value)}
                     aria-label="Country code"
                 >
                     {phoneCountries.map(([code, name, dialCode, flag]) => (
-                        <option key={`${code}-${dialCode}`} value={dialCode}>{flag} {name} {dialCode}</option>
+                        <option key={`${code}-${dialCode}`} value={code}>{flag} {name} {dialCode}</option>
                     ))}
                 </select>
+                <span className="flex min-w-20 items-center justify-center border-r border-stone-200 px-3 text-sm font-black text-plum-950">{selectedCountry[2]}</span>
                 <input
                     className="min-w-0 flex-1 px-3.5 text-sm text-plum-950 outline-none placeholder:text-stone-400"
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder={`${selectedCountry[2]} 802 123 4567`}
+                    value={localNumber}
+                    onChange={(event) => updateLocalNumber(event.target.value)}
+                    placeholder="802 123 4567"
                     required
                     type="tel"
                 />
