@@ -192,25 +192,25 @@ function timezoneOptions(fallback = 'Africa/Lagos') {
 }
 
 const phoneCountries = [
-    ['NG', 'Nigeria', '+234'],
-    ['GH', 'Ghana', '+233'],
-    ['KE', 'Kenya', '+254'],
-    ['ZA', 'South Africa', '+27'],
-    ['UG', 'Uganda', '+256'],
-    ['TZ', 'Tanzania', '+255'],
-    ['AE', 'United Arab Emirates', '+971'],
-    ['GB', 'United Kingdom', '+44'],
-    ['US', 'United States', '+1'],
-    ['CA', 'Canada', '+1'],
-    ['FR', 'France', '+33'],
-    ['DE', 'Germany', '+49'],
-    ['IT', 'Italy', '+39'],
-    ['ES', 'Spain', '+34'],
-    ['NL', 'Netherlands', '+31'],
-    ['IN', 'India', '+91'],
-    ['CN', 'China', '+86'],
-    ['BR', 'Brazil', '+55'],
-    ['AU', 'Australia', '+61'],
+    ['NG', 'Nigeria', '+234', '🇳🇬'],
+    ['GH', 'Ghana', '+233', '🇬🇭'],
+    ['KE', 'Kenya', '+254', '🇰🇪'],
+    ['ZA', 'South Africa', '+27', '🇿🇦'],
+    ['UG', 'Uganda', '+256', '🇺🇬'],
+    ['TZ', 'Tanzania', '+255', '🇹🇿'],
+    ['AE', 'United Arab Emirates', '+971', '🇦🇪'],
+    ['GB', 'United Kingdom', '+44', '🇬🇧'],
+    ['US', 'United States', '+1', '🇺🇸'],
+    ['CA', 'Canada', '+1', '🇨🇦'],
+    ['FR', 'France', '+33', '🇫🇷'],
+    ['DE', 'Germany', '+49', '🇩🇪'],
+    ['IT', 'Italy', '+39', '🇮🇹'],
+    ['ES', 'Spain', '+34', '🇪🇸'],
+    ['NL', 'Netherlands', '+31', '🇳🇱'],
+    ['IN', 'India', '+91', '🇮🇳'],
+    ['CN', 'China', '+86', '🇨🇳'],
+    ['BR', 'Brazil', '+55', '🇧🇷'],
+    ['AU', 'Australia', '+61', '🇦🇺'],
 ];
 
 function CountryPhoneField({ value, onChange }) {
@@ -231,8 +231,8 @@ function CountryPhoneField({ value, onChange }) {
                     onChange={(event) => updateCountry(event.target.value)}
                     aria-label="Country code"
                 >
-                    {phoneCountries.map(([code, name, dialCode]) => (
-                        <option key={`${code}-${dialCode}`} value={dialCode}>{name} {dialCode}</option>
+                    {phoneCountries.map(([code, name, dialCode, flag]) => (
+                        <option key={`${code}-${dialCode}`} value={dialCode}>{flag} {name} {dialCode}</option>
                     ))}
                 </select>
                 <input
