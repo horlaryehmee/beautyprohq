@@ -13,6 +13,7 @@ export const providerNavigation = [
     { label: 'Subscription', to: '/provider/subscription', icon: 'subscription' },
     { label: 'Services', to: '/provider/services', icon: 'booking', paidOnly: true },
     { label: 'Bookings', to: '/provider/bookings', icon: 'booking', paidOnly: true },
+    { label: 'Live chat', to: '/provider/live-chat', icon: 'chat', paidOnly: true },
     { label: 'Calendar', to: '/provider/calendar', icon: 'calendar', paidOnly: true },
     { label: 'CRM', to: '/provider/crm', icon: 'users', paidOnly: true },
     { label: 'Loyalty', to: '/provider/loyalty', icon: 'loyalty', paidOnly: true },
@@ -36,12 +37,11 @@ export const customerNavigation = [
 export const adminNavigation = [
     { label: 'Dashboard', to: '/admin', icon: 'overview', end: true },
     { label: 'Activity', to: '/admin/activity', icon: 'analytics' },
-    { label: 'Waitlist', to: '/admin/waitlist', icon: 'bell' },
+    { label: 'Subscribers', to: '/admin/waitlist', icon: 'bell' },
     { label: 'Users', to: '/admin/users', icon: 'users' },
     { label: 'Directory', to: '/admin/directory', icon: 'profile' },
     { label: 'Content', to: '/admin/content', icon: 'content' },
     { label: 'Media', to: '/admin/media', icon: 'content' },
-    { label: 'Event registrations', to: '/admin/event-registrations', icon: 'calendar' },
     { label: 'Opportunities', to: '/admin/opportunities', icon: 'opportunity' },
     { label: 'Announcements', to: '/admin/announcements', icon: 'megaphone' },
     { label: 'Subscriptions', to: '/admin/subscriptions', icon: 'subscription' },
@@ -51,8 +51,52 @@ export const adminNavigation = [
 
 const roleLabels = { provider: 'Provider workspace', customer: 'Customer portal', admin: 'Admin console' };
 
+const searchKeywords = {
+    provider: {
+        Overview: 'home summary revenue bookings profile subscription verification alerts',
+        Profile: 'onboarding profile photos logo cover bio location portfolio social links verification questions',
+        Subscription: 'plan billing paid pro renewal subscription upgrade',
+        Services: 'services prices pricing duration menu offers categories',
+        Bookings: 'appointments customers schedule status confirmed completed cancelled paid',
+        'Live chat': 'messages inbox customer questions profile visitors replies email',
+        Calendar: 'availability schedule hours days slots blocked dates',
+        CRM: 'customers clients contacts notes repeat bookings',
+        Loyalty: 'rewards points offers referrals retention',
+        Payments: 'wallet payout bank account revenue transactions paid invoices',
+        'Digital products': 'ebooks downloads products shop files digital sales',
+        'Content calendar': 'posts social instagram content planner calendar',
+        Analytics: 'reports metrics growth performance revenue bookings customers',
+        Settings: 'account password security currency notifications preferences',
+        Documentation: 'help guide docs support setup instructions',
+    },
+    customer: {
+        Dashboard: 'home summary upcoming bookings saved providers rewards',
+        Bookings: 'appointments reservations services schedule completed cancelled',
+        Rewards: 'loyalty points rewards offers benefits',
+        'Saved providers': 'favorites saved beauty professionals providers',
+        Notifications: 'alerts messages updates reminders',
+        Settings: 'account password security currency notifications preferences',
+    },
+    admin: {
+        Dashboard: 'home summary metrics platform revenue activity',
+        Activity: 'audit logs recent events actions platform usage',
+        Subscribers: 'newsletter subscribers waitlist leads emails signups audience',
+        Users: 'members providers customers accounts onboarding profile verification usage',
+        Directory: 'providers listings categories featured pro of week approval',
+        Content: 'news events articles community stories pages html',
+        Media: 'images uploads files gallery broken images',
+        Opportunities: 'jobs grants partnerships applications',
+        Announcements: 'broadcast messages notifications email users',
+        Subscriptions: 'plans billing payments renewals providers revenue',
+        Settings: 'configuration currencies demo data populate clear integrations',
+        Documentation: 'help guide docs support setup instructions',
+    },
+};
+
 function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [dashboardSearch, setDashboardSearch] = useState('');
+    const [searchFocused, setSearchFocused] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
     const { notify } = useDashboardToast();
@@ -76,7 +120,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     );
     const mobileDockItems = useMemo(() => {
         const preferred = {
-            provider: ['/provider', '/provider/profile', '/provider/bookings', '/provider/calendar'],
+            provider: ['/provider', '/provider/bookings', '/provider/live-chat', '/provider/calendar'],
             customer: ['/customer', '/customer/bookings', '/customer/saved-providers', '/customer/notifications'],
             admin: ['/admin', '/admin/users', '/admin/directory', '/admin/content'],
         }[role] ?? [];
@@ -87,6 +131,37 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
 
         return [...ordered, ...fallback].slice(0, 4);
     }, [role, visibleNavigation]);
+
+    const dashboardSearchItems = useMemo(() => visibleNavigation.map((item) => ({
+        ...item,
+        keywords: `${item.label} ${searchKeywords[role]?.[item.label] ?? ''}`.toLowerCase(),
+    })), [role, visibleNavigation]);
+
+    const dashboardSearchResults = useMemo(() => {
+        const query = dashboardSearch.trim().toLowerCase();
+        if (!query) return dashboardSearchItems.slice(0, 6);
+
+        const terms = query.split(/\s+/).filter(Boolean);
+        return dashboardSearchItems
+            .filter((item) => terms.every((term) => item.keywords.includes(term)))
+            .slice(0, 6);
+    }, [dashboardSearch, dashboardSearchItems]);
+
+    const runDashboardSearch = (event) => {
+        event.preventDefault();
+        const target = dashboardSearchResults[0];
+        if (!target) return;
+
+        navigate(target.to);
+        setDashboardSearch('');
+        setSearchFocused(false);
+    };
+
+    const selectSearchResult = (target) => {
+        navigate(target.to);
+        setDashboardSearch('');
+        setSearchFocused(false);
+    };
 
     const logout = async () => {
         try {
@@ -104,15 +179,15 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
 
     const sidebar = (
         <div className="flex h-full flex-col">
-            <div className="flex h-20 items-center justify-between px-5">
-                <div>
-                    <Logo />
-                    <span className="mt-1 block text-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
+            <div className="flex min-h-28 items-start justify-between px-5 py-5">
+                <div className="flex min-w-0 flex-col items-start gap-2">
+                    <Logo imageClassName="h-14 sm:h-14" />
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{roleLabels[role]}</span>
                 </div>
                 <button className="grid size-10 place-items-center rounded-xl text-slate-500 lg:hidden" onClick={() => setMobileOpen(false)} type="button"><Icon name="close" /></button>
             </div>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-3 pt-1">
                 {visibleNavigation.map((item) => (
                     <NavLink
                         className={({ isActive }) => cx(
@@ -143,19 +218,64 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     );
 
     return (
-        <div className="min-h-screen bg-[#f8f8fb] text-slate-900">
+        <div className="min-h-screen bg-[#F7F3ED] text-slate-900">
             <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200/80 bg-white lg:block">{sidebar}</aside>
 
             {mobileOpen && <button aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} type="button" />}
             <aside className={cx('fixed inset-y-0 left-0 z-50 w-[min(82vw,20rem)] border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>{sidebar}</aside>
 
             <div className="lg:pl-64">
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-[#f8f8fb]/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-                    <button className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 lg:hidden" onClick={() => setMobileOpen(true)} type="button"><Icon name="menu" /></button>
-                    <p className="hidden text-sm font-semibold text-slate-500 sm:block">Welcome back, <span className="text-slate-900">{user.name?.split(' ')[0] || 'there'}</span></p>
-                    <div className="ml-auto flex items-center gap-2">
-                        <NavLink className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-fuchsia-700" to={role === 'customer' ? '/customer/notifications' : `/${role}`}><Icon className="size-[18px]" name="bell" /></NavLink>
-                        <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
+                <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F7F3ED]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+                    <div className="flex min-h-10 flex-col gap-3 lg:flex-row lg:items-center">
+                        <div className="flex items-center justify-between gap-3 lg:w-56 lg:justify-start">
+                            <button className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 lg:hidden" onClick={() => setMobileOpen(true)} type="button"><Icon name="menu" /></button>
+                            <p className="min-w-0 truncate text-sm font-semibold text-slate-500">Welcome back, <span className="text-slate-900">{user.name?.split(' ')[0] || 'there'}</span></p>
+                            <div className="flex items-center gap-2 lg:hidden">
+                                <NavLink className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-bphq-coffee" to={role === 'customer' ? '/customer/notifications' : `/${role}`}><Icon className="size-[18px]" name="bell" /></NavLink>
+                                <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
+                            </div>
+                        </div>
+
+                        <form className="relative w-full lg:max-w-2xl" onSubmit={runDashboardSearch}>
+                            <Icon className="pointer-events-none absolute left-4 top-1/2 z-10 size-4 -translate-y-1/2 text-bphq-coffee/60" name="search" />
+                            <input
+                                aria-label="Search dashboard"
+                                autoComplete="off"
+                                className="h-11 w-full rounded-2xl border border-bphq-chrome bg-white py-2 pl-11 pr-4 text-sm font-medium text-bphq-espresso outline-none transition placeholder:text-slate-400 focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60"
+                                onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)}
+                                onChange={(event) => setDashboardSearch(event.target.value)}
+                                onFocus={() => setSearchFocused(true)}
+                                placeholder={`Search ${roleLabels[role].toLowerCase()}...`}
+                                type="search"
+                                value={dashboardSearch}
+                            />
+                            {searchFocused && (
+                                <div className="absolute left-0 right-0 top-[calc(100%+.5rem)] z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+                                    {dashboardSearchResults.length > 0 ? dashboardSearchResults.map((item) => (
+                                        <button
+                                            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-bphq-ivory hover:text-bphq-espresso"
+                                            key={item.to}
+                                            onMouseDown={(event) => event.preventDefault()}
+                                            onClick={() => selectSearchResult(item)}
+                                            type="button"
+                                        >
+                                            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-bphq-ivory text-bphq-coffee"><Icon className="size-4" name={item.icon} /></span>
+                                            <span className="min-w-0">
+                                                <span className="block truncate">{item.label}</span>
+                                                <span className="block truncate text-xs font-medium text-slate-400">{item.to}</span>
+                                            </span>
+                                        </button>
+                                    )) : (
+                                        <div className="px-4 py-4 text-sm font-medium text-slate-500">No matching dashboard section</div>
+                                    )}
+                                </div>
+                            )}
+                        </form>
+
+                        <div className="ml-auto hidden items-center gap-2 lg:flex">
+                            <NavLink className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-bphq-coffee" to={role === 'customer' ? '/customer/notifications' : `/${role}`}><Icon className="size-[18px]" name="bell" /></NavLink>
+                            <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
+                        </div>
                     </div>
                 </header>
                 <main className="mx-auto max-w-[1500px] p-4 pb-28 sm:p-6 sm:pb-28 lg:p-8">
@@ -178,7 +298,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                             {({ isActive }) => (
                                 <>
                                     <Icon className="size-5 shrink-0" name={item.icon} />
-                                    <span className={cx('max-w-0 overflow-hidden whitespace-nowrap text-sm font-black transition-all', isActive ? 'max-w-28' : '')}>{item.label}</span>
+                                    <span className={cx('max-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold transition-all', isActive ? 'max-w-28' : '')}>{item.label}</span>
                                 </>
                             )}
                         </NavLink>

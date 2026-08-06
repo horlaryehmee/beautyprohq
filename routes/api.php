@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController;
 use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
@@ -10,11 +11,13 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CurrencyController;
 use App\Http\Controllers\Api\HomeController;
+use App\Http\Controllers\Api\LiveChatController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Provider\BookingController as ProviderBookingController;
 use App\Http\Controllers\Api\Provider\BusinessController as ProviderBusinessController;
 use App\Http\Controllers\Api\Provider\ContentCalendarController as ProviderContentCalendarController;
 use App\Http\Controllers\Api\Provider\DashboardController as ProviderDashboardController;
+use App\Http\Controllers\Api\Provider\LiveChatController as ProviderLiveChatController;
 use App\Http\Controllers\Api\Provider\ScheduleController as ProviderScheduleController;
 use App\Http\Controllers\Api\Provider\ServiceController as ProviderServiceController;
 use App\Http\Controllers\Api\ProviderDirectoryController;
@@ -55,11 +58,15 @@ Route::get('/opportunities/{opportunity}', [PublicContentController::class, 'sho
 Route::get('/community-posts', [PublicContentController::class, 'community']);
 Route::get('/community-posts/{communityPost}', [PublicContentController::class, 'showCommunity']);
 Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:10,1');
+Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:60,1');
 Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:10,1');
 Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:10,1');
 Route::post('/guest-bookings', [BookingController::class, 'guestStore'])->middleware('throttle:10,1');
 Route::post('/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment'])->middleware('throttle:10,1');
 Route::post('/booking-payments/verify', [BookingController::class, 'verifyPayment'])->middleware('throttle:20,1');
+Route::post('/providers/{provider}/chat/conversations', [LiveChatController::class, 'start'])->middleware('throttle:10,1');
+Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class, 'show'])->middleware('throttle:60,1');
+Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:30,1');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
@@ -68,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:6,1');
     Route::post('/auth/two-factor/confirm', [AuthController::class, 'confirmTwoFactor'])->middleware('throttle:6,1');
+    Route::post('/auth/two-factor/recovery-codes', [AuthController::class, 'regenerateRecoveryCodes'])->middleware('throttle:6,1');
     Route::post('/auth/two-factor/disable', [AuthController::class, 'disableTwoFactor'])->middleware('throttle:6,1');
 
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -118,6 +126,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::delete('/blocked-dates/{blockedDate}', [ProviderScheduleController::class, 'destroyBlock']);
             Route::get('/bookings', [ProviderBookingController::class, 'index']);
             Route::patch('/bookings/{booking}/status', [ProviderBookingController::class, 'updateStatus']);
+            Route::get('/live-chat', [ProviderLiveChatController::class, 'index']);
+            Route::get('/live-chat/{conversation}', [ProviderLiveChatController::class, 'show']);
+            Route::post('/live-chat/{conversation}/messages', [ProviderLiveChatController::class, 'reply'])->middleware('throttle:60,1');
+            Route::patch('/live-chat/{conversation}', [ProviderLiveChatController::class, 'update']);
             Route::get('/payments', [ProviderBusinessController::class, 'payments']);
             Route::get('/settings', [ProviderBusinessController::class, 'settings']);
             Route::put('/settings', [ProviderBusinessController::class, 'updateSettings']);
@@ -149,6 +161,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/users', [AdminDashboardController::class, 'users']);
         Route::get('/users/{user}', [AdminDashboardController::class, 'showUser']);
         Route::patch('/users/{user}', [AdminDashboardController::class, 'updateUser']);
+        Route::delete('/users/{user}', [AdminDashboardController::class, 'destroyUser']);
         Route::get('/directory', [AdminDashboardController::class, 'directory']);
         Route::patch('/providers/{provider}', [AdminDashboardController::class, 'updateProvider']);
         Route::get('/provider-categories', [AdminDashboardController::class, 'providerCategories']);
@@ -174,6 +187,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
+        Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware('throttle:6,1');
+        Route::post('/settings/email-notifications/test', [SubscriptionController::class, 'testAdminEmailNotification'])->middleware('throttle:6,1');
+        Route::get('/settings/mailchimp', [SubscriptionController::class, 'adminMailchimpSettings']);
+        Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings']);
+        Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware('throttle:6,1');
+        Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:3,1');
+        Route::get('/demo-data', [AdminDemoDataController::class, 'status']);
+        Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate']);
+        Route::delete('/demo-data', [AdminDemoDataController::class, 'clear']);
 
         Route::get('/debug', [SubscriptionController::class, 'adminDebug']);
         Route::get('/media', [AdminMediaController::class, 'index']);
@@ -185,9 +207,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::delete('/news/{news}', [AdminContentController::class, 'destroyNews']);
         Route::get('/events', [AdminContentController::class, 'events']);
         Route::post('/events', [AdminContentController::class, 'storeEvent']);
+        Route::get('/events/{event}/registrations/export', [AdminEventRegistrationController::class, 'export']);
         Route::get('/events/{event}', [AdminContentController::class, 'showEvent']);
         Route::put('/events/{event}', [AdminContentController::class, 'updateEvent']);
         Route::delete('/events/{event}', [AdminContentController::class, 'destroyEvent']);
+        Route::get('/event-registrations/events', [AdminEventRegistrationController::class, 'events']);
         Route::get('/event-registrations', [AdminEventRegistrationController::class, 'index']);
         Route::patch('/event-registrations/{registration}', [AdminEventRegistrationController::class, 'update']);
         Route::delete('/event-registrations/{registration}', [AdminEventRegistrationController::class, 'destroy']);

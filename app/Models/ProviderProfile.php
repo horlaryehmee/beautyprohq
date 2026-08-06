@@ -19,6 +19,7 @@ class ProviderProfile extends Model
     {
         return [
             'verified' => 'boolean',
+            'is_demo' => 'boolean',
             'is_listed' => 'boolean',
             'is_pro_of_week' => 'boolean',
             'rating' => 'decimal:2',
@@ -79,6 +80,11 @@ class ProviderProfile extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'provider_id');
+    }
+
+    public function liveChatConversations(): HasMany
+    {
+        return $this->hasMany(LiveChatConversation::class, 'provider_id');
     }
 
     public function reviews(): HasMany

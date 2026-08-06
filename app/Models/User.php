@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Notifications\BeautyProResetPasswordNotification;
+use App\Notifications\BeautyProVerifyEmailNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,9 +19,9 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'preferred_currency', 'is_guest', 'is_active', 'two_factor_enabled', 'two_factor_confirmed_at', 'two_factor_code_hash', 'two_factor_code_expires_at', 'email_verified_at', 'last_login_at'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'preferred_currency', 'is_demo', 'is_guest', 'is_active', 'two_factor_enabled', 'two_factor_method', 'two_factor_confirmed_at', 'two_factor_code_hash', 'two_factor_code_expires_at', 'two_factor_totp_secret', 'two_factor_recovery_codes', 'email_verified_at', 'last_login_at'];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'two_factor_code_hash', 'two_factor_totp_secret', 'two_factor_recovery_codes'];
 
     /**
      * Get the attributes that should be cast.
@@ -34,6 +36,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_code_expires_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
+            'two_factor_totp_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'is_demo' => 'boolean',
             'is_active' => 'boolean',
             'is_guest' => 'boolean',
             'password' => 'hashed',
@@ -58,6 +63,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function loyalties(): HasMany
     {
         return $this->hasMany(Loyalty::class, 'customer_id');
+    }
+
+    public function liveChatConversations(): HasMany
+    {
+        return $this->hasMany(LiveChatConversation::class, 'customer_id');
     }
 
     public function subscriptions(): HasMany
@@ -97,5 +107,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new BeautyProResetPasswordNotification($token));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new BeautyProVerifyEmailNotification());
     }
 }

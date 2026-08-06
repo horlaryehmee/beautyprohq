@@ -1,76 +1,92 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import LumaSpin from './components/ui/LumaSpin';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
 import HomeLandingPage from './pages/public/HomeLandingPage';
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const DirectoryPage = lazy(() => import('./pages/public/DirectoryPage'));
-const NewsEventsPage = lazy(() => import('./pages/public/NewsEventsPage'));
-const OpportunitiesPage = lazy(() => import('./pages/public/OpportunitiesPage'));
-const OpportunityDetailPage = lazy(() => import('./pages/public/OpportunityDetailPage'));
-const BookingConfirmationPage = lazy(() => import('./pages/public/BookingConfirmationPage'));
-const ProviderBookingPage = lazy(() => import('./pages/public/ProviderBookingPage'));
-const CommunityPage = lazy(() => import('./pages/public/CommunityPage'));
-const ContentDetailPage = lazy(() => import('./pages/public/ContentDetailPage'));
-const ProviderProfilePage = lazy(() => import('./pages/public/ProviderProfilePage'));
-const PrivacyPolicyPage = lazy(() => import('./pages/public/PrivacyPolicyPage'));
-const TermsConditionsPage = lazy(() => import('./pages/public/TermsConditionsPage'));
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
-const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
-const ProviderLayout = lazy(() => import('./pages/provider/ProviderLayout'));
-const ProviderOnboardingPage = lazy(() => import('./pages/provider/OnboardingPage'));
-const ProviderOverviewPage = lazy(() => import('./pages/provider/OverviewPage'));
-const ProviderProfileEditorPage = lazy(() => import('./pages/provider/ProfilePage'));
-const ProviderServicesPage = lazy(() => import('./pages/provider/ServicesPage'));
-const ProviderBookingsPage = lazy(() => import('./pages/provider/BookingsPage'));
-const ProviderCalendarPage = lazy(() => import('./pages/provider/CalendarPage'));
-const ProviderSubscriptionPage = lazy(() => import('./pages/provider/SubscriptionPage'));
-const ProviderCrmPage = lazy(() => import('./pages/provider/CrmPage'));
-const ProviderLoyaltyPage = lazy(() => import('./pages/provider/LoyaltyPage'));
-const ProviderPaymentsPage = lazy(() => import('./pages/provider/PaymentsPage'));
-const ProviderDigitalProductsPage = lazy(() => import('./pages/provider/DigitalProductsPage'));
-const ProviderContentCalendarPage = lazy(() => import('./pages/provider/ContentCalendarPage'));
-const ProviderAnalyticsPage = lazy(() => import('./pages/provider/AnalyticsPage'));
-const ProviderSettingsPage = lazy(() => import('./pages/provider/SettingsPage'));
-const ProviderDocumentationPage = lazy(() => import('./pages/provider/DocumentationPage'));
-const CustomerLayout = lazy(() => import('./pages/customer/CustomerLayout'));
-const CustomerDashboardPage = lazy(() => import('./pages/customer/DashboardPage'));
-const CustomerBookingsPage = lazy(() => import('./pages/customer/BookingsPage'));
-const CustomerRewardsPage = lazy(() => import('./pages/customer/RewardsPage'));
-const CustomerSavedProvidersPage = lazy(() => import('./pages/customer/SavedProvidersPage'));
-const CustomerNotificationsPage = lazy(() => import('./pages/customer/NotificationsPage'));
-const CustomerSettingsPage = lazy(() => import('./pages/customer/SettingsPage'));
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
-const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
-const AdminActivityPage = lazy(() => import('./pages/admin/ActivityPage'));
-const AdminWaitlistPage = lazy(() => import('./pages/admin/WaitlistPage'));
-const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
-const AdminUserDetailPage = lazy(() => import('./pages/admin/UserDetailPage'));
-const AdminDirectoryPage = lazy(() => import('./pages/admin/DirectoryPage'));
-const AdminVerificationPage = lazy(() => import('./pages/admin/VerificationPage'));
-const AdminContentPage = lazy(() => import('./pages/admin/ContentPage'));
-const AdminContentEditorPage = lazy(() => import('./pages/admin/ContentEditorPage'));
-const AdminMediaPage = lazy(() => import('./pages/admin/MediaPage'));
-const AdminEventRegistrationsPage = lazy(() => import('./pages/admin/EventRegistrationsPage'));
-const AdminOpportunitiesPage = lazy(() => import('./pages/admin/OpportunitiesPage'));
-const AdminAnnouncementsPage = lazy(() => import('./pages/admin/AnnouncementsPage'));
-const AdminSubscriptionsPage = lazy(() => import('./pages/admin/SubscriptionsPage'));
-const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
-const AdminDocumentationPage = lazy(() => import('./pages/admin/DocumentationPage'));
-const CurrencyRoute = lazy(() => import('./router/CurrencyRoute'));
+
+function lazyWithReload(importer) {
+    return lazy(() => importer().catch((error) => {
+        const message = String(error?.message ?? error);
+        const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(message);
+        if (isChunkError && !window.sessionStorage.getItem('bphq_lazy_reload')) {
+            window.sessionStorage.setItem('bphq_lazy_reload', '1');
+            window.location.reload();
+            return new Promise(() => {});
+        }
+        throw error;
+    }));
+}
+
+const NotFoundPage = lazyWithReload(() => import('./pages/NotFoundPage'));
+const DirectoryPage = lazyWithReload(() => import('./pages/public/DirectoryPage'));
+const NewsEventsPage = lazyWithReload(() => import('./pages/public/NewsEventsPage'));
+const OpportunitiesPage = lazyWithReload(() => import('./pages/public/OpportunitiesPage'));
+const OpportunityDetailPage = lazyWithReload(() => import('./pages/public/OpportunityDetailPage'));
+const BookingConfirmationPage = lazyWithReload(() => import('./pages/public/BookingConfirmationPage'));
+const ProviderBookingPage = lazyWithReload(() => import('./pages/public/ProviderBookingPage'));
+const CommunityPage = lazyWithReload(() => import('./pages/public/CommunityPage'));
+const ContentDetailPage = lazyWithReload(() => import('./pages/public/ContentDetailPage'));
+const ProviderProfilePage = lazyWithReload(() => import('./pages/public/ProviderProfilePage'));
+const PrivacyPolicyPage = lazyWithReload(() => import('./pages/public/PrivacyPolicyPage'));
+const TermsConditionsPage = lazyWithReload(() => import('./pages/public/TermsConditionsPage'));
+const LoginPage = lazyWithReload(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazyWithReload(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazyWithReload(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazyWithReload(() => import('./pages/auth/ResetPasswordPage'));
+const VerifyEmailPage = lazyWithReload(() => import('./pages/auth/VerifyEmailPage'));
+const ProviderLayout = lazyWithReload(() => import('./pages/provider/ProviderLayout'));
+const ProviderOnboardingPage = lazyWithReload(() => import('./pages/provider/OnboardingPage'));
+const ProviderOverviewPage = lazyWithReload(() => import('./pages/provider/OverviewPage'));
+const ProviderProfileEditorPage = lazyWithReload(() => import('./pages/provider/ProfilePage'));
+const ProviderServicesPage = lazyWithReload(() => import('./pages/provider/ServicesPage'));
+const ProviderBookingsPage = lazyWithReload(() => import('./pages/provider/BookingsPage'));
+const ProviderLiveChatPage = lazyWithReload(() => import('./pages/provider/LiveChatPage'));
+const ProviderCalendarPage = lazyWithReload(() => import('./pages/provider/CalendarPage'));
+const ProviderSubscriptionPage = lazyWithReload(() => import('./pages/provider/SubscriptionPage'));
+const ProviderCrmPage = lazyWithReload(() => import('./pages/provider/CrmPage'));
+const ProviderLoyaltyPage = lazyWithReload(() => import('./pages/provider/LoyaltyPage'));
+const ProviderPaymentsPage = lazyWithReload(() => import('./pages/provider/PaymentsPage'));
+const ProviderDigitalProductsPage = lazyWithReload(() => import('./pages/provider/DigitalProductsPage'));
+const ProviderContentCalendarPage = lazyWithReload(() => import('./pages/provider/ContentCalendarPage'));
+const ProviderAnalyticsPage = lazyWithReload(() => import('./pages/provider/AnalyticsPage'));
+const ProviderSettingsPage = lazyWithReload(() => import('./pages/provider/SettingsPage'));
+const ProviderDocumentationPage = lazyWithReload(() => import('./pages/provider/DocumentationPage'));
+const CustomerLayout = lazyWithReload(() => import('./pages/customer/CustomerLayout'));
+const CustomerDashboardPage = lazyWithReload(() => import('./pages/customer/DashboardPage'));
+const CustomerBookingsPage = lazyWithReload(() => import('./pages/customer/BookingsPage'));
+const CustomerRewardsPage = lazyWithReload(() => import('./pages/customer/RewardsPage'));
+const CustomerSavedProvidersPage = lazyWithReload(() => import('./pages/customer/SavedProvidersPage'));
+const CustomerNotificationsPage = lazyWithReload(() => import('./pages/customer/NotificationsPage'));
+const CustomerSettingsPage = lazyWithReload(() => import('./pages/customer/SettingsPage'));
+const AdminLayout = lazyWithReload(() => import('./pages/admin/AdminLayout'));
+const AdminDashboardPage = lazyWithReload(() => import('./pages/admin/DashboardPage'));
+const AdminActivityPage = lazyWithReload(() => import('./pages/admin/ActivityPage'));
+const AdminWaitlistPage = lazyWithReload(() => import('./pages/admin/WaitlistPage'));
+const AdminUsersPage = lazyWithReload(() => import('./pages/admin/UsersPage'));
+const AdminUserDetailPage = lazyWithReload(() => import('./pages/admin/UserDetailPage'));
+const AdminDirectoryPage = lazyWithReload(() => import('./pages/admin/DirectoryPage'));
+const AdminVerificationPage = lazyWithReload(() => import('./pages/admin/VerificationPage'));
+const AdminContentPage = lazyWithReload(() => import('./pages/admin/ContentPage'));
+const AdminContentEditorPage = lazyWithReload(() => import('./pages/admin/ContentEditorPage'));
+const AdminMediaPage = lazyWithReload(() => import('./pages/admin/MediaPage'));
+const AdminEventRegistrationsPage = lazyWithReload(() => import('./pages/admin/EventRegistrationsPage'));
+const AdminOpportunitiesPage = lazyWithReload(() => import('./pages/admin/OpportunitiesPage'));
+const AdminAnnouncementsPage = lazyWithReload(() => import('./pages/admin/AnnouncementsPage'));
+const AdminSubscriptionsPage = lazyWithReload(() => import('./pages/admin/SubscriptionsPage'));
+const AdminSettingsPage = lazyWithReload(() => import('./pages/admin/SettingsPage'));
+const AdminDocumentationPage = lazyWithReload(() => import('./pages/admin/DocumentationPage'));
+const CurrencyRoute = lazyWithReload(() => import('./router/CurrencyRoute'));
 
 function RouteLoader() {
     return (
         <div className="grid min-h-[70vh] place-items-center bg-cream-50" role="status">
             <div className="text-center">
-                <span className="loading-ring mx-auto block" />
-                <p className="mt-4 text-sm font-bold text-plum-800">Loading BeautyPro HQ…</p>
+                <LumaSpin className="mx-auto" />
+                <p className="mt-4 text-sm font-bold text-plum-800">Loading BeautyPro HQ...</p>
             </div>
         </div>
     );
@@ -92,8 +108,10 @@ function AdminWorkspace() {
 }
 
 export default function App() {
+    const location = useLocation();
+
     return (
-        <ErrorBoundary>
+        <ErrorBoundary resetKey={location.pathname}>
             <ScrollToTop />
             <Suspense fallback={<RouteLoader />}>
                 <Routes>
@@ -133,6 +151,7 @@ export default function App() {
                                 <Route path="profile" element={<ProviderProfileEditorPage />} />
                                 <Route path="services" element={<ProviderServicesPage />} />
                                 <Route path="bookings" element={<ProviderBookingsPage />} />
+                                <Route path="live-chat" element={<ProviderLiveChatPage />} />
                                 <Route path="calendar" element={<ProviderCalendarPage />} />
                                 <Route path="subscription" element={<ProviderSubscriptionPage />} />
                                 <Route path="crm" element={<ProviderCrmPage />} />
@@ -170,6 +189,7 @@ export default function App() {
                                 <Route path="verification" element={<AdminVerificationPage />} />
                                 <Route path="content" element={<AdminContentPage />} />
                                 <Route path="content/:type/new" element={<AdminContentEditorPage />} />
+                                <Route path="content/events/:eventId/registrations" element={<AdminEventRegistrationsPage />} />
                                 <Route path="content/:type/:id/edit" element={<AdminContentEditorPage />} />
                                 <Route path="media" element={<AdminMediaPage />} />
                                 <Route path="event-registrations" element={<AdminEventRegistrationsPage />} />
