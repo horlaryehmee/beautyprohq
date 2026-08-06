@@ -365,6 +365,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
     function chooseTime(value) {
         setTime(value);
+        if (standalone) {
+            setStep(3);
+        }
     }
 
     function displaySlotTime(value) {
@@ -477,7 +480,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 <div className="p-4 lg:p-7"><InlineAlert>Provider and admin accounts cannot create customer bookings from this page.</InlineAlert></div>
             ) : (
                 <div className="grid gap-4 lg:grid-cols-[0.8fr_1fr_0.75fr] lg:gap-0">
-                    <aside className={`${step === 1 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-slate-200 lg:p-8`}>
+                    <aside className={`${step <= 2 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-slate-200 lg:p-8`}>
                         <h1 id="booking-title" className="text-2xl font-black leading-tight text-slate-950 lg:text-3xl">{selectedService?.name ?? 'Service'}</h1>
                         {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14] lg:text-xl">{selectedServicePrice}</p>}
                         <div className="mt-3 space-y-2 text-sm font-medium capitalize text-slate-950">
@@ -546,9 +549,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                             ) : (
                                 <p className="rounded-lg border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Choose another day.</p>
                             )}
-                            {time && (
-                                <Button type="button" onClick={() => setStep(3)} className="min-h-11 w-full rounded-lg bg-red-500 hover:bg-red-600">Continue</Button>
-                            )}
                         </div>
                     </aside>
                 </div>
@@ -575,8 +575,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                     <div className="flex min-h-0 flex-1 flex-col">
                         {error && <div className="border-b border-stone-200 p-4 sm:px-6"><InlineAlert>{error}</InlineAlert></div>}
 
-                        <div className="grid min-h-0 flex-1 lg:grid-cols-[310px_1fr]">
-                            <aside className="hidden border-b border-stone-200 bg-[#F7F3ED] p-5 lg:block lg:border-b-0 lg:border-r lg:p-6">
+                        <div className={`grid min-h-0 flex-1 ${standalone ? '' : 'lg:grid-cols-[310px_1fr]'}`}>
+                            <aside className={`${standalone ? 'hidden' : 'hidden border-b border-stone-200 bg-[#F7F3ED] p-5 lg:block lg:border-b-0 lg:border-r lg:p-6'}`}>
                                 <ProviderSummary pro={pro} />
                                 <div className="mt-7 space-y-4">
                                     <SummaryRow icon="scissors" label="Service" value={selectedService?.name ?? 'Choose a service'} />
@@ -725,7 +725,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="space-y-3">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>{displaySlotTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>{displaySlotTime(slot)}</button>)}
                                                 </div>
                                             ) : (
                                                 <p className="rounded-md border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Go back and try another day.</p>
@@ -748,7 +748,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-5 text-sm font-semibold text-stone-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${time === slot ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>{displaySlotTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${time === slot ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>{displaySlotTime(slot)}</button>)}
                                                 </div>
                                             ) : (
                                                 <p className="rounded-2xl border border-dashed border-stone-200 bg-[#F7F3ED] p-5 text-sm leading-6 text-stone-500">No open times for this date. Go back and try another day.</p>
