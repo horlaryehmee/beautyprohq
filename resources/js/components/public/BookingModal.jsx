@@ -284,6 +284,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         ? `${locationOptionCount} location options`
         : (serviceTypeLabel ? serviceTypeLabel : `${locationOptionCount} location option`);
     const selectedServiceDescription = selectedService?.description ? stripHtml(selectedService.description) : '';
+    const selectedServicePrice = selectedService ? currency(selectedService.price, selectedService.currency ?? 'NGN') : '';
 
     useEffect(() => {
         if (!open) return undefined;
@@ -478,6 +479,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 <div className="grid gap-4 lg:grid-cols-[0.8fr_1fr_0.75fr] lg:gap-0">
                     <aside className={`${step === 1 ? 'block' : 'hidden'} lg:block lg:border-r lg:border-slate-200 lg:p-8`}>
                         <h1 id="booking-title" className="text-2xl font-black leading-tight text-slate-950 lg:text-3xl">{selectedService?.name ?? 'Service'}</h1>
+                        {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14] lg:text-xl">{selectedServicePrice}</p>}
                         <div className="mt-3 space-y-2 text-sm font-medium capitalize text-slate-950">
                             <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                             <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
@@ -603,6 +605,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <section className={`${standalone ? 'block lg:hidden' : 'hidden'}`}>
                                             <div className="px-0 pb-4 pt-1">
                                                 <h1 className="text-[22px] font-bold leading-tight text-slate-950">{selectedService?.name ?? 'Consultation'}</h1>
+                                                {selectedServicePrice && <p className="mt-2 text-base font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                                 <div className="mt-4 space-y-2 text-[13px] font-medium text-slate-950">
                                                     <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                     <div className="flex items-center gap-2"><Icon name="map" size={15} /> {locationOptionCount} location option{locationOptionCount === 1 ? '' : 's'}</div>
@@ -701,6 +704,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     <section className={standalone ? 'lg:hidden' : 'hidden'}>
                                         <div>
                                             <h1 className="text-[22px] font-bold leading-tight text-slate-950">{selectedService?.name ?? 'Consultation'}</h1>
+                                            {selectedServicePrice && <p className="mt-2 text-base font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                             <div className="mt-4 space-y-2 text-[13px] font-medium text-slate-950">
                                                 <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                 <div className="flex items-center gap-2"><Icon name="map" size={15} /> {locationOptionCount} location option{locationOptionCount === 1 ? '' : 's'}</div>
@@ -758,6 +762,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <div className="grid overflow-hidden lg:grid-cols-[0.85fr_1.15fr] lg:rounded-2xl lg:border lg:border-gray-200 lg:bg-white">
                                             <aside className="hidden border-r border-gray-200 p-8 lg:block">
                                                 <h2 className="text-3xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
+                                                {selectedServicePrice && <p className="mt-2 text-xl font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                                 <div className="mt-4 grid gap-2 text-sm font-medium text-gray-700">
                                                     <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                     <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
@@ -775,6 +780,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 </div>
                                                 <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
                                                     <h2 className="text-2xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
+                                                    {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                                     <div className="mt-3 grid gap-2 text-sm font-medium text-gray-700">
                                                         <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
                                                         <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {displaySlotTime(time)}, {fullDate(date)}</div>
