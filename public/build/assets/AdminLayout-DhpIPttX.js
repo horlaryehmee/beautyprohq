@@ -1,1 +1,0 @@
-import{j as a}from"./main-CAX64LUC.js";import{D as i,a as t}from"./DashboardShell-BW10FWFM.js";import"./ui-DadVhJT5.js";import"./api-DPWTVFgP.js";import"./useDashboard-BAMjmSY9.js";import"./index-Cb4jjC6W.js";function d(o){return a.jsx(i,{navigation:t,role:"admin",...o})}export{d as default};

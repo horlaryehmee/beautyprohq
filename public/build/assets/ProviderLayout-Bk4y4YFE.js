@@ -1,1 +1,0 @@
-import{j as o}from"./main-CAX64LUC.js";import{D as i,p as t}from"./DashboardShell-BW10FWFM.js";import"./ui-DadVhJT5.js";import"./api-DPWTVFgP.js";import"./useDashboard-BAMjmSY9.js";import"./index-Cb4jjC6W.js";function d(r){return o.jsx(i,{navigation:t,role:"provider",...r})}export{d as default};

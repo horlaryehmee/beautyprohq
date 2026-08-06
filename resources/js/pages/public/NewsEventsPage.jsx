@@ -71,19 +71,19 @@ function FeaturedCard({ item, onOpen }) {
     if (!item) return null;
 
     return (
-        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm lg:relative lg:flex lg:min-h-[430px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)]">
-            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
+        <article className="group relative flex min-h-[320px] overflow-hidden rounded-lg bg-[#2A1D14] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)] sm:min-h-[380px] lg:min-h-[430px]">
+            <div className="absolute inset-0 size-full overflow-hidden bg-[#F7F3ED]">
                 <img src={item.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             </div>
-            <div className="relative hidden lg:block lg:absolute lg:inset-0 lg:bg-gradient-to-b lg:from-black/30 lg:via-black/25 lg:to-black/76" />
-            <div className="relative z-10 flex h-full min-h-0 flex-col p-2.5 lg:min-h-[430px] lg:p-8">
-                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
-                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{item.kind === 'event' ? 'Event' : 'News'}</span>
-                    {item.date && <span className="text-stone-500 lg:text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/25 to-black/76" />
+            <div className="relative z-10 flex min-h-[320px] w-full flex-col p-5 sm:min-h-[380px] sm:p-6 lg:min-h-[430px] lg:p-8">
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide">
+                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#2A1D14]">{item.kind === 'event' ? 'Event' : 'News'}</span>
+                    {item.date && <span className="text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
                 </div>
-                <h2 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-auto lg:max-w-2xl lg:text-5xl">{stripHtml(item.title)}</h2>
-                {item.summary && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-xl lg:text-sm lg:font-semibold lg:leading-6 lg:text-white/82">{item.summary}</p>}
-                <button type="button" onClick={() => onOpen(item)} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-6 lg:text-xs lg:text-white">
+                <h2 className="mt-auto line-clamp-3 max-w-2xl font-display text-3xl font-normal leading-tight sm:text-4xl lg:line-clamp-2 lg:text-5xl">{stripHtml(item.title)}</h2>
+                {item.summary && <p className="mt-3 line-clamp-2 max-w-xl text-sm font-semibold leading-6 text-white/82">{item.summary}</p>}
+                <button type="button" onClick={() => onOpen(item)} className="mt-5 inline-flex w-fit items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white lg:mt-6">
                     {item.cta} <Icon name="arrow" size={14} />
                 </button>
             </div>
@@ -93,19 +93,19 @@ function FeaturedCard({ item, onOpen }) {
 
 function UpdateCard({ item, onOpen }) {
     return (
-        <article className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm transition duration-300 hover:border-[#BFC3C8] hover:bg-[#F7F3ED] lg:relative lg:flex lg:h-[320px] lg:border-0 lg:bg-[#2A1D14] lg:text-white lg:shadow-[0_16px_40px_rgba(45,29,22,.12)] lg:hover:-translate-y-1 lg:hover:shadow-[0_26px_70px_rgba(52,35,28,.14)]">
-            <div className="aspect-square overflow-hidden bg-[#F7F3ED] lg:absolute lg:inset-0 lg:aspect-auto lg:size-full">
+        <article className="group relative flex h-[260px] overflow-hidden rounded-lg bg-[#2A1D14] text-white shadow-[0_16px_40px_rgba(45,29,22,.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(52,35,28,.14)] sm:h-[300px] lg:h-[320px]">
+            <div className="absolute inset-0 size-full overflow-hidden bg-[#F7F3ED]">
                 <img src={item.image} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
             </div>
-            <div className="relative hidden lg:block lg:absolute lg:inset-0 lg:bg-gradient-to-b lg:from-black/30 lg:via-black/30 lg:to-black/72" />
-            <div className="relative z-10 flex h-full flex-col p-2.5 lg:p-6">
-                <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide lg:text-[10px]">
-                    <span className="rounded-sm bg-[#F7F3ED] px-2 py-0.5 text-[#2A1D14] lg:bg-white/90 lg:py-1">{item.kind === 'event' ? 'Event' : 'News'}</span>
-                    {item.date && <span className="text-stone-500 lg:text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/30 to-black/72" />
+            <div className="relative z-10 flex h-full w-full flex-col p-5 lg:p-6">
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide">
+                    <span className="rounded-sm bg-white/90 px-2 py-1 text-[#2A1D14]">{item.kind === 'event' ? 'Event' : 'News'}</span>
+                    {item.date && <span className="text-white/78">{shortDate(item.date, { year: 'numeric' })}</span>}
                 </div>
-                <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight lg:mt-7 lg:max-w-[15rem] lg:text-2xl">{stripHtml(item.title)}</h3>
-                {item.summary && <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F] lg:mt-4 lg:line-clamp-2 lg:max-w-[13rem] lg:text-xs lg:font-semibold lg:leading-5 lg:text-white/82">{item.summary}</p>}
-                <button type="button" onClick={() => onOpen(item)} className="mt-1.5 inline-flex w-fit items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:mt-auto lg:text-xs lg:text-white">
+                <h3 className="mt-auto line-clamp-2 max-w-[15rem] font-display text-2xl font-normal leading-tight">{stripHtml(item.title)}</h3>
+                {item.summary && <p className="mt-3 line-clamp-2 max-w-[13rem] text-xs font-semibold leading-5 text-white/82">{item.summary}</p>}
+                <button type="button" onClick={() => onOpen(item)} className="mt-5 inline-flex w-fit items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white lg:mt-auto">
                     {item.cta} <Icon name="arrow" size={14} />
                 </button>
             </div>
@@ -313,14 +313,14 @@ export default function NewsEventsPage({ initialTab = 'all' }) {
                     {error && <InlineAlert className="mb-6">{error} <button type="button" onClick={load} className="ml-1 underline">Try again</button></InlineAlert>}
 
                     {loading ? (
-                        <div className="grid gap-2.5 lg:gap-5 lg:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, index) => <div key={index} className="skeleton h-[72px] rounded-lg lg:h-[320px]" />)}
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+                            {Array.from({ length: 6 }).map((_, index) => <div key={index} className="skeleton h-[260px] rounded-lg sm:h-[300px] lg:h-[320px]" />)}
                         </div>
                     ) : filtered.length ? (
                         <>
                             {!standalone && <FeaturedCard item={featured} onOpen={openItem} />}
                             {gridItems.length > 0 && (
-                                <div className={`${standalone ? '' : 'mt-2 lg:mt-8'} grid gap-2.5 lg:gap-5 lg:grid-cols-3`}>
+                                <div className={`${standalone ? '' : 'mt-4 lg:mt-8'} grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5`}>
                                     {gridItems.map((item) => <UpdateCard key={`${item.kind}-${item.id}`} item={item} onOpen={openItem} />)}
                                 </div>
                             )}
