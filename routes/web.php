@@ -10,23 +10,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-if (! function_exists('beautyproComingSoonEnabled')) {
-    function beautyproComingSoonEnabled(): bool
-    {
-        if (! Schema::hasTable('app_settings')) {
-            return app()->environment('production');
-        }
-
-        $value = \App\Models\AppSetting::getValue('features.coming_soon');
-
-        if ($value === null) {
-            return app()->environment('production');
-        }
-
-        return $value === '1';
-    }
-}
-
 Route::get('/coming-soon', fn () => response()
     ->view('coming-soon')
     ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
@@ -35,7 +18,19 @@ Route::get('/robots.txt', [SeoController::class, 'robots']);
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
 Route::get('/', function () {
-    if (beautyproComingSoonEnabled()) {
+    $comingSoonEnabled = static function (): bool {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+            return app()->environment('production');
+        }
+
+        $value = \App\Models\AppSetting::getValue('features.coming_soon');
+
+        return $value === null
+            ? app()->environment('production')
+            : $value === '1';
+    };
+
+    if ($comingSoonEnabled()) {
         return response()
             ->view('coming-soon')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -76,7 +71,19 @@ Route::get('/{path?}', function (?string $path = null) {
         'coming-soon',
     ], true);
 
-    if (! $comingSoonBypass && beautyproComingSoonEnabled()) {
+    $comingSoonEnabled = static function (): bool {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+            return app()->environment('production');
+        }
+
+        $value = \App\Models\AppSetting::getValue('features.coming_soon');
+
+        return $value === null
+            ? app()->environment('production')
+            : $value === '1';
+    };
+
+    if (! $comingSoonBypass && $comingSoonEnabled()) {
         return response()
             ->view('coming-soon')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
