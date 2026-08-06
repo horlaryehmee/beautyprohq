@@ -101,7 +101,7 @@ export default function PublicLayout() {
         { title: 'Directory', icon: Search, to: '/directory' },
         { title: 'Contact', icon: MessageCircle, action: 'contact' },
         { title: 'Menu', icon: Menu, action: 'menu' },
-    ];
+    ].filter((tab) => !(isProviderProfilePage && tab.action === 'contact'));
     const activeMobileTab = mobileTabs.findIndex((tab) => (
         tab.to === '/'
             ? location.pathname === '/'
@@ -176,10 +176,10 @@ export default function PublicLayout() {
                 </aside>
             </div>
 
-            {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transform-gpu transition-[opacity,transform] duration-300 ease-out [backface-visibility:hidden] [will-change:opacity,transform] lg:hidden ${isProviderProfilePage ? 'left-3' : 'inset-x-3'} ${footerVisible ? 'pointer-events-none translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
+            {!isBookingPage && <nav aria-label="Mobile navigation" className={`fixed inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[80] transform-gpu transition-[opacity,transform] duration-300 ease-out [backface-visibility:hidden] [will-change:opacity,transform] lg:hidden ${footerVisible ? 'pointer-events-none translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
                 <ExpandableTabs
                     activeIndex={activeMobileTab >= 0 ? activeMobileTab : null}
-                    className={isProviderProfilePage ? 'w-fit origin-bottom-left scale-[.92] min-[390px]:scale-100' : 'mx-auto w-fit max-w-full'}
+                    className="mx-auto w-fit max-w-full"
                     onChange={handleMobileTabChange}
                     tabs={mobileTabs}
                 />
