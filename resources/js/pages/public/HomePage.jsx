@@ -663,14 +663,14 @@ export default function HomePage({ onVerifiedProviders }) {
 
             )}
 
-            <section id="community" className="homepage-deferred relative isolate overflow-hidden bg-white pb-4 pt-8 sm:pb-5 sm:pt-16">
-                <div className="absolute -left-24 top-20 -z-10 size-72 rounded-full bg-[#DCCCB8]/55 blur-3xl" />
-                <div className="absolute -right-24 bottom-12 -z-10 size-80 rounded-full bg-[#DCCCB8]/35 blur-3xl" />
+            <section id="community" className="homepage-deferred relative isolate overflow-hidden bg-white py-20 sm:py-28">
+                <div className="absolute -left-24 top-20 -z-10 size-72 rounded-full bg-[#eadfd5]/55 blur-3xl" />
+                <div className="absolute -right-24 bottom-12 -z-10 size-80 rounded-full bg-[#f0dfe2]/35 blur-3xl" />
                 <div className="page-container">
-                    <div className="mx-auto mb-5 max-w-3xl text-center sm:mb-7">
-                        <p className="text-xs font-semibold uppercase tracking-[.22em] text-[#3A2A1F]">Community</p>
-                        <h2 className="mt-3 font-display text-3xl font-normal leading-tight text-[#2A1D14] sm:mt-4 sm:text-5xl lg:text-6xl">Stories, wins, and real beauty business moments.</h2>
-                        <p className="mx-auto mt-3 max-w-2xl text-sm font-medium leading-6 text-[#3A2A1F] sm:mt-4 sm:leading-7">
+                    <div className="mx-auto mb-10 max-w-3xl text-center">
+                        <p className="text-xs font-black uppercase tracking-[.22em] text-[#8b4b59]">Community</p>
+                        <h2 className="mt-4 font-display text-4xl font-normal leading-tight text-[#34231c] sm:text-5xl lg:text-6xl">Stories, wins, and real beauty business moments.</h2>
+                        <p className="mx-auto mt-4 max-w-2xl text-sm font-medium leading-7 text-[#6f625b]">
                                 Community-driven content from members, spotlights, success stories, events, and day-in-the-life features.
                         </p>
                     </div>
@@ -679,53 +679,37 @@ export default function HomePage({ onVerifiedProviders }) {
                         <LoadingCards count={4} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" />
                     ) : community.length ? (
                         <>
-                            <div className="grid gap-2.5 lg:hidden">
-                                {visibleCommunity.slice(0, 6).map((item, index) => (
-                                    <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id ?? index} className="group grid grid-cols-[72px_1fr] overflow-hidden rounded-lg border border-[#DCCCB8] bg-white text-[#2A1D14] shadow-sm transition hover:bg-[#F7F3ED]">
-                                        <div className="aspect-square overflow-hidden bg-[#F7F3ED]">
-                                            <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[index % communityFallbackImages.length], { widths: [120, 180, 260], sizes: '72px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
-                                        </div>
-                                        <div className="min-w-0 p-2.5">
-                                            <span className="text-[9px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
-                                            <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight text-[#2A1D14]">{stripHtml(item.title)}</h3>
-                                            <p className="mt-0.5 line-clamp-1 text-[11px] font-medium leading-4 text-[#3A2A1F]">{stripHtml(item.excerpt ?? item.content)}</p>
-                                            <span className="mt-1.5 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">Read Story <Icon name="arrow" size={13} /></span>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-
-                            <div className="hidden overflow-hidden rounded-[2rem] border border-[#BFC3C8] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)] lg:block">
+                            <div className="overflow-hidden rounded-[2rem] border border-[#ded2c7] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)]">
                                 <div className="grid lg:grid-cols-[1.08fr_.92fr]">
-                                    <article className="group relative min-h-[260px] overflow-hidden sm:min-h-[520px]">
+                                    <article className="group relative min-h-[520px] overflow-hidden">
                                         <DeferredImage {...responsiveImage(mediaUrl(community[0].image_url ?? community[0].image) ?? communityFallbackImages[0], { widths: [400, 560, 720], sizes: '(min-width: 1024px) 55vw, 100vw', quality: 70 })} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.04]" fetchPriority="low" />
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/15 to-black/72" />
-                                        <div className="relative flex min-h-[260px] flex-col p-4 text-white sm:min-h-[520px] sm:p-10">
+                                        <div className="relative flex min-h-[520px] flex-col p-7 text-white sm:p-10">
                                             <div className="flex items-center justify-between gap-4">
-                                                <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#2A1D14]">{community[0].type ? String(community[0].type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#34231c]">{community[0].type ? String(community[0].type).replaceAll('_', ' ') : 'Community story'}</span>
                                                 <span className="grid size-11 place-items-center rounded-full bg-white/15 backdrop-blur"><Icon name="quote" size={20} /></span>
                                             </div>
                                             <div className="mt-auto max-w-xl">
-                                                <h3 className="font-display text-2xl font-normal leading-tight sm:text-5xl">{stripHtml(community[0].title)}</h3>
-                                                <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-white/78 sm:mt-5 sm:line-clamp-3 sm:text-sm sm:leading-7">{stripHtml(community[0].excerpt ?? community[0].content)}</p>
-                                                <Link to={community[0].id ? `/community/${community[0].id}` : '/community'} className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-white px-4 text-[10px] font-semibold uppercase tracking-wide text-[#2A1D14] transition hover:bg-[#F7F3ED] sm:mt-7 sm:min-h-11 sm:px-5 sm:text-xs">
+                                                <h3 className="font-display text-4xl font-normal leading-tight sm:text-5xl">{stripHtml(community[0].title)}</h3>
+                                                <p className="mt-5 line-clamp-3 text-sm font-semibold leading-7 text-white/78">{stripHtml(community[0].excerpt ?? community[0].content)}</p>
+                                                <Link to={community[0].id ? `/community/${community[0].id}` : '/community'} className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-[#f4efe9]">
                                                     Read Story <Icon name="arrow" size={14} />
                                                 </Link>
                                             </div>
                                         </div>
                                     </article>
 
-                                    <div className="grid divide-y divide-[#DCCCB8]">
+                                    <div className="grid divide-y divide-[#eadfd5]">
                                         {visibleCommunity.slice(1, 4).map((item, index) => (
-                                            <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[116px] grid-cols-[92px_1fr] gap-3 p-3 transition hover:bg-[#F7F3ED] sm:min-h-[172px] sm:grid-cols-[170px_1fr] sm:gap-4 sm:p-5">
-                                                <div className="aspect-square overflow-hidden rounded-xl bg-[#F7F3ED] sm:aspect-auto sm:rounded-2xl">
+                                            <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
+                                                <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
                                                     <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length], { widths: [240, 360, 520], sizes: '(min-width: 1024px) 170px, 120px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                                 </div>
                                                 <div className="flex min-w-0 flex-col justify-center">
-                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
-                                                    <h3 className="mt-1 line-clamp-2 font-display text-lg font-normal leading-tight text-[#2A1D14] sm:mt-2 sm:text-2xl">{stripHtml(item.title)}</h3>
-                                                    <p className="mt-1 line-clamp-1 text-xs font-medium leading-5 text-[#3A2A1F] sm:mt-2 sm:line-clamp-2 sm:text-sm sm:leading-6">{stripHtml(item.excerpt ?? item.content)}</p>
-                                                    <span className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F] sm:mt-3 sm:text-xs">Read Story <Icon name="arrow" size={14} /></span>
+                                                    <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                    <h3 className="mt-2 line-clamp-2 font-display text-2xl font-normal leading-tight text-[#34231c]">{stripHtml(item.title)}</h3>
+                                                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-[#6f625b]">{stripHtml(item.excerpt ?? item.content)}</p>
+                                                    <span className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#7d2e3c]">Read Story <Icon name="arrow" size={14} /></span>
                                                 </div>
                                             </Link>
                                         ))}
@@ -734,15 +718,15 @@ export default function HomePage({ onVerifiedProviders }) {
                             </div>
 
                             {visibleCommunity.length > 4 && (
-                                <div className="mt-3 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+                                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     {visibleCommunity.slice(4).map((item, index) => (
-                                        <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid grid-cols-[92px_1fr] overflow-hidden rounded-2xl border border-[#BFC3C8] bg-white shadow-[0_10px_28px_rgba(52,35,28,.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)] sm:block sm:rounded-3xl sm:shadow-[0_18px_50px_rgba(52,35,28,.07)]">
-                                            <div className="aspect-square overflow-hidden bg-[#F7F3ED] sm:aspect-[4/3]">
+                                        <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
+                                            <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
                                                 <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length], { widths: [360, 520, 720], sizes: '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                             </div>
-                                            <div className="min-w-0 p-3 sm:p-5">
-                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-[#3A2A1F]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
-                                                <h3 className="mt-1 line-clamp-2 font-display text-lg font-normal leading-tight text-[#2A1D14] sm:mt-3 sm:text-xl">{stripHtml(item.title)}</h3>
+                                            <div className="p-5">
+                                                <span className="text-[10px] font-black uppercase tracking-wide text-[#8b4b59]">{item.type ? String(item.type).replaceAll('_', ' ') : 'Community story'}</span>
+                                                <h3 className="mt-3 line-clamp-2 font-display text-xl font-normal leading-tight text-[#34231c]">{stripHtml(item.title)}</h3>
                                             </div>
                                         </Link>
                                     ))}
@@ -750,8 +734,8 @@ export default function HomePage({ onVerifiedProviders }) {
                             )}
 
                             {!showAllCommunity && community.length > 4 && (
-                                <div className="mt-5 text-center sm:mt-8">
-                                    <Link to="/community" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-6 text-xs font-semibold uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-[#2A1D14] sm:min-h-12 sm:px-7">
+                                <div className="mt-8 text-center">
+                                    <Link to="/community" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#34231c] px-7 text-xs font-black uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-[#4a2f26]">
                                         View Community Stories <Icon name="arrow" size={15} />
                                     </Link>
                                 </div>
