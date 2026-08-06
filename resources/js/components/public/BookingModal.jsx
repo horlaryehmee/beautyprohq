@@ -80,6 +80,30 @@ function displayTime(value) {
     return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`;
 }
 
+function zonedDateTime(date, time, timeZone) {
+    if (!date || !time) return null;
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+
+    const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).formatToParts(utcGuess).reduce((carry, part) => ({ ...carry, [part.type]: part.value }), {});
+        const shifted = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+        return new Date(utcGuess.getTime() - (shifted - utcGuess.getTime()));
+    } catch {
+        return utcGuess;
+    }
+}
+
 function fullDate(value) {
     if (!value) return '';
     const date = new Date(`${value}T00:00:00`);
@@ -135,9 +159,36 @@ function monthLabel(offset = 0) {
 }
 
 function timezoneDisplayName(timezone) {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' }).formatToParts(new Date());
-    const offset = parts.find((part) => part.type === 'timeZoneName')?.value?.replace('GMT', 'UTC') ?? 'UTC';
-    return `${timezone} (${offset})`;
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+        const offset = parts.find((part) => part.type === 'timeZoneName')?.value?.replace('GMT', 'UTC') ?? 'UTC';
+        return `${String(timezone).replaceAll('_', ' ')} (${offset})`;
+    } catch {
+        return timezone || 'Africa/Lagos';
+    }
+}
+
+function detectedBrowserTimezone() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return timezone && timezone.includes('/') ? timezone : 'Africa/Lagos';
+}
+
+function timezoneOptions(fallback = 'Africa/Lagos') {
+    const common = [
+        detectedBrowserTimezone(),
+        fallback,
+        'Africa/Lagos',
+        'UTC',
+        'Europe/London',
+        'Europe/Paris',
+        'America/New_York',
+        'America/Chicago',
+        'America/Los_Angeles',
+        'Asia/Dubai',
+        'Asia/Kolkata',
+    ];
+    const supported = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    return Array.from(new Set([...common, ...supported].filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
 function ProviderSummary({ pro }) {
@@ -202,6 +253,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [error, setError] = useState('');
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [monthOffset, setMonthOffset] = useState(0);
+    const [selectedTimezone, setSelectedTimezone] = useState(detectedBrowserTimezone);
 
     const availableServices = useMemo(() => initialService ? [initialService] : services, [initialService, services]);
     const selectedService = useMemo(() => availableServices.find((item) => String(item.id) === String(serviceId)), [availableServices, serviceId]);
@@ -219,8 +271,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const bookingFields = useMemo(() => (Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : []).filter((field) => field?.label).slice(0, 8), [provider]);
     const slots = useMemo(() => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date), [availabilityData, selectedService?.duration_minutes, date]);
     const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim();
-    const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos', []);
-    const timezoneLabel = useMemo(() => timezoneDisplayName(timezone), [timezone]);
+    const providerTimezone = provider?.timezone || provider?.provider_timezone || 'Africa/Lagos';
+    const timezoneChoices = useMemo(() => timezoneOptions(providerTimezone), [providerTimezone]);
+    const timezoneLabel = useMemo(() => timezoneDisplayName(selectedTimezone), [selectedTimezone]);
     const durationLabel = `${selectedService?.duration_minutes ?? 30} Minutes`;
     const locationOptionCount = useMemo(() => {
         const serviceTypes = new Set(availableServices.map((service) => service.service_type).filter(Boolean));
@@ -245,6 +298,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setAvailabilityData(null);
         setCheckoutUrl('');
         setMonthOffset(0);
+        setSelectedTimezone(detectedBrowserTimezone());
         setError('');
         if (!standalone) {
             document.body.style.overflow = 'hidden';
@@ -265,12 +319,12 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setLoadingSlots(true);
         setTime('');
         setError('');
-        api.get(`/providers/${pro.slug}/availability`, { params: { date } })
+        api.get(`/providers/${pro.slug}/availability`, { params: { date, timezone: selectedTimezone } })
             .then((response) => active && setAvailabilityData(unwrap(response)))
             .catch((requestError) => active && setError(apiError(requestError, 'We could not load availability for this date.').message))
             .finally(() => active && setLoadingSlots(false));
         return () => { active = false; };
-    }, [open, date, pro.slug]);
+    }, [open, date, pro.slug, selectedTimezone]);
 
     useEffect(() => {
         if (!open || !standalone || date) return;
@@ -312,6 +366,40 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setTime(value);
     }
 
+    function displaySlotTime(value) {
+        if (!value || !date) return displayTime(value);
+        const instant = zonedDateTime(date, value, providerTimezone);
+        if (!instant) return displayTime(value);
+        try {
+            return new Intl.DateTimeFormat('en-NG', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: selectedTimezone,
+            }).format(instant);
+        } catch {
+            return displayTime(value);
+        }
+    }
+
+    function TimezoneSelect({ compact = false }) {
+        return (
+            <label className="relative block">
+                <Icon name="calendar" size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                <select
+                    className={`w-full appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-left text-sm font-bold text-slate-950 outline-none focus:border-red-400 focus:ring-4 focus:ring-red-100 ${compact ? 'min-h-10' : 'min-h-11'}`}
+                    value={selectedTimezone}
+                    onChange={(event) => setSelectedTimezone(event.target.value)}
+                >
+                    {timezoneChoices.map((timezone) => (
+                        <option key={timezone} value={timezone}>{timezoneDisplayName(timezone)}</option>
+                    ))}
+                </select>
+                <Icon name="chevronDown" size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500" />
+            </label>
+        );
+    }
+
     async function createBookingAndCheckout() {
         if (!serviceId || !date || !time || !detailsComplete) {
             setError('Complete all required booking steps before payment.');
@@ -328,7 +416,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 date,
                 time,
                 notes: notes.trim(),
-                custom_fields: customFields,
+                custom_fields: { ...customFields, _booking_timezone: selectedTimezone },
                 redeem_loyalty: redeemLoyalty || undefined,
             };
             const response = await api.post(user?.role === 'customer' ? '/bookings' : '/guest-bookings', { ...payload, customer });
@@ -432,11 +520,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
                         <div className="mt-5 lg:mt-8">
                             <p className="text-sm font-black text-slate-950 lg:text-lg">Timezone</p>
-                            <button type="button" className="mt-2 flex min-h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 text-left text-sm font-bold text-slate-950">
-                                <span className="flex min-w-0 items-center gap-2"><Icon name="calendar" size={15} /> <span className="truncate">{timezoneLabel}</span></span>
-                                <Icon name="chevronDown" size={16} className="text-slate-500" />
-                            </button>
-                            <p className="mt-2 text-xs leading-5 text-slate-500">Auto-detected from your device: {timezoneLabel}. Times are shown in this timezone. The calendar owner uses {timezone}.</p>
+                            <div className="mt-2"><TimezoneSelect /></div>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">Times are shown in {timezoneLabel}. The provider calendar uses {timezoneDisplayName(providerTimezone)}.</p>
                         </div>
                     </section>
 
@@ -446,10 +531,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 <span className="grid size-9 place-items-center rounded-full border border-slate-200 bg-white lg:hidden"><Icon name="chevronLeft" size={16} /></span>
                                 <span className="text-lg font-black lg:text-xl">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</span>
                             </button>
-                            <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-1 text-xs font-bold">
-                                <span className="rounded-md bg-red-500 px-2 py-1 text-white">12h</span>
-                                <span className="px-2 py-1 text-slate-500">24h</span>
-                            </div>
                         </div>
                         <div className="mt-4 max-h-none space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(100dvh-10rem)] lg:space-y-4">
                             {loadingSlots ? (
@@ -457,7 +538,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                             ) : slots.length ? (
                                 slots.map((slot) => (
                                     <button key={slot} type="button" onClick={() => chooseTime(slot)} className={`min-h-11 w-full rounded-lg border px-4 text-left text-sm font-medium transition lg:min-h-14 lg:px-5 lg:text-base ${time === slot ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>
-                                        {displayTime(slot)}
+                                        {displaySlotTime(slot)}
                                     </button>
                                 ))
                             ) : (
@@ -498,7 +579,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 <div className="mt-7 space-y-4">
                                     <SummaryRow icon="scissors" label="Service" value={selectedService?.name ?? 'Choose a service'} />
                                     <SummaryRow icon="calendar" label="Date" value={date ? fullDate(date) : 'Choose a date'} />
-                                    <SummaryRow icon="clock" label="Time" value={time ? displayTime(time) : 'Choose a time'} />
+                                    <SummaryRow icon="clock" label="Time" value={time ? displaySlotTime(time) : 'Choose a time'} />
                                 </div>
                                 {selectedService && (
                                     <div className="mt-7 rounded-2xl border border-[#DCCCB8] bg-white p-4">
@@ -561,11 +642,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
                                             <div className="mt-5">
                                                 <p className="text-sm font-bold text-slate-950">Timezone</p>
-                                                <button type="button" className="mt-2 flex min-h-11 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm font-bold text-slate-950">
-                                                    <span className="flex min-w-0 items-center gap-2"><Icon name="calendar" size={15} /> <span className="truncate">{timezoneLabel}</span></span>
-                                                    <Icon name="chevronDown" size={16} className="text-slate-500" />
-                                                </button>
-                                                <p className="mt-2 text-xs text-slate-500">Auto-detected from your device: {timezoneLabel}.</p>
+                                                <div className="mt-2"><TimezoneSelect /></div>
+                                                <p className="mt-2 text-xs text-slate-500">Times are shown in {timezoneLabel}.</p>
                                             </div>
                                         </section>
 
@@ -636,10 +714,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <button type="button" onClick={() => setStep(1)} className="grid size-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-950" aria-label="Back to date"><Icon name="chevronLeft" size={18} /></button>
                                                 <p className="truncate text-sm font-bold text-slate-950">{date ? new Intl.DateTimeFormat('en-NG', { day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`)) : 'Choose date'}</p>
                                             </div>
-                                            <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-1 text-xs font-bold">
-                                                <span className="rounded-md bg-red-500 px-2 py-1 text-white">12h</span>
-                                                <span className="px-2 py-1 text-slate-500">24h</span>
-                                            </div>
                                         </div>
 
                                         <div className="mt-4 min-h-48">
@@ -647,7 +721,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="space-y-3">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>{displayTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-10 w-full rounded border px-4 text-left text-sm font-medium transition ${time === slot ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-950 hover:border-slate-400'}`}>{displaySlotTime(slot)}</button>)}
                                                 </div>
                                             ) : (
                                                 <p className="rounded-md border border-dashed border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500">No open times for this date. Go back and try another day.</p>
@@ -670,7 +744,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-5 text-sm font-semibold text-stone-500"><span className="loading-ring loading-ring-small" /> Checking calendar...</div>
                                             ) : slots.length ? (
                                                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${time === slot ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>{displayTime(slot)}</button>)}
+                                                    {slots.map((slot) => <button key={slot} type="button" onClick={() => setTime(slot)} className={`min-h-12 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${time === slot ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:border-[#BFC3C8] hover:bg-[#F7F3ED]'}`}>{displaySlotTime(slot)}</button>)}
                                                 </div>
                                             ) : (
                                                 <p className="rounded-2xl border border-dashed border-stone-200 bg-[#F7F3ED] p-5 text-sm leading-6 text-stone-500">No open times for this date. Go back and try another day.</p>
@@ -680,19 +754,42 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                 )}
 
                                 {step === 3 && (
-                                    <section className="mx-auto max-w-2xl space-y-4">
-                                        <div>
-                                            <h3 className="font-display text-xl font-normal text-[#2A1D14] sm:text-2xl">Booking details</h3>
-                                            <p className="mt-1 text-xs font-semibold leading-5 text-stone-500">Name, email and phone number are required. Note is optional.</p>
+                                    <section className="mx-auto w-full max-w-md space-y-5 lg:max-w-5xl">
+                                        <div className="grid overflow-hidden lg:grid-cols-[0.85fr_1.15fr] lg:rounded-2xl lg:border lg:border-gray-200 lg:bg-white">
+                                            <aside className="hidden border-r border-gray-200 p-8 lg:block">
+                                                <h2 className="text-3xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
+                                                <div className="mt-4 grid gap-2 text-sm font-medium text-gray-700">
+                                                    <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
+                                                    <div className="flex items-center gap-2"><Icon name="map" size={15} /> {serviceLocationLabel}</div>
+                                                    <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {displaySlotTime(time)}, {fullDate(date)}</div>
+                                                    <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
+                                                </div>
+                                            </aside>
+                                            <div className="space-y-5 lg:p-8">
+                                                <div className="flex items-center gap-3 border-b border-gray-200 pb-4 lg:border-b-0 lg:pb-0">
+                                                    <button type="button" onClick={() => setStep(2)} className="grid size-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-900" aria-label="Back to time"><Icon name="chevronLeft" size={16} /></button>
+                                                    <div>
+                                                        <h3 className="text-lg font-black text-gray-900">Enter Details</h3>
+                                                        <p className="mt-0.5 text-xs font-semibold leading-5 text-gray-500">Name, email and phone number are required.</p>
+                                                    </div>
+                                                </div>
+                                                <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
+                                                    <h2 className="text-2xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
+                                                    <div className="mt-3 grid gap-2 text-sm font-medium text-gray-700">
+                                                        <div className="flex items-center gap-2"><Icon name="clock" size={15} /> {durationLabel}</div>
+                                                        <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {displaySlotTime(time)}, {fullDate(date)}</div>
+                                                        <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid gap-3 rounded-2xl border border-gray-200 bg-[#F6F9FC] p-4 sm:grid-cols-3 lg:bg-white">
+                                                    <FormField label="Name" value={customer.name} onChange={(event) => setCustomer((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" required />
+                                                    <FormField label="Email" type="email" value={customer.email} onChange={(event) => setCustomer((current) => ({ ...current, email: event.target.value }))} placeholder="name@example.com" required />
+                                                    <FormField label="Phone number" value={customer.phone} onChange={(event) => setCustomer((current) => ({ ...current, phone: event.target.value }))} placeholder="+234..." required />
+                                                </div>
+                                                {renderProviderQuestions()}
+                                                <FormField as="textarea" label="Booking note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
+                                            </div>
                                         </div>
-                                        <div className="grid gap-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4 sm:grid-cols-3">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">Person booking</p>
-                                            <FormField label="Name" value={customer.name} onChange={(event) => setCustomer((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" required />
-                                            <FormField label="Email" type="email" value={customer.email} onChange={(event) => setCustomer((current) => ({ ...current, email: event.target.value }))} placeholder="name@example.com" required />
-                                            <FormField label="Phone number" value={customer.phone} onChange={(event) => setCustomer((current) => ({ ...current, phone: event.target.value }))} placeholder="+234..." required />
-                                        </div>
-                                        {renderProviderQuestions()}
-                                        <FormField as="textarea" label="Booking note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                     </section>
                                 )}
 
@@ -702,7 +799,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <div className="mt-5 divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-[#FFFFFF] p-4 text-sm">
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Service</span><span className="font-semibold text-[#2A1D14]">{selectedService?.name}</span></div>
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Date</span><span className="font-semibold text-[#2A1D14]">{fullDate(date)}</span></div>
-                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Time</span><span className="font-semibold text-[#2A1D14]">{displayTime(time)}</span></div>
+                                            <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Time</span><span className="font-semibold text-[#2A1D14]">{displaySlotTime(time)}</span></div>
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Customer</span><span className="font-semibold text-[#2A1D14]">{customer.name}</span></div>
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Amount</span><span className="font-semibold text-[#3A2A1F]">{currency(selectedService?.price, selectedService?.currency ?? 'NGN')}</span></div>
                                         </div>

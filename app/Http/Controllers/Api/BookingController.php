@@ -283,6 +283,17 @@ class BookingController extends Controller
             ->take(8);
 
         $clean = [];
+        if (isset($answers['_booking_timezone']) && is_string($answers['_booking_timezone'])) {
+            $timezone = trim($answers['_booking_timezone']);
+            if ($timezone !== '' && in_array($timezone, timezone_identifiers_list(), true)) {
+                $clean[] = [
+                    'label' => 'Customer timezone',
+                    'type' => 'text',
+                    'answer' => $timezone,
+                ];
+            }
+        }
+
         foreach ($fields as $index => $field) {
             $key = 'field_'.$index;
             $label = trim((string) ($field['label'] ?? 'Question '.($index + 1)));
