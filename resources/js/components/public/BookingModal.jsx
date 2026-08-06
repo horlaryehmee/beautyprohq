@@ -3,6 +3,7 @@ import api, { apiError, ensureCsrfCookie, unwrap } from '../../lib/api';
 import { currency, providerIdentity, stripHtml } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { defaultCountries } from 'react-international-phone';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Icon from '../ui/Icon';
@@ -212,15 +213,17 @@ const phoneCountries = [
     ['BR', 'Brazil', '+55', '🇧🇷'],
     ['AU', 'Australia', '+61', '🇦🇺'],
 ];
+const phoneCountryOptions = defaultCountries.map(([name, iso2, dialCode]) => [iso2.toUpperCase(), name, `+${dialCode}`]);
+const defaultPhoneCountry = phoneCountryOptions.find(([code]) => code === 'NG') ?? phoneCountryOptions[0];
 
 function CountryPhoneField({ value, onChange }) {
     const [open, setOpen] = useState(false);
-    const selectedCountry = phoneCountries.find((country) => value?.startsWith(country[2])) ?? phoneCountries[0];
+    const selectedCountry = phoneCountryOptions.find((country) => value?.startsWith(country[2])) ?? defaultPhoneCountry;
     const localNumber = String(value ?? '').replace(selectedCountry[2], '').trim();
     const selectedFlagUrl = `https://flagcdn.com/w40/${selectedCountry[0].toLowerCase()}.png`;
 
     function updateCountry(countryCode) {
-        const nextCountry = phoneCountries.find((country) => country[0] === countryCode) ?? phoneCountries[0];
+        const nextCountry = phoneCountryOptions.find((country) => country[0] === countryCode) ?? defaultPhoneCountry;
         onChange(`${nextCountry[2]}${localNumber ? ` ${localNumber}` : ''}`);
         setOpen(false);
     }
@@ -250,7 +253,7 @@ function CountryPhoneField({ value, onChange }) {
                 </button>
                 {open && (
                     <div className="absolute left-0 top-[calc(100%+.35rem)] z-50 max-h-72 w-72 overflow-y-auto rounded-xl border border-stone-200 bg-white py-1 shadow-xl">
-                        {phoneCountries.map(([code, name, dialCode]) => (
+                        {phoneCountryOptions.map(([code, name, dialCode]) => (
                             <button
                                 key={`${code}-${dialCode}`}
                                 type="button"
