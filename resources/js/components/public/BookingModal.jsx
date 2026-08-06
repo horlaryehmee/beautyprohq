@@ -214,6 +214,7 @@ const phoneCountries = [
 ];
 
 function CountryPhoneField({ value, onChange }) {
+    const [open, setOpen] = useState(false);
     const selectedCountry = phoneCountries.find((country) => value?.startsWith(country[2])) ?? phoneCountries[0];
     const localNumber = String(value ?? '').replace(selectedCountry[2], '').trim();
     const selectedFlagUrl = `https://flagcdn.com/w40/${selectedCountry[0].toLowerCase()}.png`;
@@ -221,6 +222,7 @@ function CountryPhoneField({ value, onChange }) {
     function updateCountry(countryCode) {
         const nextCountry = phoneCountries.find((country) => country[0] === countryCode) ?? phoneCountries[0];
         onChange(`${nextCountry[2]}${localNumber ? ` ${localNumber}` : ''}`);
+        setOpen(false);
     }
 
     function updateLocalNumber(nextValue) {
@@ -228,10 +230,16 @@ function CountryPhoneField({ value, onChange }) {
     }
 
     return (
-        <label className="block text-sm font-bold text-plum-950">
-            Phone number
-            <div className="mt-1.5 flex min-h-12 overflow-hidden rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
-                <span className="relative flex w-16 items-center justify-center gap-1 border-r border-stone-200 bg-white text-base">
+        <div className="block text-sm font-bold text-plum-950">
+            <span>Phone number</span>
+            <div className="relative mt-1.5 flex min-h-12 overflow-visible rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
+                <button
+                    type="button"
+                    className="relative flex w-16 items-center justify-center gap-1 rounded-l-xl border-r border-stone-200 bg-white text-base"
+                    onClick={() => setOpen((current) => !current)}
+                    aria-expanded={open}
+                    aria-label="Select country code"
+                >
                     <img
                         src={selectedFlagUrl}
                         alt={`${selectedCountry[1]} flag`}
@@ -239,17 +247,28 @@ function CountryPhoneField({ value, onChange }) {
                         loading="lazy"
                     />
                     <Icon name="chevronDown" size={13} className="text-plum-950" />
-                    <select
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                        value={selectedCountry[0]}
-                        onChange={(event) => updateCountry(event.target.value)}
-                        aria-label="Country code"
-                    >
-                        {phoneCountries.map(([code, name, dialCode, flag]) => (
-                            <option key={`${code}-${dialCode}`} value={code}>{flag} {name} {dialCode}</option>
+                </button>
+                {open && (
+                    <div className="absolute left-0 top-[calc(100%+.35rem)] z-50 max-h-72 w-72 overflow-y-auto rounded-xl border border-stone-200 bg-white py-1 shadow-xl">
+                        {phoneCountries.map(([code, name, dialCode]) => (
+                            <button
+                                key={`${code}-${dialCode}`}
+                                type="button"
+                                className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-semibold text-plum-950 hover:bg-stone-50 ${selectedCountry[0] === code ? 'bg-stone-50' : ''}`}
+                                onClick={() => updateCountry(code)}
+                            >
+                                <img
+                                    src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+                                    alt={`${name} flag`}
+                                    className="h-4 w-6 rounded-[2px] object-cover"
+                                    loading="lazy"
+                                />
+                                <span className="min-w-0 flex-1 truncate">{name}</span>
+                                <span className="shrink-0 font-black">{dialCode}</span>
+                            </button>
                         ))}
-                    </select>
-                </span>
+                    </div>
+                )}
                 <span className="flex min-w-20 items-center justify-center border-r border-stone-200 px-3 text-sm font-black text-plum-950">{selectedCountry[2]}</span>
                 <input
                     className="min-w-0 flex-1 px-3.5 text-sm text-plum-950 outline-none placeholder:text-stone-400"
@@ -260,7 +279,7 @@ function CountryPhoneField({ value, onChange }) {
                     type="tel"
                 />
             </div>
-        </label>
+        </div>
     );
 }
 
