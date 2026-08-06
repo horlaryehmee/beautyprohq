@@ -23,6 +23,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Services\MailchimpService;
+use App\Services\TwilioWhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -256,6 +257,26 @@ class SubscriptionController extends Controller
         }
 
         return $this->adminTwilioSettings();
+    }
+
+    public function testAdminTwilio(Request $request, TwilioWhatsAppService $twilio): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'max:40'],
+        ]);
+
+        abort_unless($twilio->configured(), 422, 'Twilio WhatsApp is not configured.');
+
+        $sent = $twilio->send(
+            $validated['phone'],
+            'BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.'
+        );
+
+        abort_unless($sent, 422, 'Twilio WhatsApp test failed. Check the recipient number, sandbox opt-in, sender number and Twilio logs.');
+
+        return $this->success([
+            'phone' => $validated['phone'],
+        ], 'WhatsApp test message sent.');
     }
 
     public function adminSmtpSettings(): JsonResponse

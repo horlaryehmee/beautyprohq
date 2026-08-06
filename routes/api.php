@@ -185,6 +185,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
+        Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware('throttle:6,1');
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
         Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware('throttle:6,1');

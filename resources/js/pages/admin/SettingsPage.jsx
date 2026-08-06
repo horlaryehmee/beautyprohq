@@ -49,6 +49,7 @@ export default function AdminSettingsPage() {
     const [smtpForm, setSmtpForm] = useState({ enabled: false, host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [mailchimpForm, setMailchimpForm] = useState({ enabled: false, api_key: '', server_prefix: '', list_id: '', webhook_secret: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
+    const [twilioTestPhone, setTwilioTestPhone] = useState('');
     const [emailNotificationTestType, setEmailNotificationTestType] = useState('all');
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
@@ -58,6 +59,7 @@ export default function AdminSettingsPage() {
     const [savingTwilio, setSavingTwilio] = useState(false);
     const [savingSmtp, setSavingSmtp] = useState(false);
     const [savingMailchimp, setSavingMailchimp] = useState(false);
+    const [testingTwilio, setTestingTwilio] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
     const [testingEmailNotification, setTestingEmailNotification] = useState(false);
     const [testingMailchimp, setTestingMailchimp] = useState(false);
@@ -250,6 +252,18 @@ export default function AdminSettingsPage() {
             notify(apiErrorMessage(error), 'error');
         } finally {
             setSavingSmtp(false);
+        }
+    };
+
+    const testTwilio = async () => {
+        setTestingTwilio(true);
+        try {
+            await apiRequest('post', '/admin/settings/twilio/test', { phone: twilioTestPhone });
+            notify(`WhatsApp test sent to ${twilioTestPhone}.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setTestingTwilio(false);
         }
     };
 
@@ -487,7 +501,18 @@ export default function AdminSettingsPage() {
                         <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                             Use the Twilio sandbox sender for testing. For live notifications, use an approved Twilio WhatsApp sender.
                         </div>
-                        <div className="flex justify-end"><Button busy={savingTwilio} type="submit">Save Twilio settings</Button></div>
+                        <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                            <Field hint="Use international format, for example +2348012345678. Sandbox recipients must join your Twilio sandbox first." label="Test WhatsApp recipient">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setTwilioTestPhone(event.target.value)}
+                                    placeholder="+2348012345678"
+                                    value={twilioTestPhone}
+                                />
+                            </Field>
+                            <Button busy={testingTwilio} disabled={!twilioTestPhone || savingTwilio} onClick={testTwilio} type="button" variant="secondary">Send WhatsApp test</Button>
+                        </div>
+                        <div className="flex justify-end"><Button busy={savingTwilio} disabled={testingTwilio} type="submit">Save Twilio settings</Button></div>
                     </form>
                 )}
             </Card>
