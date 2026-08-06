@@ -919,7 +919,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                     </section>
                                 )}
 
-                                <div className={`${standalone ? `${step === 1 ? 'hidden lg:flex' : 'flex'} fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 lg:static lg:px-0 lg:pb-0` : 'sticky bottom-0 -mx-4 flex px-4 py-3 sm:mx-0 sm:px-0'} mt-auto flex-col-reverse gap-2 border-t border-stone-200 bg-white/95 backdrop-blur sm:flex-row sm:justify-between`}>
+                                <div className={`${standalone ? `${step === 1 ? 'hidden lg:flex' : 'flex'} fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 lg:static lg:px-0 lg:pb-0` : 'sticky bottom-0 -mx-4 flex px-4 py-3 sm:mx-0 sm:px-0'} mt-auto flex-row items-center justify-between gap-2 border-t border-stone-200 bg-white/95 backdrop-blur`}>
                                     <Button variant="ghost" onClick={step === 1 ? onClose : () => setStep((current) => Math.max(1, current - 1))}>{step === 1 ? 'Cancel' : 'Back'}</Button>
                                     {step < 4 && <Button type="button" onClick={nextStep} className="rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]">Continue <Icon name="arrow" size={16} /></Button>}
                                 </div>
