@@ -191,6 +191,63 @@ function timezoneOptions(fallback = 'Africa/Lagos') {
     return Array.from(new Set([...common, ...supported].filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
+const phoneCountries = [
+    ['NG', 'Nigeria', '+234'],
+    ['GH', 'Ghana', '+233'],
+    ['KE', 'Kenya', '+254'],
+    ['ZA', 'South Africa', '+27'],
+    ['UG', 'Uganda', '+256'],
+    ['TZ', 'Tanzania', '+255'],
+    ['AE', 'United Arab Emirates', '+971'],
+    ['GB', 'United Kingdom', '+44'],
+    ['US', 'United States', '+1'],
+    ['CA', 'Canada', '+1'],
+    ['FR', 'France', '+33'],
+    ['DE', 'Germany', '+49'],
+    ['IT', 'Italy', '+39'],
+    ['ES', 'Spain', '+34'],
+    ['NL', 'Netherlands', '+31'],
+    ['IN', 'India', '+91'],
+    ['CN', 'China', '+86'],
+    ['BR', 'Brazil', '+55'],
+    ['AU', 'Australia', '+61'],
+];
+
+function CountryPhoneField({ value, onChange }) {
+    const selectedCountry = phoneCountries.find((country) => value?.startsWith(country[2])) ?? phoneCountries[0];
+
+    function updateCountry(dialCode) {
+        const currentWithoutDial = String(value ?? '').replace(/^\+\d+\s*/, '').trim();
+        onChange(`${dialCode}${currentWithoutDial ? ` ${currentWithoutDial}` : ''}`);
+    }
+
+    return (
+        <label className="block text-sm font-bold text-plum-950">
+            Phone number
+            <div className="mt-1.5 flex min-h-12 overflow-hidden rounded-xl border border-stone-200 bg-white focus-within:border-rose-400 focus-within:ring-4 focus-within:ring-rose-100">
+                <select
+                    className="w-28 border-r border-stone-200 bg-white px-2 text-xs font-bold text-plum-950 outline-none sm:w-36"
+                    value={selectedCountry[2]}
+                    onChange={(event) => updateCountry(event.target.value)}
+                    aria-label="Country code"
+                >
+                    {phoneCountries.map(([code, name, dialCode]) => (
+                        <option key={`${code}-${dialCode}`} value={dialCode}>{name} {dialCode}</option>
+                    ))}
+                </select>
+                <input
+                    className="min-w-0 flex-1 px-3.5 text-sm text-plum-950 outline-none placeholder:text-stone-400"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder={`${selectedCountry[2]} 802 123 4567`}
+                    required
+                    type="tel"
+                />
+            </div>
+        </label>
+    );
+}
+
 function ProviderSummary({ pro }) {
     return (
         <div className="flex items-center gap-3">
@@ -759,8 +816,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
 
                                 {step === 3 && (
                                     <section className="mx-auto w-full max-w-md space-y-5 lg:max-w-5xl">
-                                        <div className="grid overflow-hidden lg:grid-cols-[0.85fr_1.15fr] lg:rounded-2xl lg:border lg:border-gray-200 lg:bg-white">
-                                            <aside className="hidden border-r border-gray-200 p-8 lg:block">
+                                        <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
+                                            <aside className="hidden border-r border-stone-200 pr-8 lg:block">
                                                 <h2 className="text-3xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
                                                 {selectedServicePrice && <p className="mt-2 text-xl font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                                 <div className="mt-4 grid gap-2 text-sm font-medium text-gray-700">
@@ -770,15 +827,15 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
                                                 </div>
                                             </aside>
-                                            <div className="space-y-5 lg:p-8">
-                                                <div className="flex items-center gap-3 border-b border-gray-200 pb-4 lg:border-b-0 lg:pb-0">
+                                            <div className="space-y-5 lg:pl-8">
+                                                <div className="flex items-center gap-3">
                                                     <button type="button" onClick={() => setStep(2)} className="grid size-9 place-items-center rounded-full border border-gray-200 bg-white text-gray-900" aria-label="Back to time"><Icon name="chevronLeft" size={16} /></button>
                                                     <div>
                                                         <h3 className="text-lg font-black text-gray-900">Enter Details</h3>
                                                         <p className="mt-0.5 text-xs font-semibold leading-5 text-gray-500">Name, email and phone number are required.</p>
                                                     </div>
                                                 </div>
-                                                <div className="rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
+                                                <div className="lg:hidden">
                                                     <h2 className="text-2xl font-black leading-tight text-gray-900">{selectedService?.name ?? 'Service'}</h2>
                                                     {selectedServicePrice && <p className="mt-2 text-lg font-black text-[#2A1D14]">{selectedServicePrice}</p>}
                                                     <div className="mt-3 grid gap-2 text-sm font-medium text-gray-700">
@@ -787,10 +844,12 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                         <div className="flex items-center gap-2"><Icon name="calendar" size={15} /> {timezoneLabel}</div>
                                                     </div>
                                                 </div>
-                                                <div className="grid gap-3 rounded-2xl border border-gray-200 bg-[#F6F9FC] p-4 sm:grid-cols-3 lg:bg-white">
+                                                <div className="grid gap-4 sm:grid-cols-2">
                                                     <FormField label="Name" value={customer.name} onChange={(event) => setCustomer((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" required />
                                                     <FormField label="Email" type="email" value={customer.email} onChange={(event) => setCustomer((current) => ({ ...current, email: event.target.value }))} placeholder="name@example.com" required />
-                                                    <FormField label="Phone number" value={customer.phone} onChange={(event) => setCustomer((current) => ({ ...current, phone: event.target.value }))} placeholder="+234..." required />
+                                                    <div className="sm:col-span-2">
+                                                        <CountryPhoneField value={customer.phone} onChange={(phone) => setCustomer((current) => ({ ...current, phone }))} />
+                                                    </div>
                                                 </div>
                                                 {renderProviderQuestions()}
                                                 <FormField as="textarea" label="Booking note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
