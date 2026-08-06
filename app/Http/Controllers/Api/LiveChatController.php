@@ -9,7 +9,9 @@ use App\Notifications\LiveChatProviderMessageNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class LiveChatController extends Controller
 {
@@ -23,7 +25,7 @@ class LiveChatController extends Controller
             'message' => ['required', 'string', 'min:2', 'max:3000'],
         ]);
 
-        $conversation = DB::transaction(function () use ($request, $provider, $validated): LiveChatConversation {
+        [$conversation, $message] = DB::transaction(function () use ($request, $provider, $validated): array {
             $conversation = LiveChatConversation::create([
                 'provider_id' => $provider->id,
                 'customer_id' => $request->user()?->isCustomer() ? $request->user()->id : null,
@@ -41,11 +43,10 @@ class LiveChatController extends Controller
                 'body' => $validated['message'],
             ]);
 
-            $conversation->load(['provider.user', 'messages.sender:id,name']);
-            $conversation->provider->user?->notify(new LiveChatProviderMessageNotification($conversation, $message));
-
-            return $conversation;
+            return [$conversation, $message];
         });
+
+        $this->notifyProvider($conversation, $message);
 
         return $this->success($this->publicConversationPayload($conversation), 'Your message was sent.', 201);
     }
@@ -83,11 +84,11 @@ class LiveChatController extends Controller
                 'last_message_at' => now(),
                 'closed_at' => null,
             ])->save();
-            $conversation->loadMissing(['provider.user']);
-            $conversation->provider->user?->notify(new LiveChatProviderMessageNotification($conversation, $message));
 
             return $message;
         });
+
+        $this->notifyProvider($conversation, $message);
 
         return $this->success($message->load('sender:id,name'), 'Reply sent.', 201);
     }
@@ -96,6 +97,21 @@ class LiveChatController extends Controller
     {
         $token = (string) ($request->input('visitor_token') ?? $request->header('X-Live-Chat-Token'));
         abort_unless(hash_equals($conversation->visitor_token, $token), 403);
+    }
+
+    private function notifyProvider(LiveChatConversation $conversation, $message): void
+    {
+        try {
+            $conversation->loadMissing(['provider.user']);
+            $conversation->provider->user?->notify(new LiveChatProviderMessageNotification($conversation, $message));
+        } catch (Throwable $exception) {
+            Log::warning('Live chat provider notification failed.', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+                'provider_id' => $conversation->provider_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function publicConversationPayload(LiveChatConversation $conversation, array $options = []): array

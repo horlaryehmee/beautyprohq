@@ -8,8 +8,10 @@ use App\Notifications\LiveChatCustomerReplyNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class LiveChatController extends Controller
 {
@@ -76,12 +78,22 @@ class LiveChatController extends Controller
                 'visitor_unread_count' => $conversation->visitor_unread_count + 1,
                 'last_message_at' => now(),
             ])->save();
-            $conversation->loadMissing(['provider.user']);
-            Notification::route('mail', $conversation->visitor_email)
-                ->notify(new LiveChatCustomerReplyNotification($conversation, $message));
 
             return $message;
         });
+
+        try {
+            $conversation->loadMissing(['provider.user']);
+            Notification::route('mail', $conversation->visitor_email)
+                ->notify(new LiveChatCustomerReplyNotification($conversation, $message));
+        } catch (Throwable $exception) {
+            Log::warning('Live chat customer reply notification failed.', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+                'visitor_email' => $conversation->visitor_email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         return $this->success($message->load('sender:id,name'), 'Reply sent.', 201);
     }
