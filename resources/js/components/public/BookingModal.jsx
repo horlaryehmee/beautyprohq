@@ -908,7 +908,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         </div>
                                         {!checkoutUrl ? (
                                             <Button type="button" className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]" disabled={submitting} onClick={createBookingAndCheckout}>
-                                                {submitting ? 'Creating booking...' : 'Create booking and continue to payment'} <Icon name="arrow" size={16} />
+                                                {submitting ? 'Preparing payment...' : 'Continue to payment'} <Icon name="arrow" size={16} />
                                             </Button>
                                         ) : (
                                             <a className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-5 text-sm font-semibold text-white transition hover:bg-[#2A1D14]" href={checkoutUrl}>
