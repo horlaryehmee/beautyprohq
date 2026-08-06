@@ -135,9 +135,9 @@ export default function LiveChatWidget({ providerId, providerName }) {
     }
 
     return (
-        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-4 z-[90] sm:bottom-[max(1.5rem,env(safe-area-inset-bottom))] sm:right-6">
+        <div className="fixed bottom-[max(.75rem,env(safe-area-inset-bottom))] right-4 z-[90] sm:bottom-[max(1.5rem,env(safe-area-inset-bottom))] sm:right-6">
             {open && (
-                <section className="mb-3 flex h-[min(640px,calc(100vh-11rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.6rem] border border-stone-200 bg-white shadow-[0_22px_70px_rgba(42,29,20,.22)] sm:h-[min(640px,calc(100vh-7rem))] sm:w-96">
+                <section className="mb-3 flex h-[min(640px,calc(100vh-8rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[1.6rem] border border-stone-200 bg-white shadow-[0_22px_70px_rgba(42,29,20,.22)] sm:h-[min(640px,calc(100vh-7rem))] sm:w-96">
                     <header className="flex items-center justify-between gap-3 bg-[#2A1D14] px-4 py-3 text-white">
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold">Chat with {providerName}</p>
