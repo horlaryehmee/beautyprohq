@@ -32,6 +32,12 @@ class PlatformUpdateNotification extends Notification
             ->greeting("Hello {$notifiable->name},")
             ->line($this->message);
 
+        foreach (($this->data['details'] ?? []) as $label => $value) {
+            if (filled($value)) {
+                $mail->line("{$label}: {$value}");
+            }
+        }
+
         if ($this->actionText && $this->actionUrl) {
             $mail->action($this->actionText, $this->actionUrl);
         }

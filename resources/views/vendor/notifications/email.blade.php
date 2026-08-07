@@ -1,6 +1,10 @@
 @php
-    $appName = config('app.name', 'BeautyPro HQ');
+    $appName = \App\Models\AppSetting::getValue('branding.site_name', config('app.name', 'BeautyPro HQ'));
     $frontendUrl = rtrim(config('app.frontend_url', config('app.url')), '/');
+    $emailLogo = \App\Models\AppSetting::getValue('branding.email_logo_url', \App\Models\AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg'));
+    if ($emailLogo && str_starts_with($emailLogo, '/')) {
+        $emailLogo = $frontendUrl.$emailLogo;
+    }
     $brand = '#3A2A1F';
     $ink = '#2A1D14';
     $muted = '#5B4A3C';
@@ -21,8 +25,11 @@
                     <tr>
                         <td style="padding:0 0 20px;text-align:center;">
                             <a href="{{ $frontendUrl }}" style="text-decoration:none;color:{{ $ink }};">
-                                <div style="font-family:Georgia,'Times New Roman',serif;font-size:36px;line-height:1;font-weight:500;letter-spacing:0;color:{{ $ink }};">BPHQ</div>
-                                <div style="margin-top:7px;font-size:11px;font-weight:700;letter-spacing:4px;color:{{ $brand }};">BEAUTYPRO HQ</div>
+                                @if($emailLogo)
+                                    <img src="{{ $emailLogo }}" alt="{{ $appName }}" width="120" style="display:inline-block;max-width:160px;width:120px;height:auto;border:0;outline:none;text-decoration:none;">
+                                @else
+                                    <div style="font-family:Georgia,'Times New Roman',serif;font-size:36px;line-height:1;font-weight:500;letter-spacing:0;color:{{ $ink }};">{{ $appName }}</div>
+                                @endif
                             </a>
                         </td>
                     </tr>

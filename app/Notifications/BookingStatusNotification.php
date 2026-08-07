@@ -21,13 +21,23 @@ class BookingStatusNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $path = $notifiable->role === 'provider' ? '/provider/bookings' : '/customer/bookings';
+        $this->booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
+        $payment = $this->booking->payment;
 
         return (new MailMessage)
             ->subject('BeautyPro HQ booking update')
             ->greeting("Hello {$notifiable->name},")
             ->line($this->message)
-            ->line("Service: {$this->booking->service->name}")
-            ->line('Date: '.$this->booking->date->format('M j, Y').' at '.$this->booking->time)
+            ->line("Service: {$this->booking->service?->name}")
+            ->line('Provider: '.$this->booking->provider?->user?->name)
+            ->line('Customer: '.$this->booking->customer?->name)
+            ->line('Customer email: '.$this->booking->customer?->email)
+            ->line('Customer phone: '.($this->booking->customer?->phone ?: 'Not provided'))
+            ->line('Date: '.$this->booking->date->format('M j, Y').' at '.substr((string) $this->booking->time, 0, 5))
+            ->line('Duration: '.($this->booking->service?->duration_minutes ?? 0).' minutes')
+            ->line('Payment: '.($payment ? strtoupper((string) $payment->currency).' '.number_format((float) $payment->amount, 2).' via '.ucfirst((string) ($payment->gateway ?? 'gateway')).' - '.ucfirst((string) $payment->status) : 'Not available'))
+            ->line('Reference: '.($payment?->reference ?: 'Not available'))
+            ->line('Notes: '.($this->booking->notes ?: 'None'))
             ->action('View your bookings', rtrim(config('app.frontend_url', config('app.url')), '/').$path);
     }
 

@@ -44,15 +44,18 @@ class BookingController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
-            'customer.name' => ['required', 'string', 'max:120'],
-            'customer.email' => ['required', 'email:rfc', 'max:255'],
-            'customer.phone' => ['required', 'string', 'max:40'],
+            'payment_method' => ['nullable', 'string', 'in:paystack,stripe,paypal,manual'],
+            'customer' => ['nullable', 'array'],
+            'customer.name' => ['nullable', 'string', 'max:120'],
+            'customer.email' => ['nullable', 'email:rfc', 'max:255'],
+            'customer.phone' => ['nullable', 'string', 'max:40'],
         ]);
 
-        $request->user()->update([
-            'name' => $validated['customer']['name'],
-            'phone' => $validated['customer']['phone'],
-        ]);
+        $customerDetails = $validated['customer'] ?? [];
+        $request->user()->update(array_filter([
+            'name' => $customerDetails['name'] ?? null,
+            'phone' => $customerDetails['phone'] ?? null,
+        ], fn ($value) => filled($value)));
         unset($validated['customer']);
 
         return $this->createBooking($request, $validated, $request->user());
@@ -68,26 +71,41 @@ class BookingController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
+            'payment_method' => ['nullable', 'string', 'in:paystack,stripe,paypal,manual'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email:rfc', 'max:255'],
             'customer.phone' => ['required', 'string', 'max:40'],
+            'customer.create_account' => ['nullable', 'boolean'],
+            'customer.password' => ['nullable', 'required_if:customer.create_account,true', 'string', 'min:8', 'max:255'],
         ]);
 
         $email = Str::lower(trim($validated['customer']['email']));
+        $createAccount = (bool) ($validated['customer']['create_account'] ?? false);
         $customer = User::where('email', $email)->first();
         if ($customer && ! $customer->isCustomer()) {
             return response()->json(['message' => 'Please use a customer email address for this booking.'], 422);
+        }
+        if ($customer && $createAccount && ! $customer->is_guest) {
+            return response()->json(['message' => 'An account already exists with this email. Please log in before booking or continue without creating a new account.'], 422);
         }
 
         $customer ??= User::create([
             'name' => $validated['customer']['name'],
             'email' => $email,
             'phone' => $validated['customer']['phone'] ?? null,
-            'password' => Hash::make(Str::random(32)),
+            'password' => Hash::make($createAccount ? $validated['customer']['password'] : Str::random(32)),
             'role' => 'customer',
-            'is_guest' => true,
+            'is_guest' => ! $createAccount,
             'preferred_currency' => config('currencies.default', 'NGN'),
         ]);
+        if ($customer->is_guest && $createAccount) {
+            $customer->update([
+                'name' => $validated['customer']['name'],
+                'phone' => $validated['customer']['phone'] ?? $customer->phone,
+                'password' => Hash::make($validated['customer']['password']),
+                'is_guest' => false,
+            ]);
+        }
 
         if (! $customer->phone && ! empty($validated['customer']['phone'])) {
             $customer->update(['phone' => $validated['customer']['phone']]);
@@ -107,8 +125,10 @@ class BookingController extends Controller
         $service = Service::whereKey($validated['service_id'])->where('provider_id', $provider->id)->where('is_active', true)->firstOrFail();
         $customFields = $this->validatedCustomBookingFields($provider, $validated['custom_fields'] ?? []);
         $redeemLoyalty = (bool) ($validated['redeem_loyalty'] ?? false);
+        $paymentMethod = $redeemLoyalty ? 'loyalty' : $this->selectedPaymentMethod($provider, $validated['payment_method'] ?? null);
         unset($validated['custom_fields']);
         unset($validated['redeem_loyalty']);
+        unset($validated['payment_method']);
         $date = Carbon::createFromFormat('Y-m-d H:i', $validated['date'].' '.$validated['time']);
         $end = $date->copy()->addMinutes($service->duration_minutes);
 
@@ -139,7 +159,7 @@ class BookingController extends Controller
             return response()->json(['message' => 'That date or time is blocked by the provider.'], 422);
         }
 
-        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields, $redeemLoyalty): ?Booking {
+        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields, $redeemLoyalty, $paymentMethod): ?Booking {
             $conflict = Booking::where('provider_id', $provider->id)
                 ->whereDate('date', $validated['date'])
                 ->whereIn('status', ['pending', 'confirmed'])
@@ -177,8 +197,9 @@ class BookingController extends Controller
                 'currency' => $service->currency ?? $provider->default_currency ?? config('currencies.default', 'NGN'),
                 'status' => $redeemLoyalty ? 'paid' : 'pending',
                 'paid_at' => $redeemLoyalty ? now() : null,
-                'gateway' => $redeemLoyalty ? 'loyalty' : null,
-                'metadata' => ['payment_token' => Str::random(48), 'redeemed_loyalty_points' => $redeemedPoints],
+                'gateway' => $paymentMethod === 'loyalty' ? 'loyalty' : ($paymentMethod === 'manual' ? 'manual' : null),
+                'reference' => $paymentMethod === 'manual' ? 'BPHQ-MANUAL-'.$booking->id.'-'.Str::upper(Str::random(8)) : null,
+                'metadata' => ['payment_token' => Str::random(48), 'redeemed_loyalty_points' => $redeemedPoints, 'selected_gateway' => $paymentMethod],
             ]);
 
             return $booking;
@@ -211,6 +232,37 @@ class BookingController extends Controller
                 'message' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function selectedPaymentMethod(ProviderProfile $provider, ?string $requested): string
+    {
+        $methods = $this->connectedPaymentGateways($provider);
+        if ($requested && in_array($requested, $methods, true)) {
+            return $requested;
+        }
+
+        $preferred = $provider->default_payment_gateway;
+        if ($preferred && in_array($preferred, $methods, true)) {
+            return $preferred;
+        }
+
+        abort_if(! count($methods), 422, 'This provider has not connected a payment method yet.');
+
+        return $methods[0];
+    }
+
+    private function connectedPaymentGateways(ProviderProfile $provider): array
+    {
+        $order = ['paystack' => 0, 'stripe' => 1, 'paypal' => 2, 'manual' => 3];
+
+        return $provider->paymentAccounts()
+            ->where(function ($query): void {
+                $query->where('enabled', true)->orWhere('is_connected', true);
+            })
+            ->pluck('gateway')
+            ->sortBy(fn ($gateway) => $order[$gateway] ?? 99)
+            ->values()
+            ->all();
     }
 
     private function notifyProviderOnWhatsApp(Booking $booking): void
@@ -333,6 +385,7 @@ class BookingController extends Controller
         abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
 
         $gateway = $validated['gateway'] ?? $this->preferredProviderGateway($payment);
+        abort_unless(in_array($gateway, ['paystack', 'stripe', 'paypal'], true), 422, 'Manual payments must be confirmed by the provider.');
         $account = $payment->provider->paymentAccounts
             ->first(fn ($item) => $item->gateway === $gateway && ($item->enabled || $item->is_connected));
 
@@ -423,7 +476,7 @@ class BookingController extends Controller
 
     private function preferredProviderGateway(Payment $payment): string
     {
-        $preferred = $payment->provider->default_payment_gateway;
+        $preferred = $payment->metadata['selected_gateway'] ?? $payment->provider->default_payment_gateway;
         if (in_array($preferred, ['paystack', 'stripe', 'paypal'], true)) {
             $account = $payment->provider->paymentAccounts
                 ->first(fn ($item) => $item->gateway === $preferred && ($item->enabled || $item->is_connected));
@@ -581,6 +634,7 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $payment->booking?->update(['status' => 'confirmed']);
         $this->notifyBookingPaymentPaid($payment);
     }
 
@@ -618,6 +672,7 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $payment->booking?->update(['status' => 'confirmed']);
         $this->notifyBookingPaymentPaid($payment);
     }
 
@@ -667,6 +722,7 @@ class BookingController extends Controller
                 ],
             ]);
         });
+        $payment->booking?->update(['status' => 'confirmed']);
         $this->notifyBookingPaymentPaid($payment);
     }
 
@@ -687,13 +743,27 @@ class BookingController extends Controller
         $customerName = $booking->customer?->name ?? 'A customer';
         $serviceName = $booking->service?->name ?? 'booking';
         $amount = $payment->currency.' '.number_format((float) $payment->amount, 2);
+        $details = [
+            'Service' => $serviceName,
+            'Provider' => $providerName,
+            'Customer' => $customerName,
+            'Customer email' => $booking->customer?->email,
+            'Customer phone' => $booking->customer?->phone ?: 'Not provided',
+            'Date' => $booking->date?->format('M j, Y'),
+            'Time' => substr((string) $booking->time, 0, 5),
+            'Amount' => $amount,
+            'Payment method' => ucfirst((string) ($payment->gateway ?? 'gateway')),
+            'Payment reference' => $payment->reference ?: 'Not available',
+            'Booking status' => ucfirst((string) $booking->status),
+            'Notes' => $booking->notes ?: 'None',
+        ];
 
         $this->safeNotify($booking->customer, new PlatformUpdateNotification(
             'Booking confirmed',
             "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed.",
             'View bookings',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
-            ['booking_id' => $booking->id, 'payment_id' => $payment->id],
+            ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'details' => $details],
         ));
 
         $this->safeNotify($payment->provider?->user, new BookingStatusNotification(
@@ -707,7 +777,7 @@ class BookingController extends Controller
                 "{$customerName} paid {$amount} to {$providerName} for {$serviceName}.",
                 'View activity',
                 rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/activity?type=bookings',
-                ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'provider_id' => $payment->provider_id],
+                ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'provider_id' => $payment->provider_id, 'details' => $details],
             ));
         });
 

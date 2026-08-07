@@ -23,6 +23,7 @@ const gateways = [
     { id: 'paystack', name: 'Paystack', description: 'Connect your own Paystack integration keys for booking payments.' },
     { id: 'stripe', name: 'Stripe', description: 'Connect your own Stripe integration keys for booking payments.' },
     { id: 'paypal', name: 'PayPal', description: 'Connect your live PayPal REST app credentials for booking payments.' },
+    { id: 'manual', name: 'Manual payment', description: 'Add account details for bank transfer, cash, POS or other offline payment confirmation.' },
 ];
 
 const normalize = (value, key) => Array.isArray(value) ? value : value?.[key] ?? value?.data ?? [];
@@ -35,7 +36,7 @@ export default function ProviderPaymentsPage() {
     const resource = useApiResource('/provider/payments', {});
     const accountsResource = useApiResource('/provider/payment-accounts', {});
     const [activeGateway, setActiveGateway] = useState(null);
-    const [account, setAccount] = useState({ public_key: '', secret_key: '', enabled: true });
+    const [account, setAccount] = useState({ public_key: '', secret_key: '', account_name: '', account_reference: '', instructions: '', enabled: true });
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const dashboard = resource.data ?? {};
@@ -57,6 +58,9 @@ export default function ProviderPaymentsPage() {
         setAccount({
             public_key: saved?.public_key ?? '',
             secret_key: '',
+            account_name: saved?.account_name ?? '',
+            account_reference: saved?.account_reference ?? saved?.account_identifier ?? '',
+            instructions: saved?.settings?.instructions ?? '',
             enabled: saved?.enabled ?? saved?.is_connected ?? true,
         });
     }, [accounts, activeGateway]);
@@ -73,9 +77,13 @@ export default function ProviderPaymentsPage() {
             const updated = await apiRequest('put', '/provider/payment-accounts', {
                 gateway: activeGateway.id,
                 public_key: account.public_key,
+                account_name: account.account_name,
+                account_reference: account.account_reference,
+                account_identifier: account.account_reference,
                 enabled: account.enabled,
                 settings: {
                     ...(account.secret_key ? { secret_key: account.secret_key } : {}),
+                    ...(activeGateway.id === 'manual' ? { instructions: account.instructions } : {}),
                 },
             });
             accountsResource.setData((current) => ({
@@ -173,33 +181,51 @@ export default function ProviderPaymentsPage() {
                     <Card className="w-full max-w-lg rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
                         <h2 className="text-lg font-bold text-slate-950">Connect {activeGateway.name}</h2>
                         <p className="mt-1 text-sm text-slate-500">
-                            Use the credentials from your own {activeGateway.name} dashboard. Booking payments will be initialized and verified on that provider account.
+                            {activeGateway.id === 'manual'
+                                ? 'Customers can choose this option and pay using the details you provide. You will confirm payment before accepting the booking.'
+                                : `Use the credentials from your own ${activeGateway.name} dashboard. Booking payments will be initialized and verified on that provider account.`}
                         </p>
                         <form autoComplete="off" className="mt-5 space-y-4" onSubmit={saveAccount}>
-                            <Field label={activeGateway.id === 'paypal' ? 'PayPal client ID' : `${activeGateway.name} public key`}>
-                                <input
-                                    autoComplete="off"
-                                    className={inputClass}
-                                    name={`${activeGateway.id}_public_credential`}
-                                    onChange={(event) => setAccount((current) => ({ ...current, public_key: event.target.value }))}
-                                    placeholder={activeGateway.id === 'paypal' ? 'Paste PayPal REST app client ID' : 'Paste public key'}
-                                    required
-                                    type="text"
-                                    value={account.public_key}
-                                />
-                            </Field>
+                            {activeGateway.id === 'manual' ? (
+                                <>
+                                    <Field label="Account name">
+                                        <input className={inputClass} onChange={(event) => setAccount((current) => ({ ...current, account_name: event.target.value }))} placeholder="Business or account name" required value={account.account_name} />
+                                    </Field>
+                                    <Field hint="Bank name, account number, POS instruction, cash instruction, or any manual payment details customers need." label="Account details">
+                                        <textarea className={`${inputClass} min-h-24 py-3`} onChange={(event) => setAccount((current) => ({ ...current, account_reference: event.target.value }))} placeholder="Bank: Example Bank&#10;Account number: 0000000000" required value={account.account_reference} />
+                                    </Field>
+                                    <Field hint="Optional extra instructions shown after the customer creates the booking." label="Payment instructions">
+                                        <textarea className={`${inputClass} min-h-24 py-3`} onChange={(event) => setAccount((current) => ({ ...current, instructions: event.target.value }))} placeholder="Send receipt by WhatsApp after payment." value={account.instructions} />
+                                    </Field>
+                                </>
+                            ) : (
+                                <>
+                                    <Field label={activeGateway.id === 'paypal' ? 'PayPal client ID' : `${activeGateway.name} public key`}>
+                                        <input
+                                            autoComplete="off"
+                                            className={inputClass}
+                                            name={`${activeGateway.id}_public_credential`}
+                                            onChange={(event) => setAccount((current) => ({ ...current, public_key: event.target.value }))}
+                                            placeholder={activeGateway.id === 'paypal' ? 'Paste PayPal REST app client ID' : 'Paste public key'}
+                                            required
+                                            type="text"
+                                            value={account.public_key}
+                                        />
+                                    </Field>
 
-                            <Field hint="Encrypted after saving. Leave blank when editing to keep the saved key." label={activeGateway.id === 'paypal' ? 'PayPal client secret' : `${activeGateway.name} secret key`}>
-                                <input
-                                    autoComplete="new-password"
-                                    className={inputClass}
-                                    name={`${activeGateway.id}_secret_credential`}
-                                    onChange={(event) => setAccount((current) => ({ ...current, secret_key: event.target.value }))}
-                                    placeholder={savedAccount(accounts, activeGateway.id)?.has_secret_key ? 'Saved - leave blank to keep current key' : activeGateway.id === 'paypal' ? 'Paste PayPal REST app secret' : 'Paste secret key'}
-                                    type="password"
-                                    value={account.secret_key}
-                                />
-                            </Field>
+                                    <Field hint="Encrypted after saving. Leave blank when editing to keep the saved key." label={activeGateway.id === 'paypal' ? 'PayPal client secret' : `${activeGateway.name} secret key`}>
+                                        <input
+                                            autoComplete="new-password"
+                                            className={inputClass}
+                                            name={`${activeGateway.id}_secret_credential`}
+                                            onChange={(event) => setAccount((current) => ({ ...current, secret_key: event.target.value }))}
+                                            placeholder={savedAccount(accounts, activeGateway.id)?.has_secret_key ? 'Saved - leave blank to keep current key' : activeGateway.id === 'paypal' ? 'Paste PayPal REST app secret' : 'Paste secret key'}
+                                            type="password"
+                                            value={account.secret_key}
+                                        />
+                                    </Field>
+                                </>
+                            )}
 
                             <label className="flex items-center gap-3 text-sm font-semibold text-slate-700">
                                 <input

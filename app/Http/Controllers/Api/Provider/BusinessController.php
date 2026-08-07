@@ -180,6 +180,7 @@ class BusinessController extends Controller
         return $this->success([
             'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
             'default_payment_gateway' => $provider->default_payment_gateway,
+            'timezone' => $provider->timezone ?? 'Africa/Lagos',
             'whatsapp_feature_enabled' => $this->providerWhatsappFeatureEnabled(),
             'whatsapp_number' => $this->providerWhatsappFeatureEnabled() ? $provider->whatsapp_number : null,
             'whatsapp_notifications_enabled' => $this->providerWhatsappFeatureEnabled() && (bool) $provider->whatsapp_notifications_enabled,
@@ -194,7 +195,8 @@ class BusinessController extends Controller
     {
         $validated = $request->validate([
             'default_currency' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
-            'default_payment_gateway' => ['nullable', Rule::in(['paystack', 'stripe', 'paypal'])],
+            'default_payment_gateway' => ['nullable', Rule::in(['paystack', 'stripe', 'paypal', 'manual'])],
+            'timezone' => ['nullable', 'timezone'],
             'whatsapp_number' => ['nullable', 'string', 'max:40'],
             'whatsapp_notifications_enabled' => ['sometimes', 'boolean'],
         ]);
@@ -246,7 +248,7 @@ class BusinessController extends Controller
     public function updatePaymentAccount(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'gateway' => ['required', Rule::in(['paystack', 'stripe', 'paypal'])],
+            'gateway' => ['required', Rule::in(['paystack', 'stripe', 'paypal', 'manual'])],
             'account_reference' => ['nullable', 'string', 'max:255'],
             'account_name' => ['nullable', 'string', 'max:255'],
             'account_identifier' => ['nullable', 'string', 'max:255'],
@@ -256,6 +258,11 @@ class BusinessController extends Controller
             'is_connected' => ['sometimes', 'boolean'],
             'enabled' => ['sometimes', 'boolean'],
         ]);
+        if (($validated['gateway'] ?? null) === 'manual') {
+            $validated['public_key'] = null;
+            $validated['is_connected'] = $validated['enabled'] ?? true;
+            $validated['enabled'] = $validated['enabled'] ?? true;
+        }
         if (! array_key_exists('account_reference', $validated) && isset($validated['account_identifier'])) {
             $validated['account_reference'] = $validated['account_identifier'];
         }
@@ -264,9 +271,15 @@ class BusinessController extends Controller
         }
         $existing = $request->user()->providerProfile->paymentAccounts()
             ->where('gateway', $validated['gateway'])->first();
-        $settings = $validated['settings'] ?? [];
-        if (blank($settings['secret_key'] ?? null)) {
-            $settings = $existing?->settings ?? [];
+        $settings = [
+            ...($existing?->settings ?? []),
+            ...($validated['settings'] ?? []),
+        ];
+        if (blank($validated['settings']['secret_key'] ?? null)) {
+            unset($settings['secret_key']);
+            if (filled(($existing?->settings ?? [])['secret_key'] ?? null)) {
+                $settings['secret_key'] = $existing->settings['secret_key'];
+            }
         }
         $validated['settings'] = $settings;
         $account = PaymentAccount::updateOrCreate(

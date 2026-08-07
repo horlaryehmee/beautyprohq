@@ -32,6 +32,7 @@ export default function AdminSettingsPage() {
     const gatewayResource = useApiResource('/admin/payment-settings/gateway', {});
     const paystackResource = useApiResource('/admin/payment-settings/paystack', {});
     const stripeResource = useApiResource('/admin/payment-settings/stripe', {});
+    const brandingResource = useApiResource('/admin/settings/branding', {});
     const currencyResource = useApiResource('/admin/settings/currencies', {});
     const featuresResource = useApiResource('/admin/settings/features', {});
     const twilioResource = useApiResource('/admin/settings/twilio', {});
@@ -43,6 +44,7 @@ export default function AdminSettingsPage() {
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
+    const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg' });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
@@ -55,6 +57,7 @@ export default function AdminSettingsPage() {
     const [savingGateway, setSavingGateway] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
     const [savingStripe, setSavingStripe] = useState(false);
+    const [savingBranding, setSavingBranding] = useState(false);
     const [savingCurrency, setSavingCurrency] = useState(false);
     const [savingFeatures, setSavingFeatures] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
@@ -106,6 +109,17 @@ export default function AdminSettingsPage() {
             live_secret_key: '',
         });
     }, [stripeResource.data]);
+
+    useEffect(() => {
+        const data = brandingResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setBrandingForm({
+            site_name: data.site_name ?? 'BeautyPro HQ',
+            logo_url: data.logo_url ?? '/brand/bphq-logo-transparent.svg',
+            email_logo_url: data.email_logo_url ?? data.logo_url ?? '/brand/bphq-logo-transparent.svg',
+            favicon_url: data.favicon_url ?? '/brand/bphq-logo-transparent.svg',
+        });
+    }, [brandingResource.data]);
 
     useEffect(() => {
         const data = featuresResource.data;
@@ -209,6 +223,21 @@ export default function AdminSettingsPage() {
             notify(apiErrorMessage(error), 'error');
         } finally {
             setSavingCurrency(false);
+        }
+    };
+
+    const saveBranding = async (event) => {
+        event.preventDefault();
+        setSavingBranding(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/branding', brandingForm);
+            brandingResource.setData(saved);
+            window.__BPHQ_BRAND__ = saved;
+            notify('Branding settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingBranding(false);
         }
     };
 
@@ -358,12 +387,12 @@ export default function AdminSettingsPage() {
     };
 
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
-    const error = gatewayResource.error || paystackResource.error || stripeResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error;
+    const error = gatewayResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -389,6 +418,59 @@ export default function AdminSettingsPage() {
                 </aside>
                 <div className="min-w-0 space-y-6">
             {sectionTab === 'security' && <SecurityPage embedded />}
+            <Card className={sectionTab === 'general' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Branding"
+                    description="Set the default website name, logo, favicon and email notification logo."
+                    action={<StatusBadge status="site-wide" />}
+                />
+                {brandingResource.loading ? <LoadingBlock rows={4} /> : (
+                    <form className="mt-5 space-y-4" onSubmit={saveBranding}>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Field label="Website name">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, site_name: event.target.value }))}
+                                    placeholder="BeautyPro HQ"
+                                    value={brandingForm.site_name}
+                                />
+                            </Field>
+                            <Field hint="Use a full URL or a public path like /brand/logo.svg." label="Website logo URL">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, logo_url: event.target.value }))}
+                                    placeholder="/brand/bphq-logo-transparent.svg"
+                                    value={brandingForm.logo_url}
+                                />
+                            </Field>
+                            <Field hint="Recommended for emails. Relative paths are converted to the site URL." label="Email logo URL">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, email_logo_url: event.target.value }))}
+                                    placeholder="/brand/bphq-logo-transparent.svg"
+                                    value={brandingForm.email_logo_url}
+                                />
+                            </Field>
+                            <Field label="Favicon URL">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, favicon_url: event.target.value }))}
+                                    placeholder="/brand/bphq-logo-transparent.svg"
+                                    value={brandingForm.favicon_url}
+                                />
+                            </Field>
+                        </div>
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Current logo</p>
+                                <p className="mt-1 truncate text-sm font-semibold text-slate-700">{brandingForm.logo_url || 'Default logo'}</p>
+                            </div>
+                            {brandingForm.logo_url && <img alt="" className="h-14 w-auto max-w-[140px] object-contain" src={brandingForm.logo_url} />}
+                        </div>
+                        <div className="flex justify-end"><Button busy={savingBranding} type="submit">Save branding</Button></div>
+                    </form>
+                )}
+            </Card>
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Provider features"

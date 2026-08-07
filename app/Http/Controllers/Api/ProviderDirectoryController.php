@@ -94,6 +94,9 @@ class ProviderDirectoryController extends Controller
             'services' => fn ($q) => $q->where('is_active', true),
             'portfolioItems' => fn ($q) => $q->orderBy('sort_order'),
             'digitalProducts' => fn ($q) => $q->where('is_active', true),
+            'paymentAccounts' => fn ($q) => $q->where(function ($query): void {
+                $query->where('enabled', true)->orWhere('is_connected', true);
+            }),
             'availability' => fn ($q) => $q->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'),
             'reviews' => fn ($q) => $q->where('is_approved', true)->with('customer:id,name')->latest()->limit(10),
         ]);
@@ -104,6 +107,20 @@ class ProviderDirectoryController extends Controller
         $data->setAttribute('is_saved', $request->user()?->isCustomer() ? $request->user()->savedProviders()->whereKey($provider->id)->exists() : false);
         $data->setAttribute('can_book_directly', $hasPaidPlan);
         $data->setAttribute('can_show_digital_products', $hasPaidPlan);
+        $data->setAttribute('payment_methods', $hasPaidPlan ? $data->paymentAccounts->map(fn ($account) => [
+            'gateway' => $account->gateway,
+            'label' => match ($account->gateway) {
+                'paystack' => 'Paystack',
+                'stripe' => 'Stripe',
+                'paypal' => 'PayPal',
+                'manual' => 'Manual payment',
+                default => ucfirst((string) $account->gateway),
+            },
+            'account_name' => $account->gateway === 'manual' ? $account->account_name : null,
+            'account_reference' => $account->gateway === 'manual' ? $account->account_reference : null,
+            'instructions' => $account->gateway === 'manual' ? ($account->settings['instructions'] ?? null) : null,
+        ])->values() : []);
+        $data->makeHidden('paymentAccounts');
 
         return $this->success($data);
     }

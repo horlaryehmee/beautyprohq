@@ -20,13 +20,19 @@ const gatewayLabels = {
     paystack: 'Paystack',
     stripe: 'Stripe',
     paypal: 'PayPal',
+    manual: 'Manual payment',
 };
+
+const timezoneOptions = typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : ['Africa/Lagos', 'UTC', 'Europe/London', 'America/New_York'];
 
 export default function ProviderSettingsPage() {
     const resource = useApiResource('/provider/settings', {});
     const [form, setForm] = useState({
         default_currency: 'NGN',
         default_payment_gateway: '',
+        timezone: 'Africa/Lagos',
         whatsapp_number: '',
         whatsapp_notifications_enabled: false,
     });
@@ -47,6 +53,7 @@ export default function ProviderSettingsPage() {
         setForm({
             default_currency: resource.data.default_currency ?? 'NGN',
             default_payment_gateway: resource.data.default_payment_gateway ?? '',
+            timezone: resource.data.timezone ?? 'Africa/Lagos',
             whatsapp_number: resource.data.whatsapp_number ?? '',
             whatsapp_notifications_enabled: Boolean(resource.data.whatsapp_notifications_enabled),
         });
@@ -59,6 +66,7 @@ export default function ProviderSettingsPage() {
             const updated = await apiRequest('put', '/provider/settings', {
                 default_currency: form.default_currency,
                 default_payment_gateway: form.default_payment_gateway || null,
+                timezone: form.timezone || 'Africa/Lagos',
                 whatsapp_number: form.whatsapp_number || null,
                 whatsapp_notifications_enabled: form.whatsapp_notifications_enabled,
             });
@@ -90,7 +98,7 @@ export default function ProviderSettingsPage() {
                     description="These settings affect new services and the gateway customers are sent to when they book you."
                     title="Business defaults"
                 />
-                <form className="grid gap-4 lg:grid-cols-[240px_1fr_auto]" onSubmit={save}>
+                <form className="grid gap-4 lg:grid-cols-2" onSubmit={save}>
                     <Field label="Default currency">
                         <select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, default_currency: event.target.value }))} value={form.default_currency}>
                             {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
@@ -104,7 +112,13 @@ export default function ProviderSettingsPage() {
                         </select>
                     </Field>
 
-                    <div className="flex items-end">
+                    <Field hint="Used for availability, booking display and customer timezone conversion." label="Default timezone">
+                        <select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))} value={form.timezone}>
+                            {timezoneOptions.map((timezone) => <option key={timezone} value={timezone}>{timezone}</option>)}
+                        </select>
+                    </Field>
+
+                    <div className="flex items-end justify-end">
                         <Button busy={saving} className="w-full" type="submit">Save settings</Button>
                     </div>
                 </form>

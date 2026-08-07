@@ -217,6 +217,11 @@ class SubscriptionController extends Controller
         return $this->success($this->currencyPayload());
     }
 
+    public function adminBrandingSettings(): JsonResponse
+    {
+        return $this->success($this->brandingPayload());
+    }
+
     public function adminFeatureSettings(): JsonResponse
     {
         return $this->success($this->featurePayload());
@@ -486,6 +491,23 @@ class SubscriptionController extends Controller
         AppSetting::setValue('features.coming_soon', $validated['coming_soon'] ? '1' : '0');
 
         return $this->success($this->featurePayload(), 'Feature settings saved.');
+    }
+
+    public function updateAdminBrandingSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'site_name' => ['nullable', 'string', 'max:120'],
+            'logo_url' => ['nullable', 'string', 'max:500'],
+            'email_logo_url' => ['nullable', 'string', 'max:500'],
+            'favicon_url' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        AppSetting::setValue('branding.site_name', $validated['site_name'] ?? null);
+        AppSetting::setValue('branding.logo_url', $validated['logo_url'] ?? null);
+        AppSetting::setValue('branding.email_logo_url', $validated['email_logo_url'] ?? null);
+        AppSetting::setValue('branding.favicon_url', $validated['favicon_url'] ?? null);
+
+        return $this->success($this->brandingPayload(), 'Branding settings saved.');
     }
 
     public function updateAdminCurrencySettings(Request $request): JsonResponse
@@ -928,6 +950,16 @@ class SubscriptionController extends Controller
             'provider_whatsapp_notifications' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
             'coming_soon' => $comingSoon === null ? app()->environment('production') : $comingSoon === '1',
             'coming_soon_defaulted' => $comingSoon === null,
+        ];
+    }
+
+    private function brandingPayload(): array
+    {
+        return [
+            'site_name' => AppSetting::getValue('branding.site_name', config('app.name', 'BeautyPro HQ')),
+            'logo_url' => AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg'),
+            'email_logo_url' => AppSetting::getValue('branding.email_logo_url', AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg')),
+            'favicon_url' => AppSetting::getValue('branding.favicon_url', '/brand/bphq-logo-transparent.svg'),
         ];
     }
 

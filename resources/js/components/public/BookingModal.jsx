@@ -341,7 +341,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [notes, setNotes] = useState('');
     const [customFields, setCustomFields] = useState({});
     const [redeemLoyalty, setRedeemLoyalty] = useState(false);
-    const [customer, setCustomer] = useState({ name: '', email: '', phone: '' });
+    const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '' });
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [manualBooking, setManualBooking] = useState(null);
     const [availabilityData, setAvailabilityData] = useState(null);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -365,7 +367,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     }, [monthOffset, provider?.availability]);
     const bookingFields = useMemo(() => (Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : []).filter((field) => field?.label).slice(0, 8), [provider]);
     const slots = useMemo(() => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date), [availabilityData, selectedService?.duration_minutes, date]);
-    const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim();
+    const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim() && (!customer.create_account || customer.password.length >= 8);
     const providerTimezone = provider?.timezone || provider?.provider_timezone || 'Africa/Lagos';
     const timezoneChoices = useMemo(() => timezoneOptions(providerTimezone), [providerTimezone]);
     const timezoneLabel = useMemo(() => timezoneDisplayName(selectedTimezone), [selectedTimezone]);
@@ -380,6 +382,11 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         : (serviceTypeLabel ? serviceTypeLabel : `${locationOptionCount} location option`);
     const selectedServiceDescription = selectedService?.description ? stripHtml(selectedService.description) : '';
     const selectedServicePrice = selectedService ? currency(selectedService.price, selectedService.currency ?? 'NGN') : '';
+    const paymentMethods = useMemo(() => {
+        const methods = Array.isArray(provider?.payment_methods) ? provider.payment_methods : [];
+        return methods.length ? methods : (provider?.default_payment_gateway ? [{ gateway: provider.default_payment_gateway, label: provider.default_payment_gateway }] : []);
+    }, [provider]);
+    const selectedPaymentMethod = paymentMethods.find((method) => method.gateway === paymentMethod) ?? paymentMethods[0];
 
     useEffect(() => {
         if (!open) return undefined;
@@ -390,7 +397,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setNotes('');
         setCustomFields({});
         setRedeemLoyalty(false);
-        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '' });
+        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '' });
+        setPaymentMethod(provider?.default_payment_gateway || paymentMethods[0]?.gateway || '');
+        setManualBooking(null);
         setAvailabilityData(null);
         setCheckoutUrl('');
         setMonthOffset(0);
@@ -407,7 +416,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             }
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, initialService, availableServices, onClose, standalone, user]);
+    }, [open, initialService, availableServices, onClose, standalone, user, provider?.default_payment_gateway, paymentMethods]);
 
     useEffect(() => {
         if (!open || !date || !pro.slug) return;
@@ -445,7 +454,11 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             return;
         }
         if (step === 3 && !detailsComplete) {
-            setError('Name, email and phone number are required.');
+            setError(customer.create_account ? 'Name, email, phone number and an 8 character password are required.' : 'Name, email and phone number are required.');
+            return;
+        }
+        if (step === 4 && !selectedPaymentMethod && !redeemLoyalty) {
+            setError('Choose a payment method to continue.');
             return;
         }
         setStep((current) => Math.min(4, current + 1));
@@ -504,6 +517,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             setError('Complete all required booking steps before payment.');
             return;
         }
+        if (!redeemLoyalty && !selectedPaymentMethod) {
+            setError('Select an available payment method before continuing.');
+            return;
+        }
 
         setSubmitting(true);
         setError('');
@@ -517,6 +534,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 notes: notes.trim(),
                 custom_fields: { ...customFields, _booking_timezone: selectedTimezone },
                 redeem_loyalty: redeemLoyalty || undefined,
+                payment_method: selectedPaymentMethod?.gateway,
             };
             const response = await api.post(user?.role === 'customer' ? '/bookings' : '/guest-bookings', { ...payload, customer });
             const booking = unwrap(response);
@@ -524,8 +542,14 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             const token = payment?.metadata?.payment_token;
             onBooked?.(booking);
 
+            if (payment?.gateway === 'manual') {
+                setManualBooking(booking);
+                toast.success('Booking created. Send the manual payment, then the provider will confirm it.');
+                return;
+            }
+
             if (payment?.id && token && payment.status !== 'paid' && Number(payment.amount ?? 0) > 0) {
-                const checkout = unwrap(await api.post(`/booking-payments/${payment.id}/checkout`, { payment_token: token }));
+                const checkout = unwrap(await api.post(`/booking-payments/${payment.id}/checkout`, { payment_token: token, gateway: selectedPaymentMethod?.gateway }));
                 setCheckoutUrl(checkout.authorization_url);
                 toast.success('Booking created. Continue to payment to confirm.');
                 return;
@@ -888,6 +912,33 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     <div className="sm:col-span-2">
                                                         <CountryPhoneField value={customer.phone} onChange={(phone) => setCustomer((current) => ({ ...current, phone }))} />
                                                     </div>
+                                                    {user?.role !== 'customer' && (
+                                                        <div className="sm:col-span-2">
+                                                            <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4 text-sm font-semibold text-[#2A1D14]">
+                                                                <input
+                                                                    checked={customer.create_account}
+                                                                    className="mt-1 size-4 accent-[#3A2A1F]"
+                                                                    onChange={(event) => setCustomer((current) => ({ ...current, create_account: event.target.checked, password: event.target.checked ? current.password : '' }))}
+                                                                    type="checkbox"
+                                                                />
+                                                                <span>
+                                                                    <span className="block">Create a customer account</span>
+                                                                    <span className="mt-1 block text-xs font-medium leading-5 text-stone-500">Use this email and password to track bookings and payments later.</span>
+                                                                </span>
+                                                            </label>
+                                                            {customer.create_account && (
+                                                                <FormField
+                                                                    className="mt-3"
+                                                                    label="Password"
+                                                                    type="password"
+                                                                    value={customer.password}
+                                                                    onChange={(event) => setCustomer((current) => ({ ...current, password: event.target.value }))}
+                                                                    placeholder="Minimum 8 characters"
+                                                                    required
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {renderProviderQuestions()}
                                                 <FormField as="textarea" label="Booking note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
@@ -906,16 +957,49 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Customer</span><span className="font-semibold text-[#2A1D14]">{customer.name}</span></div>
                                             <div className="flex justify-between gap-4 py-3"><span className="text-stone-500">Amount</span><span className="font-semibold text-[#3A2A1F]">{currency(selectedService?.price, selectedService?.currency ?? 'NGN')}</span></div>
                                         </div>
-                                        {!checkoutUrl ? (
-                                            <Button type="button" className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]" disabled={submitting} onClick={createBookingAndCheckout}>
-                                                {submitting ? 'Preparing payment...' : 'Continue to payment'} <Icon name="arrow" size={16} />
+                                        {!!manualBooking && (
+                                            <div className="mt-5 rounded-2xl border border-bphq-chrome bg-bphq-ivory p-4 text-sm leading-6 text-bphq-coffee">
+                                                <p className="font-bold text-bphq-espresso">Manual payment selected</p>
+                                                <p className="mt-1">Send payment using the provider account details below. The provider will confirm payment and accept your booking from their backend.</p>
+                                                {selectedPaymentMethod?.account_name && <p className="mt-3"><span className="font-bold">Account name:</span> {selectedPaymentMethod.account_name}</p>}
+                                                {selectedPaymentMethod?.account_reference && <p><span className="font-bold">Account details:</span> {selectedPaymentMethod.account_reference}</p>}
+                                                {selectedPaymentMethod?.instructions && <p className="mt-2 whitespace-pre-line">{selectedPaymentMethod.instructions}</p>}
+                                            </div>
+                                        )}
+                                        {!checkoutUrl && !manualBooking ? (
+                                            <>
+                                                <div className="mt-5 space-y-3">
+                                                    <p className="text-sm font-bold text-[#2A1D14]">Payment method</p>
+                                                    {paymentMethods.map((method) => (
+                                                        <label className={`flex items-start gap-3 rounded-2xl border p-4 text-sm transition ${paymentMethod === method.gateway ? 'border-[#2A1D14] bg-[#F7F3ED]' : 'border-stone-200 bg-white'}`} key={method.gateway}>
+                                                            <input
+                                                                checked={paymentMethod === method.gateway}
+                                                                className="mt-1 size-4 accent-[#3A2A1F]"
+                                                                onChange={() => setPaymentMethod(method.gateway)}
+                                                                type="radio"
+                                                            />
+                                                            <span>
+                                                                <span className="block font-bold text-[#2A1D14]">{method.label ?? method.gateway}</span>
+                                                                <span className="mt-1 block text-xs leading-5 text-stone-500">
+                                                                    {method.gateway === 'manual' ? 'Transfer or pay manually. Provider confirms payment before accepting.' : 'Pay securely online. Booking confirms automatically after successful payment.'}
+                                                                </span>
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                {!paymentMethods.length && <p className="mt-5 rounded-2xl border border-dashed border-stone-200 p-4 text-sm text-stone-500">This provider has not connected a payment method yet.</p>}
+                                            </>
+                                        ) : null}
+                                        {!checkoutUrl && !manualBooking ? (
+                                            <Button type="button" className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]" disabled={submitting || (!redeemLoyalty && !selectedPaymentMethod)} onClick={createBookingAndCheckout}>
+                                                {submitting ? 'Preparing...' : selectedPaymentMethod?.gateway === 'manual' ? 'Continue' : 'Pay now'} <Icon name="arrow" size={16} />
                                             </Button>
-                                        ) : (
+                                        ) : checkoutUrl ? (
                                             <a className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#2A1D14] px-5 text-sm font-semibold text-white transition hover:bg-[#2A1D14]" href={checkoutUrl}>
                                                 Pay securely now <Icon name="arrow" size={16} />
                                             </a>
-                                        )}
-                                        <p className="mt-3 text-center text-xs leading-5 text-stone-500">After successful payment, the gateway returns to the booking confirmation page.</p>
+                                        ) : null}
+                                        <p className="mt-3 text-center text-xs leading-5 text-stone-500">{selectedPaymentMethod?.gateway === 'manual' ? 'Manual bookings are accepted after provider payment confirmation.' : 'After successful payment, the gateway returns to the booking confirmation page.'}</p>
                                     </section>
                                 )}
 

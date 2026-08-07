@@ -45,8 +45,25 @@ class BookingController extends Controller
             'rejected' => [],
         ];
         abort_unless(in_array($validated['status'], $allowed[$booking->status] ?? [], true), 422, 'That booking status transition is not allowed.');
+        $booking->loadMissing(['payment', 'customer', 'service', 'provider.user']);
+
+        if ($validated['status'] === 'confirmed' && $booking->payment?->status !== 'paid') {
+            abort_unless($booking->payment?->gateway === 'manual', 422, 'Gateway bookings are confirmed automatically after successful payment.');
+        }
 
         DB::transaction(function () use ($booking, $validated, $provider): void {
+            if ($validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual' && $booking->payment->status !== 'paid') {
+                $booking->payment->update([
+                    'status' => 'paid',
+                    'paid_at' => now(),
+                    'metadata' => [
+                        ...($booking->payment->metadata ?? []),
+                        'manual_confirmed_at' => now()->toIso8601String(),
+                        'manual_confirmed_by' => $provider->user_id,
+                    ],
+                ]);
+            }
+
             $booking->update([
                 ...$validated,
                 'cancelled_at' => $validated['status'] === 'cancelled' ? now() : null,
@@ -75,7 +92,9 @@ class BookingController extends Controller
         });
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
-        $booking->customer->notify(new BookingStatusNotification($booking, "Your booking was {$booking->status} by {$booking->provider->user->name}."));
+        $booking->customer->notify(new BookingStatusNotification($booking, $validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual'
+            ? "Your manual payment has been confirmed and your booking was accepted by {$booking->provider->user->name}."
+            : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
 
         return $this->success($booking, 'Booking status updated.');
     }
