@@ -44,12 +44,12 @@
         <script>window.__BPHQ_FIRST_PAINT__ = true;</script>
     @endif
     <script>
-        window.__BPHQ_BRAND__ = @json([
+        window.__BPHQ_BRAND__ = {!! json_encode([
             'site_name' => $brandSiteName,
             'logo_url' => $brandLogoUrl,
             'email_logo_url' => $brandEmailLogoUrl,
             'favicon_url' => $brandFaviconUrl,
-        ]);
+        ]) !!};
     </script>
     @isset($structuredData)
         <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
