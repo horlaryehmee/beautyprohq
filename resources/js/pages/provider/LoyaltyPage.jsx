@@ -22,7 +22,7 @@ const money = (value, currency = 'NGN') => new Intl.NumberFormat('en-NG', { styl
 
 export default function ProviderLoyaltyPage() {
     const resource = useApiResource('/provider/loyalty', {});
-    const [settings, setSettings] = useState({ enabled: false, points_per_booking: 10, points_required: 100, reward_value_amount: 0, currency: 'NGN' });
+    const [settings, setSettings] = useState({ enabled: false, points_per_booking: 10, points_required: 100, reward_value_amount: 0, referral_rewards_enabled: false, referral_points: 0, currency: 'NGN' });
     const [savingSettings, setSavingSettings] = useState(false);
     const { notify } = useDashboardToast();
     const data = resource.data ?? {};
@@ -36,6 +36,8 @@ export default function ProviderLoyaltyPage() {
             points_per_booking: Number(data.settings.points_per_booking ?? 10),
             points_required: Number(data.settings.points_required ?? 100),
             reward_value_amount: Number(data.settings.reward_value_amount ?? 0),
+            referral_rewards_enabled: Boolean(data.settings.referral_rewards_enabled),
+            referral_points: Number(data.settings.referral_points ?? 0),
             currency: data.settings.currency ?? 'NGN',
         });
     }, [data?.settings]);
@@ -59,10 +61,11 @@ export default function ProviderLoyaltyPage() {
         <div className="space-y-6">
             <PageHeader description="Control whether customers earn points and how many points they need to request a service with rewards." eyebrow="Customer retention" title="Loyalty rewards" />
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
                 <StatCard icon="loyalty" label="Points issued" tone="rose" value={totalPoints.toLocaleString()} />
                 <StatCard icon="users" label="Members" tone="plum" value={records.length} />
                 <StatCard icon="analytics" label="Reward status" tone={settings.enabled ? 'emerald' : 'slate'} value={settings.enabled ? 'Enabled' : 'Disabled'} />
+                <StatCard icon="users" label="Referral reward" tone={settings.referral_rewards_enabled ? 'emerald' : 'slate'} value={settings.referral_rewards_enabled ? `${Number(settings.referral_points ?? 0).toLocaleString()} pts` : 'Off'} />
             </div>
 
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
@@ -83,6 +86,15 @@ export default function ProviderLoyaltyPage() {
                     <Field label={`Value of ${Number(settings.points_required || 0).toLocaleString()} pts`}>
                         <input className={inputClass} min="0.01" step="0.01" onChange={(event) => setSettings((current) => ({ ...current, reward_value_amount: Number(event.target.value) }))} required type="number" value={settings.reward_value_amount} />
                     </Field>
+                    <div className="grid gap-4 lg:col-span-4 lg:grid-cols-[1fr_190px]">
+                        <label className="flex items-center gap-3 rounded-2xl border border-slate-100 p-4 text-sm font-bold text-slate-700">
+                            <input checked={settings.referral_rewards_enabled} className="size-4 accent-fuchsia-700" onChange={(event) => setSettings((current) => ({ ...current, referral_rewards_enabled: event.target.checked }))} type="checkbox" />
+                            Enable referral rewards
+                        </label>
+                        <Field label="Points per referral">
+                            <input className={inputClass} min="0" onChange={(event) => setSettings((current) => ({ ...current, referral_points: Number(event.target.value) }))} required type="number" value={settings.referral_points} />
+                        </Field>
+                    </div>
                     <div className="flex items-end">
                         <Button busy={savingSettings} className="w-full" type="submit">Save settings</Button>
                     </div>

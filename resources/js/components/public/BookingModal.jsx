@@ -339,6 +339,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [notes, setNotes] = useState('');
+    const [referralCode, setReferralCode] = useState('');
     const [customFields, setCustomFields] = useState({});
     const [redeemLoyalty, setRedeemLoyalty] = useState(false);
     const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '' });
@@ -402,6 +403,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setDate('');
         setTime('');
         setNotes('');
+        setReferralCode(new URLSearchParams(window.location.search).get('ref') ?? '');
         setCustomFields({});
         setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '' });
@@ -539,6 +541,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 date,
                 time,
                 notes: notes.trim(),
+                referral_code: referralCode.trim() || undefined,
                 custom_fields: { ...customFields, _booking_timezone: selectedTimezone },
                 redeem_loyalty: redeemLoyalty || undefined,
                 payment_method: selectedPaymentMethod?.gateway,
@@ -948,6 +951,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     )}
                                                 </div>
                                                 {renderProviderQuestions()}
+                                                <FormField label="Referral code (optional)" value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} maxLength={60} placeholder="BPHQ-..." />
                                                 <FormField as="textarea" label="Note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                             </div>
                                         </div>

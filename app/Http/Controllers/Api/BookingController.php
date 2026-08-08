@@ -45,6 +45,7 @@ class BookingController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
+            'referral_code' => ['nullable', 'string', 'max:60'],
             'payment_method' => ['nullable', 'string', 'in:paystack,stripe,paypal,manual'],
             'customer' => ['nullable', 'array'],
             'customer.name' => ['nullable', 'string', 'max:120'],
@@ -72,6 +73,7 @@ class BookingController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'custom_fields' => ['nullable', 'array'],
             'redeem_loyalty' => ['nullable', 'boolean'],
+            'referral_code' => ['nullable', 'string', 'max:60'],
             'payment_method' => ['nullable', 'string', 'in:paystack,stripe,paypal,manual'],
             'customer.name' => ['required', 'string', 'max:120'],
             'customer.email' => ['required', 'email:rfc', 'max:255'],
@@ -125,10 +127,12 @@ class BookingController extends Controller
         }
         $service = Service::whereKey($validated['service_id'])->where('provider_id', $provider->id)->where('is_active', true)->firstOrFail();
         $customFields = $this->validatedCustomBookingFields($provider, $validated['custom_fields'] ?? []);
+        $referrerId = $this->referrerIdFromCode($provider, $customer, $validated['referral_code'] ?? null);
         $redeemLoyalty = (bool) ($validated['redeem_loyalty'] ?? false);
         $paymentMethod = $redeemLoyalty ? 'loyalty' : $this->selectedPaymentMethod($provider, $validated['payment_method'] ?? null);
         unset($validated['custom_fields']);
         unset($validated['redeem_loyalty']);
+        unset($validated['referral_code']);
         unset($validated['payment_method']);
         $date = Carbon::createFromFormat('Y-m-d H:i', $validated['date'].' '.$validated['time']);
         $end = $date->copy()->addMinutes($service->duration_minutes);
@@ -160,7 +164,7 @@ class BookingController extends Controller
             return response()->json(['message' => 'That date or time is blocked by the provider.'], 422);
         }
 
-        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields, $redeemLoyalty, $paymentMethod): ?Booking {
+        $booking = DB::transaction(function () use ($provider, $service, $customer, $validated, $end, $customFields, $referrerId, $redeemLoyalty, $paymentMethod): ?Booking {
             $conflict = Booking::where('provider_id', $provider->id)
                 ->whereDate('date', $validated['date'])
                 ->whereIn('status', ['pending', 'confirmed'])
@@ -179,6 +183,7 @@ class BookingController extends Controller
                 'end_time' => $end->format('H:i:s'),
                 'status' => 'pending',
                 'custom_fields' => $customFields,
+                'referred_by_customer_id' => $referrerId,
             ]);
             $redeemedPoints = 0;
             if ($redeemLoyalty) {
@@ -279,6 +284,31 @@ class BookingController extends Controller
         }
 
         return max($minimumPoints, (int) ceil(($servicePrice / $rewardValue) * $minimumPoints));
+    }
+
+    private function referrerIdFromCode(ProviderProfile $provider, User $customer, ?string $code): ?int
+    {
+        if (blank($code) || ! $provider->referral_rewards_enabled || (int) ($provider->loyalty_referral_points ?? 0) <= 0) {
+            return null;
+        }
+
+        if (! preg_match('/^BPHQ-(\d+)-(\d+)$/i', trim($code), $matches)) {
+            abort(422, 'This referral code is not valid.');
+        }
+
+        $providerId = (int) $matches[1];
+        $referrerId = (int) $matches[2];
+        abort_unless($providerId === (int) $provider->id, 422, 'This referral code is for another provider.');
+        abort_unless($referrerId !== (int) $customer->id, 422, 'You cannot use your own referral code.');
+        abort_unless(User::whereKey($referrerId)->where('role', 'customer')->exists(), 422, 'This referral code is not valid.');
+
+        $hasCompletedBooking = Booking::where('provider_id', $provider->id)
+            ->where('customer_id', $referrerId)
+            ->where('status', 'completed')
+            ->exists();
+        abort_unless($hasCompletedBooking, 422, 'This referral code is not active yet.');
+
+        return $referrerId;
     }
 
     private function connectedPaymentGateways(ProviderProfile $provider): array

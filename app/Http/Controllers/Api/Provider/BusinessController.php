@@ -115,6 +115,8 @@ class BusinessController extends Controller
                 'points_per_booking' => (int) ($provider->loyalty_points_per_booking ?? 10),
                 'points_required' => (int) ($provider->loyalty_points_required ?? 100),
                 'reward_value_amount' => (float) ($provider->loyalty_reward_value_amount ?? 0),
+                'referral_rewards_enabled' => (bool) $provider->referral_rewards_enabled,
+                'referral_points' => (int) ($provider->loyalty_referral_points ?? 0),
                 'currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
             ],
             'customers' => Loyalty::where('provider_id', $provider->id)->with('customer:id,name,email')->latest()->get(),
@@ -129,6 +131,8 @@ class BusinessController extends Controller
             'points_per_booking' => ['required', 'integer', 'min:0', 'max:100000'],
             'points_required' => ['required', 'integer', 'min:1', 'max:1000000'],
             'reward_value_amount' => ['required', 'numeric', 'min:0.01', 'max:999999999'],
+            'referral_rewards_enabled' => ['nullable', 'boolean'],
+            'referral_points' => ['nullable', 'integer', 'min:0', 'max:100000'],
         ]);
 
         $provider = $request->user()->providerProfile;
@@ -137,6 +141,8 @@ class BusinessController extends Controller
             'loyalty_points_per_booking' => $validated['points_per_booking'],
             'loyalty_points_required' => $validated['points_required'],
             'loyalty_reward_value_amount' => $validated['reward_value_amount'],
+            'referral_rewards_enabled' => (bool) ($validated['referral_rewards_enabled'] ?? false),
+            'loyalty_referral_points' => (int) ($validated['referral_points'] ?? 0),
         ]);
 
         return $this->success([
@@ -144,6 +150,8 @@ class BusinessController extends Controller
             'points_per_booking' => (int) $provider->loyalty_points_per_booking,
             'points_required' => (int) $provider->loyalty_points_required,
             'reward_value_amount' => (float) $provider->loyalty_reward_value_amount,
+            'referral_rewards_enabled' => (bool) $provider->referral_rewards_enabled,
+            'referral_points' => (int) $provider->loyalty_referral_points,
             'currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
         ], 'Loyalty settings updated.');
     }

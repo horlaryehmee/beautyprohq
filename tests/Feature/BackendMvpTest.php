@@ -124,6 +124,55 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseHas('crm_customers', ['provider_id' => $provider->id, 'customer_id' => $customer->id]);
     }
 
+    public function test_referrer_earns_loyalty_points_after_referred_booking_is_completed(): void
+    {
+        Notification::fake();
+        [$provider, $providerUser] = $this->provider('Referral Studio', true);
+        $provider->update([
+            'loyalty_enabled' => true,
+            'loyalty_points_per_booking' => 10,
+            'referral_rewards_enabled' => true,
+            'loyalty_referral_points' => 25,
+        ]);
+        $service = $provider->services()->create(['name' => 'Referral Facial', 'category' => 'Skincare', 'price' => 18000, 'duration_minutes' => 60]);
+        $referrer = User::factory()->create();
+        $newCustomer = User::factory()->create();
+        Booking::create([
+            'provider_id' => $provider->id,
+            'customer_id' => $referrer->id,
+            'service_id' => $service->id,
+            'date' => now()->subWeek()->toDateString(),
+            'time' => '10:00',
+            'status' => 'completed',
+        ]);
+
+        $date = Carbon::tomorrow();
+        if ($date->dayOfWeek === 0) {
+            $date->addDay();
+        }
+        Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
+
+        Sanctum::actingAs($newCustomer);
+        $bookingId = $this->postJson('/api/bookings', [
+            'provider_id' => $provider->id,
+            'service_id' => $service->id,
+            'date' => $date->toDateString(),
+            'time' => '11:00',
+            'referral_code' => "BPHQ-{$provider->id}-{$referrer->id}",
+        ])->assertCreated()
+            ->assertJsonPath('data.referred_by_customer_id', $referrer->id)
+            ->json('data.id');
+
+        Sanctum::actingAs($providerUser);
+        $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'confirmed'])->assertOk();
+        $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
+
+        $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $referrer->id, 'points' => 25]);
+        $this->assertDatabaseHas('loyalty_transactions', ['booking_id' => $bookingId, 'points' => 25, 'reason' => 'Referral reward']);
+        $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'referred_by_customer_id' => $referrer->id]);
+        $this->assertNotNull(Booking::find($bookingId)->referral_points_awarded_at);
+    }
+
     public function test_booking_rejects_unavailable_or_conflicting_time(): void
     {
         [$provider] = $this->provider('Busy Artist');

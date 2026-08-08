@@ -45,6 +45,12 @@ class CustomerController extends Controller
                 'minimum_value_amount' => (float) ($provider?->loyalty_reward_value_amount ?? 0),
                 'enabled' => (bool) ($provider?->loyalty_enabled ?? false),
             ]);
+            $loyalty->setAttribute('referral', [
+                'enabled' => (bool) ($provider?->loyalty_enabled && $provider?->referral_rewards_enabled && (int) ($provider?->loyalty_referral_points ?? 0) > 0),
+                'code' => $provider ? 'BPHQ-'.$provider->id.'-'.$loyalty->customer_id : null,
+                'points' => (int) ($provider?->loyalty_referral_points ?? 0),
+                'booking_url' => $provider?->slug ? url('/providers/'.$provider->slug.'/book') : null,
+            ]);
         });
 
         return $this->success($loyalties);

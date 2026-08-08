@@ -89,6 +89,22 @@ class BookingController extends Controller
                         ['booking_id' => $booking->id, 'provider_id' => $provider->id, 'points' => $points],
                     ));
                 }
+
+                $referralPoints = (int) ($provider->loyalty_referral_points ?? 0);
+                if ($provider->loyalty_enabled && $provider->referral_rewards_enabled && $referralPoints > 0 && $booking->referred_by_customer_id && ! $booking->referral_points_awarded_at) {
+                    $referrerLoyalty = Loyalty::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $booking->referred_by_customer_id]);
+                    $referrerLoyalty->increment('points', $referralPoints);
+                    $referrerLoyalty->increment('lifetime_points', $referralPoints);
+                    LoyaltyTransaction::create(['loyalty_id' => $referrerLoyalty->id, 'booking_id' => $booking->id, 'points' => $referralPoints, 'reason' => 'Referral reward']);
+                    $booking->forceFill(['referral_points_awarded_at' => now()])->save();
+                    $referrerLoyalty->customer?->notify(new PlatformUpdateNotification(
+                        'Referral reward earned',
+                        "You earned {$referralPoints} referral points from {$provider->user->name}.",
+                        'View rewards',
+                        rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/rewards',
+                        ['booking_id' => $booking->id, 'provider_id' => $provider->id, 'points' => $referralPoints],
+                    ));
+                }
             }
         });
 

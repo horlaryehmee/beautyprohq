@@ -36,9 +36,11 @@ export default function CustomerRewardsPage() {
                                 {balances.map((item) => {
                                     const provider = item.provider?.user ?? item.provider ?? {};
                                     const redemption = item.redemption ?? {};
+                                    const referral = item.referral ?? {};
 
                                     return (
-                                        <div className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3" key={item.id}>
+                                        <div className="rounded-2xl border border-slate-100 p-3" key={item.id}>
+                                            <div className="flex items-center gap-3">
                                             <Avatar name={provider.name} src={item.provider?.profile_photo ?? provider.profile_photo} />
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-bold text-slate-900">{provider.name}</p>
@@ -48,6 +50,14 @@ export default function CustomerRewardsPage() {
                                                 </p>
                                             </div>
                                             <p className="font-bold text-fuchsia-700">{Number(item.points ?? 0).toLocaleString()} pts</p>
+                                            </div>
+                                            {referral.enabled && (
+                                                <div className="mt-3 rounded-xl bg-fuchsia-50 p-3 text-xs leading-5 text-fuchsia-900">
+                                                    <p className="font-bold">Referral code: <span className="font-black">{referral.code}</span></p>
+                                                    <p>Share this provider with a friend. You earn {Number(referral.points ?? 0).toLocaleString()} pts after their completed booking.</p>
+                                                    {referral.booking_url && <a className="mt-1 inline-flex font-bold underline underline-offset-2" href={`${referral.booking_url}?ref=${encodeURIComponent(referral.code)}`}>Open share link</a>}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
