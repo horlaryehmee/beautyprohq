@@ -10,7 +10,7 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $notifications = $request->user()->notifications()->latest()->paginate($request->integer('per_page', 20));
+        $notifications = $request->user()->notifications()->latest()->paginate($this->perPage($request, 20, 50));
 
         return $this->success($notifications->items(), meta: $this->paginationMeta($notifications));
     }

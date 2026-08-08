@@ -26,7 +26,7 @@ class LiveChatController extends Controller
             ->withCount('messages')
             ->orderByDesc('last_message_at')
             ->orderByDesc('id')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($this->perPage($request, 20, 60));
 
         return $this->success($conversations->items(), meta: $this->paginationMeta($conversations) + [
             'unread_count' => LiveChatConversation::where('customer_id', $request->user()->id)

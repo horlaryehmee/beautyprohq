@@ -30,7 +30,7 @@ class BookingController extends Controller
         $bookings = Booking::where('customer_id', $request->user()->id)
             ->with(['provider.user:id,name', 'service', 'payment', 'review'])
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))
-            ->orderByDesc('date')->orderByDesc('time')->paginate($request->integer('per_page', 15));
+            ->orderByDesc('date')->orderByDesc('time')->paginate($this->perPage($request, 15, 50));
 
         return $this->success($bookings->items(), meta: $this->paginationMeta($bookings));
     }
@@ -223,6 +223,9 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
+        if ($booking->payment?->gateway === 'manual') {
+            $booking->setAttribute('manual_payment', $this->manualPaymentDetails($provider));
+        }
         if ($booking->payment?->status === 'paid') {
             $this->notifyBookingPaymentPaid($booking->payment);
         }
@@ -290,6 +293,26 @@ class BookingController extends Controller
             ->sortBy(fn ($gateway) => $order[$gateway] ?? 99)
             ->values()
             ->all();
+    }
+
+    private function manualPaymentDetails(ProviderProfile $provider): ?array
+    {
+        $account = $provider->paymentAccounts()
+            ->where('gateway', 'manual')
+            ->where(function ($query): void {
+                $query->where('enabled', true)->orWhere('is_connected', true);
+            })
+            ->first();
+
+        if (! $account) {
+            return null;
+        }
+
+        return [
+            'account_name' => $account->account_name,
+            'account_reference' => $account->account_reference,
+            'instructions' => $account->settings['instructions'] ?? null,
+        ];
     }
 
     private function notifyProviderOnWhatsApp(Booking $booking): void
@@ -474,6 +497,10 @@ class BookingController extends Controller
         $this->authorizePaymentAccess($request, $payment, $validated['payment_token'] ?? null);
         abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
 
+        if ($payment->status === 'paid') {
+            return $this->success($payment, 'Payment already verified.');
+        }
+
         if ($payment->gateway === 'paystack') {
             $this->verifyPaystackBookingPayment($payment);
         } elseif ($payment->gateway === 'stripe') {
@@ -529,7 +556,7 @@ class BookingController extends Controller
         abort_unless($secret, 422, 'This provider has not added a Paystack secret key.');
         abort_unless($account->public_key, 422, 'This provider has not added a Paystack public key.');
 
-        $response = Http::withToken($secret)->post('https://api.paystack.co/transaction/initialize', [
+        $response = Http::external()->withToken($secret)->post('https://api.paystack.co/transaction/initialize', [
             'email' => $payment->booking->customer->email,
             'amount' => (int) round((float) $payment->amount * 100),
             'currency' => $payment->currency,
@@ -556,7 +583,7 @@ class BookingController extends Controller
         abort_unless($account->public_key, 422, 'This provider has not added a Stripe public key.');
 
         $serviceName = $payment->booking->service->name ?? 'BeautyPro HQ booking';
-        $response = Http::withToken($secret)->asForm()->post('https://api.stripe.com/v1/checkout/sessions', [
+        $response = Http::external()->withToken($secret)->asForm()->post('https://api.stripe.com/v1/checkout/sessions', [
             'mode' => 'payment',
             'client_reference_id' => $reference,
             'customer_email' => $payment->booking->customer->email,
@@ -597,7 +624,7 @@ class BookingController extends Controller
         abort_unless($accessToken, 422, 'This provider PayPal account cannot create orders.');
 
         $baseUrl = $this->paypalBaseUrl($account);
-        $response = Http::withToken($accessToken)->post($baseUrl.'/v2/checkout/orders', [
+        $response = Http::external()->withToken($accessToken)->post($baseUrl.'/v2/checkout/orders', [
             'intent' => 'CAPTURE',
             'purchase_units' => [[
                 'reference_id' => $reference,
@@ -642,7 +669,7 @@ class BookingController extends Controller
         $secret = $this->providerPaystackSecretKey($account);
         abort_unless($secret, 422, 'This provider Paystack account cannot verify payments.');
 
-        $response = Http::withToken($secret)->get('https://api.paystack.co/transaction/verify/'.rawurlencode($payment->reference));
+        $response = Http::external()->withToken($secret)->get('https://api.paystack.co/transaction/verify/'.rawurlencode($payment->reference));
         abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack payment could not be verified.');
 
         $data = $response->json('data');
@@ -650,19 +677,9 @@ class BookingController extends Controller
         $this->assertVerifiedPaymentPayload($payment, $meta, (int) ($data['amount'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
         abort_unless(($data['status'] ?? null) === 'success', 422, 'Payment has not succeeded yet.');
 
-        DB::transaction(function () use ($payment, $data): void {
-            $payment->update([
-                'status' => 'paid',
-                'paid_at' => now(),
-                'metadata' => [
-                    ...($payment->metadata ?? []),
-                    'verified_at' => now()->toIso8601String(),
-                    'gateway_response' => $data,
-                ],
-            ]);
-        });
-        $payment->booking?->update(['status' => 'confirmed']);
-        $this->notifyBookingPaymentPaid($payment);
+        if ($this->markBookingPaymentPaid($payment, $data)) {
+            $this->notifyBookingPaymentPaid($payment);
+        }
     }
 
     private function verifyStripeBookingPayment(Payment $payment, ?string $sessionId): void
@@ -677,7 +694,7 @@ class BookingController extends Controller
         $sessionId ??= $payment->metadata['stripe_session_id'] ?? null;
         abort_unless($sessionId, 422, 'Stripe session is missing.');
 
-        $response = Http::withToken($secret)->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId), [
+        $response = Http::external()->withToken($secret)->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId), [
             'expand' => ['payment_intent'],
         ]);
         abort_unless($response->successful(), 422, $response->json('error.message') ?: 'Stripe payment could not be verified.');
@@ -688,19 +705,9 @@ class BookingController extends Controller
         abort_unless(($data['payment_status'] ?? null) === 'paid', 422, 'Payment has not succeeded yet.');
         abort_unless(($data['client_reference_id'] ?? null) === $payment->reference, 422, 'Stripe reference mismatch.');
 
-        DB::transaction(function () use ($payment, $data): void {
-            $payment->update([
-                'status' => 'paid',
-                'paid_at' => now(),
-                'metadata' => [
-                    ...($payment->metadata ?? []),
-                    'verified_at' => now()->toIso8601String(),
-                    'gateway_response' => $data,
-                ],
-            ]);
-        });
-        $payment->booking?->update(['status' => 'confirmed']);
-        $this->notifyBookingPaymentPaid($payment);
+        if ($this->markBookingPaymentPaid($payment, $data)) {
+            $this->notifyBookingPaymentPaid($payment);
+        }
     }
 
     private function verifyPaypalBookingPayment(Payment $payment, ?string $orderId): void
@@ -716,12 +723,12 @@ class BookingController extends Controller
         abort_unless($orderId, 422, 'PayPal order is missing.');
 
         $baseUrl = $this->paypalBaseUrl($account);
-        $capture = Http::withToken($accessToken)->withHeaders([
+        $capture = Http::external()->withToken($accessToken)->withHeaders([
             'PayPal-Request-Id' => $payment->reference,
         ])->post($baseUrl.'/v2/checkout/orders/'.rawurlencode($orderId).'/capture');
 
         if (! $capture->successful() && $capture->status() === 422) {
-            $details = Http::withToken($accessToken)->get($baseUrl.'/v2/checkout/orders/'.rawurlencode($orderId));
+            $details = Http::external()->withToken($accessToken)->get($baseUrl.'/v2/checkout/orders/'.rawurlencode($orderId));
             abort_unless($details->successful(), 422, $capture->json('message') ?: 'PayPal payment could not be captured.');
             $data = $details->json();
         } else {
@@ -738,19 +745,33 @@ class BookingController extends Controller
         abort_unless((float) $amount === (float) number_format((float) $payment->amount, 2, '.', ''), 422, 'Payment amount mismatch.');
         abort_unless(strtoupper((string) $payment->currency) === strtoupper((string) $currency), 422, 'Payment currency mismatch.');
 
-        DB::transaction(function () use ($payment, $data): void {
-            $payment->update([
+        if ($this->markBookingPaymentPaid($payment, $data)) {
+            $this->notifyBookingPaymentPaid($payment);
+        }
+    }
+
+    private function markBookingPaymentPaid(Payment $payment, array $gatewayResponse): bool
+    {
+        return DB::transaction(function () use ($payment, $gatewayResponse): bool {
+            $locked = Payment::lockForUpdate()->findOrFail($payment->id);
+            if ($locked->status === 'paid') {
+                return false;
+            }
+
+            $locked->update([
                 'status' => 'paid',
                 'paid_at' => now(),
                 'metadata' => [
-                    ...($payment->metadata ?? []),
+                    ...($locked->metadata ?? []),
                     'verified_at' => now()->toIso8601String(),
-                    'gateway_response' => $data,
+                    'gateway_response' => $gatewayResponse,
                 ],
             ]);
+            $locked->booking()->whereIn('status', ['pending', 'confirmed'])->update(['status' => 'confirmed']);
+            $payment->refresh();
+
+            return true;
         });
-        $payment->booking?->update(['status' => 'confirmed']);
-        $this->notifyBookingPaymentPaid($payment);
     }
 
     private function notifyBookingPaymentPaid(Payment $payment): void
@@ -855,7 +876,7 @@ class BookingController extends Controller
             return null;
         }
 
-        $response = Http::withBasicAuth($clientId, $secret)
+        $response = Http::external()->withBasicAuth($clientId, $secret)
             ->asForm()
             ->post($this->paypalBaseUrl($account).'/v1/oauth2/token', [
                 'grant_type' => 'client_credentials',

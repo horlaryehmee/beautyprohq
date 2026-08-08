@@ -83,7 +83,7 @@ class DashboardController extends Controller
         $subscribers = NewsletterSubscriber::query()
             ->when($request->search, fn ($query, $search) => $query->where('email', 'like', "%{$search}%"))
             ->latest('subscribed_at')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($this->perPage($request, 20, 100));
 
         return $this->success([
             'subscribers' => $subscribers->items(),
@@ -128,7 +128,7 @@ class DashboardController extends Controller
             ->when($request->role, fn ($q, $role) => $q->where('role', $role))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
-            ->latest()->paginate($request->integer('per_page', 20));
+            ->latest()->paginate($this->perPage($request, 20, 100));
 
         return $this->success($users->items(), meta: $this->paginationMeta($users));
     }
@@ -317,7 +317,7 @@ class DashboardController extends Controller
                 Service::whereIn('provider_id', $providerIds)->delete();
                 CommunityPost::whereIn('provider_id', $providerIds)->update(['provider_id' => null]);
                 ProviderProfile::whereIn('id', $providerIds)->delete();
-                Cache::store(app()->runningUnitTests() ? 'array' : 'file')->forget('public.home.payload.v4');
+                Cache::forget('public.home.payload.v5');
             }
 
             $user->delete();
@@ -396,7 +396,7 @@ class DashboardController extends Controller
                 ->orWhere('location', 'like', "%{$search}%")
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
             ))
-            ->latest()->paginate($request->integer('per_page', 20));
+            ->latest()->paginate($this->perPage($request, 20, 100));
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'categories' => $this->categoryTotals(),

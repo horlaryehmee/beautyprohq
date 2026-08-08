@@ -31,7 +31,7 @@ class TwilioWhatsAppService
         }
 
         try {
-            $response = Http::withBasicAuth($accountSid, $authToken)
+            $response = Http::external()->withBasicAuth($accountSid, $authToken)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
                     'From' => $from,
@@ -45,11 +45,11 @@ class TwilioWhatsAppService
 
             Log::warning('Twilio WhatsApp notification failed.', [
                 'status' => $response->status(),
-                'response' => $response->json() ?: $response->body(),
+                'error_code' => $response->json('code'),
             ]);
         } catch (\Throwable $exception) {
             Log::warning('Twilio WhatsApp notification exception.', [
-                'message' => $exception->getMessage(),
+                'exception' => $exception::class,
             ]);
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 abstract class Controller
 {
@@ -29,5 +30,10 @@ abstract class Controller
             'per_page' => $paginator->perPage(),
             'total' => $paginator->total(),
         ];
+    }
+
+    protected function perPage(Request $request, int $default = 20, int $maximum = 100, string $key = 'per_page'): int
+    {
+        return max(1, min($maximum, $request->integer($key, $default)));
     }
 }

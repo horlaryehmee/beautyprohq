@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Availability;
 use App\Models\ProviderProfile;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use Carbon\Carbon;
@@ -18,9 +20,12 @@ class BackendMvpTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_provider_registration_creates_profile_and_token(): void
+    public function test_provider_registration_creates_profile_and_session(): void
     {
         Notification::fake();
+        $this->withSession(['_token' => 'registration-csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'registration-csrf-token')
+            ->withHeader('Referer', rtrim(config('app.url'), '/').'/');
 
         $response = $this->postJson('/api/auth/register', [
             'name' => 'Demo Artist',
@@ -32,21 +37,26 @@ class BackendMvpTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.user.role', 'provider')
-            ->assertJsonPath('data.user.provider_profile.profession', 'Beauty Professional')
-            ->assertJsonStructure(['data' => ['token']]);
+            ->assertJsonPath('data.user.provider_profile.profession', 'Beauty Professional');
+        $this->assertNull($response->json('data.token'));
         $this->assertDatabaseHas('provider_profiles', ['slug' => 'demo-artist']);
-        $this->assertDatabaseCount('personal_access_tokens', 1);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+        $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.email', 'artist@example.test');
     }
 
     public function test_login_me_and_role_protection_work_with_sanctum(): void
     {
         $customer = User::factory()->create(['email' => 'customer@example.test', 'password' => 'Password123']);
+        $this->withSession(['_token' => 'login-csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'login-csrf-token')
+            ->withHeader('Referer', rtrim(config('app.url'), '/').'/');
 
         $login = $this->postJson('/api/auth/login', ['email' => $customer->email, 'password' => 'Password123']);
-        $token = $login->assertOk()->json('data.token');
+        $login->assertOk();
+        $this->assertNull($login->json('data.token'));
 
-        $this->withToken($token)->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.id', $customer->id);
-        $this->withToken($token)->getJson('/api/provider/dashboard')->assertForbidden();
+        $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.id', $customer->id);
+        $this->getJson('/api/provider/dashboard')->assertForbidden();
     }
 
     public function test_password_reset_and_signed_email_verification_work(): void
@@ -75,13 +85,18 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/providers?search=Soft&verified=1&location=Lagos')
             ->assertOk()->assertJsonPath('data.0.slug', $provider->slug)->assertJsonPath('meta.total', 1);
         $this->getJson('/api/providers/'.$provider->slug)
-            ->assertOk()->assertJsonPath('data.user.name', 'Maya Beauty')->assertJsonCount(1, 'data.services');
+            ->assertOk()
+            ->assertJsonPath('data.user.name', 'Maya Beauty')
+            ->assertJsonCount(1, 'data.services')
+            ->assertJsonMissingPath('data.payment_methods.0.account_reference')
+            ->assertJsonMissingPath('data.payment_methods.0.instructions');
     }
 
     public function test_customer_can_book_available_slot_and_provider_can_complete_it(): void
     {
         Notification::fake();
         [$provider, $providerUser] = $this->provider('Booked Beauty', true);
+        $provider->update(['loyalty_enabled' => true]);
         $service = $provider->services()->create(['name' => 'Facial', 'category' => 'Skincare', 'service_type' => 'in_person', 'price' => 20000, 'duration_minutes' => 60]);
         $date = Carbon::tomorrow();
         if ($date->dayOfWeek === 0) {
@@ -94,7 +109,11 @@ class BackendMvpTest extends TestCase
         $bookingId = $this->postJson('/api/bookings', [
             'provider_id' => $provider->id, 'service_id' => $service->id,
             'date' => $date->toDateString(), 'time' => '10:00',
-        ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data.id');
+        ])->assertCreated()
+            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.manual_payment.account_reference', 'test-'.$providerUser->id)
+            ->assertJsonPath('data.manual_payment.instructions', 'Use the booking reference when paying.')
+            ->json('data.id');
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
 
         Sanctum::actingAs($providerUser);
@@ -186,6 +205,27 @@ class BackendMvpTest extends TestCase
             'profession' => 'Beauty Professional',
             'location' => $location,
             'verified' => $verified,
+        ]);
+
+        $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
+        Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => $plan->key,
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now(),
+            'renews_at' => now()->addMonth(),
+        ]);
+        $profile->paymentAccounts()->create([
+            'gateway' => 'manual',
+            'account_name' => $name,
+            'account_reference' => 'test-'.$user->id,
+            'account_identifier' => 'test-'.$user->id,
+            'settings' => ['instructions' => 'Use the booking reference when paying.'],
+            'is_connected' => true,
+            'enabled' => true,
         ]);
 
         return [$profile, $user];

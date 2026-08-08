@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, cx, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
+import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const contentTypes = {
     news: {
@@ -80,7 +81,7 @@ export function RichEditor({ label, value, onChange }) {
 
     useEffect(() => {
         const node = editorRef.current;
-        if (node && node.innerHTML !== (value || '')) node.innerHTML = value || '';
+        if (node && node.innerHTML !== (value || '')) node.innerHTML = sanitizeHtml(value || '');
     }, [value, mode]);
 
     const sync = () => {
@@ -145,7 +146,7 @@ export function RichEditor({ label, value, onChange }) {
                     <div className="min-h-[520px] p-6">
                         {value ? (
                             /<[a-z][\s\S]*>/i.test(value)
-                                ? <div className="content-prose" dangerouslySetInnerHTML={{ __html: value }} />
+                                ? <div className="content-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
                                 : <div className="content-prose">{value.split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
                         ) : <p className="text-sm text-slate-400">Preview will appear here.</p>}
                     </div>

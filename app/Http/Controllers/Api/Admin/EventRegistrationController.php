@@ -36,7 +36,7 @@ class EventRegistrationController extends Controller
             $query->where('id', $request->integer('event_id'));
         }
 
-        $events = $query->paginate($request->integer('per_page', 20));
+        $events = $query->paginate($this->perPage($request, 20, 100));
 
         return $this->success($events->items(), meta: $this->paginationMeta($events));
     }
@@ -66,7 +66,7 @@ class EventRegistrationController extends Controller
             $query->where('event_id', $request->integer('event_id'));
         }
 
-        $registrations = $query->paginate($request->integer('per_page', 20));
+        $registrations = $query->paginate($this->perPage($request, 20, 100));
 
         return $this->success($registrations->items(), meta: $this->paginationMeta($registrations));
     }

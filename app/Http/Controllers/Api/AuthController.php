@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -42,7 +43,7 @@ class AuthController extends Controller
             unset($validated['plan']);
             $user = User::create($validated + [
                 'preferred_currency' => config('currencies.default', 'NGN'),
-                'email_verified_at' => now(),
+                'is_active' => true,
             ]);
 
             if ($user->isProvider()) {
@@ -73,21 +74,31 @@ class AuthController extends Controller
             return $user;
         });
 
-        event(new Registered($user));
-        $user->notify(new PlatformUpdateNotification(
-            'Welcome to BeautyPro HQ',
-            'Your BeautyPro HQ account has been created. Complete your setup to start using your workspace.',
-            'Open dashboard',
-            rtrim(config('app.frontend_url', config('app.url')), '/').($user->isProvider() ? '/provider' : '/customer'),
-            ['user_id' => $user->id, 'role' => $user->role],
-        ));
-        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-            'New user registration',
-            "{$user->name} registered as a {$user->role}.",
-            'View users',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users',
-            ['user_id' => $user->id, 'role' => $user->role],
-        ));
+        try {
+            event(new Registered($user));
+            $user->notify(new PlatformUpdateNotification(
+                'Welcome to BeautyPro HQ',
+                'Your BeautyPro HQ account has been created. Complete your setup to start using your workspace.',
+                'Open dashboard',
+                rtrim(config('app.frontend_url', config('app.url')), '/').($user->isProvider() ? '/provider' : '/customer'),
+                ['user_id' => $user->id, 'role' => $user->role],
+            ));
+            User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+                'New user registration',
+                "{$user->name} registered as a {$user->role}.",
+                'View users',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users',
+                ['user_id' => $user->id, 'role' => $user->role],
+            ));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        Log::channel('security')->notice('Account registered.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+        ]);
         if ($request->hasSession()) {
             Auth::login($user);
             $request->session()->regenerate();
@@ -95,7 +106,6 @@ class AuthController extends Controller
 
         return $this->success([
             'user' => $user->load(['providerProfile', 'activeSubscription.planDefinition']),
-            'token' => $user->createToken('beautypro-web')->plainTextToken,
         ], 'Account created. Please verify your email address.', 201);
     }
 
@@ -110,10 +120,18 @@ class AuthController extends Controller
         $user = User::where('email', Str::lower(trim($credentials['email'])))->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            Log::channel('security')->warning('Authentication failed.', [
+                'email_hash' => hash('sha256', Str::lower(trim($credentials['email']))),
+                'ip' => $request->ip(),
+            ]);
             return response()->json(['message' => 'The provided credentials are incorrect.'], 422);
         }
 
         if (! $user->is_active) {
+            Log::channel('security')->warning('Disabled account attempted authentication.', [
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
             return response()->json(['message' => 'This account has been disabled.'], 403);
         }
 
@@ -143,6 +161,11 @@ class AuthController extends Controller
             }
 
             if (! $validCode) {
+                Log::channel('security')->warning('Two-factor authentication failed.', [
+                    'user_id' => $user->id,
+                    'method' => $method,
+                    'ip' => $request->ip(),
+                ]);
                 return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
             }
 
@@ -160,10 +183,15 @@ class AuthController extends Controller
         }
 
         $user->forceFill(['last_login_at' => now()])->save();
+        Log::channel('security')->notice('Authentication succeeded.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'two_factor' => (bool) $user->two_factor_enabled,
+            'ip' => $request->ip(),
+        ]);
 
         return $this->success([
             'user' => $user->load(['providerProfile', 'activeSubscription.planDefinition']),
-            'token' => $user->createToken('beautypro-web')->plainTextToken,
         ], 'Welcome back.');
     }
 

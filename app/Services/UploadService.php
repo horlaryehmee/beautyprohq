@@ -35,15 +35,15 @@ class UploadService
     {
         $this->ensureUploadDirectoryIsHardened();
 
-        return collect(Storage::disk('public')->files(self::UPLOAD_DIRECTORY))
+        return collect(Storage::disk($this->diskName())->files(self::UPLOAD_DIRECTORY))
             ->reject(fn (string $path): bool => basename($path) === '.htaccess')
             ->map(fn (string $path): array => [
                 'name' => basename($path),
                 'path' => $path,
-                'url' => Storage::disk('public')->url($path),
-                'mime_type' => Storage::disk('public')->mimeType($path),
-                'size' => Storage::disk('public')->size($path),
-                'last_modified' => Storage::disk('public')->lastModified($path),
+                'url' => Storage::disk($this->diskName())->url($path),
+                'mime_type' => Storage::disk($this->diskName())->mimeType($path),
+                'size' => Storage::disk($this->diskName())->size($path),
+                'last_modified' => Storage::disk($this->diskName())->lastModified($path),
             ])
             ->sortByDesc('last_modified')
             ->values()
@@ -61,16 +61,21 @@ class UploadService
         $image = $manager->read($file->getRealPath())->scaleDown(width: 1200);
         $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
 
-        Storage::disk('public')->put($path, (string) $encoded);
+        Storage::disk($this->diskName())->put($path, (string) $encoded, ['visibility' => 'public']);
 
-        return $this->storedPayload($path, $filename, (string) Storage::disk('public')->mimeType($path));
+        return $this->storedPayload($path, $filename, (string) Storage::disk($this->diskName())->mimeType($path));
     }
 
     private function storeFile(UploadedFile $file): array
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'bin');
         $filename = $this->uniqueFilename($extension);
-        $path = $file->storeAs(self::UPLOAD_DIRECTORY, $filename, 'public');
+        $path = Storage::disk($this->diskName())->putFileAs(
+            self::UPLOAD_DIRECTORY,
+            $file,
+            $filename,
+            ['visibility' => 'public']
+        );
 
         return $this->storedPayload($path, $filename, (string) $file->getMimeType());
     }
@@ -79,11 +84,11 @@ class UploadService
     {
         return [
             'success' => true,
-            'url' => Storage::disk('public')->url($path),
+            'url' => Storage::disk($this->diskName())->url($path),
             'path' => $path,
             'filename' => $filename,
             'mime_type' => $mimeType,
-            'size' => Storage::disk('public')->size($path),
+            'size' => Storage::disk($this->diskName())->size($path),
         ];
     }
 
@@ -105,8 +110,14 @@ class UploadService
 
     private function ensureUploadDirectoryIsHardened(): void
     {
-        Storage::disk('public')->makeDirectory(self::UPLOAD_DIRECTORY);
-        Storage::disk('public')->put(self::UPLOAD_DIRECTORY.'/.htaccess', <<<'HTACCESS'
+        $disk = $this->diskName();
+        Storage::disk($disk)->makeDirectory(self::UPLOAD_DIRECTORY);
+
+        if (config("filesystems.disks.{$disk}.driver") !== 'local') {
+            return;
+        }
+
+        Storage::disk($disk)->put(self::UPLOAD_DIRECTORY.'/.htaccess', <<<'HTACCESS'
 Options -Indexes
 RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .cgi .pl .py .jsp .asp .aspx
 RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .cgi .pl .py .jsp .asp .aspx
@@ -114,5 +125,10 @@ RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .cgi .pl .py .jsp .as
     Require all denied
 </FilesMatch>
 HTACCESS);
+    }
+
+    private function diskName(): string
+    {
+        return (string) config('filesystems.upload_disk', 'public');
     }
 }

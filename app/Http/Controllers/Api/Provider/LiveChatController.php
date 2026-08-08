@@ -90,7 +90,7 @@ class LiveChatController extends Controller
             Log::warning('Live chat customer reply notification failed.', [
                 'conversation_id' => $conversation->id,
                 'message_id' => $message->id,
-                'visitor_email' => $conversation->visitor_email,
+                'visitor_email_hash' => hash('sha256', strtolower((string) $conversation->visitor_email)),
                 'error' => $exception->getMessage(),
             ]);
         }

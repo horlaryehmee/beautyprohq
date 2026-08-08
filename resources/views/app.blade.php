@@ -39,24 +39,24 @@
             <link rel="preload" as="image" href="{{ $heroPreload['src'] }}" @isset($heroPreload['srcset']) imagesrcset="{{ $heroPreload['srcset'] }}" imagesizes="{{ $heroPreload['sizes'] }}" @endisset fetchpriority="high">
         @endunless
         @unless(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
-            <script>window.__BPHQ_HERO_IMAGES__ = @json($heroPreload['initialImages']);</script>
+            <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">window.__BPHQ_HERO_IMAGES__ = @json($heroPreload['initialImages']);</script>
         @endunless
     @endisset
     @if($homepageShell ?? false)
-        <script>window.__BPHQ_FIRST_PAINT__ = true;</script>
+        <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">window.__BPHQ_FIRST_PAINT__ = true;</script>
     @endif
-    <script>
-        window.__BPHQ_BRAND__ = {!! json_encode([
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
+        window.__BPHQ_BRAND__ = {{ \Illuminate\Support\Js::from([
             'site_name' => $brandSiteName,
             'logo_url' => $brandLogoUrl,
             'email_logo_url' => $brandEmailLogoUrl,
             'favicon_url' => $brandFaviconUrl,
             'desktop_header_height' => $brandDesktopHeaderHeight,
             'mobile_header_height' => $brandMobileHeaderHeight,
-        ]) !!};
+        ]) }};
     </script>
     @isset($structuredData)
-        <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+        <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
     @endisset
     @viteReactRefresh
     @if(($inlineHomepageCss ?? false) && ! \Illuminate\Support\Facades\Vite::isRunningHot())
@@ -73,7 +73,7 @@
         @endif
     </div>
     @if(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
-        <script>
+        <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
             window.__BPHQ_HERO_IMAGES__ = [
                 document.querySelector('[data-bphq-lcp]')?.getAttribute('src'),
                 ...@json(array_slice($heroPreload['initialImages'], 1)),

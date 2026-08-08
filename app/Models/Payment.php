@@ -9,6 +9,17 @@ class Payment extends Model
 {
     protected $guarded = [];
 
+    public function toArray(): array
+    {
+        $attributes = parent::toArray();
+
+        if (is_array($attributes['metadata'] ?? null)) {
+            unset($attributes['metadata']['gateway_response']);
+        }
+
+        return $attributes;
+    }
+
     protected function casts(): array
     {
         return ['amount' => 'decimal:2', 'metadata' => 'array', 'paid_at' => 'datetime'];

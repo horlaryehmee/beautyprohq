@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const emptyForm = {
     type: 'job',
@@ -30,7 +31,7 @@ function ClassicEditor({ label, value, onChange }) {
 
     useEffect(() => {
         const node = editorRef.current;
-        if (node && node.innerHTML !== (value || '')) node.innerHTML = value || '';
+        if (node && node.innerHTML !== (value || '')) node.innerHTML = sanitizeHtml(value || '');
     }, [value]);
 
     const sync = () => {

@@ -56,6 +56,16 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
 
+    'trusted_hosts' => array_values(array_filter(array_map(
+        static fn (string $host): ?string => trim($host) === '' ? null : '^'.preg_quote(trim($host), '/').'$',
+        explode(',', (string) env('TRUSTED_HOSTS', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost'))
+    ))),
+
+    'trusted_proxies' => array_values(array_filter(array_map(
+        static fn (string $proxy): string => trim($proxy),
+        explode(',', (string) env('TRUSTED_PROXIES', ''))
+    ))),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

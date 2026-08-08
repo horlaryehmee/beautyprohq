@@ -139,8 +139,11 @@ rsync -a --no-perms \
 # Install dependencies and run post-deploy tasks
 composer install --working-dir="$APP_ROOT" --no-dev --no-interaction --prefer-dist --optimize-autoloader
 php "$APP_ROOT/artisan" migrate --force
+php "$APP_ROOT/artisan" storage:link || true
 php "$APP_ROOT/artisan" optimize:clear
 php "$APP_ROOT/artisan" optimize
+php "$APP_ROOT/artisan" queue:restart || true
+php "$APP_ROOT/artisan" ops:check --production
 
 # Verify deployment
 if [ ! -s "$APP_ROOT/public/.htaccess" ]; then

@@ -30,14 +30,14 @@ use Illuminate\Support\Facades\Route;
 Route::get('/status', StatusController::class);
 
 Route::prefix('auth')->group(function (): void {
-    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 });
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+    ->middleware(['signed', 'throttle:sensitive'])->name('verification.verify');
 
 Route::get('/home', HomeController::class);
 Route::get('/currencies', [CurrencyController::class, 'index']);
@@ -52,36 +52,36 @@ Route::get('/news', [PublicContentController::class, 'news']);
 Route::get('/news/{news:slug}', [PublicContentController::class, 'showNews']);
 Route::get('/events', [PublicContentController::class, 'events']);
 Route::get('/events/{event:slug}', [PublicContentController::class, 'showEvent']);
-Route::post('/events/{event:slug}/registrations', [PublicContentController::class, 'registerForEvent'])->middleware('throttle:10,1');
+Route::post('/events/{event:slug}/registrations', [PublicContentController::class, 'registerForEvent'])->middleware('throttle:public-form');
 Route::get('/opportunities', [PublicContentController::class, 'opportunities']);
 Route::get('/opportunities/{opportunity}', [PublicContentController::class, 'showOpportunity']);
 Route::get('/community-posts', [PublicContentController::class, 'community']);
 Route::get('/community-posts/{communityPost}', [PublicContentController::class, 'showCommunity']);
-Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:10,1');
-Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:60,1');
-Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:10,1');
-Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:10,1');
-Route::post('/guest-bookings', [BookingController::class, 'guestStore'])->middleware('throttle:10,1');
-Route::post('/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment'])->middleware('throttle:10,1');
-Route::post('/booking-payments/verify', [BookingController::class, 'verifyPayment'])->middleware('throttle:20,1');
-Route::post('/providers/{provider}/chat/conversations', [LiveChatController::class, 'start'])->middleware('throttle:10,1');
-Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class, 'show'])->middleware('throttle:60,1');
-Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:30,1');
+Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:public-form');
+Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:public-form');
+Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:public-form');
+Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:public-form');
+Route::post('/guest-bookings', [BookingController::class, 'guestStore'])->middleware('throttle:public-form');
+Route::post('/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment'])->middleware('throttle:payment');
+Route::post('/booking-payments/verify', [BookingController::class, 'verifyPayment'])->middleware('throttle:payment');
+Route::post('/providers/{provider}/chat/conversations', [LiveChatController::class, 'start'])->middleware('throttle:public-form');
+Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class, 'show'])->middleware('throttle:chat');
+Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:chat');
 
-Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
-    Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:6,1');
+    Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:sensitive');
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
-    Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:6,1');
-    Route::post('/auth/two-factor/confirm', [AuthController::class, 'confirmTwoFactor'])->middleware('throttle:6,1');
-    Route::post('/auth/two-factor/recovery-codes', [AuthController::class, 'regenerateRecoveryCodes'])->middleware('throttle:6,1');
-    Route::post('/auth/two-factor/disable', [AuthController::class, 'disableTwoFactor'])->middleware('throttle:6,1');
+    Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:sensitive');
+    Route::post('/auth/two-factor/confirm', [AuthController::class, 'confirmTwoFactor'])->middleware('throttle:sensitive');
+    Route::post('/auth/two-factor/recovery-codes', [AuthController::class, 'regenerateRecoveryCodes'])->middleware('throttle:sensitive');
+    Route::post('/auth/two-factor/disable', [AuthController::class, 'disableTwoFactor'])->middleware('throttle:sensitive');
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
-    Route::post('/upload', UploadController::class)->middleware('throttle:20,1');
+    Route::post('/upload', UploadController::class)->middleware('throttle:upload');
 
     Route::middleware('role:customer')->group(function (): void {
         Route::get('/bookings', [BookingController::class, 'index']);
@@ -93,12 +93,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/customer/dashboard', [CustomerController::class, 'dashboard']);
         Route::get('/customer/bookings', [BookingController::class, 'index']);
         Route::patch('/customer/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
-        Route::post('/customer/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment']);
-        Route::post('/customer/booking-payments/verify', [BookingController::class, 'verifyPayment']);
+        Route::post('/customer/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment'])->middleware('throttle:payment');
+        Route::post('/customer/booking-payments/verify', [BookingController::class, 'verifyPayment'])->middleware('throttle:payment');
         Route::get('/customer/rewards', [CustomerController::class, 'rewards']);
         Route::get('/customer/live-chat', [LiveChatController::class, 'customerIndex']);
         Route::get('/customer/live-chat/{conversation}', [LiveChatController::class, 'customerShow']);
-        Route::post('/customer/live-chat/{conversation}/messages', [LiveChatController::class, 'customerReply'])->middleware('throttle:60,1');
+        Route::post('/customer/live-chat/{conversation}/messages', [LiveChatController::class, 'customerReply'])->middleware('throttle:chat');
         Route::get('/customer/saved-providers', [CustomerController::class, 'saved']);
         Route::post('/customer/saved-providers/{provider}', [CustomerController::class, 'save']);
         Route::delete('/customer/saved-providers/{provider}', [CustomerController::class, 'unsave']);
@@ -112,11 +112,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/verification', [ProviderDashboardController::class, 'verification']);
         Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);
         Route::get('/subscription', [SubscriptionController::class, 'current']);
-        Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout']);
-        Route::post('/subscription/verify', [SubscriptionController::class, 'verify']);
-        Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade']);
+        Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:payment');
+        Route::post('/subscription/verify', [SubscriptionController::class, 'verify'])->middleware('throttle:payment');
+        Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade'])->middleware('throttle:sensitive');
 
-        Route::middleware('paid.provider')->group(function (): void {
+        Route::middleware(['paid.provider', 'verified'])->group(function (): void {
             Route::get('/analytics', [ProviderDashboardController::class, 'analytics']);
             Route::get('/services', [ProviderServiceController::class, 'index']);
             Route::post('/services', [ProviderServiceController::class, 'store']);
@@ -132,7 +132,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::patch('/bookings/{booking}/status', [ProviderBookingController::class, 'updateStatus']);
             Route::get('/live-chat', [ProviderLiveChatController::class, 'index']);
             Route::get('/live-chat/{conversation}', [ProviderLiveChatController::class, 'show']);
-            Route::post('/live-chat/{conversation}/messages', [ProviderLiveChatController::class, 'reply'])->middleware('throttle:60,1');
+            Route::post('/live-chat/{conversation}/messages', [ProviderLiveChatController::class, 'reply'])->middleware('throttle:chat');
             Route::patch('/live-chat/{conversation}', [ProviderLiveChatController::class, 'update']);
             Route::get('/payments', [ProviderBusinessController::class, 'payments']);
             Route::get('/settings', [ProviderBusinessController::class, 'settings']);
@@ -190,22 +190,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
-        Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware('throttle:6,1');
+        Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware('throttle:sensitive');
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
-        Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware('throttle:6,1');
-        Route::post('/settings/email-notifications/test', [SubscriptionController::class, 'testAdminEmailNotification'])->middleware('throttle:6,1');
+        Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware('throttle:sensitive');
+        Route::post('/settings/email-notifications/test', [SubscriptionController::class, 'testAdminEmailNotification'])->middleware('throttle:sensitive');
         Route::get('/settings/mailchimp', [SubscriptionController::class, 'adminMailchimpSettings']);
         Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings']);
-        Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware('throttle:6,1');
-        Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:3,1');
+        Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware('throttle:sensitive');
+        Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:sensitive');
         Route::get('/demo-data', [AdminDemoDataController::class, 'status']);
         Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate']);
         Route::delete('/demo-data', [AdminDemoDataController::class, 'clear']);
 
-        Route::get('/debug', [SubscriptionController::class, 'adminDebug']);
         Route::get('/media', [AdminMediaController::class, 'index']);
-        Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:20,1');
+        Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:upload');
         Route::get('/news', [AdminContentController::class, 'news']);
         Route::post('/news', [AdminContentController::class, 'storeNews']);
         Route::get('/news/{news}', [AdminContentController::class, 'showNews']);

@@ -79,7 +79,7 @@ class DemoDataController extends Controller
 
     private function flushPublicHomeCache(): void
     {
-        Cache::store(app()->runningUnitTests() ? 'array' : 'file')->forget('public.home.payload.v4');
+        Cache::forget('public.home.payload.v5');
     }
 
     private function markKnownSampleRecordsAsDemo(): void

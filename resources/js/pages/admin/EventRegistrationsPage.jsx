@@ -108,9 +108,9 @@ export default function AdminEventRegistrationsPage() {
         if (!selectedEvent) return;
 
         const response = await fetch(`/api/admin/events/${selectedEvent.id}/registrations/export`, {
+            credentials: 'include',
             headers: {
                 Accept: 'text/csv',
-                Authorization: `Bearer ${window.localStorage.getItem('bphq_auth_token') ?? ''}`,
             },
         });
 

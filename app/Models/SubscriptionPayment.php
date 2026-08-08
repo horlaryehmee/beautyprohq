@@ -9,6 +9,11 @@ class SubscriptionPayment extends Model
 {
     protected $guarded = [];
 
+    protected $hidden = [
+        'access_code',
+        'raw_response',
+    ];
+
     protected function casts(): array
     {
         return [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 
 class AppSetting extends Model
@@ -18,17 +19,26 @@ class AppSetting extends Model
 
     public static function getValue(string $key, mixed $default = null): mixed
     {
-        $setting = static::where('key', $key)->first();
+        try {
+            $setting = Cache::remember(
+                static::cacheKey($key),
+                now()->addMinutes(5),
+                fn (): ?array => static::where('key', $key)->first(['value', 'encrypted'])?->only(['value', 'encrypted'])
+            );
+        } catch (\Throwable) {
+            $setting = static::where('key', $key)->first(['value', 'encrypted'])?->only(['value', 'encrypted']);
+        }
+
         if (! $setting) {
             return $default;
         }
 
-        if (! $setting->encrypted) {
-            return $setting->value ?? $default;
+        if (! $setting['encrypted']) {
+            return $setting['value'] ?? $default;
         }
 
         try {
-            return $setting->value ? Crypt::decryptString($setting->value) : $default;
+            return $setting['value'] ? Crypt::decryptString($setting['value']) : $default;
         } catch (\Throwable) {
             return $default;
         }
@@ -43,5 +53,12 @@ class AppSetting extends Model
                 'encrypted' => $encrypted,
             ],
         );
+
+        Cache::forget(static::cacheKey($key));
+    }
+
+    private static function cacheKey(string $key): string
+    {
+        return 'app-setting:'.hash('sha256', $key);
     }
 }

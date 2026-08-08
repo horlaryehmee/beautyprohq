@@ -72,7 +72,7 @@ class SubscriptionController extends Controller
             ->subscriptionPayments()
             ->with('plan')
             ->latest()
-            ->paginate($request->integer('payments_per_page', 10), ['*'], 'payments_page', $request->integer('payments_page', 1));
+            ->paginate($this->perPage($request, 10, 50, 'payments_per_page'), ['*'], 'payments_page', max(1, $request->integer('payments_page', 1)));
 
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
@@ -177,21 +177,6 @@ class SubscriptionController extends Controller
         return $this->adminStripeSettings();
     }
 
-    public function adminDebug(): JsonResponse
-    {
-        try {
-            $this->adminPaymentGatewaySettings();
-            return response()->json(['status' => 'ok']);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => explode("\n", $e->getTraceAsString()),
-            ], 500);
-        }
-    }
-
     public function adminPaymentGatewaySettings(): JsonResponse
     {
         return $this->success([
@@ -289,21 +274,24 @@ class SubscriptionController extends Controller
     public function adminSmtpSettings(): JsonResponse
     {
         $password = AppSetting::getValue('smtp.password');
+        $configuredEncryption = config('mail.mailers.smtp.scheme') === 'smtps'
+            ? 'ssl'
+            : ((bool) config('mail.mailers.smtp.require_tls') ? 'tls' : null);
 
         return $this->success([
             'enabled' => AppSetting::getValue('smtp.enabled', '0') === '1',
-            'host' => AppSetting::getValue('smtp.host') ?: env('MAIL_HOST'),
-            'port' => AppSetting::getValue('smtp.port') ?: env('MAIL_PORT', 587),
-            'username' => AppSetting::getValue('smtp.username') ?: env('MAIL_USERNAME'),
-            'encryption' => AppSetting::getValue('smtp.encryption') ?: env('MAIL_ENCRYPTION', 'tls'),
-            'from_address' => AppSetting::getValue('smtp.from_address') ?: env('MAIL_FROM_ADDRESS'),
-            'from_name' => AppSetting::getValue('smtp.from_name') ?: env('MAIL_FROM_NAME', config('app.name')),
-            'password_configured' => filled($password ?: env('MAIL_PASSWORD')),
-            'password_last4' => filled($password ?: env('MAIL_PASSWORD')) ? substr((string) ($password ?: env('MAIL_PASSWORD')), -4) : null,
+            'host' => AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'),
+            'port' => AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port', 587),
+            'username' => AppSetting::getValue('smtp.username') ?: config('mail.mailers.smtp.username'),
+            'encryption' => AppSetting::getValue('smtp.encryption') ?: $configuredEncryption,
+            'from_address' => AppSetting::getValue('smtp.from_address') ?: config('mail.from.address'),
+            'from_name' => AppSetting::getValue('smtp.from_name') ?: config('mail.from.name', config('app.name')),
+            'password_configured' => filled($password ?: config('mail.mailers.smtp.password')),
+            'password_last4' => filled($password ?: config('mail.mailers.smtp.password')) ? substr((string) ($password ?: config('mail.mailers.smtp.password')), -4) : null,
             'configured' => AppSetting::getValue('smtp.enabled', '0') === '1'
-                && filled(AppSetting::getValue('smtp.host') ?: env('MAIL_HOST'))
-                && filled(AppSetting::getValue('smtp.port') ?: env('MAIL_PORT'))
-                && filled(AppSetting::getValue('smtp.from_address') ?: env('MAIL_FROM_ADDRESS')),
+                && filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
+                && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
+                && filled(AppSetting::getValue('smtp.from_address') ?: config('mail.from.address')),
         ]);
     }
 
@@ -352,7 +340,7 @@ class SubscriptionController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'SMTP test failed: '.$exception->getMessage(),
+                'message' => 'SMTP test failed. Check the saved settings and server logs.',
             ], 422);
         }
 
@@ -397,7 +385,7 @@ class SubscriptionController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'Mailchimp connection failed: '.$exception->getMessage(),
+                'message' => 'Mailchimp connection failed. Check the saved settings and server logs.',
             ], 422);
         }
 
@@ -412,7 +400,7 @@ class SubscriptionController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'Mailchimp sync failed: '.$exception->getMessage(),
+                'message' => 'Mailchimp sync failed. Check the saved settings and server logs.',
             ], 422);
         }
 
@@ -469,7 +457,7 @@ class SubscriptionController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'Notification test failed: '.$exception->getMessage(),
+                'message' => 'Notification test failed. Check the saved settings and server logs.',
             ], 422);
         }
 
@@ -566,7 +554,7 @@ class SubscriptionController extends Controller
             'status' => 'pending',
         ]);
 
-        $response = Http::withToken($secret)
+        $response = Http::external()->withToken($secret)
             ->acceptJson()
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
@@ -624,7 +612,7 @@ class SubscriptionController extends Controller
         $secret = $this->paystackSecretKey();
         abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
 
-        $response = Http::withToken($secret)
+        $response = Http::external()->withToken($secret)
             ->acceptJson()
             ->get('https://api.paystack.co/transaction/verify/'.$payment->reference);
 
@@ -645,8 +633,10 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Payment verification failed because the Paystack response does not match this user, plan, amount, currency, and reference.'], 422);
         }
 
-        $subscription = $this->activatePaidSubscription($payment, $response->json());
-        $this->notifySubscriptionActivated($subscription);
+        [$subscription, $activated] = $this->activatePaidSubscription($payment, $response->json());
+        if ($activated) {
+            $this->notifySubscriptionActivated($subscription);
+        }
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
     }
@@ -707,7 +697,7 @@ class SubscriptionController extends Controller
             'status' => 'pending',
         ]);
 
-        $response = Http::withToken($secret)
+        $response = Http::external()->withToken($secret)
             ->asForm()
             ->acceptJson()
             ->post('https://api.stripe.com/v1/checkout/sessions', [
@@ -753,7 +743,7 @@ class SubscriptionController extends Controller
         $sessionId = $sessionId ?: $payment->access_code;
         abort_if(blank($sessionId), 422, 'Stripe checkout session is missing.');
 
-        $response = Http::withToken($secret)
+        $response = Http::external()->withToken($secret)
             ->acceptJson()
             ->get('https://api.stripe.com/v1/checkout/sessions/'.$sessionId);
 
@@ -767,41 +757,48 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Stripe verification failed because the session does not match this user, plan, amount, currency, and reference.'], 422);
         }
 
-        $subscription = $this->activatePaidSubscription($payment, $response->json());
-        $this->notifySubscriptionActivated($subscription);
+        [$subscription, $activated] = $this->activatePaidSubscription($payment, $response->json());
+        if ($activated) {
+            $this->notifySubscriptionActivated($subscription);
+        }
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
     }
 
-    private function activatePaidSubscription(SubscriptionPayment $payment, array $rawResponse): Subscription
+    private function activatePaidSubscription(SubscriptionPayment $payment, array $rawResponse): array
     {
-        return DB::transaction(function () use ($payment, $rawResponse): Subscription {
-            Subscription::where('user_id', $payment->user_id)->where('status', 'active')->update([
+        return DB::transaction(function () use ($payment, $rawResponse): array {
+            $locked = SubscriptionPayment::with('plan')->lockForUpdate()->findOrFail($payment->id);
+            if ($locked->status === 'paid' && $locked->subscription_id) {
+                return [Subscription::findOrFail($locked->subscription_id), false];
+            }
+
+            Subscription::where('user_id', $locked->user_id)->where('status', 'active')->update([
                 'status' => 'cancelled',
                 'cancelled_at' => now(),
                 'ends_at' => now(),
             ]);
 
             $subscription = Subscription::create([
-                'user_id' => $payment->user_id,
-                'subscription_plan_id' => $payment->subscription_plan_id,
+                'user_id' => $locked->user_id,
+                'subscription_plan_id' => $locked->subscription_plan_id,
                 'plan' => 'paid',
                 'status' => 'active',
-                'amount' => $payment->amount,
-                'currency' => $payment->currency,
+                'amount' => $locked->amount,
+                'currency' => $locked->currency,
                 'starts_at' => now(),
                 'renews_at' => now()->addMonth(),
-                'metadata' => ['gateway' => $payment->gateway],
+                'metadata' => ['gateway' => $locked->gateway],
             ]);
 
-            $payment->update([
+            $locked->update([
                 'subscription_id' => $subscription->id,
                 'status' => 'paid',
                 'paid_at' => now(),
                 'raw_response' => $rawResponse,
             ]);
 
-            return $subscription;
+            return [$subscription, true];
         });
     }
 

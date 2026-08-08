@@ -30,7 +30,9 @@ class PublicContentController extends Controller
 
     public function news(Request $request): JsonResponse
     {
-        return $this->paginated(News::published()->latest('published_at')->paginate($request->integer('per_page', 12)));
+        $perPage = $request->validate(['per_page' => ['nullable', 'integer', 'between:1,48']])['per_page'] ?? 12;
+
+        return $this->paginated(News::published()->latest('published_at')->paginate($perPage));
     }
 
     public function showNews(News $news): JsonResponse
@@ -42,7 +44,9 @@ class PublicContentController extends Controller
 
     public function events(Request $request): JsonResponse
     {
-        return $this->paginated(Event::published()->orderBy('date')->paginate($request->integer('per_page', 12)));
+        $perPage = $request->validate(['per_page' => ['nullable', 'integer', 'between:1,48']])['per_page'] ?? 12;
+
+        return $this->paginated(Event::published()->orderBy('date')->paginate($perPage));
     }
 
     public function showEvent(Event $event): JsonResponse
@@ -88,7 +92,9 @@ class PublicContentController extends Controller
 
     public function opportunities(Request $request): JsonResponse
     {
-        return $this->paginated(Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->paginate($request->integer('per_page', 12)));
+        $perPage = $request->validate(['per_page' => ['nullable', 'integer', 'between:1,48']])['per_page'] ?? 12;
+
+        return $this->paginated(Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->paginate($perPage));
     }
 
     public function showOpportunity(Opportunity $opportunity): JsonResponse
@@ -192,7 +198,8 @@ class PublicContentController extends Controller
 
     private function paginated($paginator): JsonResponse
     {
-        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
+        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator))
+            ->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
     }
 
     private function notifyAdmins(string $title, string $message, string $path, array $data = []): void
@@ -208,9 +215,9 @@ class PublicContentController extends Controller
             Notification::route('mail', $email)->notify($notification);
         } catch (\Throwable $exception) {
             Log::warning('Public confirmation email failed.', [
-                'email' => $email,
+                'email_hash' => hash('sha256', strtolower($email)),
                 'notification' => $notification::class,
-                'message' => $exception->getMessage(),
+                'exception' => $exception::class,
             ]);
         }
     }

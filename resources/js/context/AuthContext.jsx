@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
     }, []);
 
     const refreshUser = useCallback(async () => {
-        const tokenAtStart = window.localStorage.getItem('bphq_auth_token');
         const { default: api, unwrap } = await import('../lib/api');
         try {
             const response = await api.get('/auth/me');
@@ -31,23 +30,13 @@ export function AuthProvider({ children }) {
             return nextUser;
         } catch (error) {
             if (error?.response?.status !== 401) throw error;
-            const tokenNow = window.localStorage.getItem('bphq_auth_token');
-            if (tokenAtStart !== tokenNow) {
-                return userRef.current;
-            }
-            if (tokenAtStart) {
-                window.localStorage.removeItem('bphq_auth_token');
-            }
             rememberUser(null);
             return null;
         }
     }, [rememberUser]);
 
     useEffect(() => {
-        if (!window.localStorage.getItem('bphq_auth_token')) {
-            setLoading(false);
-            return;
-        }
+        window.localStorage.removeItem('bphq_auth_token');
         refreshUser()
             .catch(() => setUser(null))
             .finally(() => setLoading(false));
@@ -62,9 +51,6 @@ export function AuthProvider({ children }) {
             return payload;
         }
         const nextUser = payload?.user ?? payload;
-        if (payload?.token) {
-            window.localStorage.setItem('bphq_auth_token', payload.token);
-        }
         rememberUser(nextUser);
         return nextUser;
     }, [rememberUser]);
@@ -75,9 +61,6 @@ export function AuthProvider({ children }) {
         const response = await api.post('/auth/register', details);
         const payload = unwrap(response);
         const nextUser = payload?.user ?? payload;
-        if (payload?.token) {
-            window.localStorage.setItem('bphq_auth_token', payload.token);
-        }
         rememberUser(nextUser);
         return nextUser;
     }, [rememberUser]);
@@ -87,7 +70,6 @@ export function AuthProvider({ children }) {
         try {
             await api.post('/auth/logout');
         } finally {
-            window.localStorage.removeItem('bphq_auth_token');
             rememberUser(null);
         }
     }, [rememberUser]);

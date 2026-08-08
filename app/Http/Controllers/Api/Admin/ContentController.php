@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\SafeHtml;
 use App\Models\Announcement;
 use App\Models\CommunityPost;
 use App\Models\Event;
@@ -131,7 +132,7 @@ class ContentController extends Controller
 
     public function enquiries(Request $request): JsonResponse
     {
-        $items = OpportunityEnquiry::with(['opportunity:id,title,type', 'user:id,name,email'])->when($request->status, fn ($q, $s) => $q->where('status', $s))->latest()->paginate($request->integer('per_page', 20));
+        $items = OpportunityEnquiry::with(['opportunity:id,title,type', 'user:id,name,email'])->when($request->status, fn ($q, $s) => $q->where('status', $s))->latest()->paginate($this->perPage($request, 20, 100));
 
         return $this->success($items->items(), meta: $this->paginationMeta($items));
     }
@@ -184,6 +185,9 @@ class ContentController extends Controller
             'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+        if (array_key_exists('content', $data)) {
+            $data['content'] = SafeHtml::clean($data['content']);
+        }
         return $this->autoSeo($data, 'Beauty News', $data['excerpt'] ?? $data['content'] ?? $news?->excerpt ?? $news?->content, $data['title'] ?? $news?->title);
     }
 
@@ -199,6 +203,9 @@ class ContentController extends Controller
             'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+        if (array_key_exists('description', $data)) {
+            $data['description'] = SafeHtml::clean($data['description']);
+        }
         return $this->autoSeo($data, 'Beauty Event', $data['description'] ?? $event?->description, $data['title'] ?? $event?->title);
     }
 
@@ -212,6 +219,9 @@ class ContentController extends Controller
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+        if (array_key_exists('content', $data)) {
+            $data['content'] = SafeHtml::clean($data['content']);
+        }
 
         return $this->autoSeo($data, 'Beauty Community', $data['content'] ?? null, $data['title'] ?? null);
     }
@@ -222,8 +232,15 @@ class ContentController extends Controller
 
         $data = $this->publication($request->validate([
             'title' => [$p, 'string', 'max:180'], 'type' => [$p, 'string', 'max:100'], 'description' => [$p, 'string', 'max:20000'],
-            'contact_info' => ['nullable', 'array'], 'location' => ['nullable', 'string', 'max:180'], 'deadline' => ['nullable', 'date'], 'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
+            'contact_info' => ['nullable', 'array'],
+            'contact_info.short_description' => ['nullable', 'string', 'max:600'],
+            'contact_info.email' => ['nullable', 'email:rfc', 'max:255'],
+            'contact_info.url' => ['nullable', 'url:http,https', 'max:500'],
+            'location' => ['nullable', 'string', 'max:180'], 'deadline' => ['nullable', 'date'], 'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+        if (array_key_exists('description', $data)) {
+            $data['description'] = SafeHtml::clean($data['description']);
+        }
         return $data;
     }
 
@@ -273,7 +290,7 @@ class ContentController extends Controller
             }
         }
 
-        $items = $query->paginate($request->integer('per_page', 20));
+        $items = $query->paginate($this->perPage($request, 20, 100));
 
         return $this->success($items->items(), meta: $this->paginationMeta($items));
     }

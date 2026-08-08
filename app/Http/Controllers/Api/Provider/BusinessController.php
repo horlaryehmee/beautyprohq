@@ -32,7 +32,7 @@ class BusinessController extends Controller
                     ->limit(20),
                 'activities' => fn ($q) => $q->latest()->limit(20),
             ])
-            ->latest('last_service_at')->paginate($request->integer('per_page', 20));
+            ->latest('last_service_at')->paginate($this->perPage($request, 20, 50));
 
         $items = collect($customers->items())->map(function (CrmCustomer $record) {
             $bookings = $record->customer?->customerBookings ?? collect();
@@ -152,7 +152,7 @@ class BusinessController extends Controller
     {
         $payments = Payment::where('provider_id', $request->user()->providerProfile->id)
             ->with(['booking.customer:id,name,email', 'booking.service'])
-            ->latest()->paginate($request->integer('per_page', 20));
+            ->latest()->paginate($this->perPage($request, 20, 50));
 
         return $this->success($payments->items(), meta: $this->paginationMeta($payments));
     }

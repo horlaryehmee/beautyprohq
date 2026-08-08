@@ -61,7 +61,9 @@ class SeoController extends Controller
         $lines[] = '';
 
         return response(implode("\n", $lines), 200)
-            ->header('Content-Type', 'text/markdown; charset=UTF-8');
+            ->header('Content-Type', 'text/markdown; charset=UTF-8')
+            ->header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=1800')
+            ->header('X-LiteSpeed-Cache-Control', 'public,max-age=600');
     }
 
     public function sitemap(): Response
@@ -120,7 +122,9 @@ class SeoController extends Controller
         })->implode('');
 
         return response('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'.$urls.'</urlset>', 200)
-            ->header('Content-Type', 'application/xml');
+            ->header('Content-Type', 'application/xml')
+            ->header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=1800')
+            ->header('X-LiteSpeed-Cache-Control', 'public,max-age=600');
     }
 
     public function providerMarkdown(ProviderProfile $provider): Response

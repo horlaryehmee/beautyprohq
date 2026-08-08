@@ -23,7 +23,7 @@ class BookingController extends Controller
             ->with(['customer:id,name,email,phone', 'service', 'payment', 'review'])
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))
             ->when($request->date, fn ($q, $date) => $q->whereDate('date', $date))
-            ->orderByDesc('date')->orderByDesc('time')->paginate($request->integer('per_page', 20));
+            ->orderByDesc('date')->orderByDesc('time')->paginate($this->perPage($request, 20, 50));
 
         return $this->success($bookings->items(), meta: $this->paginationMeta($bookings));
     }

@@ -27,6 +27,11 @@ return [
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
     ],
 
+    'http' => [
+        'connect_timeout' => (int) env('HTTP_CONNECT_TIMEOUT', 5),
+        'timeout' => (int) env('HTTP_TIMEOUT', 15),
+    ],
+
     'twilio' => [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'auth_token' => env('TWILIO_AUTH_TOKEN'),

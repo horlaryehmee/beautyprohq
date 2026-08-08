@@ -6,6 +6,7 @@ import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
 import { buttonClass } from '../../components/ui/Button';
 import { mediaUrl, shortDate, stripHtml } from '../../lib/utils';
+import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const fallbacks = {
     news: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1600&q=80',
@@ -49,7 +50,7 @@ function DetailBody({ content }) {
     if (!value) return null;
 
     if (/<[a-z][\s\S]*>/i.test(value)) {
-        return <div className="content-prose" dangerouslySetInnerHTML={{ __html: value }} />;
+        return <div className="content-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />;
     }
 
     return (

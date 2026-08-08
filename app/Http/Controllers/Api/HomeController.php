@@ -17,7 +17,7 @@ class HomeController extends Controller
     {
         $providerRelations = ['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)];
 
-        $data = Cache::store(app()->runningUnitTests() ? 'array' : 'file')->remember('public.home.payload.v4', now()->addMinute(), function () use ($providerRelations) {
+        $data = Cache::flexible('public.home.payload.v5', [60, 300], function () use ($providerRelations) {
             $featuredProviders = ProviderProfile::directory()
                 ->with($providerRelations)
                 ->orderByDesc('verified')
@@ -74,6 +74,7 @@ class HomeController extends Controller
         });
 
         return $this->success($data)
-            ->header('Cache-Control', 'no-cache, max-age=0, must-revalidate');
+            ->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120')
+            ->header('X-LiteSpeed-Cache-Control', 'public,max-age=60');
     }
 }

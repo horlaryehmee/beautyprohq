@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ProviderDirectoryController extends Controller
 {
@@ -56,36 +57,21 @@ class ProviderDirectoryController extends Controller
         $providers = $query->paginate($validated['per_page'] ?? 12);
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
-            'filters' => [
-                'categories' => ProviderCategory::where('is_active', true)->withCount(['providers' => fn ($q) => $q->directory()])->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'slug', 'cover_image']),
-                'service_types' => Service::where('is_active', true)->distinct()->orderBy('service_type')->pluck('service_type'),
-                'locations' => ProviderProfile::directory()->whereNotNull('location')->distinct()->orderBy('location')->pluck('location'),
-            ],
-        ]);
+            'filters' => $this->directoryFilters(),
+        ])->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
     }
 
     public function categories(): JsonResponse
     {
-        return $this->success(
-            ProviderCategory::where('is_active', true)
-                ->withCount(['providers' => fn ($q) => $q->directory()])
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get()
-        );
+        return $this->success($this->directoryFilters()['categories'])
+            ->header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     }
 
     public function show(Request $request, ProviderProfile $provider): JsonResponse
     {
         abort_unless($provider->is_listed && $provider->user->is_active, 404);
 
-        $provider->increment('profile_views');
-        ProfileView::create([
-            'provider_id' => $provider->id,
-            'viewer_id' => $request->user()?->id,
-            'session_id' => $request->hasSession() ? $request->session()->getId() : null,
-            'viewed_on' => today(),
-        ]);
+        $this->recordProfileView($request, $provider);
 
         $data = $provider->fresh()->load([
             'user:id,name',
@@ -116,9 +102,6 @@ class ProviderDirectoryController extends Controller
                 'manual' => 'Manual payment',
                 default => ucfirst((string) $account->gateway),
             },
-            'account_name' => $account->gateway === 'manual' ? $account->account_name : null,
-            'account_reference' => $account->gateway === 'manual' ? $account->account_reference : null,
-            'instructions' => $account->gateway === 'manual' ? ($account->settings['instructions'] ?? null) : null,
         ])->values() : []);
         $data->makeHidden('paymentAccounts');
 
@@ -162,5 +145,40 @@ class ProviderDirectoryController extends Controller
         $reviews = $provider->reviews()->where('is_approved', true)->with('customer:id,name')->latest()->paginate(10);
 
         return $this->success($reviews->items(), meta: $this->paginationMeta($reviews));
+    }
+
+    private function directoryFilters(): array
+    {
+        return Cache::flexible('public.directory.filters.v2', [300, 900], fn (): array => [
+            'categories' => ProviderCategory::where('is_active', true)
+                ->withCount(['providers' => fn ($q) => $q->directory()])
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'cover_image'])
+                ->toArray(),
+            'service_types' => Service::where('is_active', true)->distinct()->orderBy('service_type')->pluck('service_type')->values()->all(),
+            'locations' => ProviderProfile::directory()->whereNotNull('location')->distinct()->orderBy('location')->pluck('location')->values()->all(),
+        ]);
+    }
+
+    private function recordProfileView(Request $request, ProviderProfile $provider): void
+    {
+        $identity = $request->user()
+            ? 'user:'.$request->user()->id
+            : 'guest:'.($request->hasSession() ? $request->session()->getId() : $request->ip().'|'.$request->userAgent());
+        $fingerprint = hash('sha256', $identity);
+        $key = "profile-view:{$provider->id}:".today()->toDateString().":{$fingerprint}";
+
+        if (! Cache::add($key, true, now()->endOfDay())) {
+            return;
+        }
+
+        $provider->increment('profile_views');
+        ProfileView::create([
+            'provider_id' => $provider->id,
+            'viewer_id' => $request->user()?->id,
+            'session_id' => $fingerprint,
+            'viewed_on' => today(),
+        ]);
     }
 }

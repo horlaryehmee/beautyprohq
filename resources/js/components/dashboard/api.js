@@ -3,21 +3,12 @@ import axios from 'axios';
 export const dashboardApi = axios.create({
     baseURL: '/api',
     withCredentials: true,
+    withXSRFToken: true,
     headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
     },
-});
-
-dashboardApi.interceptors.request.use((config) => {
-    const token = window.localStorage.getItem('bphq_auth_token');
-
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
 });
 
 dashboardApi.interceptors.response.use(

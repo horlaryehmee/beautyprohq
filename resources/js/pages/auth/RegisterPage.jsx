@@ -144,7 +144,7 @@ export default function RegisterPage() {
         setError('');
         try {
             await register(form);
-            navigate('/provider/onboarding', { replace: true });
+            navigate('/verify-email', { replace: true });
         } catch (requestError) {
             const parsed = apiError(requestError, 'Your account could not be created.');
             setError(parsed.message);

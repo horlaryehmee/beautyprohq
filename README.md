@@ -65,6 +65,10 @@ Additional seeded provider and customer accounts are listed in `database/seeders
 - Admin console: users, directory listings, verification, content, opportunities/enquiries, announcements, and subscriptions
 - Payment-account schema for Paystack, Stripe, and PayPal; provider funds are represented against each provider account and booking
 
+## Production operations
+
+Use [docs/shared-hosting-operations.md](docs/shared-hosting-operations.md) for the cPanel deployment checklist, cron configuration, security controls, caching, log handling, and supported scaling path.
+
 ## Testing
 
 Automated tests use an in-memory SQLite database, separate from local MySQL data.

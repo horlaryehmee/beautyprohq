@@ -16,7 +16,7 @@ class VerificationController extends Controller
     {
         $items = VerificationRequest::with(['provider.user:id,name,email', 'reviewer:id,name'])
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))
-            ->latest()->paginate($request->integer('per_page', 20));
+            ->latest()->paginate($this->perPage($request, 20, 100));
 
         return $this->success($items->items(), meta: $this->paginationMeta($items));
     }

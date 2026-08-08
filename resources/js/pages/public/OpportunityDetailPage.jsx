@@ -7,6 +7,7 @@ import Icon from '../../components/ui/Icon';
 import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
 import Seo from '../../components/Seo';
 import { shortDate } from '../../lib/utils';
+import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const typeLabels = {
     job: 'Job',
@@ -38,33 +39,6 @@ function plainText(value) {
 
 function stripHtml(value) {
     return String(value ?? '').replace(/<[^>]*>/g, ' ');
-}
-
-function sanitizeHtml(value) {
-    const allowedTags = new Set(['A', 'B', 'BLOCKQUOTE', 'BR', 'DIV', 'EM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'LI', 'OL', 'P', 'STRONG', 'U', 'UL']);
-    const template = document.createElement('template');
-    template.innerHTML = String(value ?? '');
-    template.content.querySelectorAll('*').forEach((node) => {
-        if (!allowedTags.has(node.tagName)) {
-            node.replaceWith(document.createTextNode(node.textContent ?? ''));
-            return;
-        }
-        [...node.attributes].forEach((attribute) => {
-            const name = attribute.name.toLowerCase();
-            if (node.tagName === 'A' && name === 'href') {
-                const href = attribute.value;
-                if (/^(https?:|mailto:|tel:)/i.test(href)) {
-                    node.setAttribute('target', '_blank');
-                    node.setAttribute('rel', 'noreferrer');
-                } else {
-                    node.removeAttribute('href');
-                }
-            } else {
-                node.removeAttribute(attribute.name);
-            }
-        });
-    });
-    return template.innerHTML;
 }
 
 function TextContent({ value }) {

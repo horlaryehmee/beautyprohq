@@ -33,9 +33,9 @@ export default function AdminWaitlistPage() {
         const params = new URLSearchParams();
         if (query) params.set('search', query);
         const response = await fetch(`/api/admin/waitlist/export?${params.toString()}`, {
+            credentials: 'include',
             headers: {
                 Accept: 'text/csv',
-                Authorization: `Bearer ${window.localStorage.getItem('bphq_auth_token') ?? ''}`,
             },
         });
 

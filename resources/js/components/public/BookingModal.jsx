@@ -968,9 +968,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                             <div className="mt-5 rounded-2xl border border-bphq-chrome bg-bphq-ivory p-4 text-sm leading-6 text-bphq-coffee">
                                                 <p className="font-bold text-bphq-espresso">Manual payment selected</p>
                                                 <p className="mt-1">Send payment using the provider account details below. The provider will confirm payment and accept your booking from their backend.</p>
-                                                {selectedPaymentMethod?.account_name && <p className="mt-3"><span className="font-bold">Account name:</span> {selectedPaymentMethod.account_name}</p>}
-                                                {selectedPaymentMethod?.account_reference && <p><span className="font-bold">Account details:</span> {selectedPaymentMethod.account_reference}</p>}
-                                                {selectedPaymentMethod?.instructions && <p className="mt-2 whitespace-pre-line">{selectedPaymentMethod.instructions}</p>}
+                                                {manualBooking?.manual_payment?.account_name && <p className="mt-3"><span className="font-bold">Account name:</span> {manualBooking.manual_payment.account_name}</p>}
+                                                {manualBooking?.manual_payment?.account_reference && <p><span className="font-bold">Account details:</span> {manualBooking.manual_payment.account_reference}</p>}
+                                                {manualBooking?.manual_payment?.instructions && <p className="mt-2 whitespace-pre-line">{manualBooking.manual_payment.instructions}</p>}
                                             </div>
                                         )}
                                         {!checkoutUrl && !manualBooking ? (

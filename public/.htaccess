@@ -5,6 +5,9 @@
 
     RewriteEngine On
 
+    # Block hidden files except ACME challenges used for HTTPS certificates.
+    RewriteRule "(^|/)\.(?!well-known/)" - [F,L]
+
     <IfModule LiteSpeed>
         CacheLookup on
         RewriteCond %{REQUEST_METHOD} =GET
@@ -32,6 +35,23 @@
 </IfModule>
 
 <IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(self)"
+
+    SetEnvIf X-Forwarded-Proto "https" bphq_https
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=bphq_https
+
     SetEnvIf Request_URI "^/build/assets/" bphq_immutable_asset
     Header always set Cache-Control "public, max-age=31536000, immutable" env=bphq_immutable_asset
 </IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/javascript application/json application/ld+json application/xml image/svg+xml text/css text/html text/javascript text/plain text/xml
+</IfModule>
+
+<FilesMatch "(^\.|\.env|\.log|\.sql|\.sqlite|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml)$">
+    Require all denied
+</FilesMatch>

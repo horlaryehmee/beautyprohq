@@ -90,7 +90,7 @@ class MailchimpService
         } catch (\Throwable $exception) {
             Log::warning('Mailchimp user sync failed.', [
                 'user_id' => $user->id,
-                'email' => $user->email,
+                'email_hash' => hash('sha256', strtolower((string) $user->email)),
                 'message' => $exception->getMessage(),
             ]);
 
@@ -125,7 +125,7 @@ class MailchimpService
         } catch (\Throwable $exception) {
             Log::warning('Mailchimp newsletter subscriber sync failed.', [
                 'subscriber_id' => $subscriber->id,
-                'email' => $subscriber->email,
+                'email_hash' => hash('sha256', strtolower((string) $subscriber->email)),
                 'message' => $exception->getMessage(),
             ]);
 
@@ -161,7 +161,7 @@ class MailchimpService
             return true;
         } catch (\Throwable $exception) {
             Log::warning('Mailchimp contact sync failed.', [
-                'email' => $email,
+                'email_hash' => hash('sha256', strtolower($email)),
                 'tags' => $tags,
                 'message' => $exception->getMessage(),
             ]);
@@ -249,7 +249,7 @@ class MailchimpService
         $secret = AppSetting::getValue('mailchimp.webhook_secret');
 
         if (blank($secret)) {
-            return true;
+            return false;
         }
 
         if (! preg_match('/\bt=(\d+)\b/', (string) $header, $timestampMatch)
@@ -281,7 +281,7 @@ class MailchimpService
 
     private function request(string $method, string $path, array $payload = []): Response
     {
-        $response = Http::withBasicAuth('beautyprohq', $this->apiKey())
+        $response = Http::external()->withBasicAuth('beautyprohq', $this->apiKey())
             ->acceptJson()
             ->asJson()
             ->{$method}("https://{$this->serverPrefix()}.api.mailchimp.com/3.0{$path}", $payload);
