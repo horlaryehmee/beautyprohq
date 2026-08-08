@@ -28,14 +28,13 @@
     <meta name="twitter:description" content="{{ $pageDescription ?? 'BeautyPro HQ connects customers with trusted beauty professionals and gives providers the tools to grow.' }}">
     <title>{{ $pageTitle ?? $brandSiteName }}</title>
     <link rel="icon" href="{{ $brandFaviconUrl }}" type="image/svg+xml">
+    {{-- Early resource hints before any blocking resources --}}
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <style>
-        @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-        @font-face{font-family:'Playfair Display';font-style:normal;font-weight:400 600;font-display:swap;src:url('https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-    </style>
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+    <link rel="dns-prefetch" href="https://images.unsplash.com">
+    <style>@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:'Playfair Display';font-style:normal;font-weight:400 600;font-display:swap;src:url('https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}</style>
     @isset($heroPreload)
         @unless($heroPreload['inline'] ?? false)
-            <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
             <link rel="preload" as="image" href="{{ $heroPreload['src'] }}" @isset($heroPreload['srcset']) imagesrcset="{{ $heroPreload['srcset'] }}" imagesizes="{{ $heroPreload['sizes'] }}" @endisset fetchpriority="high">
         @endunless
         @unless(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
