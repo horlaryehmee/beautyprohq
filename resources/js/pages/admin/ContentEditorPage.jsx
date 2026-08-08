@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -88,6 +88,70 @@ function normalizeUrl(value) {
     return `https://${url}`;
 }
 
+function stripHtml(value) {
+    const container = document.createElement('div');
+    container.innerHTML = sanitizeHtml(value || '');
+    return container.textContent || '';
+}
+
+function htmlFromPlainText(value) {
+    return String(value ?? '')
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+        .map((paragraph) => `<p>${paragraph.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replace(/\n/g, '<br>')}</p>`)
+        .join('');
+}
+
+class EditorCrashBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { failed: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { failed: true };
+    }
+
+    componentDidCatch(error) {
+        console.error('BeautyPro HQ editor failed', error);
+    }
+
+    componentDidUpdate(previousProps) {
+        if (this.state.failed && previousProps.resetKey !== this.props.resetKey) {
+            this.setState({ failed: false });
+        }
+    }
+
+    render() {
+        if (this.state.failed) return this.props.fallback;
+        return this.props.children;
+    }
+}
+
+function FallbackVisualEditor({ label, value, onChange }) {
+    const [plainText, setPlainText] = useState(() => stripHtml(value));
+
+    useEffect(() => {
+        setPlainText(stripHtml(value));
+    }, [value]);
+
+    return (
+        <Field label={label} hint="Simple visual editor fallback. Save once, then refresh to reload the full toolbar.">
+            <textarea
+                className={`${inputClass} min-h-[520px] resize-y text-base leading-8`}
+                onChange={(event) => {
+                    setPlainText(event.target.value);
+                    onChange(htmlFromPlainText(event.target.value));
+                }}
+                placeholder="Write the full content here."
+                required
+                value={plainText}
+            />
+        </Field>
+    );
+}
+
 function ContentBodyEditor({ label, value, onChange }) {
     const lastExternalValue = useRef(String(value ?? ''));
     const editor = useEditor({
@@ -113,7 +177,10 @@ function ContentBodyEditor({ label, value, onChange }) {
                 class: 'content-prose min-h-[520px] w-full max-w-none bg-white p-5 text-base leading-8 text-bphq-espresso outline-none',
             },
         },
-        immediatelyRender: false,
+        immediatelyRender: true,
+        onContentError: ({ editor: activeEditor }) => {
+            activeEditor.commands.setContent(htmlFromPlainText(stripHtml(value || '')), { emitUpdate: false });
+        },
         onUpdate: ({ editor: activeEditor }) => {
             const html = activeEditor.getHTML();
             lastExternalValue.current = html;
@@ -371,11 +438,22 @@ export default function AdminContentEditorPage() {
                     </Card>
 
                     <Card>
-                        <ContentBodyEditor
-                            label={type === 'events' ? 'Event description' : 'Content body'}
-                            onChange={(value) => updateForm({ [bodyKey]: value })}
-                            value={form[bodyKey] ?? ''}
-                        />
+                        <EditorCrashBoundary
+                            fallback={(
+                                <FallbackVisualEditor
+                                    label={type === 'events' ? 'Event description' : 'Content body'}
+                                    onChange={(value) => updateForm({ [bodyKey]: value })}
+                                    value={form[bodyKey] ?? ''}
+                                />
+                            )}
+                            resetKey={`${type}-${id ?? 'new'}`}
+                        >
+                            <ContentBodyEditor
+                                label={type === 'events' ? 'Event description' : 'Content body'}
+                                onChange={(value) => updateForm({ [bodyKey]: value })}
+                                value={form[bodyKey] ?? ''}
+                            />
+                        </EditorCrashBoundary>
                     </Card>
 
                     <Card>
