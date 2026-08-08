@@ -12,6 +12,9 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminContentEditorPage from './pages/admin/ContentEditorPage';
+import CurrencyRoute from './router/CurrencyRoute';
 
 async function clearBrowserCaches() {
     try {
@@ -76,7 +79,6 @@ const CustomerRewardsPage = lazyWithReload(() => import('./pages/customer/Reward
 const CustomerSavedProvidersPage = lazyWithReload(() => import('./pages/customer/SavedProvidersPage'));
 const CustomerNotificationsPage = lazyWithReload(() => import('./pages/customer/NotificationsPage'));
 const CustomerSettingsPage = lazyWithReload(() => import('./pages/customer/SettingsPage'));
-const AdminLayout = lazyWithReload(() => import('./pages/admin/AdminLayout'));
 const AdminDashboardPage = lazyWithReload(() => import('./pages/admin/DashboardPage'));
 const AdminActivityPage = lazyWithReload(() => import('./pages/admin/ActivityPage'));
 const AdminWaitlistPage = lazyWithReload(() => import('./pages/admin/WaitlistPage'));
@@ -85,7 +87,6 @@ const AdminUserDetailPage = lazyWithReload(() => import('./pages/admin/UserDetai
 const AdminDirectoryPage = lazyWithReload(() => import('./pages/admin/DirectoryPage'));
 const AdminVerificationPage = lazyWithReload(() => import('./pages/admin/VerificationPage'));
 const AdminContentPage = lazyWithReload(() => import('./pages/admin/ContentPage'));
-const AdminContentEditorPage = lazyWithReload(() => import('./pages/admin/ContentEditorPage'));
 const AdminMediaPage = lazyWithReload(() => import('./pages/admin/MediaPage'));
 const AdminEventRegistrationsPage = lazyWithReload(() => import('./pages/admin/EventRegistrationsPage'));
 const AdminOpportunitiesPage = lazyWithReload(() => import('./pages/admin/OpportunitiesPage'));
@@ -93,7 +94,6 @@ const AdminAnnouncementsPage = lazyWithReload(() => import('./pages/admin/Announ
 const AdminSubscriptionsPage = lazyWithReload(() => import('./pages/admin/SubscriptionsPage'));
 const AdminSettingsPage = lazyWithReload(() => import('./pages/admin/SettingsPage'));
 const AdminDocumentationPage = lazyWithReload(() => import('./pages/admin/DocumentationPage'));
-const CurrencyRoute = lazyWithReload(() => import('./router/CurrencyRoute'));
 
 function RouteLoader() {
     return (
@@ -126,7 +126,6 @@ export default function App() {
 
     useEffect(() => {
         window.sessionStorage.removeItem('bphq_lazy_reload');
-        window.sessionStorage.removeItem('bphq_error_boundary_reload');
     }, [location.pathname]);
 
     return (

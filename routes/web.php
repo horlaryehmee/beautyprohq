@@ -233,5 +233,14 @@ Route::get('/{path?}', function (?string $path = null) {
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    return view('app');
+    $response = response()->view('app');
+
+    if ($comingSoonBypass) {
+        return $response
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+
+    return $response;
 })->where('path', '^(?!api|sanctum|up).*$');

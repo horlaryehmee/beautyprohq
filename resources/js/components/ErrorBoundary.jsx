@@ -1,5 +1,4 @@
 import { Component } from 'react';
-import { Link } from 'react-router-dom';
 
 function isRecoverableAssetError(error) {
     const message = String(error?.message ?? error ?? '');
@@ -18,6 +17,13 @@ async function clearBrowserCaches() {
     }
 }
 
+function reloadWithFreshAssets() {
+    window.sessionStorage.removeItem('bphq_lazy_reload');
+    const url = new URL(window.location.href);
+    url.searchParams.set('bphq_refresh', Date.now().toString());
+    clearBrowserCaches().finally(() => window.location.replace(url.toString()));
+}
+
 export default class ErrorBoundary extends Component {
     constructor(props) {
         super(props);
@@ -30,13 +36,7 @@ export default class ErrorBoundary extends Component {
 
     componentDidCatch(error, details) {
         console.error('BeautyPro HQ render error', error, details);
-        if (isRecoverableAssetError(error) && !window.sessionStorage.getItem('bphq_error_boundary_reload')) {
-            window.sessionStorage.removeItem('bphq_lazy_reload');
-            window.sessionStorage.setItem('bphq_error_boundary_reload', '1');
-            const url = new URL(window.location.href);
-            url.searchParams.set('bphq_refresh', Date.now().toString());
-            clearBrowserCaches().finally(() => window.location.replace(url.toString()));
-        }
+        if (isRecoverableAssetError(error)) reloadWithFreshAssets();
     }
 
     componentDidUpdate(previousProps) {
@@ -48,19 +48,32 @@ export default class ErrorBoundary extends Component {
     render() {
         if (!this.state.error) return this.props.children;
 
+        if (isRecoverableAssetError(this.state.error)) {
+            return (
+                <div className="grid min-h-screen place-items-center bg-bphq-ivory px-6 text-center" role="status">
+                    <div>
+                        <div className="mx-auto size-10 animate-spin rounded-full border-2 border-bphq-chrome border-r-bphq-coffee" />
+                        <p className="mt-4 text-sm font-bold text-bphq-espresso">Refreshing the latest BeautyPro HQ files...</p>
+                    </div>
+                </div>
+            );
+        }
+
         return (
-            <main className="grid min-h-screen place-items-center bg-cream-50 px-6 text-center">
-                <div className="max-w-lg rounded-3xl border border-rose-100 bg-white p-8 shadow-xl shadow-plum-900/5">
-                    <p className="text-xs font-bold uppercase tracking-[.2em] text-rose-600">Something went wrong</p>
-                    <h1 className="font-display mt-3 text-3xl text-plum-950">We couldn’t display this page.</h1>
-                    <p className="mt-3 text-sm leading-6 text-stone-600">Your information is safe. Refresh the view or return to the homepage and try again.</p>
-                    <div className="mt-6 flex flex-wrap justify-center gap-3">
-                        <button className="rounded-full border border-plum-200 px-5 py-2.5 text-sm font-bold text-plum-800" type="button" onClick={() => window.location.reload()}>
-                            Refresh
+            <main className="min-h-screen bg-bphq-ivory px-4 py-6 sm:px-6">
+                <div className="mx-auto max-w-5xl rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">View recovered</p>
+                    <h1 className="mt-2 font-display text-2xl font-semibold text-bphq-espresso">This view hit a render error.</h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-bphq-coffee">
+                        The blocking crash page has been removed. Reload the view after saving your latest work, or go back to the previous dashboard screen.
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                        <button className="rounded-xl bg-bphq-coffee px-4 py-2.5 text-sm font-bold text-white" type="button" onClick={() => window.location.reload()}>
+                            Reload view
                         </button>
-                        <Link className="rounded-full bg-plum-800 px-5 py-2.5 text-sm font-bold text-white" to="/">
-                            Go home
-                        </Link>
+                        <button className="rounded-xl border border-bphq-chrome bg-white px-4 py-2.5 text-sm font-bold text-bphq-espresso" type="button" onClick={() => window.history.back()}>
+                            Go back
+                        </button>
                     </div>
                 </div>
             </main>

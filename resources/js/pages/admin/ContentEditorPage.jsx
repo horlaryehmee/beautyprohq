@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 
-const ContentWysiwygEditor = lazy(() => import('./ContentWysiwygEditor'));
+const ContentWysiwygEditor = lazy(() => import('./ContentWysiwygEditor').catch((error) => {
+    console.error('BeautyPro HQ WYSIWYG editor could not load', error);
+    return { default: FallbackVisualEditor };
+}));
 
 const contentTypes = {
     news: {
