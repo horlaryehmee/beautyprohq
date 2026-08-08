@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, cx, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
@@ -39,10 +39,6 @@ function slugify(value) {
     return String(value ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function stripHtml(value) {
-    return String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
 function toForm(item, type) {
     const config = contentTypes[type];
     if (!item) return { ...config.empty };
@@ -79,21 +75,14 @@ function cleanPayload(form, type) {
 
 export function RichEditor({ label, value, onChange }) {
     const editorRef = useRef(null);
-    const [mode, setMode] = useState('write');
-    const previewText = stripHtml(value);
 
     useEffect(() => {
         const node = editorRef.current;
         if (node && node.innerHTML !== (value || '')) node.innerHTML = sanitizeHtml(value || '');
-    }, [value, mode]);
+    }, [value]);
 
     const sync = () => {
         onChange(editorRef.current?.innerHTML ?? '');
-    };
-
-    const switchMode = (nextMode) => {
-        if (nextMode === 'preview') sync();
-        setMode(nextMode);
     };
 
     const run = (command, option = null) => {
@@ -120,45 +109,26 @@ export function RichEditor({ label, value, onChange }) {
 
     return (
         <div>
-            <div className="mb-1.5 flex items-center justify-between gap-3">
+            <div className="mb-1.5 flex items-center gap-3">
                 <span className="text-sm font-bold text-slate-700">{label}</span>
-                <div className="rounded-xl bg-slate-100 p-1">
-                    {['write', 'preview'].map((item) => (
-                        <button key={item} type="button" onClick={() => switchMode(item)} className={cx('rounded-lg px-3 py-1 text-xs font-bold capitalize', mode === item ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500')}>
-                            {item}
-                        </button>
-                    ))}
-                </div>
             </div>
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                {mode === 'write' ? (
-                    <>
-                        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
-                            {tools.map(([toolLabel, action]) => (
-                                <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
-                            ))}
-                        </div>
-                        <div
-                            ref={editorRef}
-                            className="content-prose min-h-[520px] w-full overflow-y-auto bg-white p-5 text-base leading-8 text-slate-900 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
-                            contentEditable
-                            data-placeholder="Write the full content here. Use headings, quotes, links and lists where useful."
-                            onBlur={sync}
-                            onInput={sync}
-                            role="textbox"
-                            suppressContentEditableWarning
-                            tabIndex={0}
-                        />
-                    </>
-                ) : (
-                    <div className="min-h-[520px] p-6">
-                        {previewText ? (
-                            <div className="content-prose">
-                                {previewText.split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
-                            </div>
-                        ) : <p className="text-sm text-slate-400">Preview will appear here.</p>}
-                    </div>
-                )}
+                <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
+                    {tools.map(([toolLabel, action]) => (
+                        <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
+                    ))}
+                </div>
+                <div
+                    ref={editorRef}
+                    className="content-prose min-h-[520px] w-full overflow-y-auto bg-white p-5 text-base leading-8 text-slate-900 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
+                    contentEditable
+                    data-placeholder="Write the full content here. Use headings, quotes, links and lists where useful."
+                    onBlur={sync}
+                    onInput={sync}
+                    role="textbox"
+                    suppressContentEditableWarning
+                    tabIndex={0}
+                />
             </div>
         </div>
     );
@@ -199,23 +169,6 @@ function ImageUploader({ value, onChange }) {
                 </label>
                 {value && <button type="button" onClick={() => onChange('')} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">Remove image</button>}
                 {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
-            </div>
-        </div>
-    );
-}
-
-function PreviewCard({ form, type }) {
-    const config = contentTypes[type];
-    const body = form[config.bodyKey];
-    const label = type === 'events' ? 'Event' : type === 'community' ? String(form.type ?? 'Story').replaceAll('_', ' ') : 'News';
-
-    return (
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            {form.image ? <img src={form.image} alt="" className="aspect-[16/9] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid aspect-[16/9] place-items-center bg-slate-100 text-xs font-bold uppercase tracking-wide text-slate-400">Image preview</div>}
-            <div className="p-5">
-                <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-fuchsia-700">{label}</p>
-                <h3 className="mt-3 font-serif text-3xl font-normal leading-tight text-slate-950">{form.title || 'Untitled content'}</h3>
-                <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-500">{form.excerpt || stripHtml(body) || 'Summary preview will appear here.'}</p>
             </div>
         </div>
     );
@@ -288,8 +241,6 @@ export default function AdminContentEditorPage() {
     };
 
     const publicPath = editing ? config.publicPath(editing) : null;
-    const seoDescription = form.seo_description || form.excerpt || stripHtml(form[bodyKey]).slice(0, 160);
-
     if (!contentTypes[type]) {
         return <ErrorState message="Unknown content type." onRetry={() => navigate('/admin/content')} />;
     }
@@ -304,7 +255,7 @@ export default function AdminContentEditorPage() {
                 <div>
                     <Link to="/admin/content" className="text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-950">Back to content</Link>
                     <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{isNew ? 'Create' : 'Edit'} {config.label.toLowerCase()}</h1>
-                    <p className="mt-2 text-sm text-slate-500">Dedicated publishing workspace with SEO, featured image upload, preview and publishing controls.</p>
+                    <p className="mt-2 text-sm text-slate-500">Dedicated publishing workspace with SEO, featured image upload and publishing controls.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {publicPath && <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={publicPath} target="_blank" rel="noreferrer">View public page</a>}
@@ -342,7 +293,7 @@ export default function AdminContentEditorPage() {
 
                         {type === 'news' && (
                             <Field label="Excerpt">
-                                <textarea className={`${inputClass} min-h-24 resize-y`} onChange={(event) => updateForm({ excerpt: event.target.value })} placeholder="Short summary shown on cards, previews and SEO." value={form.excerpt ?? ''} />
+                                <textarea className={`${inputClass} min-h-24 resize-y`} onChange={(event) => updateForm({ excerpt: event.target.value })} placeholder="Short summary shown on cards and SEO." value={form.excerpt ?? ''} />
                             </Field>
                         )}
                     </Card>
@@ -353,7 +304,7 @@ export default function AdminContentEditorPage() {
 
                     <Card>
                         <h2 className="font-bold text-slate-950">SEO</h2>
-                        <p className="mt-1 text-sm text-slate-500">These fields shape the browser title, Google snippet and social preview.</p>
+                        <p className="mt-1 text-sm text-slate-500">These fields shape the browser title, Google snippet and social sharing text.</p>
                         <div className="mt-5 grid gap-4">
                             <Field label="SEO title">
                                 <input className={inputClass} maxLength={70} onChange={(event) => updateForm({ seo_title: event.target.value })} placeholder={form.title || 'Recommended: 50–60 characters'} value={form.seo_title ?? ''} />
@@ -361,11 +312,6 @@ export default function AdminContentEditorPage() {
                             <Field label="SEO description">
                                 <textarea className={`${inputClass} min-h-24 resize-y`} maxLength={170} onChange={(event) => updateForm({ seo_description: event.target.value })} placeholder="Recommended: 140–160 characters" value={form.seo_description ?? ''} />
                             </Field>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="line-clamp-1 text-base text-bphq-coffee">{form.seo_title || form.title || 'SEO title preview'}</p>
-                                <p className="mt-1 text-xs text-emerald-700">beautyprohq.com{publicPath ?? '/...'}</p>
-                                <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600">{seoDescription || 'SEO description preview.'}</p>
-                            </div>
                         </div>
                     </Card>
                 </div>
@@ -478,7 +424,6 @@ export default function AdminContentEditorPage() {
                         </div>
                     </Card>
 
-                    <PreviewCard form={form} type={type} />
                 </div>
             </div>
         </form>
