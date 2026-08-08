@@ -28,22 +28,23 @@ const typeFilters = {
 
 function ContentRow({ item, active }) {
     const config = contentTypes[active];
+    const editPath = `${config.editBase}/${item.id}/edit`;
     const summary = active === 'events'
         ? `${formatDate(item.date)} · ${item.location ?? 'No location'}`
         : plain(item.excerpt || item[config.bodyKey]);
 
     return (
         <article className="grid grid-cols-[72px_1fr] gap-2.5 rounded-lg border border-slate-200 bg-white p-2 transition hover:border-slate-300 hover:shadow-sm lg:grid-cols-[96px_1fr_auto] lg:items-center lg:gap-4 lg:rounded-3xl lg:p-4">
-            <div className="aspect-square overflow-hidden rounded-lg bg-slate-100 lg:rounded-2xl">
+            <Link to={editPath} aria-label={`Edit ${item.title || config.singular}`} className="aspect-square overflow-hidden rounded-lg bg-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 lg:rounded-2xl">
                 {item.image ? <img src={item.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-full place-items-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Image</div>}
-            </div>
+            </Link>
             <div className="min-w-0">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                     <StatusBadge status={statusFor(item)} />
                     {item.show_on_homepage && <span className="hidden rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold text-fuchsia-700 ring-1 ring-inset ring-fuchsia-600/10 sm:inline-flex">Homepage {item.homepage_sort_order ? `#${item.homepage_sort_order}` : ''}</span>}
                     <span className="truncate text-[10px] font-semibold text-slate-400 lg:text-xs">{item.published_at ? formatDate(item.published_at) : 'Not published'}</span>
                 </div>
-                <h2 className="mt-1 line-clamp-1 text-sm font-bold leading-5 text-slate-950 lg:mt-2 lg:text-lg">{item.title || 'Untitled'}</h2>
+                <Link to={editPath} className="mt-1 block line-clamp-1 text-sm font-bold leading-5 text-slate-950 transition hover:text-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 lg:mt-2 lg:text-lg">{item.title || 'Untitled'}</Link>
                 <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-slate-500 lg:mt-1 lg:line-clamp-2 lg:text-sm lg:leading-6">{summary || 'No summary yet.'}</p>
             </div>
             <div className="col-span-2 flex flex-wrap gap-2 pt-1 lg:col-span-1 lg:justify-end lg:pt-0">
@@ -52,8 +53,8 @@ function ContentRow({ item, active }) {
                         Registrations
                     </Link>
                 )}
-                <Link to={`${config.editBase}/${item.id}/edit`} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 lg:min-h-10 lg:flex-none lg:rounded-xl lg:px-4 lg:text-sm">
-                    Edit
+                <Link to={editPath} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 lg:min-h-10 lg:flex-none lg:rounded-xl lg:px-4 lg:text-sm">
+                    Edit existing
                 </Link>
             </div>
         </article>
