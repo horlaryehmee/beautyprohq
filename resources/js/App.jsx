@@ -7,6 +7,11 @@ import LumaSpin from './components/ui/LumaSpin';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
 import HomeLandingPage from './pages/public/HomeLandingPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 
 function lazyWithReload(importer) {
     return lazy(() => importer().catch((error) => {
@@ -33,11 +38,6 @@ const ContentDetailPage = lazyWithReload(() => import('./pages/public/ContentDet
 const ProviderProfilePage = lazyWithReload(() => import('./pages/public/ProviderProfilePage'));
 const PrivacyPolicyPage = lazyWithReload(() => import('./pages/public/PrivacyPolicyPage'));
 const TermsConditionsPage = lazyWithReload(() => import('./pages/public/TermsConditionsPage'));
-const LoginPage = lazyWithReload(() => import('./pages/auth/LoginPage'));
-const RegisterPage = lazyWithReload(() => import('./pages/auth/RegisterPage'));
-const ForgotPasswordPage = lazyWithReload(() => import('./pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazyWithReload(() => import('./pages/auth/ResetPasswordPage'));
-const VerifyEmailPage = lazyWithReload(() => import('./pages/auth/VerifyEmailPage'));
 const ProviderLayout = lazyWithReload(() => import('./pages/provider/ProviderLayout'));
 const ProviderOnboardingPage = lazyWithReload(() => import('./pages/provider/OnboardingPage'));
 const ProviderOverviewPage = lazyWithReload(() => import('./pages/provider/OverviewPage'));

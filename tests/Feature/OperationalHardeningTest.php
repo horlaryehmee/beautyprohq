@@ -112,4 +112,24 @@ class OperationalHardeningTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('email');
     }
+
+    public function test_register_page_serves_spa_assets(): void
+    {
+        AppSetting::setValue('features.coming_soon', '0');
+
+        $response = $this->get('/register')->assertOk();
+        $html = (string) $response->getContent();
+
+        $this->assertStringContainsString('<div id="root">', $html);
+        $this->assertMatchesRegularExpression('#(/build/assets/app-[^"]+\.css|/resources/css/app\.css)#', $html);
+        $this->assertMatchesRegularExpression('#(/build/assets/main-[^"]+\.js|/resources/js/main\.jsx)#', $html);
+        $this->assertStringContainsString('type="module"', $html);
+    }
+
+    public function test_missing_compiled_assets_do_not_return_the_spa_shell(): void
+    {
+        $response = $this->get('/build/assets/missing-route-chunk.js')->assertNotFound();
+
+        $this->assertStringNotContainsString('<div id="root">', (string) $response->getContent());
+    }
 }
