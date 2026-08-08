@@ -195,6 +195,26 @@ class AuthController extends Controller
         ], 'Welcome back.');
     }
 
+    public function guestMe(Request $request): JsonResponse
+    {
+        $user = null;
+
+        if ($token = $request->bearerToken()) {
+            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            $user = $accessToken?->tokenable;
+        }
+
+        if (! $user && Auth::guard('web')->check()) {
+            $user = Auth::guard('web')->user();
+        }
+
+        if ($user) {
+            return $this->success(['user' => $user->load(['providerProfile', 'activeSubscription.planDefinition'])]);
+        }
+
+        return $this->success(['user' => null]);
+    }
+
     public function me(Request $request): JsonResponse
     {
         return $this->success($request->user()->load(['providerProfile', 'activeSubscription.planDefinition']));
