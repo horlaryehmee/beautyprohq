@@ -419,37 +419,39 @@ export default function AdminContentEditorPage() {
                         </div>
                     </Card>
 
-                    <Card>
-                        <h2 className="font-bold text-slate-950">Content settings</h2>
-                        <div className="mt-5 space-y-4">
-                            {type === 'events' && (
-                                <>
-                                    <Field label="Event date">
-                                        <input className={inputClass} onChange={(event) => updateForm({ date: event.target.value })} required type="date" value={form.date ?? ''} />
-                                    </Field>
-                                    <Field label="Location">
-                                        <input className={inputClass} onChange={(event) => updateForm({ location: event.target.value })} required value={form.location ?? ''} />
-                                    </Field>
-                                    <Field label="Registration URL">
-                                        <input className={inputClass} onChange={(event) => updateForm({ registration_url: event.target.value })} placeholder="https://..." type="url" value={form.registration_url ?? ''} />
-                                    </Field>
-                                </>
-                            )}
+                    {type !== 'news' && (
+                        <Card>
+                            <h2 className="font-bold text-slate-950">Content settings</h2>
+                            <div className="mt-5 space-y-4">
+                                {type === 'events' && (
+                                    <>
+                                        <Field label="Event date">
+                                            <input className={inputClass} onChange={(event) => updateForm({ date: event.target.value })} required type="date" value={form.date ?? ''} />
+                                        </Field>
+                                        <Field label="Location">
+                                            <input className={inputClass} onChange={(event) => updateForm({ location: event.target.value })} required value={form.location ?? ''} />
+                                        </Field>
+                                        <Field label="Registration URL">
+                                            <input className={inputClass} onChange={(event) => updateForm({ registration_url: event.target.value })} placeholder="https://..." type="url" value={form.registration_url ?? ''} />
+                                        </Field>
+                                    </>
+                                )}
 
-                            {type === 'community' && (
-                                <Field label="Story type">
-                                    <select className={inputClass} onChange={(event) => updateForm({ type: event.target.value })} value={form.type ?? 'story'}>
-                                        <option value="story">Success story</option>
-                                        <option value="spotlight">Member spotlight</option>
-                                        <option value="pro_of_the_week">Pro of the week</option>
-                                        <option value="business_win">Beauty business win</option>
-                                        <option value="event_coverage">Event coverage</option>
-                                        <option value="day_in_the_life">Day in the life</option>
-                                    </select>
-                                </Field>
-                            )}
-                        </div>
-                    </Card>
+                                {type === 'community' && (
+                                    <Field label="Story type">
+                                        <select className={inputClass} onChange={(event) => updateForm({ type: event.target.value })} value={form.type ?? 'story'}>
+                                            <option value="story">Success story</option>
+                                            <option value="spotlight">Member spotlight</option>
+                                            <option value="pro_of_the_week">Pro of the week</option>
+                                            <option value="business_win">Beauty business win</option>
+                                            <option value="event_coverage">Event coverage</option>
+                                            <option value="day_in_the_life">Day in the life</option>
+                                        </select>
+                                    </Field>
+                                )}
+                            </div>
+                        </Card>
+                    )}
 
                 </div>
             </div>
