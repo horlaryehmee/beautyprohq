@@ -61,7 +61,7 @@
     @endisset
     @viteReactRefresh
     {{-- Inline CSS on homepage; external CSS for SPA routes (login, etc.) --}}
-    @if($inlineHomepageCss ?? false)
+    @if($homepageShell ?? false)
         <style data-app-css>{!! \Illuminate\Support\Facades\Vite::content('resources/css/app.css') !!}</style>
         @vite(['resources/js/main.jsx'])
     @else
