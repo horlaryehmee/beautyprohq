@@ -32,6 +32,7 @@ use App\Models\User;
 use App\Models\VerificationRequest;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -453,7 +454,21 @@ class DemoDataController extends Controller
             ['title' => 'BPHQ Demo Platform Notice'],
             ['message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()],
         );
-        NewsletterSubscriber::updateOrCreate(['email' => 'demo.newsletter@beautyprohq.test'], ['name' => 'Demo Newsletter', 'subscribed_at' => now(), 'unsubscribed_at' => null]);
+        NewsletterSubscriber::updateOrCreate(
+            ['email' => 'demo.newsletter@beautyprohq.test'],
+            $this->newsletterSubscriberPayload('Demo Newsletter')
+        );
+    }
+
+    private function newsletterSubscriberPayload(string $name): array
+    {
+        $payload = ['subscribed_at' => now(), 'unsubscribed_at' => null];
+
+        if (Schema::hasColumn('newsletter_subscribers', 'name')) {
+            $payload['name'] = $name;
+        }
+
+        return $payload;
     }
 
     private function categoryForProfession(string $profession): ?ProviderCategory
