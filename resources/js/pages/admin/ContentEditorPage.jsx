@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
-import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const contentTypes = {
     news: {
@@ -71,67 +70,6 @@ function cleanPayload(form, type) {
     });
 
     return payload;
-}
-
-export function RichEditor({ label, value, onChange }) {
-    const editorRef = useRef(null);
-
-    useEffect(() => {
-        const node = editorRef.current;
-        if (node && node.innerHTML !== (value || '')) node.innerHTML = sanitizeHtml(value || '');
-    }, [value]);
-
-    const sync = () => {
-        onChange(editorRef.current?.innerHTML ?? '');
-    };
-
-    const run = (command, option = null) => {
-        editorRef.current?.focus();
-        document.execCommand(command, false, option);
-        sync();
-    };
-
-    const setBlock = (tag) => run('formatBlock', tag);
-    const addLink = () => {
-        const url = window.prompt('Enter link URL');
-        if (!url) return;
-        run('createLink', url);
-    };
-
-    const tools = [
-        ['H2', () => setBlock('h2')],
-        ['H3', () => setBlock('h3')],
-        ['Bold', () => run('bold')],
-        ['Quote', () => setBlock('blockquote')],
-        ['List', () => run('insertUnorderedList')],
-        ['Link', addLink],
-    ];
-
-    return (
-        <div>
-            <div className="mb-1.5 flex items-center gap-3">
-                <span className="text-sm font-bold text-slate-700">{label}</span>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
-                    {tools.map(([toolLabel, action]) => (
-                        <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
-                    ))}
-                </div>
-                <div
-                    ref={editorRef}
-                    className="content-prose min-h-[520px] w-full overflow-y-auto bg-white p-5 text-base leading-8 text-slate-900 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
-                    contentEditable
-                    data-placeholder="Write the full content here. Use headings, quotes, links and lists where useful."
-                    onBlur={sync}
-                    onInput={sync}
-                    role="textbox"
-                    suppressContentEditableWarning
-                    tabIndex={0}
-                />
-            </div>
-        </div>
-    );
 }
 
 function ImageUploader({ value, onChange }) {
@@ -301,7 +239,18 @@ export default function AdminContentEditorPage() {
                     </Card>
 
                     <Card>
-                        <RichEditor label={type === 'events' ? 'Event description' : 'Content body'} onChange={(value) => updateForm({ [bodyKey]: value })} value={form[bodyKey] ?? ''} />
+                        <Field
+                            label={type === 'events' ? 'Event description' : 'Content body'}
+                            hint="You can write plain text or basic HTML. Content is cleaned safely before publishing."
+                        >
+                            <textarea
+                                className={`${inputClass} min-h-[520px] resize-y text-base leading-8`}
+                                onChange={(event) => updateForm({ [bodyKey]: event.target.value })}
+                                placeholder="Write the full content here."
+                                required
+                                value={form[bodyKey] ?? ''}
+                            />
+                        </Field>
                     </Card>
 
                     <Card>
