@@ -72,31 +72,35 @@ export default function ProviderLoyaltyPage() {
 
             <Card>
                 <CardHeader description="Customers can redeem only when their provider-specific balance covers the selected service price." title="Programme settings" />
-                <form className="grid gap-4 lg:grid-cols-[1fr_190px_190px_220px_auto]" onSubmit={saveSettings}>
-                    <label className="flex items-center gap-3 rounded-2xl border border-slate-100 p-4 text-sm font-bold text-slate-700">
-                        <input checked={settings.enabled} className="size-4 accent-fuchsia-700" onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} type="checkbox" />
-                        Enable loyalty rewards
-                    </label>
-                    <Field label="Points per completed booking">
-                        <input className={inputClass} min="0" onChange={(event) => setSettings((current) => ({ ...current, points_per_booking: Number(event.target.value) }))} required type="number" value={settings.points_per_booking} />
-                    </Field>
-                    <Field label="Points needed to request service">
-                        <input className={inputClass} min="1" onChange={(event) => setSettings((current) => ({ ...current, points_required: Number(event.target.value) }))} required type="number" value={settings.points_required} />
-                    </Field>
-                    <Field label={`Value of ${Number(settings.points_required || 0).toLocaleString()} pts`}>
-                        <input className={inputClass} min="0.01" step="0.01" onChange={(event) => setSettings((current) => ({ ...current, reward_value_amount: Number(event.target.value) }))} required type="number" value={settings.reward_value_amount} />
-                    </Field>
-                    <div className="grid gap-4 lg:col-span-4 lg:grid-cols-[1fr_190px]">
-                        <label className="flex items-center gap-3 rounded-2xl border border-slate-100 p-4 text-sm font-bold text-slate-700">
-                            <input checked={settings.referral_rewards_enabled} className="size-4 accent-fuchsia-700" onChange={(event) => setSettings((current) => ({ ...current, referral_rewards_enabled: event.target.checked }))} type="checkbox" />
-                            Enable referral rewards
+                <form className="space-y-5" onSubmit={saveSettings}>
+                    <div className="grid gap-4 xl:grid-cols-[minmax(220px,0.85fr)_minmax(0,2.15fr)] xl:items-end">
+                        <label className="flex min-h-14 items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700">
+                            <input checked={settings.enabled} className="size-4 shrink-0 accent-fuchsia-700" onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} type="checkbox" />
+                            <span>Enable loyalty rewards</span>
                         </label>
-                        <Field label="Points per referral">
-                            <input className={inputClass} min="0" onChange={(event) => setSettings((current) => ({ ...current, referral_points: Number(event.target.value) }))} required type="number" value={settings.referral_points} />
-                        </Field>
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Field label="Points per completed booking">
+                                <input className={inputClass} min="0" onChange={(event) => setSettings((current) => ({ ...current, points_per_booking: Number(event.target.value) }))} required type="number" value={settings.points_per_booking} />
+                            </Field>
+                            <Field label="Points needed to request service">
+                                <input className={inputClass} min="1" onChange={(event) => setSettings((current) => ({ ...current, points_required: Number(event.target.value) }))} required type="number" value={settings.points_required} />
+                            </Field>
+                            <Field label={`Value of ${Number(settings.points_required || 0).toLocaleString()} pts`}>
+                                <input className={inputClass} min="0.01" step="0.01" onChange={(event) => setSettings((current) => ({ ...current, reward_value_amount: Number(event.target.value) }))} required type="number" value={settings.reward_value_amount} />
+                            </Field>
+                        </div>
                     </div>
-                    <div className="flex items-end">
-                        <Button busy={savingSettings} className="w-full" type="submit">Save settings</Button>
+                    <div className="grid gap-4 border-t border-slate-100 pt-5 xl:grid-cols-[minmax(220px,0.85fr)_minmax(0,2.15fr)] xl:items-end">
+                        <label className="flex min-h-14 items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700">
+                            <input checked={settings.referral_rewards_enabled} className="size-4 shrink-0 accent-fuchsia-700" onChange={(event) => setSettings((current) => ({ ...current, referral_rewards_enabled: event.target.checked }))} type="checkbox" />
+                            <span>Enable referral rewards</span>
+                        </label>
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <Field label="Points per referral">
+                                <input className={inputClass} min="0" onChange={(event) => setSettings((current) => ({ ...current, referral_points: Number(event.target.value) }))} required type="number" value={settings.referral_points} />
+                            </Field>
+                            <Button busy={savingSettings} className="w-full sm:w-auto" type="submit">Save settings</Button>
+                        </div>
                     </div>
                 </form>
             </Card>
