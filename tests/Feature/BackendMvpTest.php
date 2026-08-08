@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Availability;
+use App\Models\Booking;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -170,6 +171,46 @@ class BackendMvpTest extends TestCase
             'account_identifier' => 'ACCT_demo', 'public_key' => 'pk_test_demo', 'enabled' => true,
         ])->assertOk()->assertJsonPath('data.enabled', true);
         $this->assertDatabaseHas('payment_accounts', ['provider_id' => $provider->id, 'gateway' => 'paystack', 'account_identifier' => 'ACCT_demo']);
+    }
+
+    public function test_provider_analytics_reports_customer_retention(): void
+    {
+        [$provider, $user] = $this->provider('Retention Studio', true);
+        $service = $provider->services()->create(['name' => 'Retention Facial', 'price' => 15000, 'duration_minutes' => 60]);
+        $returningCustomer = User::factory()->create();
+        $samePeriodRepeatCustomer = User::factory()->create();
+        $newCustomer = User::factory()->create();
+
+        Booking::create([
+            'provider_id' => $provider->id,
+            'customer_id' => $returningCustomer->id,
+            'service_id' => $service->id,
+            'date' => now()->subMonth()->toDateString(),
+            'time' => '10:00',
+            'status' => 'completed',
+            'created_at' => now()->subMonth(),
+            'updated_at' => now()->subMonth(),
+        ]);
+
+        foreach ([$returningCustomer, $samePeriodRepeatCustomer, $samePeriodRepeatCustomer, $newCustomer] as $index => $customer) {
+            Booking::create([
+                'provider_id' => $provider->id,
+                'customer_id' => $customer->id,
+                'service_id' => $service->id,
+                'date' => now()->addDays($index + 1)->toDateString(),
+                'time' => sprintf('1%d:00', $index),
+                'status' => 'confirmed',
+                'created_at' => now()->subDays($index),
+                'updated_at' => now()->subDays($index),
+            ]);
+        }
+
+        Sanctum::actingAs($user);
+        $this->getJson('/api/provider/analytics?period=month')
+            ->assertOk()
+            ->assertJsonPath('data.period_customers', 3)
+            ->assertJsonPath('data.returning_customers', 2)
+            ->assertJsonPath('data.customer_retention_rate', 66.7);
     }
 
     public function test_customer_saved_provider_actions_are_idempotent(): void

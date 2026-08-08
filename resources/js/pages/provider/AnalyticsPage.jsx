@@ -34,7 +34,7 @@ export default function ProviderAnalyticsPage() {
                 <StatCard icon="profile" label="Profile views" tone="sky" value={viewTotal} />
                 <StatCard icon="booking" label="Booking requests" tone="plum" value={stats.booking_requests ?? stats.booking_count ?? stats.bookings ?? 0} />
                 <StatCard icon="analytics" label="Conversion rate" note="Views to bookings" tone="emerald" value={`${Number(stats.conversion_rate ?? 0).toFixed(1)}%`} />
-                <StatCard icon="loyalty" label="Completed bookings" tone="rose" value={stats.status_breakdown?.completed ?? stats.completed_bookings ?? 0} />
+                <StatCard icon="loyalty" label="Customer retention" note={`${Number(stats.returning_customers ?? 0)} of ${Number(stats.period_customers ?? 0)} customers returned`} tone="rose" value={`${Number(stats.customer_retention_rate ?? 0).toFixed(1)}%`} />
             </div>
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
                 <Card>

@@ -32,6 +32,7 @@ class DashboardController extends Controller
         $monthBookings = (clone $base)->where('created_at', '>=', $from);
         $viewCount = (int) $views->sum('total');
         $bookingCount = (clone $monthBookings)->count();
+        $retention = $this->customerRetention($provider->id, $from);
         $paidPayments = Payment::where('provider_id', $provider->id)->where('status', 'paid');
         $locationParts = collect(explode(',', (string) $provider->location))
             ->map(fn ($part) => trim($part))
@@ -55,6 +56,9 @@ class DashboardController extends Controller
                 'profile_views' => $provider->profile_views,
                 'monthly_profile_views' => $viewCount,
                 'conversion_rate' => $viewCount > 0 ? round($bookingCount / $viewCount * 100, 1) : 0,
+                'customer_retention_rate' => $retention['rate'],
+                'returning_customers' => $retention['returning_customers'],
+                'period_customers' => $retention['period_customers'],
                 'rating' => $provider->rating,
                 'review_count' => $provider->review_count,
                 'customer_count' => (clone $base)->distinct('customer_id')->count('customer_id'),
@@ -281,17 +285,57 @@ class DashboardController extends Controller
         $views = ProfileView::where('provider_id', $provider->id)->where('viewed_on', '>=', $from)->select('viewed_on', DB::raw('count(*) as total'))->groupBy('viewed_on')->orderBy('viewed_on')->get();
         $bookings = Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from);
         $viewCount = $views->sum('total');
+        $bookingCount = (clone $bookings)->count();
+        $retention = $this->customerRetention($provider->id, $from);
 
         return $this->success([
             'period' => $period,
             'from' => $from->toDateString(),
             'to' => now()->toDateString(),
             'profile_views' => $views,
-            'booking_count' => (clone $bookings)->count(),
-            'conversion_rate' => $viewCount > 0 ? round((clone $bookings)->count() / $viewCount * 100, 1) : 0,
+            'booking_count' => $bookingCount,
+            'conversion_rate' => $viewCount > 0 ? round($bookingCount / $viewCount * 100, 1) : 0,
+            'customer_retention_rate' => $retention['rate'],
+            'returning_customers' => $retention['returning_customers'],
+            'period_customers' => $retention['period_customers'],
             'service_popularity' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('service_id', DB::raw('count(*) as bookings_count'))->with('service:id,name')->groupBy('service_id')->orderByDesc('bookings_count')->get(),
             'status_breakdown' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
         ]);
+    }
+
+    private function customerRetention(int $providerId, $from): array
+    {
+        $retentionStatuses = ['pending', 'confirmed', 'completed'];
+        $periodCustomers = Booking::where('provider_id', $providerId)
+            ->whereIn('status', $retentionStatuses)
+            ->where('created_at', '>=', $from)
+            ->select('customer_id', DB::raw('count(*) as period_bookings'))
+            ->groupBy('customer_id')
+            ->get();
+
+        $periodCustomerIds = $periodCustomers->pluck('customer_id')->filter()->values();
+        if ($periodCustomerIds->isEmpty()) {
+            return ['rate' => 0.0, 'returning_customers' => 0, 'period_customers' => 0];
+        }
+
+        $previousCustomerIds = Booking::where('provider_id', $providerId)
+            ->whereIn('status', $retentionStatuses)
+            ->where('created_at', '<', $from)
+            ->whereIn('customer_id', $periodCustomerIds)
+            ->distinct()
+            ->pluck('customer_id');
+
+        $returningCustomerIds = $periodCustomers
+            ->filter(fn ($customer) => (int) $customer->period_bookings > 1 || $previousCustomerIds->contains($customer->customer_id))
+            ->pluck('customer_id')
+            ->unique()
+            ->values();
+
+        return [
+            'rate' => round($returningCustomerIds->count() / $periodCustomerIds->count() * 100, 1),
+            'returning_customers' => $returningCustomerIds->count(),
+            'period_customers' => $periodCustomerIds->count(),
+        ];
     }
 
     public function verification(Request $request): JsonResponse
