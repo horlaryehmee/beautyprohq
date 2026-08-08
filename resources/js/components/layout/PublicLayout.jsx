@@ -107,6 +107,11 @@ export default function PublicLayout() {
             ? location.pathname === '/'
             : tab.to && location.pathname.startsWith(tab.to)
     ));
+    const brand = window.__BPHQ_BRAND__ ?? {};
+    const headerStyle = {
+        '--bphq-mobile-header-height': `${Number(brand.mobile_header_height ?? 96)}px`,
+        '--bphq-desktop-header-height': `${Number(brand.desktop_header_height ?? 112)}px`,
+    };
 
     function handleMobileTabChange(index, tab) {
         if (tab.action === 'contact') {
@@ -122,8 +127,8 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            {!isBookingPage && <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden">
-                <div className="flex h-24 items-center justify-between px-4">
+            {!isBookingPage && <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden" style={headerStyle}>
+                <div className="flex h-[var(--bphq-mobile-header-height)] items-center justify-between px-4">
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
@@ -185,8 +190,8 @@ export default function PublicLayout() {
                 />
             </nav>}
 
-            {!isBookingPage && <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`}>
-                <div className="page-container flex h-28 items-center justify-between gap-5">
+            {!isBookingPage && <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`} style={headerStyle}>
+                <div className="page-container flex h-[var(--bphq-desktop-header-height)] items-center justify-between gap-5">
                     <Logo />
 
                     <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">

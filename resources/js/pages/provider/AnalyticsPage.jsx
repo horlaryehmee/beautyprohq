@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Card, CardHeader, EmptyState, ErrorState, LoadingBlock, PageHeader, StatCard, useApiResource } from '../../components/dashboard';
 
 const normalize = (value, key) => Array.isArray(value) ? value : value?.[key] ?? [];
 
 export default function ProviderAnalyticsPage() {
-    const resource = useApiResource('/provider/analytics', {});
+    const [period, setPeriod] = useState('month');
+    const resource = useApiResource('/provider/analytics', {}, { params: { period } });
     const data = resource.data ?? {};
     const stats = data.stats ?? data.summary ?? data;
     const services = normalize(data, 'service_popularity');
@@ -20,7 +22,12 @@ export default function ProviderAnalyticsPage() {
     const maxBookings = Math.max(1, ...services.map((service) => Number(service.bookings_count ?? service.count ?? 0)));
 
     return <div className="space-y-6">
-        <PageHeader description="See what brings customers to your profile and turns visits into bookings." eyebrow="Performance" title="Analytics" />
+        <PageHeader
+            actions={<div className="flex rounded-2xl border border-slate-200 bg-white p-1">{['day', 'week', 'month'].map((item) => <button className={`rounded-xl px-3 py-2 text-xs font-bold capitalize transition ${period === item ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`} key={item} onClick={() => setPeriod(item)} type="button">{item}</button>)}</div>}
+            description="See what brings customers to your profile and turns visits into bookings."
+            eyebrow="Performance"
+            title="Analytics"
+        />
         {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
         {resource.loading ? <LoadingBlock rows={6} /> : <>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -25,7 +25,7 @@ class LiveChatController extends Controller
         ]);
 
         $conversations = LiveChatConversation::where('provider_id', $provider->id)
-            ->with(['messages' => fn ($q) => $q->latest()->limit(1)])
+            ->with(['booking.service:id,name', 'messages' => fn ($q) => $q->latest()->limit(1)])
             ->withCount('messages')
             ->when($validated['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($validated['search'] ?? null, function ($q, string $search): void {
@@ -120,6 +120,7 @@ class LiveChatController extends Controller
 
     private function conversationPayload(LiveChatConversation $conversation, array $options = []): array
     {
+        $conversation->loadMissing(['booking.service:id,name']);
         $perPage = min((int) ($options['per_page'] ?? 50), 100);
         $query = $conversation->messages()->with('sender:id,name');
         $mode = 'latest';
@@ -149,6 +150,8 @@ class LiveChatController extends Controller
             'customer_id' => $conversation->customer_id,
             'visitor_name' => $conversation->visitor_name,
             'visitor_email' => $conversation->visitor_email,
+            'booking_id' => $conversation->booking_id,
+            'service_name' => $conversation->booking?->service?->name,
             'status' => $conversation->status,
             'provider_unread_count' => $conversation->provider_unread_count,
             'visitor_unread_count' => $conversation->visitor_unread_count,

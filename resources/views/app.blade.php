@@ -5,6 +5,8 @@
     $brandLogoUrl = \App\Models\AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg');
     $brandEmailLogoUrl = \App\Models\AppSetting::getValue('branding.email_logo_url', $brandLogoUrl);
     $brandFaviconUrl = \App\Models\AppSetting::getValue('branding.favicon_url', '/brand/bphq-logo-transparent.svg');
+    $brandDesktopHeaderHeight = (int) \App\Models\AppSetting::getValue('branding.desktop_header_height', 112);
+    $brandMobileHeaderHeight = (int) \App\Models\AppSetting::getValue('branding.mobile_header_height', 96);
 @endphp
 <head>
     <meta charset="utf-8">
@@ -49,6 +51,8 @@
             'logo_url' => $brandLogoUrl,
             'email_logo_url' => $brandEmailLogoUrl,
             'favicon_url' => $brandFaviconUrl,
+            'desktop_header_height' => $brandDesktopHeaderHeight,
+            'mobile_header_height' => $brandMobileHeaderHeight,
         ]) !!};
     </script>
     @isset($structuredData)

@@ -500,12 +500,16 @@ class SubscriptionController extends Controller
             'logo_url' => ['nullable', 'string', 'max:500'],
             'email_logo_url' => ['nullable', 'string', 'max:500'],
             'favicon_url' => ['nullable', 'string', 'max:500'],
+            'desktop_header_height' => ['nullable', 'integer', 'min:64', 'max:180'],
+            'mobile_header_height' => ['nullable', 'integer', 'min:56', 'max:140'],
         ]);
 
         AppSetting::setValue('branding.site_name', $validated['site_name'] ?? null);
         AppSetting::setValue('branding.logo_url', $validated['logo_url'] ?? null);
         AppSetting::setValue('branding.email_logo_url', $validated['email_logo_url'] ?? null);
         AppSetting::setValue('branding.favicon_url', $validated['favicon_url'] ?? null);
+        AppSetting::setValue('branding.desktop_header_height', $validated['desktop_header_height'] ?? 112);
+        AppSetting::setValue('branding.mobile_header_height', $validated['mobile_header_height'] ?? 96);
 
         return $this->success($this->brandingPayload(), 'Branding settings saved.');
     }
@@ -960,6 +964,8 @@ class SubscriptionController extends Controller
             'logo_url' => AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg'),
             'email_logo_url' => AppSetting::getValue('branding.email_logo_url', AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg')),
             'favicon_url' => AppSetting::getValue('branding.favicon_url', '/brand/bphq-logo-transparent.svg'),
+            'desktop_header_height' => (int) AppSetting::getValue('branding.desktop_header_height', 112),
+            'mobile_header_height' => (int) AppSetting::getValue('branding.mobile_header_height', 96),
         ];
     }
 

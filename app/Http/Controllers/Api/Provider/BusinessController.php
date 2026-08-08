@@ -7,7 +7,6 @@ use App\Models\CrmActivity;
 use App\Models\CrmCustomer;
 use App\Models\DigitalProduct;
 use App\Models\Loyalty;
-use App\Models\LoyaltyTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\User;
@@ -115,6 +114,8 @@ class BusinessController extends Controller
                 'enabled' => (bool) $provider->loyalty_enabled,
                 'points_per_booking' => (int) ($provider->loyalty_points_per_booking ?? 10),
                 'points_required' => (int) ($provider->loyalty_points_required ?? 100),
+                'reward_value_amount' => (float) ($provider->loyalty_reward_value_amount ?? 0),
+                'currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
             ],
             'customers' => Loyalty::where('provider_id', $provider->id)->with('customer:id,name,email')->latest()->get(),
             'rewards' => $provider->rewards()->orderBy('points_required')->get(),
@@ -127,6 +128,7 @@ class BusinessController extends Controller
             'enabled' => ['required', 'boolean'],
             'points_per_booking' => ['required', 'integer', 'min:0', 'max:100000'],
             'points_required' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'reward_value_amount' => ['required', 'numeric', 'min:0.01', 'max:999999999'],
         ]);
 
         $provider = $request->user()->providerProfile;
@@ -134,34 +136,16 @@ class BusinessController extends Controller
             'loyalty_enabled' => $validated['enabled'],
             'loyalty_points_per_booking' => $validated['points_per_booking'],
             'loyalty_points_required' => $validated['points_required'],
+            'loyalty_reward_value_amount' => $validated['reward_value_amount'],
         ]);
 
         return $this->success([
             'enabled' => (bool) $provider->loyalty_enabled,
             'points_per_booking' => (int) $provider->loyalty_points_per_booking,
             'points_required' => (int) $provider->loyalty_points_required,
+            'reward_value_amount' => (float) $provider->loyalty_reward_value_amount,
+            'currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
         ], 'Loyalty settings updated.');
-    }
-
-    public function updateLoyalty(Request $request, User $customer): JsonResponse
-    {
-        $provider = $request->user()->providerProfile;
-        abort_unless($provider->bookings()->where('customer_id', $customer->id)->exists(), 422, 'This customer has not booked with you.');
-        $validated = $request->validate(['points' => ['required', 'integer', 'between:-100000,100000'], 'reason' => ['nullable', 'string', 'max:255']]);
-
-        $loyalty = DB::transaction(function () use ($provider, $customer, $validated): Loyalty {
-            $loyalty = Loyalty::lockForUpdate()->firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
-            abort_if($loyalty->points + $validated['points'] < 0, 422, 'The customer does not have enough points.');
-            $loyalty->increment('points', $validated['points']);
-            if ($validated['points'] > 0) {
-                $loyalty->increment('lifetime_points', $validated['points']);
-            }
-            LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'points' => $validated['points'], 'reason' => $validated['reason'] ?? 'Manual adjustment']);
-
-            return $loyalty->fresh();
-        });
-
-        return $this->success($loyalty->load('customer:id,name,email'), 'Loyalty points updated.');
     }
 
     public function payments(Request $request): JsonResponse

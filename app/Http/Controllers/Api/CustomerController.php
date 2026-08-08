@@ -36,6 +36,17 @@ class CustomerController extends Controller
             ->with(['provider.user:id,name', 'provider.rewards' => fn ($q) => $q->where('is_active', true)->orderBy('points_required'), 'transactions' => fn ($q) => $q->latest()->limit(10)])
             ->orderByDesc('points')->get();
 
+        $loyalties->each(function (Loyalty $loyalty): void {
+            $provider = $loyalty->provider;
+            $loyalty->setAttribute('redemption', [
+                'provider_id' => $provider?->id,
+                'currency' => $provider?->default_currency ?? config('currencies.default', 'NGN'),
+                'minimum_points' => (int) ($provider?->loyalty_points_required ?? 0),
+                'minimum_value_amount' => (float) ($provider?->loyalty_reward_value_amount ?? 0),
+                'enabled' => (bool) ($provider?->loyalty_enabled ?? false),
+            ]);
+        });
+
         return $this->success($loyalties);
     }
 

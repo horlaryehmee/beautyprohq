@@ -48,4 +48,9 @@ class Booking extends Model
     {
         return $this->hasOne(Payment::class);
     }
+
+    public function liveChatConversation(): HasOne
+    {
+        return $this->hasOne(LiveChatConversation::class);
+    }
 }

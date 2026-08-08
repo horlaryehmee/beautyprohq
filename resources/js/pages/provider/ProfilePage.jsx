@@ -387,7 +387,7 @@ export default function ProviderProfilePage() {
 
                     {step === 8 && (
                         <div className="space-y-5">
-                            <CardHeader description="Ask customers for extra details before they submit a booking request." title="Custom booking questions" />
+                            <CardHeader description="The default booking form always includes name, email, phone number and note. Add only extra provider-specific questions here." title="Custom booking questions" />
                             {form.booking_form_fields.length ? (
                                 <div className="space-y-4">
                                     {form.booking_form_fields.map((field, index) => (
@@ -405,7 +405,7 @@ export default function ProviderProfilePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">No extra booking questions yet. Customers will only see the default booking fields.</div>
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">No extra booking questions yet. Customers will see name, email, phone number and note.</div>
                             )}
                             <Button disabled={form.booking_form_fields.length >= 8} onClick={addBookingField} type="button" variant="soft">Add booking question</Button>
                         </div>

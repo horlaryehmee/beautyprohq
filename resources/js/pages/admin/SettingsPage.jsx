@@ -44,7 +44,7 @@ export default function AdminSettingsPage() {
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
-    const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg' });
+    const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg', desktop_header_height: 112, mobile_header_height: 96 });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
@@ -113,12 +113,14 @@ export default function AdminSettingsPage() {
     useEffect(() => {
         const data = brandingResource.data;
         if (!data || !Object.keys(data).length) return;
-        setBrandingForm({
-            site_name: data.site_name ?? 'BeautyPro HQ',
-            logo_url: data.logo_url ?? '/brand/bphq-logo-transparent.svg',
-            email_logo_url: data.email_logo_url ?? data.logo_url ?? '/brand/bphq-logo-transparent.svg',
-            favicon_url: data.favicon_url ?? '/brand/bphq-logo-transparent.svg',
-        });
+            setBrandingForm({
+                site_name: data.site_name ?? 'BeautyPro HQ',
+                logo_url: data.logo_url ?? '/brand/bphq-logo-transparent.svg',
+                email_logo_url: data.email_logo_url ?? data.logo_url ?? '/brand/bphq-logo-transparent.svg',
+                favicon_url: data.favicon_url ?? '/brand/bphq-logo-transparent.svg',
+                desktop_header_height: Number(data.desktop_header_height ?? 112),
+                mobile_header_height: Number(data.mobile_header_height ?? 96),
+            });
     }, [brandingResource.data]);
 
     useEffect(() => {
@@ -457,6 +459,26 @@ export default function AdminSettingsPage() {
                                     onChange={(event) => setBrandingForm((current) => ({ ...current, favicon_url: event.target.value }))}
                                     placeholder="/brand/bphq-logo-transparent.svg"
                                     value={brandingForm.favicon_url}
+                                />
+                            </Field>
+                            <Field hint="Pixels. Applies to the desktop public header." label="Desktop header height">
+                                <input
+                                    className={inputClass}
+                                    min="64"
+                                    max="180"
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, desktop_header_height: Number(event.target.value) }))}
+                                    type="number"
+                                    value={brandingForm.desktop_header_height}
+                                />
+                            </Field>
+                            <Field hint="Pixels. Applies to the mobile public header." label="Mobile header height">
+                                <input
+                                    className={inputClass}
+                                    min="56"
+                                    max="140"
+                                    onChange={(event) => setBrandingForm((current) => ({ ...current, mobile_header_height: Number(event.target.value) }))}
+                                    type="number"
+                                    value={brandingForm.mobile_header_height}
                                 />
                             </Field>
                         </div>

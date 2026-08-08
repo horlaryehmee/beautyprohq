@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\CrmCustomer;
 use App\Models\LiveChatConversation;
 use App\Models\ProviderProfile;
@@ -17,6 +18,65 @@ use Throwable;
 
 class LiveChatController extends Controller
 {
+    public function customerIndex(Request $request): JsonResponse
+    {
+        $conversations = LiveChatConversation::where('customer_id', $request->user()->id)
+            ->whereHas('booking', fn ($query) => $query->whereIn('status', ['pending', 'confirmed']))
+            ->with(['provider.user:id,name', 'booking.service:id,name', 'messages' => fn ($q) => $q->latest()->limit(1)])
+            ->withCount('messages')
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id')
+            ->paginate($request->integer('per_page', 20));
+
+        return $this->success($conversations->items(), meta: $this->paginationMeta($conversations) + [
+            'unread_count' => LiveChatConversation::where('customer_id', $request->user()->id)
+                ->whereHas('booking', fn ($query) => $query->whereIn('status', ['pending', 'confirmed']))
+                ->sum('visitor_unread_count'),
+        ]);
+    }
+
+    public function customerShow(Request $request, LiveChatConversation $conversation): JsonResponse
+    {
+        $this->authorizeCustomerBookingChat($request, $conversation);
+        $validated = $request->validate([
+            'before_id' => ['nullable', 'integer', 'min:1'],
+            'after_id' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
+        ]);
+        $conversation->messages()->where('sender_type', 'provider')->whereNull('read_at')->update(['read_at' => now()]);
+        $conversation->forceFill(['visitor_unread_count' => 0])->save();
+
+        return $this->success($this->publicConversationPayload($conversation->fresh(['provider.user', 'booking.service']), $validated));
+    }
+
+    public function customerReply(Request $request, LiveChatConversation $conversation): JsonResponse
+    {
+        $this->authorizeCustomerBookingChat($request, $conversation);
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'min:1', 'max:3000'],
+        ]);
+
+        $message = DB::transaction(function () use ($request, $conversation, $validated) {
+            $message = $conversation->messages()->create([
+                'sender_user_id' => $request->user()->id,
+                'sender_type' => 'visitor',
+                'body' => $validated['message'],
+            ]);
+            $conversation->forceFill([
+                'status' => 'open',
+                'provider_unread_count' => $conversation->provider_unread_count + 1,
+                'last_message_at' => now(),
+                'closed_at' => null,
+            ])->save();
+
+            return $message;
+        });
+
+        $this->notifyProvider($conversation, $message);
+
+        return $this->success($message->load('sender:id,name'), 'Reply sent.', 201);
+    }
+
     public function start(Request $request, ProviderProfile $provider): JsonResponse
     {
         abort_unless($provider->is_listed && $provider->user?->is_active && $provider->user->hasPaidPlan(), 404);
@@ -111,8 +171,22 @@ class LiveChatController extends Controller
 
     private function authorizeVisitor(Request $request, LiveChatConversation $conversation): void
     {
+        if ($request->user()?->isCustomer() && (int) $conversation->customer_id === (int) $request->user()->id) {
+            return;
+        }
+
         $token = (string) ($request->input('visitor_token') ?? $request->header('X-Live-Chat-Token'));
         abort_unless(hash_equals($conversation->visitor_token, $token), 403);
+    }
+
+    private function authorizeCustomerBookingChat(Request $request, LiveChatConversation $conversation): void
+    {
+        abort_unless((int) $conversation->customer_id === (int) $request->user()->id, 403);
+        abort_unless($conversation->booking_id, 403);
+        abort_unless(Booking::whereKey($conversation->booking_id)
+            ->where('customer_id', $request->user()->id)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->exists(), 403);
     }
 
     private function notifyProvider(LiveChatConversation $conversation, $message): void
@@ -196,7 +270,7 @@ class LiveChatController extends Controller
 
     private function publicConversationPayload(LiveChatConversation $conversation, array $options = []): array
     {
-        $conversation->loadMissing(['provider.user:id,name']);
+        $conversation->loadMissing(['provider.user:id,name', 'booking.service:id,name']);
         $perPage = min((int) ($options['per_page'] ?? 50), 100);
         $query = $conversation->messages()->with('sender:id,name');
         $mode = 'latest';
@@ -227,6 +301,8 @@ class LiveChatController extends Controller
             'visitor_name' => $conversation->visitor_name,
             'visitor_email' => $conversation->visitor_email,
             'visitor_token' => $conversation->visitor_token,
+            'booking_id' => $conversation->booking_id,
+            'service_name' => $conversation->booking?->service?->name,
             'status' => $conversation->status,
             'visitor_unread_count' => $conversation->visitor_unread_count,
             'last_message_at' => $conversation->last_message_at,

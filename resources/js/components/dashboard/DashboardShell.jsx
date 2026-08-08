@@ -28,6 +28,7 @@ export const providerNavigation = [
 export const customerNavigation = [
     { label: 'Dashboard', to: '/customer', icon: 'overview', end: true },
     { label: 'Bookings', to: '/customer/bookings', icon: 'booking' },
+    { label: 'Chats', to: '/customer/chats', icon: 'chat' },
     { label: 'Rewards', to: '/customer/rewards', icon: 'loyalty' },
     { label: 'Saved providers', to: '/customer/saved-providers', icon: 'saved' },
     { label: 'Notifications', to: '/customer/notifications', icon: 'bell' },
@@ -72,6 +73,7 @@ const searchKeywords = {
     customer: {
         Dashboard: 'home summary upcoming bookings saved providers rewards',
         Bookings: 'appointments reservations services schedule completed cancelled',
+        Chats: 'messages chat providers active bookings replies inbox',
         Rewards: 'loyalty points rewards offers benefits',
         'Saved providers': 'favorites saved beauty professionals providers',
         Notifications: 'alerts messages updates reminders',
@@ -121,7 +123,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const mobileDockItems = useMemo(() => {
         const preferred = {
             provider: ['/provider', '/provider/bookings', '/provider/live-chat', '/provider/calendar'],
-            customer: ['/customer', '/customer/bookings', '/customer/saved-providers', '/customer/notifications'],
+            customer: ['/customer', '/customer/bookings', '/customer/chats', '/customer/notifications'],
             admin: ['/admin', '/admin/users', '/admin/directory', '/admin/content'],
         }[role] ?? [];
         const ordered = preferred

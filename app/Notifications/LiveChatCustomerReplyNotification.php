@@ -22,14 +22,17 @@ class LiveChatCustomerReplyNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $providerName = $this->conversation->provider?->user?->name ?? 'your beauty professional';
-        $url = rtrim(config('app.frontend_url', config('app.url')), '/').'/providers/'.$this->conversation->provider_id;
-
-        return (new MailMessage)
+        $url = $this->conversation->booking_id
+            ? rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/chats'
+            : rtrim(config('app.frontend_url', config('app.url')), '/').'/providers/'.$this->conversation->provider_id;
+        $mail = (new MailMessage)
             ->subject("New reply from {$providerName}")
-            ->greeting("Hi {$this->conversation->visitor_name},")
+            ->greeting("Hi {$this->conversation->visitor_name},");
+
+        return $mail
             ->line("{$providerName} replied to your live chat message on BeautyPro HQ.")
             ->line((string) str($this->message->body)->limit(240))
-            ->action('Open provider profile', $url)
-            ->line('Reply from the live chat widget on the provider profile.');
+            ->action($this->conversation->booking_id ? 'Open chat' : 'Open provider profile', $url)
+            ->line('Please open live chat in your dashboard to respond.');
     }
 }

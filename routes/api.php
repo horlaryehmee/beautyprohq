@@ -96,6 +96,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/customer/booking-payments/{payment}/checkout', [BookingController::class, 'checkoutPayment']);
         Route::post('/customer/booking-payments/verify', [BookingController::class, 'verifyPayment']);
         Route::get('/customer/rewards', [CustomerController::class, 'rewards']);
+        Route::get('/customer/live-chat', [LiveChatController::class, 'customerIndex']);
+        Route::get('/customer/live-chat/{conversation}', [LiveChatController::class, 'customerShow']);
+        Route::post('/customer/live-chat/{conversation}/messages', [LiveChatController::class, 'customerReply'])->middleware('throttle:60,1');
         Route::get('/customer/saved-providers', [CustomerController::class, 'saved']);
         Route::post('/customer/saved-providers/{provider}', [CustomerController::class, 'save']);
         Route::delete('/customer/saved-providers/{provider}', [CustomerController::class, 'unsave']);
@@ -125,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/blocked-dates', [ProviderScheduleController::class, 'storeBlock']);
             Route::delete('/blocked-dates/{blockedDate}', [ProviderScheduleController::class, 'destroyBlock']);
             Route::get('/bookings', [ProviderBookingController::class, 'index']);
+            Route::post('/bookings/{booking}/chat', [ProviderBookingController::class, 'chat']);
             Route::patch('/bookings/{booking}/status', [ProviderBookingController::class, 'updateStatus']);
             Route::get('/live-chat', [ProviderLiveChatController::class, 'index']);
             Route::get('/live-chat/{conversation}', [ProviderLiveChatController::class, 'show']);
@@ -149,7 +153,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::patch('/crm/activities/{activity}', [ProviderBusinessController::class, 'updateCrmActivity']);
             Route::get('/loyalty', [ProviderBusinessController::class, 'loyalty']);
             Route::put('/loyalty/settings', [ProviderBusinessController::class, 'updateLoyaltySettings']);
-            Route::put('/loyalty/{customer}', [ProviderBusinessController::class, 'updateLoyalty']);
         });
     });
 

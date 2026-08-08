@@ -214,7 +214,7 @@ export default function ProviderLiveChatPage() {
                                                         <p className={`truncate text-sm font-bold ${active ? 'text-white' : 'text-slate-950'}`}>{conversation.visitor_name}</p>
                                                         <span className={`shrink-0 text-[10px] font-semibold ${active ? 'text-white/55' : 'text-slate-400'}`}>{timeText(conversation.last_message_at)}</span>
                                                     </div>
-                                                    <p className={`truncate text-xs ${active ? 'text-white/55' : 'text-slate-400'}`}>{conversation.visitor_email}</p>
+                                                    <p className={`truncate text-xs ${active ? 'text-white/55' : 'text-slate-400'}`}>{conversation.service_name ?? conversation.booking?.service?.name ?? conversation.visitor_email}</p>
                                                     <div className="mt-1 flex items-center gap-2">
                                                         <p className={`line-clamp-1 flex-1 text-xs ${active ? 'text-white/70' : 'text-slate-500'}`}>{message?.body ?? 'No message yet'}</p>
                                                         {hasUnread && <span className="grid min-w-5 place-items-center rounded-full bg-fuchsia-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{conversation.provider_unread_count}</span>}
@@ -239,7 +239,7 @@ export default function ProviderLiveChatPage() {
                                                 <h2 className="truncate text-base font-bold text-slate-950">{selected.visitor_name}</h2>
                                                 <StatusBadge status={selected.status} />
                                             </div>
-                                            <p className="truncate text-xs text-slate-500">{selected.visitor_email}</p>
+                                            <p className="truncate text-xs text-slate-500">{selected.service_name ?? 'Live chat'} · {selected.visitor_email}</p>
                                         </div>
                                     </div>
                                     <div className="flex shrink-0 gap-2">

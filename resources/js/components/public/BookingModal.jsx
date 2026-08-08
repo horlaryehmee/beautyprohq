@@ -382,6 +382,13 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         : (serviceTypeLabel ? serviceTypeLabel : `${locationOptionCount} location option`);
     const selectedServiceDescription = selectedService?.description ? stripHtml(selectedService.description) : '';
     const selectedServicePrice = selectedService ? currency(selectedService.price, selectedService.currency ?? 'NGN') : '';
+    const loyaltyPointsRequired = useMemo(() => {
+        const minimum = Number(provider?.loyalty_points_required ?? 0);
+        const value = Number(provider?.loyalty_reward_value_amount ?? 0);
+        const price = Number(selectedService?.price ?? 0);
+        if (!minimum || !value || !price) return minimum;
+        return Math.max(minimum, Math.ceil((price / value) * minimum));
+    }, [provider?.loyalty_points_required, provider?.loyalty_reward_value_amount, selectedService?.price]);
     const paymentMethods = useMemo(() => {
         const methods = Array.isArray(provider?.payment_methods) ? provider.payment_methods : [];
         return methods.length ? methods : (provider?.default_payment_gateway ? [{ gateway: provider.default_payment_gateway, label: provider.default_payment_gateway }] : []);
@@ -708,10 +715,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                         <p className="mt-1 font-display text-3xl font-normal text-[#2A1D14]">{currency(selectedService.price, selectedService.currency ?? 'NGN')}</p>
                                         <p className="mt-1 text-xs font-bold text-stone-500">{selectedService.duration_minutes ?? 30} minutes</p>
                                         {selectedService.description && <p className="mt-3 text-xs leading-5 text-stone-600">{stripHtml(selectedService.description)}</p>}
-                                        {user?.role === 'customer' && provider?.loyalty_enabled && Number(provider?.loyalty_points_required ?? 0) > 0 && (
+                                        {user?.role === 'customer' && provider?.loyalty_enabled && loyaltyPointsRequired > 0 && (
                                             <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#F7F3ED] p-3 text-xs font-bold leading-5 text-[#2A1D14]">
                                                 <input checked={redeemLoyalty} className="mt-0.5 size-4 accent-[#3A2A1F]" onChange={(event) => setRedeemLoyalty(event.target.checked)} type="checkbox" />
-                                                Use {Number(provider.loyalty_points_required).toLocaleString()} loyalty points for this booking request.
+                                                Use {Number(loyaltyPointsRequired).toLocaleString()} loyalty points for this booking request.
                                             </label>
                                         )}
                                     </div>
@@ -941,7 +948,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     )}
                                                 </div>
                                                 {renderProviderQuestions()}
-                                                <FormField as="textarea" label="Booking note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
+                                                <FormField as="textarea" label="Note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                             </div>
                                         </div>
                                     </section>

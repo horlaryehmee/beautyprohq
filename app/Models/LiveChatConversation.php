@@ -31,6 +31,11 @@ class LiveChatConversation extends Model
         return $this->belongsTo(User::class, 'customer_id');
     }
 
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class, 'booking_id');
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(LiveChatMessage::class, 'conversation_id');

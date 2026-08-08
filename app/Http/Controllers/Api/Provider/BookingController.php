@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\CrmCustomer;
+use App\Models\LiveChatConversation;
 use App\Models\Loyalty;
 use App\Models\LoyaltyTransaction;
 use App\Notifications\BookingStatusNotification;
@@ -97,5 +98,28 @@ class BookingController extends Controller
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
 
         return $this->success($booking, 'Booking status updated.');
+    }
+
+    public function chat(Request $request, Booking $booking): JsonResponse
+    {
+        $provider = $request->user()->providerProfile;
+        abort_unless($booking->provider_id === $provider->id, 403);
+        abort_unless(in_array($booking->status, ['pending', 'confirmed'], true), 422, 'Only active bookings can have account chat.');
+        $booking->loadMissing(['customer:id,name,email', 'service:id,name']);
+
+        $conversation = LiveChatConversation::firstOrCreate(
+            ['booking_id' => $booking->id],
+            [
+                'provider_id' => $provider->id,
+                'customer_id' => $booking->customer_id,
+                'visitor_name' => $booking->customer?->name ?? 'Customer',
+                'visitor_email' => $booking->customer?->email ?? '',
+                'visitor_token' => \Illuminate\Support\Str::random(64),
+                'status' => 'open',
+                'last_message_at' => now(),
+            ],
+        );
+
+        return $this->success($conversation->load(['booking.service:id,name']), 'Booking chat ready.');
     }
 }

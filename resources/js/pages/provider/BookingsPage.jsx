@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Avatar,
     Button,
@@ -35,6 +36,7 @@ export default function ProviderBookingsPage() {
     const [status, setStatus] = useState('all');
     const [query, setQuery] = useState('');
     const [selectedBooking, setSelectedBooking] = useState(null);
+    const navigate = useNavigate();
     const debouncedQuery = useDebouncedValue(query);
     const resource = useApiResource('/provider/bookings', [], { params: { status: status === 'all' ? undefined : status, search: debouncedQuery || undefined }, refreshInterval: 15000 });
     const [bookings, setBookings] = [normalize(resource.data), resource.setData];
@@ -56,6 +58,15 @@ export default function ProviderBookingsPage() {
             const updated = await apiRequest('patch', `/provider/bookings/${booking.id}/status`, { status: nextStatus, rejection_reason: rejectionReason });
             setBookings((current) => normalize(current).map((item) => item.id === booking.id ? { ...item, ...(updated ?? {}), status: updated?.status ?? nextStatus } : item));
             notify(`Booking ${statusLabel(nextStatus)}.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    });
+
+    const openChat = (booking) => run(`${booking.id}-chat`, async () => {
+        try {
+            await apiRequest('post', `/provider/bookings/${booking.id}/chat`);
+            navigate('/provider/live-chat');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -100,6 +111,7 @@ export default function ProviderBookingsPage() {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <Button onClick={() => setSelectedBooking(booking)} type="button" variant="secondary">Details</Button>
+                                        {['pending', 'confirmed'].includes(booking.status) && <Button busy={isBusy(`${booking.id}-chat`)} onClick={() => openChat(booking)} type="button" variant="secondary">Chat</Button>}
                                         {booking.status === 'pending' && <><Button busy={isBusy(`${booking.id}-confirmed`)} onClick={() => updateStatus(booking, 'confirmed')} type="button">Accept</Button><Button busy={isBusy(`${booking.id}-rejected`)} onClick={() => updateStatus(booking, 'rejected')} type="button" variant="danger">Decline</Button></>}
                                         {booking.status === 'confirmed' && <><Button busy={isBusy(`${booking.id}-completed`)} onClick={() => updateStatus(booking, 'completed')} type="button" variant="soft">Mark complete</Button><Button busy={isBusy(`${booking.id}-cancelled`)} onClick={() => updateStatus(booking, 'cancelled')} type="button" variant="secondary">Cancel</Button></>}
                                     </div>

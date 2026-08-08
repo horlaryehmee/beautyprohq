@@ -184,7 +184,7 @@ class ContentController extends Controller
             'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
-        return $data;
+        return $this->autoSeo($data, 'Beauty News', $data['excerpt'] ?? $data['content'] ?? $news?->excerpt ?? $news?->content, $data['title'] ?? $news?->title);
     }
 
     private function eventData(Request $request, ?Event $event = null): array
@@ -199,19 +199,21 @@ class ContentController extends Controller
             'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
-        return $data;
+        return $this->autoSeo($data, 'Beauty Event', $data['description'] ?? $event?->description, $data['title'] ?? $event?->title);
     }
 
     private function communityData(Request $request, bool $partial = false): array
     {
         $p = $partial ? 'sometimes' : 'required';
 
-        return $this->publication($request->validate([
+        $data = $this->publication($request->validate([
             'title' => [$p, 'string', 'max:180'], 'content' => [$p, 'string'], 'type' => [$p, 'string', 'max:80'],
             'image' => ['nullable', 'string', 'max:500'], 'provider_id' => ['nullable', 'exists:provider_profiles,id'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+
+        return $this->autoSeo($data, 'Beauty Community', $data['content'] ?? null, $data['title'] ?? null);
     }
 
     private function opportunityData(Request $request, bool $partial = false): array
@@ -310,6 +312,24 @@ class ContentController extends Controller
         if (array_key_exists('status', $data)) {
             $data['published_at'] = $data['status'] === 'published' ? ($data['published_at'] ?? now()) : null;
             unset($data['status']);
+        }
+
+        return $data;
+    }
+
+    private function autoSeo(array $data, string $context, ?string $descriptionSource, ?string $title): array
+    {
+        if (! array_key_exists('published_at', $data) || blank($data['published_at'] ?? null)) {
+            return $data;
+        }
+
+        if (filled($title) && blank($data['seo_title'] ?? null)) {
+            $data['seo_title'] = Str::limit(trim($title)." | {$context} | BeautyPro HQ", 180, '');
+        }
+
+        if (blank($data['seo_description'] ?? null) && filled($descriptionSource)) {
+            $description = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($descriptionSource), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            $data['seo_description'] = Str::limit($description, 300, '');
         }
 
         return $data;

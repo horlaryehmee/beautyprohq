@@ -58,6 +58,7 @@ const ProviderDocumentationPage = lazyWithReload(() => import('./pages/provider/
 const CustomerLayout = lazyWithReload(() => import('./pages/customer/CustomerLayout'));
 const CustomerDashboardPage = lazyWithReload(() => import('./pages/customer/DashboardPage'));
 const CustomerBookingsPage = lazyWithReload(() => import('./pages/customer/BookingsPage'));
+const CustomerChatsPage = lazyWithReload(() => import('./pages/customer/ChatsPage'));
 const CustomerRewardsPage = lazyWithReload(() => import('./pages/customer/RewardsPage'));
 const CustomerSavedProvidersPage = lazyWithReload(() => import('./pages/customer/SavedProvidersPage'));
 const CustomerNotificationsPage = lazyWithReload(() => import('./pages/customer/NotificationsPage'));
@@ -170,6 +171,7 @@ export default function App() {
                         <Route path="customer" element={<CustomerWorkspace />}>
                             <Route index element={<CustomerDashboardPage />} />
                             <Route path="bookings" element={<CustomerBookingsPage />} />
+                            <Route path="chats" element={<CustomerChatsPage />} />
                             <Route path="rewards" element={<CustomerRewardsPage />} />
                             <Route path="saved-providers" element={<CustomerSavedProvidersPage />} />
                             <Route path="notifications" element={<CustomerNotificationsPage />} />

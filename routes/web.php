@@ -15,6 +15,7 @@ Route::get('/coming-soon', fn () => response()
     ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
 
 Route::get('/robots.txt', [SeoController::class, 'robots']);
+Route::get('/llms.txt', [SeoController::class, 'llms']);
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
 Route::get('/', function () {
@@ -50,7 +51,54 @@ Route::get('/', function () {
     PreventRequestForgery::class,
 ]);
 
+Route::get('/providers/{provider}.md', [SeoController::class, 'providerMarkdown'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+
 Route::get('/providers/{provider}', [ProviderSeoController::class, 'show'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+
+Route::get('/news-events/news/{news:slug}.md', [SeoController::class, 'newsMarkdown'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/news-events/news/{news:slug}', [SeoController::class, 'newsPage'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/news-events/events/{event:slug}.md', [SeoController::class, 'eventMarkdown'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/news-events/events/{event:slug}', [SeoController::class, 'eventPage'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/opportunities/{opportunity}.md', [SeoController::class, 'opportunityMarkdown'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/opportunities/{opportunity}', [SeoController::class, 'opportunityPage'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/community/{communityPost}.md', [SeoController::class, 'communityMarkdown'])->withoutMiddleware([
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+]);
+Route::get('/community/{communityPost}', [SeoController::class, 'communityPage'])->withoutMiddleware([
     StartSession::class,
     ShareErrorsFromSession::class,
     PreventRequestForgery::class,

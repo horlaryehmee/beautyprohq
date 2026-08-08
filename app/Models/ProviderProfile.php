@@ -28,6 +28,7 @@ class ProviderProfile extends Model
             'digital_product_links' => 'array',
             'booking_form_fields' => 'array',
             'loyalty_enabled' => 'boolean',
+            'loyalty_reward_value_amount' => 'decimal:2',
             'whatsapp_notifications_enabled' => 'boolean',
             'base_price' => 'decimal:2',
             'terms_accepted_at' => 'datetime',

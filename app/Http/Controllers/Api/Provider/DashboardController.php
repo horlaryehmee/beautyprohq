@@ -268,18 +268,29 @@ class DashboardController extends Controller
 
     public function analytics(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'period' => ['nullable', Rule::in(['day', 'week', 'month'])],
+        ]);
         $provider = $request->user()->providerProfile;
-        $from = now()->subDays(29)->startOfDay();
+        $period = $validated['period'] ?? 'month';
+        $from = match ($period) {
+            'day' => now()->startOfDay(),
+            'week' => now()->startOfWeek(),
+            default => now()->startOfMonth(),
+        };
         $views = ProfileView::where('provider_id', $provider->id)->where('viewed_on', '>=', $from)->select('viewed_on', DB::raw('count(*) as total'))->groupBy('viewed_on')->orderBy('viewed_on')->get();
         $bookings = Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from);
         $viewCount = $views->sum('total');
 
         return $this->success([
+            'period' => $period,
+            'from' => $from->toDateString(),
+            'to' => now()->toDateString(),
             'profile_views' => $views,
             'booking_count' => (clone $bookings)->count(),
             'conversion_rate' => $viewCount > 0 ? round((clone $bookings)->count() / $viewCount * 100, 1) : 0,
-            'service_popularity' => Booking::where('provider_id', $provider->id)->select('service_id', DB::raw('count(*) as bookings_count'))->with('service:id,name')->groupBy('service_id')->orderByDesc('bookings_count')->get(),
-            'status_breakdown' => Booking::where('provider_id', $provider->id)->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
+            'service_popularity' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('service_id', DB::raw('count(*) as bookings_count'))->with('service:id,name')->groupBy('service_id')->orderByDesc('bookings_count')->get(),
+            'status_breakdown' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
         ]);
     }
 

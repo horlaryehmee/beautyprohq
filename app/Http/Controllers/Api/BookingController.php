@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
 use App\Models\Booking;
+use App\Models\LiveChatConversation;
 use App\Models\Payment;
 use App\Models\ProviderProfile;
 use App\Models\Review;
@@ -182,8 +183,7 @@ class BookingController extends Controller
             $redeemedPoints = 0;
             if ($redeemLoyalty) {
                 abort_unless($provider->loyalty_enabled, 422, 'This provider has not enabled loyalty rewards.');
-                $redeemedPoints = (int) ($provider->loyalty_points_required ?? 0);
-                abort_unless($redeemedPoints > 0, 422, 'This provider has not set a valid loyalty redemption threshold.');
+                $redeemedPoints = $this->requiredLoyaltyPointsForService($provider, $service);
                 $loyalty = \App\Models\Loyalty::lockForUpdate()->firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
                 abort_unless($loyalty->points >= $redeemedPoints, 422, 'You do not have enough loyalty points for this provider.');
                 $loyalty->decrement('points', $redeemedPoints);
@@ -201,6 +201,19 @@ class BookingController extends Controller
                 'reference' => $paymentMethod === 'manual' ? 'BPHQ-MANUAL-'.$booking->id.'-'.Str::upper(Str::random(8)) : null,
                 'metadata' => ['payment_token' => Str::random(48), 'redeemed_loyalty_points' => $redeemedPoints, 'selected_gateway' => $paymentMethod],
             ]);
+
+            LiveChatConversation::firstOrCreate(
+                ['booking_id' => $booking->id],
+                [
+                    'provider_id' => $provider->id,
+                    'customer_id' => $customer->id,
+                    'visitor_name' => $customer->name,
+                    'visitor_email' => $customer->email,
+                    'visitor_token' => Str::random(64),
+                    'status' => 'open',
+                    'last_message_at' => now(),
+                ],
+            );
 
             return $booking;
         });
@@ -249,6 +262,20 @@ class BookingController extends Controller
         abort_if(! count($methods), 422, 'This provider has not connected a payment method yet.');
 
         return $methods[0];
+    }
+
+    private function requiredLoyaltyPointsForService(ProviderProfile $provider, Service $service): int
+    {
+        $minimumPoints = (int) ($provider->loyalty_points_required ?? 0);
+        $rewardValue = (float) ($provider->loyalty_reward_value_amount ?? 0);
+        abort_unless($minimumPoints > 0 && $rewardValue > 0, 422, 'This provider has not set a valid loyalty redemption value.');
+
+        $servicePrice = max(0, (float) $service->price);
+        if ($servicePrice <= 0) {
+            return $minimumPoints;
+        }
+
+        return max($minimumPoints, (int) ceil(($servicePrice / $rewardValue) * $minimumPoints));
     }
 
     private function connectedPaymentGateways(ProviderProfile $provider): array
