@@ -29,8 +29,10 @@ class SecurityHeaders
         }
 
         if ($request->isSecure() && config('security.hsts.enabled', true)) {
-            $headers->set('Strict-Transport-Security', 'max-age='.(int) config('security.hsts.max_age', 31536000).'; includeSubDomains');
+            $headers->set('Strict-Transport-Security', 'max-age='.(int) config('security.hsts.max_age', 31536000).'; includeSubDomains; preload');
         }
+
+        $headers->set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
         if ($this->isPrivateResponse($request)) {
             $headers->set('Cache-Control', 'no-store, private, max-age=0');
@@ -62,7 +64,7 @@ class SecurityHeaders
             "object-src 'none'",
             "frame-ancestors 'self'",
             "form-action 'self'",
-            'script-src '.implode(' ', $scriptSources),
+            'script-src '.implode(' ', [...$scriptSources, config('security.csp.unsafe_inline_fallback', true) ? "'unsafe-inline'" : '']),
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com data:",
             "img-src 'self' https: data: blob:",
@@ -70,6 +72,7 @@ class SecurityHeaders
             'connect-src '.implode(' ', $connectSources),
             "worker-src 'self' blob:",
             "manifest-src 'self'",
+            "require-trusted-types-for 'script'",
         ];
 
         if ($request->isSecure() && config('security.csp.upgrade_insecure_requests', true)) {
