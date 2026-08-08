@@ -354,6 +354,51 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.subscribers.0.email', 'subscriber25@example.test');
     }
 
+    public function test_admin_can_update_newsletter_subscribers(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Old Name',
+            'email' => 'old@example.test',
+            'subscribed_at' => now()->subDay(),
+        ]);
+        NewsletterSubscriber::create([
+            'name' => 'Other Reader',
+            'email' => 'other@example.test',
+            'subscribed_at' => now()->subDay(),
+        ]);
+
+        $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
+            'name' => 'Updated Reader',
+            'email' => 'updated@example.test',
+            'status' => 'unsubscribed',
+        ])->assertOk()
+            ->assertJsonPath('data.name', 'Updated Reader')
+            ->assertJsonPath('data.email', 'updated@example.test')
+            ->assertJsonPath('data.unsubscribed_at', fn ($value) => filled($value));
+
+        $this->assertDatabaseHas('newsletter_subscribers', [
+            'id' => $subscriber->id,
+            'name' => 'Updated Reader',
+            'email' => 'updated@example.test',
+        ]);
+        $this->assertNotNull($subscriber->fresh()->unsubscribed_at);
+
+        $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
+            'name' => 'Updated Reader',
+            'email' => 'updated@example.test',
+            'status' => 'active',
+        ])->assertOk()
+            ->assertJsonPath('data.unsubscribed_at', null);
+
+        $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
+            'name' => 'Duplicate Reader',
+            'email' => 'other@example.test',
+            'status' => 'active',
+        ])->assertUnprocessable();
+    }
+
     public function test_admin_can_choose_to_email_subscribers_when_news_is_published(): void
     {
         Notification::fake();

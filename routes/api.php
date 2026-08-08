@@ -161,6 +161,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/activity', [AdminDashboardController::class, 'activity']);
         Route::get('/waitlist', [AdminDashboardController::class, 'waitlist']);
+        Route::patch('/subscribers/{subscriber}', [AdminDashboardController::class, 'updateSubscriber']);
         Route::get('/waitlist/export', [AdminDashboardController::class, 'exportWaitlist']);
         Route::get('/users', [AdminDashboardController::class, 'users']);
         Route::get('/users/{user}', [AdminDashboardController::class, 'showUser']);

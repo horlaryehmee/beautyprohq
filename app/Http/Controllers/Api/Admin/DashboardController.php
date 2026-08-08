@@ -99,6 +99,24 @@ class DashboardController extends Controller
         ], meta: $this->paginationMeta($subscribers));
     }
 
+    public function updateSubscriber(Request $request, NewsletterSubscriber $subscriber): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:120'],
+            'email' => ['required', 'email:rfc', 'max:255', Rule::unique('newsletter_subscribers', 'email')->ignore($subscriber->id)],
+            'status' => ['required', Rule::in(['active', 'unsubscribed'])],
+        ]);
+
+        $subscriber->forceFill([
+            'name' => $data['name'] ?? null,
+            'email' => Str::lower(trim($data['email'])),
+            'subscribed_at' => $subscriber->subscribed_at ?: now(),
+            'unsubscribed_at' => $data['status'] === 'unsubscribed' ? ($subscriber->unsubscribed_at ?: now()) : null,
+        ])->save();
+
+        return $this->success($subscriber->fresh(), 'Subscriber updated.');
+    }
+
     public function exportWaitlist(Request $request)
     {
         $filename = 'beautyprohq-waitlist-'.now()->format('Y-m-d-His').'.csv';
