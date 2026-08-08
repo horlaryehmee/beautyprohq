@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +36,39 @@ class UploadService
     {
         $this->ensureUploadDirectoryIsHardened();
 
+        return $this->files();
+    }
+
+    public function paginate(int $page = 1, int $perPage = 20): LengthAwarePaginator
+    {
+        $files = collect($this->list());
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+
+        return new LengthAwarePaginator(
+            $files->forPage($page, $perPage)->values(),
+            $files->count(),
+            $perPage,
+            $page,
+        );
+    }
+
+    public function delete(string $path): void
+    {
+        $path = $this->sanitizeUploadPath($path);
+        $disk = Storage::disk($this->diskName());
+
+        if (! $disk->exists($path)) {
+            throw ValidationException::withMessages([
+                'path' => 'The selected media file no longer exists.',
+            ]);
+        }
+
+        $disk->delete($path);
+    }
+
+    private function files(): array
+    {
         return collect(Storage::disk($this->diskName())->files(self::UPLOAD_DIRECTORY))
             ->reject(fn (string $path): bool => basename($path) === '.htaccess')
             ->map(fn (string $path): array => [
@@ -106,6 +140,25 @@ class UploadService
                 'file' => 'Executable files are not allowed.',
             ]);
         }
+    }
+
+    private function sanitizeUploadPath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+
+        if (
+            $path === ''
+            || str_starts_with($path, '/')
+            || str_contains($path, '..')
+            || ! str_starts_with($path, self::UPLOAD_DIRECTORY.'/')
+            || basename($path) === '.htaccess'
+        ) {
+            throw ValidationException::withMessages([
+                'path' => 'Invalid media file path.',
+            ]);
+        }
+
+        return $path;
     }
 
     private function ensureUploadDirectoryIsHardened(): void

@@ -18,6 +18,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -444,6 +445,30 @@ class BackendMvpTest extends TestCase
         $opportunity = Opportunity::findOrFail($opportunityId);
         $this->assertSame(1, $opportunity->newsletter_notified_count);
         $this->assertNotNull($opportunity->newsletter_notified_at);
+    }
+
+    public function test_admin_can_paginate_and_delete_media_files(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        Storage::disk('public')->put('uploads/one.jpg', 'one');
+        Storage::disk('public')->put('uploads/two.jpg', 'two');
+
+        $this->getJson('/api/admin/media?per_page=1')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonCount(1, 'data');
+
+        $this->deleteJson('/api/admin/media', ['path' => 'uploads/one.jpg'])
+            ->assertOk();
+
+        Storage::disk('public')->assertMissing('uploads/one.jpg');
+        Storage::disk('public')->assertExists('uploads/two.jpg');
+
+        $this->deleteJson('/api/admin/media', ['path' => '../.env'])
+            ->assertUnprocessable();
     }
 
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void

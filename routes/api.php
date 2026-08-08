@@ -207,6 +207,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
 
         Route::get('/media', [AdminMediaController::class, 'index']);
         Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:upload');
+        Route::delete('/media', [AdminMediaController::class, 'destroy']);
         Route::get('/news', [AdminContentController::class, 'news']);
         Route::post('/news', [AdminContentController::class, 'storeNews']);
         Route::get('/news/{news}', [AdminContentController::class, 'showNews']);

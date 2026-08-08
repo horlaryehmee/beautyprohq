@@ -9,9 +9,14 @@ use Illuminate\Http\Request;
 
 class MediaController extends Controller
 {
-    public function index(UploadService $uploads): JsonResponse
+    public function index(Request $request, UploadService $uploads): JsonResponse
     {
-        return $this->success($uploads->list());
+        $paginator = $uploads->paginate(
+            $request->integer('page', 1),
+            $this->perPage($request, 12, 60),
+        );
+
+        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
     }
 
     public function store(Request $request, UploadService $uploads): JsonResponse
@@ -24,5 +29,16 @@ class MediaController extends Controller
         $file = $data['file'] ?? $data['image'];
 
         return $this->success($uploads->store($file), 'File uploaded.', 201);
+    }
+
+    public function destroy(Request $request, UploadService $uploads): JsonResponse
+    {
+        $data = $request->validate([
+            'path' => ['required', 'string', 'max:255'],
+        ]);
+
+        $uploads->delete($data['path']);
+
+        return $this->success(null, 'Media file deleted.');
     }
 }
