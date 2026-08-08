@@ -23,7 +23,7 @@ class SeoController extends Controller
             'Disallow: /provider',
             'Disallow: /customer',
             'Sitemap: '.url('/sitemap.xml'),
-            'LLMS: '.url('/llms.txt'),
+            '# LLMs: '.url('/llms.txt'),
             '',
         ]), 200)->header('Content-Type', 'text/plain');
     }

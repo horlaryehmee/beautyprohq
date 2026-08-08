@@ -215,7 +215,7 @@ function NewsEventCard({ item, index }) {
                 </div>
                 <h3 className="mt-7 line-clamp-2 max-w-[15rem] font-display text-2xl font-normal leading-tight">{stripHtml(item.title)}</h3>
                 {copy && <p className="mt-4 line-clamp-2 max-w-[13rem] text-xs font-semibold leading-5 text-white/82">{copy}</p>}
-                <Link to={href} className="mt-auto inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white">
+                <Link to={href} className="mt-auto inline-flex w-fit items-center gap-2 text-xs font-black uppercase tracking-wide text-white" aria-label={`${cta}: ${stripHtml(item.title)}`}>
                     {cta} <Icon name="arrow" size={14} />
                 </Link>
             </div>
