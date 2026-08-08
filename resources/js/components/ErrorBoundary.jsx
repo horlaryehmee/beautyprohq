@@ -1,6 +1,23 @@
 import { Component } from 'react';
 import { Link } from 'react-router-dom';
 
+function isRecoverableAssetError(error) {
+    const message = String(error?.message ?? error ?? '');
+
+    return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError|dynamically imported module/i.test(message);
+}
+
+async function clearBrowserCaches() {
+    try {
+        if ('caches' in window) {
+            const names = await window.caches.keys();
+            await Promise.all(names.map((name) => window.caches.delete(name)));
+        }
+    } catch (error) {
+        console.warn('BeautyPro HQ cache clear failed', error);
+    }
+}
+
 export default class ErrorBoundary extends Component {
     constructor(props) {
         super(props);
@@ -13,14 +30,12 @@ export default class ErrorBoundary extends Component {
 
     componentDidCatch(error, details) {
         console.error('BeautyPro HQ render error', error, details);
-        const message = String(error?.message ?? error ?? '');
-        const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(message);
-        if (isChunkError && !window.sessionStorage.getItem('bphq_error_boundary_reload')) {
+        if (isRecoverableAssetError(error) && !window.sessionStorage.getItem('bphq_error_boundary_reload')) {
             window.sessionStorage.removeItem('bphq_lazy_reload');
             window.sessionStorage.setItem('bphq_error_boundary_reload', '1');
             const url = new URL(window.location.href);
             url.searchParams.set('bphq_refresh', Date.now().toString());
-            window.location.replace(url.toString());
+            clearBrowserCaches().finally(() => window.location.replace(url.toString()));
         }
     }
 

@@ -95,6 +95,26 @@ class OperationalHardeningTest extends TestCase
         $this->assertStringContainsString('rel="nofollow noopener noreferrer"', $clean);
     }
 
+    public function test_published_html_sanitizer_allows_editor_tools_safely(): void
+    {
+        $clean = SafeHtml::clean(
+            '<p class="text-center bad-class" style="color:red">Centered</p>'
+            .'<img src="https://example.com/photo.webp" alt="Safe photo" onerror="alert(1)">'
+            .'<img src="javascript:alert(1)" alt="Bad photo">'
+            .'<table onclick="alert(1)"><thead><tr><th class="text-right">Plan</th></tr></thead><tbody><tr><td>Pro</td></tr></tbody></table>'
+        );
+
+        $this->assertStringContainsString('<p class="text-center">Centered</p>', $clean);
+        $this->assertStringContainsString('<img src="https://example.com/photo.webp" alt="Safe photo">', $clean);
+        $this->assertStringContainsString('<table>', $clean);
+        $this->assertStringContainsString('<th class="text-right">Plan</th>', $clean);
+        $this->assertStringNotContainsString('bad-class', $clean);
+        $this->assertStringNotContainsString('style=', $clean);
+        $this->assertStringNotContainsString('onerror', $clean);
+        $this->assertStringNotContainsString('onclick', $clean);
+        $this->assertStringNotContainsString('javascript:', $clean);
+    }
+
     public function test_coming_soon_script_uses_an_exact_csp_hash(): void
     {
         AppSetting::setValue('features.coming_soon', '1');

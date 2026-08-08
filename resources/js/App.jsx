@@ -13,13 +13,26 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 
+async function clearBrowserCaches() {
+    try {
+        if ('caches' in window) {
+            const names = await window.caches.keys();
+            await Promise.all(names.map((name) => window.caches.delete(name)));
+        }
+    } catch (error) {
+        console.warn('BeautyPro HQ cache clear failed', error);
+    }
+}
+
 function lazyWithReload(importer) {
     return lazy(() => importer().catch((error) => {
         const message = String(error?.message ?? error);
         const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(message);
         if (isChunkError && !window.sessionStorage.getItem('bphq_lazy_reload')) {
             window.sessionStorage.setItem('bphq_lazy_reload', '1');
-            window.location.reload();
+            const url = new URL(window.location.href);
+            url.searchParams.set('bphq_refresh', Date.now().toString());
+            clearBrowserCaches().finally(() => window.location.replace(url.toString()));
             return new Promise(() => {});
         }
         throw error;

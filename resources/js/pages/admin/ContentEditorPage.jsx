@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
@@ -70,6 +70,187 @@ function cleanPayload(form, type) {
     });
 
     return payload;
+}
+
+function selectedLineRange(textarea) {
+    const value = textarea.value;
+    let start = textarea.selectionStart ?? 0;
+    let end = textarea.selectionEnd ?? start;
+
+    while (start > 0 && value[start - 1] !== '\n') start -= 1;
+    while (end < value.length && value[end] !== '\n') end += 1;
+
+    return { start, end };
+}
+
+function normalizeUrl(value) {
+    const url = String(value ?? '').trim();
+    if (!url) return '';
+    if (url.startsWith('/') || url.startsWith('#') || /^https?:\/\//i.test(url) || /^mailto:/i.test(url) || /^tel:/i.test(url)) return url;
+    return `https://${url}`;
+}
+
+function escapeAttribute(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+}
+
+function ContentBodyEditor({ label, value, onChange }) {
+    const textareaRef = useRef(null);
+    const currentValue = String(value ?? '');
+
+    const replaceSelection = (formatter) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart ?? 0;
+        const end = textarea.selectionEnd ?? start;
+        const selected = currentValue.slice(start, end);
+        const result = formatter(selected, { start, end, value: currentValue });
+        const replacement = typeof result === 'string' ? result : result.text;
+        const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
+        const nextStart = typeof result === 'string' ? start : result.start ?? start;
+        const nextEnd = typeof result === 'string' ? start + replacement.length : result.end ?? start + replacement.length;
+
+        onChange(nextValue);
+        window.requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.setSelectionRange(nextStart, nextEnd);
+        });
+    };
+
+    const replaceLines = (formatter) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const { start, end } = selectedLineRange(textarea);
+        const selected = currentValue.slice(start, end) || 'Text';
+        const replacement = formatter(selected);
+        const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
+
+        onChange(nextValue);
+        window.requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start, start + replacement.length);
+        });
+    };
+
+    const wrapInline = (open, close = open, placeholder = 'text') => {
+        replaceSelection((selected, selection) => {
+            const body = selected || placeholder;
+            const text = `${open}${body}${close}`;
+            const start = selection.start + open.length;
+            return { text, start, end: start + body.length };
+        });
+    };
+
+    const setBlock = (tag) => {
+        replaceLines((selected) => {
+            const text = selected.trim() || (tag === 'blockquote' ? 'Quote' : 'Paragraph text');
+            if (tag === 'paragraph') return `<p>${text}</p>`;
+            return `<${tag}>${text}</${tag}>`;
+        });
+    };
+
+    const addList = (ordered = false) => {
+        replaceLines((selected) => {
+            const items = selected.split('\n').map((line) => line.trim()).filter(Boolean);
+            const tag = ordered ? 'ol' : 'ul';
+            return `<${tag}>\n${(items.length ? items : ['List item']).map((item) => `  <li>${item.replace(/^[-*\d.)\s]+/, '')}</li>`).join('\n')}\n</${tag}>`;
+        });
+    };
+
+    const align = (direction) => {
+        replaceLines((selected) => `<p class="text-${direction}">${selected.trim() || 'Aligned paragraph'}</p>`);
+    };
+
+    const addLink = () => {
+        const url = normalizeUrl(window.prompt('Enter link URL'));
+        if (!url) return;
+        replaceSelection((selected, selection) => {
+            const textValue = selected || 'Link text';
+            const open = `<a href="${escapeAttribute(url)}">`;
+            const text = `${open}${textValue}</a>`;
+            const start = selection.start + open.length;
+            return { text, start, end: start + textValue.length };
+        });
+    };
+
+    const addImage = () => {
+        const src = normalizeUrl(window.prompt('Enter image URL'));
+        if (!src) return;
+        const alt = String(window.prompt('Describe the image for SEO/accessibility') ?? '').trim() || 'Content image';
+        replaceSelection(() => `<p><img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}"></p>`);
+    };
+
+    const addTable = () => {
+        replaceSelection(() => '<table>\n  <thead>\n    <tr><th>Heading</th><th>Heading</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>Value</td><td>Value</td></tr>\n  </tbody>\n</table>');
+    };
+
+    const tools = [
+        { label: 'Bold', value: 'B', action: () => wrapInline('<strong>', '</strong>') },
+        { label: 'Italic', value: 'I', action: () => wrapInline('<em>', '</em>'), className: 'italic' },
+        { label: 'Bulleted list', value: 'UL', action: () => addList(false) },
+        { label: 'Numbered list', value: '1.', action: () => addList(true) },
+        { label: 'Quote', value: 'QT', action: () => setBlock('blockquote') },
+        { label: 'Align left', value: 'L', action: () => align('left') },
+        { label: 'Align center', value: 'C', action: () => align('center') },
+        { label: 'Align right', value: 'R', action: () => align('right') },
+        { label: 'Link', value: 'Link', action: addLink },
+        { label: 'Image', value: 'IMG', action: addImage },
+        { label: 'Table', value: 'Table', action: addTable },
+        { label: 'Divider', value: 'HR', action: () => replaceSelection(() => '<hr>') },
+    ];
+
+    return (
+        <div>
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-slate-700">{label}</span>
+                <span className="text-xs text-slate-400">Tools insert safe HTML that is cleaned again before publishing.</span>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-bphq-chrome bg-white">
+                <div className="flex flex-wrap items-center gap-2 border-b border-bphq-chrome bg-bphq-ivory p-2">
+                    <select
+                        aria-label="Paragraph style"
+                        className="min-h-9 rounded-lg border border-bphq-chrome bg-white px-3 text-sm font-semibold text-bphq-espresso outline-none"
+                        defaultValue="paragraph"
+                        onChange={(event) => {
+                            setBlock(event.target.value);
+                            event.target.value = 'paragraph';
+                        }}
+                    >
+                        <option value="paragraph">Paragraph</option>
+                        <option value="h2">H2 heading</option>
+                        <option value="h3">H3 heading</option>
+                        <option value="h4">H4 heading</option>
+                    </select>
+                    {tools.map((tool) => (
+                        <button
+                            aria-label={tool.label}
+                            className={`grid min-h-9 min-w-9 place-items-center rounded-lg border border-bphq-chrome bg-white px-2 text-xs font-bold text-bphq-espresso transition hover:bg-bphq-beige ${tool.className ?? ''}`}
+                            key={tool.label}
+                            onClick={tool.action}
+                            title={tool.label}
+                            type="button"
+                        >
+                            {tool.value}
+                        </button>
+                    ))}
+                </div>
+                <textarea
+                    className="min-h-[520px] w-full resize-y border-0 bg-white p-5 text-base leading-8 text-bphq-espresso outline-none placeholder:text-bphq-chrome"
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder="Write the full content here. Use the toolbar for headings, lists, quotes, links, images and tables."
+                    ref={textareaRef}
+                    required
+                    value={currentValue}
+                />
+            </div>
+        </div>
+    );
 }
 
 function ImageUploader({ value, onChange }) {
@@ -239,18 +420,11 @@ export default function AdminContentEditorPage() {
                     </Card>
 
                     <Card>
-                        <Field
+                        <ContentBodyEditor
                             label={type === 'events' ? 'Event description' : 'Content body'}
-                            hint="You can write plain text or basic HTML. Content is cleaned safely before publishing."
-                        >
-                            <textarea
-                                className={`${inputClass} min-h-[520px] resize-y text-base leading-8`}
-                                onChange={(event) => updateForm({ [bodyKey]: event.target.value })}
-                                placeholder="Write the full content here."
-                                required
-                                value={form[bodyKey] ?? ''}
-                            />
-                        </Field>
+                            onChange={(value) => updateForm({ [bodyKey]: value })}
+                            value={form[bodyKey] ?? ''}
+                        />
                     </Card>
 
                     <Card>

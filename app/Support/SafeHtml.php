@@ -10,7 +10,16 @@ class SafeHtml
 {
     private const ALLOWED_TAGS = [
         'a', 'blockquote', 'br', 'code', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'hr', 'li', 'ol', 'p', 'pre', 'strong', 'u', 'ul',
+        'hr', 'img', 'li', 'ol', 'p', 'pre', 'strong', 'table', 'tbody', 'td', 'th',
+        'thead', 'tr', 'u', 'ul',
+    ];
+
+    private const ALIGNABLE_TAGS = [
+        'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'td', 'th',
+    ];
+
+    private const ALLOWED_CLASSES = [
+        'text-left', 'text-center', 'text-right',
     ];
 
     private const DROP_WITH_CONTENT = [
@@ -82,7 +91,12 @@ class SafeHtml
 
     private static function cleanAttributes(DOMElement $element, string $tag): void
     {
-        $allowed = $tag === 'a' ? ['href', 'title'] : ($tag === 'blockquote' ? ['cite'] : []);
+        $allowed = match ($tag) {
+            'a' => ['href', 'title'],
+            'blockquote' => ['cite', 'class'],
+            'img' => ['alt', 'src', 'title'],
+            default => in_array($tag, self::ALIGNABLE_TAGS, true) ? ['class'] : [],
+        };
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
             $name = strtolower($attribute->name);
@@ -91,7 +105,11 @@ class SafeHtml
                 continue;
             }
 
-            if (in_array($name, ['href', 'cite'], true) && ! self::safeUrl($attribute->value)) {
+            if (in_array($name, ['href', 'cite', 'src'], true) && ! self::safeUrl($attribute->value, $name === 'src')) {
+                $element->removeAttribute($attribute->name);
+            }
+
+            if ($name === 'class' && ! self::cleanClassAttribute($element, $attribute->value)) {
                 $element->removeAttribute($attribute->name);
             }
         }
@@ -101,13 +119,31 @@ class SafeHtml
         }
     }
 
-    private static function safeUrl(string $url): bool
+    private static function cleanClassAttribute(DOMElement $element, string $value): bool
+    {
+        $classes = array_values(array_intersect(
+            preg_split('/\s+/', trim($value)) ?: [],
+            self::ALLOWED_CLASSES
+        ));
+
+        if ($classes === []) {
+            return false;
+        }
+
+        $element->setAttribute('class', implode(' ', $classes));
+
+        return true;
+    }
+
+    private static function safeUrl(string $url, bool $image = false): bool
     {
         $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-        if ($url === '' || str_starts_with($url, '/') || str_starts_with($url, '#')) {
+        if ($url === '' || str_starts_with($url, '/') || (! $image && str_starts_with($url, '#'))) {
             return true;
         }
 
-        return in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https', 'mailto', 'tel'], true);
+        $schemes = $image ? ['http', 'https'] : ['http', 'https', 'mailto', 'tel'];
+
+        return in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), $schemes, true);
     }
 }
