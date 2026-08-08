@@ -80,6 +80,7 @@ function cleanPayload(form, type) {
 export function RichEditor({ label, value, onChange }) {
     const editorRef = useRef(null);
     const [mode, setMode] = useState('write');
+    const previewText = stripHtml(value);
 
     useEffect(() => {
         const node = editorRef.current;
@@ -151,10 +152,10 @@ export function RichEditor({ label, value, onChange }) {
                     </>
                 ) : (
                     <div className="min-h-[520px] p-6">
-                        {value ? (
-                            /<[a-z][\s\S]*>/i.test(String(value))
-                                ? <div className="content-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
-                                : <div className="content-prose">{String(value).split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+                        {previewText ? (
+                            <div className="content-prose">
+                                {previewText.split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+                            </div>
                         ) : <p className="text-sm text-slate-400">Preview will appear here.</p>}
                     </div>
                 )}
