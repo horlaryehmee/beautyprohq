@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ProviderProfile;
+use App\Models\NewsletterSubscriber;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -188,6 +189,16 @@ Route::get('/community/{communityPost}', [SeoController::class, 'communityPage']
 ]);
 
 Route::get('/build/assets/{asset}', fn () => abort(404))->where('asset', '.*');
+
+Route::get('/newsletter/unsubscribe/{subscriber}', function (NewsletterSubscriber $subscriber) {
+    $subscriber->forceFill(['unsubscribed_at' => now()])->save();
+
+    return response(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed</title></head><body style="font-family:Arial,sans-serif;max-width:620px;margin:48px auto;padding:0 20px;line-height:1.6;color:#24160f"><h1>You have been unsubscribed.</h1><p>You will no longer receive BeautyPro HQ newsletter updates at this email address.</p><p><a href="/" style="color:#9f1239;font-weight:700">Return to BeautyPro HQ</a></p></body></html>',
+        200,
+        ['Content-Type' => 'text/html; charset=UTF-8']
+    );
+})->middleware('signed')->name('newsletter.unsubscribe');
 
 Route::get('/{path?}', function (?string $path = null) {
     $path = trim((string) $path, '/');

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ContentNewsletterService;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -140,6 +141,14 @@ Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3 --timeou
 Schedule::command('auth:clear-resets')->dailyAt('02:10');
 Schedule::command('sanctum:prune-expired --hours=24')->dailyAt('02:20');
 Schedule::command('queue:prune-failed --hours=168')->dailyAt('02:30');
+Artisan::command('newsletter:send-due-content', function (ContentNewsletterService $newsletter): int {
+    $result = $newsletter->sendDue();
+    $this->info("Newsletter content sends checked. {$result['content']} content items queued for {$result['sent']} subscribers.");
+
+    return 0;
+})->purpose('Queue requested subscriber emails for content that is now published');
+
+Schedule::command('newsletter:send-due-content')->everyFiveMinutes()->withoutOverlapping(10);
 
 Schedule::call(function (): void {
     if (Schema::hasTable('sessions')) {

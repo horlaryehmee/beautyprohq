@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\AppSetting;
+use App\Models\NewsletterSubscriber;
 use App\Models\Payment;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
 use App\Support\SafeHtml;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -126,6 +128,20 @@ class OperationalHardeningTest extends TestCase
             'name' => 'Beauty Founder',
             'email' => 'founder@example.test',
         ]);
+    }
+
+    public function test_signed_newsletter_unsubscribe_link_marks_subscriber_unsubscribed(): void
+    {
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Reader',
+            'email' => 'reader@example.test',
+            'subscribed_at' => now(),
+        ]);
+
+        $this->get("/newsletter/unsubscribe/{$subscriber->id}")->assertForbidden();
+        $this->get(URL::signedRoute('newsletter.unsubscribe', ['subscriber' => $subscriber->id]))->assertOk();
+
+        $this->assertNotNull($subscriber->fresh()->unsubscribed_at);
     }
 
     public function test_register_page_serves_spa_assets(): void

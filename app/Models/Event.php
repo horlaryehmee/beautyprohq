@@ -15,6 +15,8 @@ class Event extends Model
         return [
             'date' => 'datetime',
             'published_at' => 'datetime',
+            'newsletter_notify_requested_at' => 'datetime',
+            'newsletter_notified_at' => 'datetime',
             'is_demo' => 'boolean',
             'show_on_homepage' => 'boolean',
         ];

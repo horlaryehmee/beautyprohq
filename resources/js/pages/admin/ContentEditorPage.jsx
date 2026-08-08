@@ -10,7 +10,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/news',
         publicPath: (item) => item?.slug ? `/news-events/news/${item.slug}` : null,
-        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
+        empty: { title: '', slug: '', excerpt: '', content: '', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
         bodyKey: 'content',
     },
     events: {
@@ -18,7 +18,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/events',
         publicPath: (item) => item?.slug ? `/news-events/events/${item.slug}` : null,
-        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
+        empty: { title: '', slug: '', date: '', location: '', description: '', image: '', registration_url: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '', show_on_homepage: false, homepage_sort_order: '' },
         bodyKey: 'description',
     },
     community: {
@@ -26,7 +26,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/community-posts',
         publicPath: (item) => item?.id ? `/community/${item.id}` : null,
-        empty: { title: '', content: '', type: 'story', image: '', status: 'published', published_at: '', seo_title: '', seo_description: '' },
+        empty: { title: '', content: '', type: 'story', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '' },
         bodyKey: 'content',
     },
 };
@@ -53,6 +53,7 @@ function toForm(item, type) {
         status: statusFor(item),
         date: item.date ? String(item.date).slice(0, 10) : '',
         published_at: item.published_at ? String(item.published_at).slice(0, 16) : '',
+        notify_subscribers: false,
     };
 }
 
@@ -61,6 +62,7 @@ function cleanPayload(form, type) {
 
     if (type !== 'community' && !payload.slug) delete payload.slug;
     if (payload.status === 'published' && !payload.published_at) delete payload.published_at;
+    payload.notify_subscribers = Boolean(payload.notify_subscribers);
     if (type === 'events' && !payload.registration_url) delete payload.registration_url;
     if (type === 'community') {
         delete payload.show_on_homepage;
@@ -379,6 +381,21 @@ export default function AdminContentEditorPage() {
                                 <input className={inputClass} onChange={(event) => updateForm({ published_at: event.target.value })} type="datetime-local" value={form.published_at ?? ''} />
                             </Field>
                             {!isNew && editing?.published_at && <p className="text-xs font-semibold text-slate-400">Current publish date: {formatDate(editing.published_at)}</p>}
+                            <label className={`flex items-start gap-3 rounded-2xl border p-4 ${editing?.newsletter_notified_at ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                                <input
+                                    checked={Boolean(form.notify_subscribers)}
+                                    className="mt-1 size-4 rounded border-slate-300 text-fuchsia-700 focus:ring-fuchsia-500"
+                                    disabled={Boolean(editing?.newsletter_notified_at)}
+                                    onChange={(event) => updateForm({ notify_subscribers: event.target.checked })}
+                                    type="checkbox"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-slate-900">Email subscribers when published</span>
+                                    <span className="mt-1 block text-xs leading-5 text-slate-500">Sends one concise email to active newsletter subscribers only. It will not resend after this item has been emailed.</span>
+                                    {editing?.newsletter_notified_at && <span className="mt-2 block text-xs font-bold text-emerald-700">Sent to {Number(editing.newsletter_notified_count ?? 0).toLocaleString()} subscribers on {formatDate(editing.newsletter_notified_at)}.</span>}
+                                    {!editing?.newsletter_notified_at && editing?.newsletter_notify_requested_at && <span className="mt-2 block text-xs font-bold text-amber-700">Email is queued to send when the publish date arrives.</span>}
+                                </span>
+                            </label>
                         </div>
                     </Card>
 

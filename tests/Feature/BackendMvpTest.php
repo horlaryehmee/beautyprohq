@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\Availability;
 use App\Models\Booking;
+use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
+use App\Services\ContentNewsletterService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -310,6 +312,54 @@ class BackendMvpTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.pagination.total', 1)
             ->assertJsonPath('data.subscribers.0.email', 'subscriber25@example.test');
+    }
+
+    public function test_admin_can_choose_to_email_subscribers_when_news_is_published(): void
+    {
+        Notification::fake();
+        Sanctum::actingAs(User::factory()->admin()->create());
+        NewsletterSubscriber::create(['name' => 'Active One', 'email' => 'active1@example.test', 'subscribed_at' => now()]);
+        NewsletterSubscriber::create(['name' => 'Active Two', 'email' => 'active2@example.test', 'subscribed_at' => now()]);
+        NewsletterSubscriber::create(['name' => 'Unsubscribed', 'email' => 'left@example.test', 'subscribed_at' => now(), 'unsubscribed_at' => now()]);
+
+        $newsId = $this->postJson('/api/admin/news', [
+            'title' => 'Subscriber Update',
+            'content' => '<p>A useful update for subscribers.</p>',
+            'status' => 'published',
+            'notify_subscribers' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.newsletter_notified_count', 2)
+            ->json('data.id');
+
+        $this->assertDatabaseHas('news', ['id' => $newsId, 'newsletter_notified_count' => 2]);
+        $this->assertNotNull(News::find($newsId)->newsletter_notified_at);
+    }
+
+    public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void
+    {
+        Notification::fake();
+        Sanctum::actingAs(User::factory()->admin()->create());
+        NewsletterSubscriber::create(['name' => 'Scheduled Reader', 'email' => 'reader@example.test', 'subscribed_at' => now()]);
+
+        $newsId = $this->postJson('/api/admin/news', [
+            'title' => 'Scheduled Subscriber Update',
+            'content' => '<p>Send this later.</p>',
+            'status' => 'published',
+            'published_at' => now()->addHour()->toDateTimeString(),
+            'notify_subscribers' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.newsletter_notified_at', null)
+            ->json('data.id');
+
+        $news = News::findOrFail($newsId);
+        $this->assertNotNull($news->newsletter_notify_requested_at);
+        $news->update(['published_at' => now()->subMinute()]);
+
+        $result = app(ContentNewsletterService::class)->sendDue();
+
+        $this->assertSame(1, $result['content']);
+        $this->assertSame(1, $result['sent']);
+        $this->assertDatabaseHas('news', ['id' => $newsId, 'newsletter_notified_count' => 1]);
     }
 
     private function provider(string $name, bool $verified = false, string $location = 'Abuja'): array

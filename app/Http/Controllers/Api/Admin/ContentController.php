@@ -12,6 +12,7 @@ use App\Models\Opportunity;
 use App\Models\OpportunityEnquiry;
 use App\Models\User;
 use App\Notifications\AnnouncementNotification;
+use App\Services\ContentNewsletterService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,15 +36,18 @@ class ContentController extends Controller
         $data = $this->newsData($request);
         $data['slug'] = $data['slug'] ?? $this->slug(News::class, $data['title']);
         $data['author_id'] = $request->user()->id;
+        $news = News::create($data);
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($news, 'news', $request->boolean('notify_subscribers'));
 
-        return $this->created(News::create($data), 'News article created.');
+        return $this->created($news->fresh(), $this->newsletterMessage('News article created.', $newsletter));
     }
 
     public function updateNews(Request $request, News $news): JsonResponse
     {
         $news->update($this->newsData($request, $news));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($news->fresh(), 'news', $request->boolean('notify_subscribers'));
 
-        return $this->updated($news, 'News article updated.');
+        return $this->updated($news, $this->newsletterMessage('News article updated.', $newsletter));
     }
 
     public function destroyNews(News $news): JsonResponse
@@ -65,15 +69,18 @@ class ContentController extends Controller
     {
         $data = $this->eventData($request);
         $data['slug'] = $data['slug'] ?? $this->slug(Event::class, $data['title']);
+        $event = Event::create($data);
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($event, 'event', $request->boolean('notify_subscribers'));
 
-        return $this->created(Event::create($data), 'Event created.');
+        return $this->created($event->fresh(), $this->newsletterMessage('Event created.', $newsletter));
     }
 
     public function updateEvent(Request $request, Event $event): JsonResponse
     {
         $event->update($this->eventData($request, $event));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($event->fresh(), 'event', $request->boolean('notify_subscribers'));
 
-        return $this->updated($event, 'Event updated.');
+        return $this->updated($event, $this->newsletterMessage('Event updated.', $newsletter));
     }
 
     public function destroyEvent(Event $event): JsonResponse
@@ -93,14 +100,18 @@ class ContentController extends Controller
 
     public function storeCommunity(Request $request): JsonResponse
     {
-        return $this->created(CommunityPost::create($this->communityData($request)), 'Community post created.');
+        $communityPost = CommunityPost::create($this->communityData($request));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($communityPost, 'community', $request->boolean('notify_subscribers'));
+
+        return $this->created($communityPost->fresh(), $this->newsletterMessage('Community post created.', $newsletter));
     }
 
     public function updateCommunity(Request $request, CommunityPost $communityPost): JsonResponse
     {
         $communityPost->update($this->communityData($request, true));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($communityPost->fresh(), 'community', $request->boolean('notify_subscribers'));
 
-        return $this->updated($communityPost, 'Community post updated.');
+        return $this->updated($communityPost, $this->newsletterMessage('Community post updated.', $newsletter));
     }
 
     public function destroyCommunity(CommunityPost $communityPost): JsonResponse
@@ -310,6 +321,23 @@ class ContentController extends Controller
         $model->delete();
 
         return $this->success(null, $message);
+    }
+
+    private function newsletterMessage(string $base, array $newsletter): string
+    {
+        if (! ($newsletter['requested'] ?? false)) {
+            return $base;
+        }
+
+        if ($newsletter['sent'] ?? false) {
+            return $base.' Subscriber email queued for '.$newsletter['count'].' active subscribers.';
+        }
+
+        if (($newsletter['count'] ?? 0) > 0) {
+            return $base.' Subscriber email was already sent for this item.';
+        }
+
+        return $base.' Subscriber email will be sent when this item is published.';
     }
 
     private function slug(string $model, string $title): string
