@@ -57,7 +57,7 @@ export function mediaUrl(value) {
 export function responsiveImage(value, {
     widths = [360, 520, 720],
     sizes = '100vw',
-    quality = 72,
+    quality = 60,
 } = {}) {
     const src = mediaUrl(value);
     if (!src || !/^https:\/\/images\.unsplash\.com\//i.test(src)) return { src };

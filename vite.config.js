@@ -5,7 +5,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
     build: {
-        target: ['es2018', 'safari13'],
+        target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+        cssMinify: 'lightningcss',
     },
     plugins: [
         laravel({
