@@ -192,7 +192,7 @@ function EventRegistrationForm({ event }) {
 function RelatedCard({ item, type }) {
     const image = mediaUrl(item.image_url ?? item.image) ?? fallbacks[type];
     const href = type === 'community'
-        ? `/community/${item.id}`
+        ? `/community/${item.slug ?? item.id}`
         : `/news-events/${type === 'event' ? 'events' : 'news'}/${item.slug}`;
 
     return (
@@ -253,9 +253,14 @@ export default function ContentDetailPage({ type = 'news' }) {
     const normalized = useMemo(() => {
         if (!item) return null;
         const date = type === 'event' ? item.date : item.published_at ?? item.created_at;
+        const canonicalPath = type === 'community'
+            ? `/community/${item.slug ?? item.id}`
+            : `/news-events/${type === 'event' ? 'events' : 'news'}/${item.slug}`;
+
         return {
             ...item,
             date,
+            canonicalPath,
             image: mediaUrl(item.image_url ?? item.image) ?? fallbacks[type],
             label: typeLabel(type, item),
             author: item.author?.name ?? item.provider?.user?.name ?? 'BeautyPro HQ',
@@ -310,6 +315,7 @@ export default function ContentDetailPage({ type = 'news' }) {
                 description={normalized.seo_description || normalized.excerpt || stripHtml(normalized.body).slice(0, 160)}
                 image={normalized.image}
                 type="article"
+                canonical={`${window.location.origin}${normalized.canonicalPath}`}
             />
             <div className="fixed inset-x-0 top-0 z-[100] h-1 bg-transparent">
                 <div className="h-full bg-[#3A2A1F] transition-[width] duration-100" style={{ width: `${progress}%` }} />

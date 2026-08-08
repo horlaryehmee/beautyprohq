@@ -289,6 +289,46 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/news')->assertOk()->assertJsonPath('data.0.id', $articleId);
     }
 
+    public function test_community_content_uses_secure_seo_slug_permalinks(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $postId = $this->postJson('/api/admin/community-posts', [
+            'title' => 'A Community Win!',
+            'slug' => 'A Community Win! <script>',
+            'content' => '<p>A useful community story.</p>',
+            'type' => 'business_win',
+            'status' => 'published',
+        ])->assertCreated()
+            ->assertJsonPath('data.slug', 'a-community-win-script')
+            ->json('data.id');
+
+        $this->postJson('/api/admin/community-posts', [
+            'title' => 'Another Community Win',
+            'slug' => 'a-community-win-script',
+            'content' => '<p>Another useful community story.</p>',
+            'type' => 'story',
+            'status' => 'published',
+        ])->assertCreated()
+            ->assertJsonPath('data.slug', 'a-community-win-script-1');
+
+        $this->getJson('/api/community-posts/a-community-win-script')
+            ->assertOk()
+            ->assertJsonPath('data.id', $postId);
+
+        $this->getJson('/api/community-posts/'.$postId)
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'a-community-win-script');
+
+        $this->get('/community/'.$postId)
+            ->assertRedirect('/community/a-community-win-script');
+
+        $this->assertDatabaseHas('community_posts', [
+            'id' => $postId,
+            'slug' => 'a-community-win-script',
+        ]);
+    }
+
     public function test_admin_subscribers_include_names_and_are_paginated(): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());

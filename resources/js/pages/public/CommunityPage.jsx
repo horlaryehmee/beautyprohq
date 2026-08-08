@@ -172,7 +172,7 @@ export default function CommunityPage() {
     }, [filters.types, posts]);
 
     const preview = posts[0];
-    const openPost = (post) => navigate(`/community/${post.id}`);
+    const openPost = (post) => navigate(`/community/${post.slug ?? post.id}`);
     const currentPage = Number(meta.current_page ?? page);
     const lastPage = Number(meta.last_page ?? 1);
 

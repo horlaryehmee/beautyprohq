@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\News;
 use App\Models\Opportunity;
 use App\Models\ProviderProfile;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -56,7 +57,7 @@ class SeoController extends Controller
         $this->newsItems()->take(100)->each(fn (News $news) => $lines[] = '- ['.$this->plain($news->title).']('.url('/news-events/news/'.$news->slug.'.md').')');
         $this->eventItems()->take(100)->each(fn (Event $event) => $lines[] = '- ['.$this->plain($event->title).']('.url('/news-events/events/'.$event->slug.'.md').')');
         $this->opportunityItems()->take(100)->each(fn (Opportunity $opportunity) => $lines[] = '- ['.$this->plain($opportunity->title).']('.url('/opportunities/'.$opportunity->id.'.md').')');
-        $this->communityItems()->take(100)->each(fn (CommunityPost $post) => $lines[] = '- ['.$this->plain($post->title).']('.url('/community/'.$post->id.'.md').')');
+        $this->communityItems()->take(100)->each(fn (CommunityPost $post) => $lines[] = '- ['.$this->plain($post->title).']('.url('/community/'.$post->slug.'.md').')');
 
         $lines[] = '';
 
@@ -108,7 +109,7 @@ class SeoController extends Controller
                 'changefreq' => 'weekly',
             ]))
             ->merge($this->communityItems()->map(fn (CommunityPost $post) => [
-                'loc' => url('/community/'.$post->id),
+                'loc' => url('/community/'.$post->slug),
                 'lastmod' => optional($post->updated_at ?: $post->published_at)->toAtomString(),
                 'priority' => '0.65',
                 'changefreq' => 'monthly',
@@ -246,14 +247,19 @@ class SeoController extends Controller
         ));
     }
 
-    public function communityPage(CommunityPost $communityPost): View
+    public function communityPage(CommunityPost $communityPost): View|RedirectResponse
     {
         abort_unless($communityPost->published_at?->lte(now()), 404);
+        $canonical = url('/community/'.$communityPost->slug);
+
+        if (url()->current() !== $canonical) {
+            return redirect()->to($canonical, 301);
+        }
 
         return view('app', $this->contentMeta(
             $communityPost->seo_title ?: $communityPost->title.' | Beauty Community | BeautyPro HQ',
             $communityPost->seo_description ?: $this->summary($communityPost->content, 160),
-            url('/community/'.$communityPost->id),
+            $canonical,
             $communityPost->image,
             'article',
             [
@@ -268,14 +274,19 @@ class SeoController extends Controller
         ));
     }
 
-    public function communityMarkdown(CommunityPost $communityPost): Response
+    public function communityMarkdown(CommunityPost $communityPost): Response|RedirectResponse
     {
         abort_unless($communityPost->published_at?->lte(now()), 404);
+        $canonical = url('/community/'.$communityPost->slug.'.md');
+
+        if (url()->current() !== $canonical) {
+            return redirect()->to($canonical, 301);
+        }
 
         return $this->markdownResponse($this->contentMarkdownBody(
             $communityPost->seo_title ?: $communityPost->title,
             $communityPost->seo_description,
-            url('/community/'.$communityPost->id),
+            url('/community/'.$communityPost->slug),
             $communityPost->published_at,
             $communityPost->updated_at,
             $communityPost->content,

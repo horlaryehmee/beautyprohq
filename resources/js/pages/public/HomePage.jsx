@@ -694,7 +694,7 @@ export default function HomePage({ onVerifiedProviders }) {
                                             <div className="mt-auto max-w-xl">
                                                 <h3 className="font-display text-4xl font-normal leading-tight sm:text-5xl">{stripHtml(community[0].title)}</h3>
                                                 <p className="mt-5 line-clamp-3 text-sm font-semibold leading-7 text-white/78">{stripHtml(community[0].excerpt ?? community[0].content)}</p>
-                                                <Link to={community[0].id ? `/community/${community[0].id}` : '/community'} className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-[#f4efe9]">
+                                                <Link to={(community[0].slug ?? community[0].id) ? `/community/${community[0].slug ?? community[0].id}` : '/community'} className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black uppercase tracking-wide text-[#34231c] transition hover:bg-[#f4efe9]">
                                                     Read Story <Icon name="arrow" size={14} />
                                                 </Link>
                                             </div>
@@ -703,7 +703,7 @@ export default function HomePage({ onVerifiedProviders }) {
 
                                     <div className="grid divide-y divide-[#eadfd5]">
                                         {visibleCommunity.slice(1, 4).map((item, index) => (
-                                            <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
+                                            <Link to={(item.slug ?? item.id) ? `/community/${item.slug ?? item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
                                                 <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
                                                     <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length], { widths: [240, 360, 520], sizes: '(min-width: 1024px) 170px, 120px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                                 </div>
@@ -722,7 +722,7 @@ export default function HomePage({ onVerifiedProviders }) {
                             {visibleCommunity.length > 4 && (
                                 <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     {visibleCommunity.slice(4).map((item, index) => (
-                                        <Link to={item.id ? `/community/${item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
+                                        <Link to={(item.slug ?? item.id) ? `/community/${item.slug ?? item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
                                             <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
                                                 <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length], { widths: [360, 520, 720], sizes: '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
                                             </div>

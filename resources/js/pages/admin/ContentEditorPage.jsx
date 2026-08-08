@@ -25,8 +25,8 @@ const contentTypes = {
         label: 'Community story',
         listPath: '/admin/content',
         endpoint: '/admin/community-posts',
-        publicPath: (item) => item?.id ? `/community/${item.id}` : null,
-        empty: { title: '', content: '', type: 'story', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '' },
+        publicPath: (item) => item?.slug ? `/community/${item.slug}` : (item?.id ? `/community/${item.id}` : null),
+        empty: { title: '', slug: '', content: '', type: 'story', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '' },
         bodyKey: 'content',
     },
 };
@@ -56,7 +56,7 @@ function toForm(item, type) {
 function cleanPayload(form, type) {
     const payload = { ...form };
 
-    if (type !== 'community' && !payload.slug) delete payload.slug;
+    if (!payload.slug) delete payload.slug;
     if (payload.status === 'published' && !payload.published_at) delete payload.published_at;
     payload.notify_subscribers = Boolean(payload.notify_subscribers);
     if (type === 'events' && !payload.registration_url) delete payload.registration_url;
@@ -274,7 +274,7 @@ export default function AdminContentEditorPage() {
                                 className="w-full border-0 bg-transparent px-0 py-2 font-serif text-4xl font-normal leading-tight text-slate-950 outline-none placeholder:text-slate-300 sm:text-5xl"
                                 onChange={(event) => updateForm({
                                     title: event.target.value,
-                                    ...(type !== 'community' && isNew ? { slug: slugify(event.target.value) } : {}),
+                                    ...(isNew ? { slug: slugify(event.target.value) } : {}),
                                 })}
                                 placeholder={`Add ${config.label.toLowerCase()} title`}
                                 required
@@ -282,14 +282,16 @@ export default function AdminContentEditorPage() {
                             />
                         </Field>
 
-                        {type !== 'community' && (
-                            <Field label="Slug" hint="Used in the public URL.">
-                                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                    <input className={inputClass} onChange={(event) => updateForm({ slug: slugify(event.target.value) })} required value={form.slug ?? ''} />
-                                    <Button onClick={() => updateForm({ slug: slugify(form.title) })} type="button" variant="secondary">Generate</Button>
-                                </div>
-                            </Field>
-                        )}
+                        <Field label="Permalink" hint="SEO-friendly public URL. Use lowercase words separated by hyphens.">
+                            <div className="mb-2 truncate rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                                {type === 'events' ? '/news-events/events/' : type === 'news' ? '/news-events/news/' : '/community/'}
+                                <span className="text-slate-900">{form.slug || slugify(form.title) || 'your-url-slug'}</span>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                <input className={inputClass} onChange={(event) => updateForm({ slug: slugify(event.target.value) })} required value={form.slug ?? ''} />
+                                <Button onClick={() => updateForm({ slug: slugify(form.title) })} type="button" variant="secondary">Generate</Button>
+                            </div>
+                        </Field>
 
                         {type === 'news' && (
                             <Field label="Excerpt">

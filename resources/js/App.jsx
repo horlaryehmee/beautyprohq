@@ -134,7 +134,7 @@ export default function App() {
                         <Route path="opportunities/:id" element={<OpportunityDetailPage />} />
                         <Route path="booking-confirmation" element={<BookingConfirmationPage />} />
                         <Route path="community" element={<CommunityPage />} />
-                        <Route path="community/:id" element={<ContentDetailPage type="community" />} />
+                        <Route path="community/:slug" element={<ContentDetailPage type="community" />} />
                         <Route path="providers/:provider/book/:serviceId" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider/book" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider" element={<ProviderProfilePage />} />

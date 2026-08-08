@@ -34,7 +34,6 @@ class ContentController extends Controller
     public function storeNews(Request $request): JsonResponse
     {
         $data = $this->newsData($request);
-        $data['slug'] = $data['slug'] ?? $this->slug(News::class, $data['title']);
         $data['author_id'] = $request->user()->id;
         $news = News::create($data);
         $newsletter = app(ContentNewsletterService::class)->requestOrSend($news, 'news', $request->boolean('notify_subscribers'));
@@ -68,7 +67,6 @@ class ContentController extends Controller
     public function storeEvent(Request $request): JsonResponse
     {
         $data = $this->eventData($request);
-        $data['slug'] = $data['slug'] ?? $this->slug(Event::class, $data['title']);
         $event = Event::create($data);
         $newsletter = app(ContentNewsletterService::class)->requestOrSend($event, 'event', $request->boolean('notify_subscribers'));
 
@@ -108,7 +106,7 @@ class ContentController extends Controller
 
     public function updateCommunity(Request $request, CommunityPost $communityPost): JsonResponse
     {
-        $communityPost->update($this->communityData($request, true));
+        $communityPost->update($this->communityData($request, $communityPost));
         $newsletter = app(ContentNewsletterService::class)->requestOrSend($communityPost->fresh(), 'community', $request->boolean('notify_subscribers'));
 
         return $this->updated($communityPost, $this->newsletterMessage('Community post updated.', $newsletter));
@@ -190,7 +188,7 @@ class ContentController extends Controller
         $p = $news ? 'sometimes' : 'required';
 
         $data = $this->publication($request->validate([
-            'title' => [$p, 'string', 'max:180'], 'slug' => ['sometimes', 'string', 'max:200', Rule::unique('news', 'slug')->ignore($news)],
+            'title' => [$p, 'string', 'max:180'], 'slug' => ['nullable', 'string', 'max:200'],
             'excerpt' => ['nullable', 'string', 'max:500'], 'content' => [$p, 'string'], 'image' => ['nullable', 'string', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
             'show_on_homepage' => ['sometimes', 'boolean'], 'homepage_sort_order' => ['nullable', 'integer', 'min:1', 'max:99'],
@@ -199,6 +197,8 @@ class ContentController extends Controller
         if (array_key_exists('content', $data)) {
             $data['content'] = SafeHtml::clean($data['content']);
         }
+        $data = $this->withSlug($data, News::class, $news);
+
         return $this->autoSeo($data, 'Beauty News', $data['excerpt'] ?? $data['content'] ?? $news?->excerpt ?? $news?->content, $data['title'] ?? $news?->title);
     }
 
@@ -207,7 +207,7 @@ class ContentController extends Controller
         $p = $event ? 'sometimes' : 'required';
 
         $data = $this->publication($request->validate([
-            'title' => [$p, 'string', 'max:180'], 'slug' => ['sometimes', 'string', 'max:200', Rule::unique('events', 'slug')->ignore($event)],
+            'title' => [$p, 'string', 'max:180'], 'slug' => ['nullable', 'string', 'max:200'],
             'date' => [$p, 'date'], 'location' => [$p, 'string', 'max:255'], 'description' => [$p, 'string', 'max:10000'],
             'image' => ['nullable', 'string', 'max:500'], 'registration_url' => ['nullable', 'url', 'max:500'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
@@ -217,15 +217,17 @@ class ContentController extends Controller
         if (array_key_exists('description', $data)) {
             $data['description'] = SafeHtml::clean($data['description']);
         }
+        $data = $this->withSlug($data, Event::class, $event);
+
         return $this->autoSeo($data, 'Beauty Event', $data['description'] ?? $event?->description, $data['title'] ?? $event?->title);
     }
 
-    private function communityData(Request $request, bool $partial = false): array
+    private function communityData(Request $request, ?CommunityPost $communityPost = null): array
     {
-        $p = $partial ? 'sometimes' : 'required';
+        $p = $communityPost ? 'sometimes' : 'required';
 
         $data = $this->publication($request->validate([
-            'title' => [$p, 'string', 'max:180'], 'content' => [$p, 'string'], 'type' => [$p, 'string', 'max:80'],
+            'title' => [$p, 'string', 'max:180'], 'slug' => ['nullable', 'string', 'max:200'], 'content' => [$p, 'string'], 'type' => [$p, 'string', 'max:80'],
             'image' => ['nullable', 'string', 'max:500'], 'provider_id' => ['nullable', 'exists:provider_profiles,id'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
@@ -233,8 +235,9 @@ class ContentController extends Controller
         if (array_key_exists('content', $data)) {
             $data['content'] = SafeHtml::clean($data['content']);
         }
+        $data = $this->withSlug($data, CommunityPost::class, $communityPost, 'community-story');
 
-        return $this->autoSeo($data, 'Beauty Community', $data['content'] ?? null, $data['title'] ?? null);
+        return $this->autoSeo($data, 'Beauty Community', $data['content'] ?? $communityPost?->content, $data['title'] ?? $communityPost?->title);
     }
 
     private function opportunityData(Request $request, bool $partial = false): array
@@ -340,16 +343,28 @@ class ContentController extends Controller
         return $base.' Subscriber email will be sent when this item is published.';
     }
 
-    private function slug(string $model, string $title): string
+    private function withSlug(array $data, string $model, ?Model $ignore = null, string $fallback = 'post'): array
     {
-        $base = Str::slug($title) ?: 'post';
+        if ($ignore && ! array_key_exists('slug', $data) && ! array_key_exists('title', $data)) {
+            return $data;
+        }
+
+        $source = $data['slug'] ?? $data['title'] ?? $ignore?->getAttribute('slug') ?? $ignore?->getAttribute('title') ?? $fallback;
+        $base = Str::slug($source) ?: $fallback;
         $slug = $base;
         $i = 1;
-        while ($model::where('slug', $slug)->exists()) {
+
+        while (
+            $model::where('slug', $slug)
+                ->when($ignore, fn ($query) => $query->whereKeyNot($ignore->getKey()))
+                ->exists()
+        ) {
             $slug = $base.'-'.$i++;
         }
 
-        return $slug;
+        $data['slug'] = $slug;
+
+        return $data;
     }
 
     private function publication(array $data): array
