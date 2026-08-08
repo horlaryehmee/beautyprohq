@@ -90,6 +90,11 @@ export function RichEditor({ label, value, onChange }) {
         onChange(editorRef.current?.innerHTML ?? '');
     };
 
+    const switchMode = (nextMode) => {
+        if (nextMode === 'preview') sync();
+        setMode(nextMode);
+    };
+
     const run = (command, option = null) => {
         editorRef.current?.focus();
         document.execCommand(command, false, option);
@@ -118,7 +123,7 @@ export function RichEditor({ label, value, onChange }) {
                 <span className="text-sm font-bold text-slate-700">{label}</span>
                 <div className="rounded-xl bg-slate-100 p-1">
                     {['write', 'preview'].map((item) => (
-                        <button key={item} type="button" onClick={() => setMode(item)} className={cx('rounded-lg px-3 py-1 text-xs font-bold capitalize', mode === item ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500')}>
+                        <button key={item} type="button" onClick={() => switchMode(item)} className={cx('rounded-lg px-3 py-1 text-xs font-bold capitalize', mode === item ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500')}>
                             {item}
                         </button>
                     ))}
@@ -147,9 +152,9 @@ export function RichEditor({ label, value, onChange }) {
                 ) : (
                     <div className="min-h-[520px] p-6">
                         {value ? (
-                            /<[a-z][\s\S]*>/i.test(value)
+                            /<[a-z][\s\S]*>/i.test(String(value))
                                 ? <div className="content-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />
-                                : <div className="content-prose">{value.split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+                                : <div className="content-prose">{String(value).split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
                         ) : <p className="text-sm text-slate-400">Preview will appear here.</p>}
                     </div>
                 )}
