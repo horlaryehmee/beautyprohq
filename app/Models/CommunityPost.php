@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CommunityPost extends Model
@@ -14,6 +15,10 @@ class CommunityPost extends Model
     protected static function booted(): void
     {
         static::saving(function (CommunityPost $post): void {
+            if (! Schema::hasColumn($post->getTable(), 'slug')) {
+                return;
+            }
+
             $source = $post->slug ?: $post->title ?: 'community-story';
             $post->slug = static::uniqueSlug($source, $post->exists ? $post : null);
         });

@@ -16,6 +16,7 @@ use App\Services\ContentNewsletterService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -346,6 +347,12 @@ class ContentController extends Controller
     private function withSlug(array $data, string $model, ?Model $ignore = null, string $fallback = 'post'): array
     {
         if ($ignore && ! array_key_exists('slug', $data) && ! array_key_exists('title', $data)) {
+            return $data;
+        }
+
+        if (! Schema::hasColumn((new $model)->getTable(), 'slug')) {
+            unset($data['slug']);
+
             return $data;
         }
 
