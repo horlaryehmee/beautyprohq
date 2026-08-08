@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Availability;
 use App\Models\Booking;
+use App\Models\NewsletterSubscriber;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -284,6 +285,31 @@ class BackendMvpTest extends TestCase
 
         $this->assertDatabaseHas('news', ['id' => $articleId]);
         $this->getJson('/api/news')->assertOk()->assertJsonPath('data.0.id', $articleId);
+    }
+
+    public function test_admin_subscribers_include_names_and_are_paginated(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        foreach (range(1, 25) as $index) {
+            NewsletterSubscriber::create([
+                'name' => "Subscriber {$index}",
+                'email' => "subscriber{$index}@example.test",
+                'subscribed_at' => now()->subMinutes($index),
+            ]);
+        }
+
+        $this->getJson('/api/admin/waitlist?per_page=10&page=2')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.current_page', 2)
+            ->assertJsonPath('data.pagination.per_page', 10)
+            ->assertJsonPath('data.pagination.total', 25)
+            ->assertJsonPath('data.subscribers.0.name', 'Subscriber 11');
+
+        $this->getJson('/api/admin/waitlist?search=Subscriber%2025')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.subscribers.0.email', 'subscriber25@example.test');
     }
 
     private function provider(string $name, bool $verified = false, string $location = 'Abuja'): array

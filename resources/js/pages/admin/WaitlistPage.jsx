@@ -68,7 +68,7 @@ export default function AdminWaitlistPage() {
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard icon="bell" label="Total emails" value={stats.total ?? 0} />
+                <StatCard icon="bell" label="Total subscribers" value={stats.total ?? 0} />
                 <StatCard icon="users" label="Active" tone="emerald" value={stats.active ?? 0} />
                 <StatCard icon="analytics" label="Today" tone="sky" value={stats.today ?? 0} />
                 <StatCard icon="bell" label="Unsubscribed" tone="amber" value={stats.unsubscribed ?? 0} />
@@ -83,7 +83,7 @@ export default function AdminWaitlistPage() {
                                 <article className="grid gap-3 border-b border-slate-100 p-4 last:border-0 sm:grid-cols-[1fr_auto_auto] sm:items-center" key={subscriber.id}>
                                     <div className="min-w-0">
                                         <p className="truncate font-bold text-slate-950">{subscriber.name ?? 'Newsletter subscriber'}</p>
-                                        <p className="mt-1 truncate text-xs font-semibold text-slate-400">{subscriber.email} · Joined {formatDate(subscriber.subscribed_at)}</p>
+                                        <p className="mt-1 truncate text-xs font-semibold text-slate-400">{subscriber.email} - Joined {formatDate(subscriber.subscribed_at)}</p>
                                     </div>
                                     <StatusBadge status={subscriber.status} />
                                     <p className="text-xs font-semibold text-slate-400">
