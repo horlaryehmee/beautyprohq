@@ -45,6 +45,10 @@ class MailchimpService
                 'opportunity_enquiry' => 'Opportunity Enquiry',
                 'contact_enquiry' => 'Contact Enquiry',
             ],
+            'merge_fields' => [
+                'first_name' => 'FNAME',
+                'last_name' => 'LNAME',
+            ],
         ];
     }
 
