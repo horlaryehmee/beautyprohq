@@ -1,0 +1,1 @@
+import{j as t}from"./main-CvVPvKXT.js";import{D as r,c as a}from"./DashboardShell-Dq96OjJj.js";import"./ui-CUsU5hW9.js";import"./api-CI07sZkW.js";import"./useDashboard-DjWbGjPn.js";function n(o){return t.jsx(r,{navigation:a,role:"customer",...o})}export{n as default};

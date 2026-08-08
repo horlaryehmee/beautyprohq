@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+/* Build marker: dashboard cache recovery */
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../**/*.blade.php';
 @source '../**/*.{js,jsx}';

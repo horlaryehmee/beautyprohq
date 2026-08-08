@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import PublicLayout from './components/layout/PublicLayout';
@@ -110,6 +110,11 @@ function AdminWorkspace() {
 
 export default function App() {
     const location = useLocation();
+
+    useEffect(() => {
+        window.sessionStorage.removeItem('bphq_lazy_reload');
+        window.sessionStorage.removeItem('bphq_error_boundary_reload');
+    }, [location.pathname]);
 
     return (
         <ErrorBoundary resetKey={location.pathname}>
