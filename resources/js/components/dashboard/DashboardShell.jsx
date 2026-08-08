@@ -224,7 +224,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
             <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200/80 bg-white lg:block">{sidebar}</aside>
 
             {mobileOpen && <button aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} type="button" />}
-            <aside className={cx('fixed inset-y-0 left-0 z-50 w-[min(82vw,20rem)] border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>{sidebar}</aside>
+            <aside className={cx('fixed inset-y-0 left-0 z-50 w-[min(82vw,20rem)] border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')} {...(!mobileOpen && { inert: '', 'aria-hidden': 'true' })}>{sidebar}</aside>
 
             <div className="lg:pl-64">
                 <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-[#F7F3ED]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">

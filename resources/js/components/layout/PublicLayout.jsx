@@ -139,7 +139,7 @@ export default function PublicLayout() {
                 </div>
             </header>}
 
-            {!isBookingPage && <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!open}>
+            {!isBookingPage && <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none invisible'}`} aria-hidden={!open} {...(!open && { inert: '' })}>
                 <button type="button" className={`absolute inset-0 bg-[#2A1D14]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
                 <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#F7F3ED] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">

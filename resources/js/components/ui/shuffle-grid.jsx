@@ -72,8 +72,8 @@ function CountUp({ end, suffix = '+' }) {
     }, [end, suffix]);
 
     return (
-        <span className="inline-grid" aria-label={finalValue}>
-            <span className="invisible col-start-1 row-start-1" aria-hidden="true">{finalValue}</span>
+        <span className="inline-grid" aria-live="polite">
+            <span className="sr-only">{finalValue}</span>
             <span ref={valueRef} className="col-start-1 row-start-1" aria-hidden="true">0{suffix}</span>
         </span>
     );
