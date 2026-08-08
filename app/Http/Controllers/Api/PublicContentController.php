@@ -140,8 +140,14 @@ class PublicContentController extends Controller
 
     public function subscribe(Request $request): JsonResponse
     {
-        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
-        $subscriber = NewsletterSubscriber::updateOrCreate(['email' => strtolower($validated['email'])], ['subscribed_at' => now(), 'unsubscribed_at' => null]);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+        $subscriber = NewsletterSubscriber::updateOrCreate(
+            ['email' => strtolower($validated['email'])],
+            ['name' => $validated['name'], 'subscribed_at' => now(), 'unsubscribed_at' => null]
+        );
         $this->sendPublicConfirmation($subscriber->email, new NewsletterSubscriptionConfirmation());
 
         return $this->success($subscriber, 'You are subscribed to BeautyPro HQ updates.', 201);

@@ -329,6 +329,7 @@ export default function HomePage({ onVerifiedProviders }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [newsletterName, setNewsletterName] = useState('');
     const [email, setEmail] = useState('');
     const [newsletterLoading, setNewsletterLoading] = useState(false);
     const [showAllNewsEvents, setShowAllNewsEvents] = useState(false);
@@ -405,8 +406,9 @@ export default function HomePage({ onVerifiedProviders }) {
         try {
             const { default: api, ensureCsrfCookie } = await import('../../lib/api');
             await ensureCsrfCookie();
-            const response = await api.post('/newsletter/subscribe', { email });
+            const response = await api.post('/newsletter/subscribe', { name: newsletterName, email });
             toast.success(response?.data?.message || 'You are on the BeautyPro HQ list.');
+            setNewsletterName('');
             setEmail('');
         } catch (requestError) {
             toast.error(requestError?.response?.data?.message || 'We could not add you right now.');
@@ -785,7 +787,19 @@ export default function HomePage({ onVerifiedProviders }) {
                 <div className="page-container">
                     <div className="newsletter-panel overflow-hidden rounded-[34px] px-6 py-10 text-white sm:px-10 sm:py-14 lg:flex lg:items-center lg:justify-between lg:gap-12 lg:px-14">
                         <div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-rose-200">The beauty brief</p><h2 className="mt-3 font-display text-3xl font-semibold sm:text-4xl">Fresh opportunities, useful news, zero clutter.</h2><p className="mt-3 text-sm leading-7 text-plum-100">Get the best of BeautyPro HQ delivered to your inbox.</p></div>
-                        <form onSubmit={subscribe} className="mt-7 flex w-full max-w-lg flex-col gap-2 rounded-2xl bg-white/10 p-2 ring-1 ring-white/15 sm:flex-row lg:mt-0"><label className="flex min-h-12 flex-1 items-center gap-2 px-3"><Icon name="mail" size={18} className="text-rose-200" /><span className="sr-only">Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com" className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-plum-300" /></label><Button type="submit" variant="rose" disabled={newsletterLoading}>{newsletterLoading ? 'Joining…' : 'Join the list'}</Button></form>
+                        <form onSubmit={subscribe} className="mt-7 grid w-full max-w-xl gap-2 rounded-2xl bg-white/10 p-2 ring-1 ring-white/15 sm:grid-cols-2 lg:mt-0">
+                            <label className="flex min-h-12 items-center gap-2 rounded-xl px-3 focus-within:bg-white/10">
+                                <Icon name="users" size={18} className="text-rose-200" />
+                                <span className="sr-only">Name</span>
+                                <input type="text" value={newsletterName} onChange={(event) => setNewsletterName(event.target.value)} required maxLength={120} placeholder="Your name" className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-plum-300" />
+                            </label>
+                            <label className="flex min-h-12 items-center gap-2 rounded-xl px-3 focus-within:bg-white/10">
+                                <Icon name="mail" size={18} className="text-rose-200" />
+                                <span className="sr-only">Email address</span>
+                                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="you@example.com" className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-plum-300" />
+                            </label>
+                            <Button type="submit" variant="rose" disabled={newsletterLoading} className="sm:col-span-2">{newsletterLoading ? 'Joining...' : 'Join the list'}</Button>
+                        </form>
                     </div>
                 </div>
             </section>

@@ -81,7 +81,9 @@ class DashboardController extends Controller
     public function waitlist(Request $request): JsonResponse
     {
         $subscribers = NewsletterSubscriber::query()
-            ->when($request->search, fn ($query, $search) => $query->where('email', 'like', "%{$search}%"))
+            ->when($request->search, fn ($query, $search) => $query->where(fn ($nested) => $nested
+                ->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
             ->latest('subscribed_at')
             ->paginate($this->perPage($request, 20, 100));
 
@@ -101,16 +103,19 @@ class DashboardController extends Controller
     {
         $filename = 'beautyprohq-waitlist-'.now()->format('Y-m-d-His').'.csv';
         $subscribers = NewsletterSubscriber::query()
-            ->when($request->search, fn ($query, $search) => $query->where('email', 'like', "%{$search}%"))
+            ->when($request->search, fn ($query, $search) => $query->where(fn ($nested) => $nested
+                ->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")))
             ->latest('subscribed_at')
             ->get();
 
         return response()->streamDownload(function () use ($subscribers): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Email', 'Status', 'Subscribed at', 'Unsubscribed at']);
+            fputcsv($handle, ['Name', 'Email', 'Status', 'Subscribed at', 'Unsubscribed at']);
 
             foreach ($subscribers as $subscriber) {
                 fputcsv($handle, [
+                    $subscriber->name,
                     $subscriber->email,
                     $subscriber->unsubscribed_at ? 'Unsubscribed' : 'Active',
                     optional($subscriber->subscribed_at)->toDateTimeString(),

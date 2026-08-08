@@ -27,7 +27,7 @@ const days = [
 ];
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
-const socialOptions = ['Instagram', 'TikTok', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp', 'Website'];
+const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
 
 function LinkList({ items = [], onRemove }) {
     if (!items.length) return <p className="mt-3 text-sm text-slate-400">No links added yet.</p>;

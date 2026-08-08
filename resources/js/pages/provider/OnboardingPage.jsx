@@ -14,7 +14,7 @@ const days = [
 ];
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
-const socialOptions = ['Instagram', 'TikTok', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp', 'Website'];
+const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
 
 function ProviderOnboardingContent() {
     const navigate = useNavigate();

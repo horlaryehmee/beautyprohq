@@ -453,7 +453,7 @@ class DemoDataController extends Controller
             ['title' => 'BPHQ Demo Platform Notice'],
             ['message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()],
         );
-        NewsletterSubscriber::updateOrCreate(['email' => 'demo.newsletter@beautyprohq.test'], ['subscribed_at' => now(), 'unsubscribed_at' => null]);
+        NewsletterSubscriber::updateOrCreate(['email' => 'demo.newsletter@beautyprohq.test'], ['name' => 'Demo Newsletter', 'subscribed_at' => now(), 'unsubscribed_at' => null]);
     }
 
     private function categoryForProfession(string $profession): ?ProviderCategory

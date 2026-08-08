@@ -59,7 +59,7 @@ export default function AdminWaitlistPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                description="Emails collected from newsletter and coming soon signup forms."
+                description="Names and emails collected from newsletter and coming soon signup forms."
                 eyebrow="Audience"
                 actions={<Button onClick={exportSubscribers} type="button" variant="secondary">Export CSV</Button>}
                 title="Subscribers"
@@ -75,15 +75,15 @@ export default function AdminWaitlistPage() {
             </div>
 
             <Card>
-                <SearchInput className="mb-5" onChange={(event) => setQuery(event.target.value)} placeholder="Search email" value={query} />
+                <SearchInput className="mb-5" onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" value={query} />
                 {resource.loading ? <LoadingBlock rows={8} /> : rows.length ? (
                     <>
                         <div className="overflow-hidden rounded-2xl border border-slate-100">
                             {rows.map((subscriber) => (
                                 <article className="grid gap-3 border-b border-slate-100 p-4 last:border-0 sm:grid-cols-[1fr_auto_auto] sm:items-center" key={subscriber.id}>
                                     <div className="min-w-0">
-                                        <p className="truncate font-bold text-slate-950">{subscriber.email}</p>
-                                        <p className="mt-1 text-xs font-semibold text-slate-400">Joined {formatDate(subscriber.subscribed_at)}</p>
+                                        <p className="truncate font-bold text-slate-950">{subscriber.name ?? 'Newsletter subscriber'}</p>
+                                        <p className="mt-1 truncate text-xs font-semibold text-slate-400">{subscriber.email} · Joined {formatDate(subscriber.subscribed_at)}</p>
                                     </div>
                                     <StatusBadge status={subscriber.status} />
                                     <p className="text-xs font-semibold text-slate-400">
@@ -95,7 +95,7 @@ export default function AdminWaitlistPage() {
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>
                 ) : (
-                    <EmptyState description="No subscriber emails match this search yet." icon="bell" title="No emails found" />
+                    <EmptyState description="No subscribers match this search yet." icon="bell" title="No subscribers found" />
                 )}
             </Card>
         </div>

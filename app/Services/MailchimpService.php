@@ -107,11 +107,16 @@ class MailchimpService
         try {
             $hash = $this->subscriberHash($subscriber->email);
             $status = $subscriber->unsubscribed_at ? 'unsubscribed' : 'subscribed';
+            $nameParts = $this->splitName($subscriber->name);
 
             $this->request('put', "/lists/{$this->listId()}/members/{$hash}", [
                 'email_address' => Str::lower(trim($subscriber->email)),
                 'status_if_new' => $status,
                 'status' => $status,
+                'merge_fields' => array_filter([
+                    'FNAME' => $nameParts['first'],
+                    'LNAME' => $nameParts['last'],
+                ]),
             ]);
 
             $this->syncTags($hash, [
@@ -237,9 +242,10 @@ class MailchimpService
         }
 
         if ($type === 'subscribe') {
+            $name = trim(($data['merges']['FNAME'] ?? '').' '.($data['merges']['LNAME'] ?? '')) ?: null;
             NewsletterSubscriber::updateOrCreate(
                 ['email' => $email],
-                ['subscribed_at' => now(), 'unsubscribed_at' => null]
+                ['name' => $name, 'subscribed_at' => now(), 'unsubscribed_at' => null]
             );
         }
     }

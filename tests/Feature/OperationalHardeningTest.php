@@ -113,6 +113,21 @@ class OperationalHardeningTest extends TestCase
             ->assertJsonValidationErrors('email');
     }
 
+    public function test_newsletter_subscription_stores_name_and_email(): void
+    {
+        $this->postJson('/api/newsletter/subscribe', [
+            'name' => 'Beauty Founder',
+            'email' => 'founder@example.test',
+        ])->assertCreated()
+            ->assertJsonPath('data.name', 'Beauty Founder')
+            ->assertJsonPath('data.email', 'founder@example.test');
+
+        $this->assertDatabaseHas('newsletter_subscribers', [
+            'name' => 'Beauty Founder',
+            'email' => 'founder@example.test',
+        ]);
+    }
+
     public function test_register_page_serves_spa_assets(): void
     {
         AppSetting::setValue('features.coming_soon', '0');
