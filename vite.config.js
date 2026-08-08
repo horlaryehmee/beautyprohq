@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
     build: {
-        target: 'es2020',
+        target: 'es2022',
     },
     plugins: [
         laravel({

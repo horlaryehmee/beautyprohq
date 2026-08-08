@@ -46,6 +46,9 @@
 
     SetEnvIf Request_URI "^/build/assets/" bphq_immutable_asset
     Header always set Cache-Control "public, max-age=31536000, immutable" env=bphq_immutable_asset
+
+    SetEnvIf Request_URI "^/storage/uploads/.*\.(avif|webp|png|jpe?g|gif|svg)$" bphq_upload_asset
+    Header always set Cache-Control "public, max-age=31536000, immutable" env=bphq_upload_asset
 </IfModule>
 
 <IfModule mod_deflate.c>

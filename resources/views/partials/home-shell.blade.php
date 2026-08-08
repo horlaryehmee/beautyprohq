@@ -15,7 +15,7 @@
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
             <a href="/" class="inline-flex scale-90 items-center leading-none" aria-label="BeautyPro HQ home">
-                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" class="h-24 w-auto object-contain sm:h-28">
+                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="h-24 w-auto object-contain sm:h-28">
             </a>
             <a href="/login" class="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
@@ -26,7 +26,7 @@
     <header class="sticky top-0 z-50 hidden border-b border-transparent bg-cream-50/80 backdrop-blur-md lg:block">
         <div class="page-container flex h-28 items-center justify-between gap-5">
             <a href="/" class="inline-flex items-center leading-none" aria-label="BeautyPro HQ home">
-                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" class="h-28 w-auto object-contain">
+                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="h-28 w-auto object-contain">
             </a>
             <nav class="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
                 <a href="/" class="rounded-lg bg-white px-3.5 py-2 text-sm font-bold text-plum-900 shadow-sm">Home</a>
@@ -97,7 +97,7 @@
                                         @endphp
                                         <div class="h-40 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#DCCCB8] shadow-[0_18px_45px_rgba(64,42,32,.12)] ring-1 ring-white/60 sm:h-56 sm:rounded-[1.35rem] md:h-64">
                                             @if($visible)
-                                                <img src="{{ $image['src'] }}" @isset($image['srcset']) srcset="{{ $image['srcset'] }}" sizes="{{ $image['sizes'] }}" @endisset @if($lcp) data-bphq-lcp @else onerror="this.onerror=null;this.src=document.querySelector('[data-bphq-lcp]').src" @endif loading="eager" decoding="async" fetchpriority="{{ $lcp ? 'high' : 'low' }}" alt="" class="size-full object-cover">
+                                                <img src="{{ $image['src'] }}" @isset($image['srcset']) srcset="{{ $image['srcset'] }}" sizes="{{ $image['sizes'] }}" @endisset @if($lcp) data-bphq-lcp @else onerror="this.onerror=null;this.src=document.querySelector('[data-bphq-lcp]').src" @endif width="280" height="160" loading="eager" decoding="async" fetchpriority="{{ $lcp ? 'high' : 'low' }}" alt="" class="size-full object-cover">
                                             @endif
                                         </div>
                                     @endforeach

@@ -64,7 +64,7 @@ class SecurityHeaders
             "object-src 'none'",
             "frame-ancestors 'self'",
             "form-action 'self'",
-            'script-src '.implode(' ', [...$scriptSources, config('security.csp.unsafe_inline_fallback', true) ? "'unsafe-inline'" : '']),
+            'script-src '.implode(' ', [...$scriptSources, config('security.csp.unsafe_inline_fallback', false) ? "'unsafe-inline'" : '']),
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com data:",
             "img-src 'self' https: data: blob:",
