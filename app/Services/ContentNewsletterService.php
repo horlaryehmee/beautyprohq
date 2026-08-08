@@ -6,6 +6,7 @@ use App\Models\CommunityPost;
 use App\Models\Event;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
+use App\Models\Opportunity;
 use App\Notifications\ContentPublishedNewsletterNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -103,6 +104,10 @@ class ContentNewsletterService
             ->get()->each(function (CommunityPost $post) use (&$items): void {
                 $items[] = [$post, 'community'];
             });
+        Opportunity::query()->whereNotNull('newsletter_notify_requested_at')->whereNull('newsletter_notified_at')->published()
+            ->get()->each(function (Opportunity $opportunity) use (&$items): void {
+                $items[] = [$opportunity, 'opportunity'];
+            });
 
         return $items;
     }
@@ -116,6 +121,7 @@ class ContentNewsletterService
     {
         $source = match ($type) {
             'event' => $content->description,
+            'opportunity' => $content->description,
             default => $content->excerpt ?? $content->content,
         };
 
@@ -130,6 +136,7 @@ class ContentNewsletterService
             'news' => $base.'/news-events/news/'.$content->slug,
             'event' => $base.'/news-events/events/'.$content->slug,
             'community' => $base.'/community/'.$content->id,
+            'opportunity' => $base.'/opportunities/'.$content->id,
             default => $base,
         };
     }

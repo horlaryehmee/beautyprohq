@@ -130,14 +130,18 @@ class ContentController extends Controller
 
     public function storeOpportunity(Request $request): JsonResponse
     {
-        return $this->created(Opportunity::create($this->opportunityData($request)), 'Opportunity created.');
+        $opportunity = Opportunity::create($this->opportunityData($request));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($opportunity, 'opportunity', $request->boolean('notify_subscribers'));
+
+        return $this->created($opportunity->fresh(), $this->newsletterMessage('Opportunity created.', $newsletter));
     }
 
     public function updateOpportunity(Request $request, Opportunity $opportunity): JsonResponse
     {
         $opportunity->update($this->opportunityData($request, true));
+        $newsletter = app(ContentNewsletterService::class)->requestOrSend($opportunity->fresh(), 'opportunity', $request->boolean('notify_subscribers'));
 
-        return $this->updated($opportunity, 'Opportunity updated.');
+        return $this->updated($opportunity, $this->newsletterMessage('Opportunity updated.', $newsletter));
     }
 
     public function destroyOpportunity(Opportunity $opportunity): JsonResponse

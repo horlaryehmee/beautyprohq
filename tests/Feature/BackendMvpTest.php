@@ -6,6 +6,7 @@ use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
+use App\Models\Opportunity;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -418,6 +419,31 @@ class BackendMvpTest extends TestCase
 
         $this->assertDatabaseHas('news', ['id' => $newsId, 'newsletter_notified_count' => 2]);
         $this->assertNotNull(News::find($newsId)->newsletter_notified_at);
+    }
+
+    public function test_admin_can_choose_to_email_subscribers_when_opportunity_is_published(): void
+    {
+        Notification::fake();
+        Sanctum::actingAs(User::factory()->admin()->create());
+        NewsletterSubscriber::create(['name' => 'Active One', 'email' => 'active1@example.test', 'subscribed_at' => now()]);
+        NewsletterSubscriber::create(['name' => 'Unsubscribed', 'email' => 'left@example.test', 'subscribed_at' => now(), 'unsubscribed_at' => now()]);
+
+        $opportunityId = $this->postJson('/api/admin/opportunities', [
+            'title' => 'Beauty Training Call',
+            'type' => 'training',
+            'description' => '<p>A useful opportunity for beauty professionals.</p>',
+            'contact_info' => ['email' => 'opportunities@example.test'],
+            'location' => 'Lagos',
+            'deadline' => now()->addWeek()->toDateString(),
+            'status' => 'published',
+            'notify_subscribers' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.newsletter_notified_count', 1)
+            ->json('data.id');
+
+        $opportunity = Opportunity::findOrFail($opportunityId);
+        $this->assertSame(1, $opportunity->newsletter_notified_count);
+        $this->assertNotNull($opportunity->newsletter_notified_at);
     }
 
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void
