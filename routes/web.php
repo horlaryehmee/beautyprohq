@@ -1,89 +1,13 @@
 <?php
 
-use App\Models\ProviderProfile;
 use App\Models\NewsletterSubscriber;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
+use App\Support\HomepageShell;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Session\Middleware\StartSession;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
-if (! function_exists('bphq_media_url')) {
-    function bphq_media_url(?string $value): ?string
-    {
-        if (! $value) {
-            return null;
-        }
-
-        if (preg_match('/^(https?:)?\/\//i', $value) || str_starts_with($value, '/')) {
-            return $value;
-        }
-
-        return '/storage/'.preg_replace('/^storage\//', '', $value);
-    }
-}
-
-if (! function_exists('bphq_responsive_unsplash')) {
-    function bphq_responsive_unsplash(string $src, array $widths = [280, 400, 560], int $quality = 70): array
-    {
-        if (! str_starts_with($src, 'https://images.unsplash.com/')) {
-            return ['src' => $src];
-        }
-
-        $build = static function (int $width) use ($src, $quality): string {
-            $parts = parse_url($src);
-            parse_str($parts['query'] ?? '', $query);
-            $query['auto'] = 'format';
-            $query['fit'] = 'crop';
-            $query['w'] = $width;
-            $query['q'] = $quality;
-
-            return ($parts['scheme'] ?? 'https').'://'.$parts['host'].($parts['path'] ?? '').'?'.http_build_query($query);
-        };
-
-        $widths = collect($widths)->unique()->sort()->values();
-
-        return [
-            'src' => $build($widths->last()),
-            'srcset' => $widths->map(fn (int $width): string => $build($width).' '.$width.'w')->implode(', '),
-            'sizes' => '(min-width: 768px) 25vw, 36vw',
-        ];
-    }
-}
-
-if (! function_exists('bphq_home_hero_images')) {
-    function bphq_home_hero_images(): array
-    {
-        $fallbacks = [
-            'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=560&q=70',
-            'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=560&q=70',
-            'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=560&q=70',
-            'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=560&q=70',
-            'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=560&q=70',
-            'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=560&q=70',
-        ];
-
-        $photos = [];
-
-        if (Schema::hasTable('provider_profiles')) {
-            $photos = Cache::remember('home.hero.photos', 300, fn (): array => ProviderProfile::query()
-                ->directory()
-                ->whereNotNull('profile_photo')
-                ->latest('updated_at')
-                ->limit(8)
-                ->pluck('profile_photo')
-                ->map(fn (?string $photo): ?string => bphq_media_url($photo))
-                ->filter()
-                ->values()
-                ->all());
-        }
-
-        return collect($photos)->merge($fallbacks)->filter()->unique()->take(8)->values()->all();
-    }
-}
 
 Route::get('/coming-soon', fn () => response()
     ->view('coming-soon')
@@ -112,13 +36,13 @@ Route::get('/', function () {
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    $heroImages = bphq_home_hero_images();
-    $heroPreload = bphq_responsive_unsplash($heroImages[0] ?? 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=560&q=70');
+    $heroImages = HomepageShell::heroImages();
+    $heroPreload = HomepageShell::responsiveUnsplash($heroImages[0] ?? 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=560&q=70');
 
     return response()
         ->view('app', [
             'homepageShell' => true,
-            'heroShellImages' => collect($heroImages)->map(fn (string $src): array => bphq_responsive_unsplash($src))->all(),
+            'heroShellImages' => collect($heroImages)->map(fn (string $src): array => HomepageShell::responsiveUnsplash($src))->all(),
             'heroPreload' => [
                 ...$heroPreload,
                 'inline' => false,
