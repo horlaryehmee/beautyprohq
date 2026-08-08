@@ -123,6 +123,11 @@ class ContentController extends Controller
         return $this->listing(Opportunity::query()->latest(), $request, ['title', 'description', 'type', 'location'], ['type']);
     }
 
+    public function showOpportunity(Opportunity $opportunity): JsonResponse
+    {
+        return $this->success($opportunity);
+    }
+
     public function storeOpportunity(Request $request): JsonResponse
     {
         return $this->created(Opportunity::create($this->opportunityData($request)), 'Opportunity created.');

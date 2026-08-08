@@ -228,6 +228,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::delete('/community-posts/{communityPost}', [AdminContentController::class, 'destroyCommunity']);
         Route::get('/opportunities', [AdminContentController::class, 'opportunities']);
         Route::post('/opportunities', [AdminContentController::class, 'storeOpportunity']);
+        Route::get('/opportunities/{opportunity}', [AdminContentController::class, 'showOpportunity']);
         Route::put('/opportunities/{opportunity}', [AdminContentController::class, 'updateOpportunity']);
         Route::delete('/opportunities/{opportunity}', [AdminContentController::class, 'destroyOpportunity']);
         Route::get('/opportunity-enquiries', [AdminContentController::class, 'enquiries']);

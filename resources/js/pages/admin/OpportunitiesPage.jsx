@@ -1,18 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
-import sanitizeHtml from '../../lib/sanitizeHtml';
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, useApiResource, useDashboardToast } from '../../components/dashboard';
 
-const emptyForm = {
-    type: 'job',
-    title: '',
-    short_description: '',
-    description: '',
-    contact_email: '',
-    contact_url: '',
-    location: '',
-    deadline: '',
-    status: 'published',
-};
 const normalize = (value) => Array.isArray(value) ? value : value?.opportunities ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
 const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
@@ -26,137 +15,14 @@ function contactFrom(item = {}) {
     return typeof info === 'object' ? info : { text: info };
 }
 
-function ClassicEditor({ label, value, onChange }) {
-    const editorRef = useRef(null);
-
-    useEffect(() => {
-        const node = editorRef.current;
-        if (node && node.innerHTML !== (value || '')) node.innerHTML = sanitizeHtml(value || '');
-    }, [value]);
-
-    const sync = () => {
-        onChange(editorRef.current?.innerHTML ?? '');
-    };
-
-    const run = (command, option = null) => {
-        editorRef.current?.focus();
-        document.execCommand(command, false, option);
-        sync();
-    };
-
-    const setBlock = (tag) => run('formatBlock', tag);
-
-    const addLink = () => {
-        const url = window.prompt('Enter link URL');
-        if (!url) return;
-        run('createLink', url);
-    };
-
-    const tools = [
-        ['H1', () => setBlock('h1')],
-        ['H2', () => setBlock('h2')],
-        ['H3', () => setBlock('h3')],
-        ['H4', () => setBlock('h4')],
-        ['H5', () => setBlock('h5')],
-        ['H6', () => setBlock('h6')],
-        ['Paragraph', () => setBlock('p')],
-        ['Bold', () => run('bold')],
-        ['Italic', () => run('italic')],
-        ['Underline', () => run('underline')],
-        ['Quote', () => setBlock('blockquote')],
-        ['List', () => run('insertUnorderedList')],
-        ['Numbered', () => run('insertOrderedList')],
-        ['Link', addLink],
-        ['Clear', () => run('removeFormat')],
-    ];
-
-    return (
-        <div>
-            <div className="mb-1.5 flex items-center justify-between gap-3">
-                <span className="text-sm font-bold text-slate-700">{label}</span>
-                <span className="text-xs font-semibold text-slate-400">Classic editor</span>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 p-2">
-                    {tools.map(([toolLabel, action]) => (
-                        <button key={toolLabel} type="button" onClick={action} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100">{toolLabel}</button>
-                    ))}
-                </div>
-                <div
-                    ref={editorRef}
-                    className="content-prose min-h-[420px] w-full overflow-y-auto bg-white p-5 text-base leading-8 text-slate-900 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
-                    contentEditable
-                    data-placeholder="Write the full opportunity details here. Use the toolbar for headings, bold text, lists, quotes, and links."
-                    onBlur={sync}
-                    onInput={sync}
-                    role="textbox"
-                    suppressContentEditableWarning
-                    tabIndex={0}
-                />
-            </div>
-        </div>
-    );
-}
-
-function formFrom(item) {
-    const info = contactFrom(item);
-    return {
-        ...emptyForm,
-        ...item,
-        short_description: item.short_description ?? info.short_description ?? '',
-        contact_email: info.email ?? '',
-        contact_url: info.url ?? '',
-        deadline: item.deadline ? String(item.deadline).slice(0, 10) : '',
-        status: item.status ?? (item.published_at ? 'published' : 'draft'),
-    };
-}
-
 export default function AdminOpportunitiesPage() {
     const [page, setPage] = useState(1);
     const resource = useApiResource('/admin/opportunities', [], { params: { page, per_page: 12 } });
-    const [form, setForm] = useState(emptyForm);
-    const [editing, setEditing] = useState(null);
-    const [open, setOpen] = useState(false);
-    const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const items = normalize(resource.data).map((item) => ({ ...item, status: item.status ?? (item.published_at ? 'published' : 'draft') }));
     const meta = metaFrom(resource.data);
     const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
-    const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
-
-    const show = (item = null) => {
-        setEditing(item);
-        setForm(item ? formFrom(item) : emptyForm);
-        setOpen(true);
-    };
-
-    const save = async (event) => {
-        event.preventDefault();
-        setSaving(true);
-        try {
-            const payload = {
-                type: form.type,
-                title: form.title,
-                description: form.description,
-                contact_info: {
-                    short_description: form.short_description,
-                    email: form.contact_email,
-                    url: form.contact_url,
-                },
-                location: form.location || null,
-                deadline: form.deadline || null,
-                status: form.status,
-            };
-            const saved = await apiRequest(editing ? 'put' : 'post', editing ? `/admin/opportunities/${editing.id}` : '/admin/opportunities', payload);
-            resource.setData((current) => updateResourceData(current, editing ? normalize(current).map((item) => item.id === editing.id ? { ...item, ...saved } : item) : [saved, ...normalize(current)]));
-            setOpen(false);
-            notify('Opportunity saved.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        } finally {
-            setSaving(false);
-        }
-    };
+    const currentPage = Number(meta.current_page ?? meta.currentPage ?? 1);
 
     const remove = async (item) => {
         if (!window.confirm(`Delete this ${item.type} opportunity?`)) return;
@@ -171,48 +37,42 @@ export default function AdminOpportunitiesPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader actions={<Button onClick={() => show()} type="button">Add opportunity</Button>} description="Publish jobs, collaborations, vendor calls, and training opportunities with clear application instructions." eyebrow="Growth" title="Opportunities" />
+            <PageHeader
+                actions={<Link className="inline-flex min-h-10 items-center justify-center rounded-xl bg-bphq-coffee px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-bphq-espresso" to="/admin/opportunities/new">Add opportunity</Link>}
+                description="Publish jobs, collaborations, vendor calls, and training opportunities with clear application instructions."
+                eyebrow="Growth"
+                title="Opportunities"
+            />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
             <Card>
                 {resource.loading ? <LoadingBlock rows={5} /> : items.length ? (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {items.map((item) => (
-                                <article className="rounded-2xl border border-slate-100 p-4" key={item.id}>
-                                    <div className="flex items-start justify-between gap-3"><span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span><StatusBadge status={item.status ?? 'published'} /></div>
-                                    <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
-                                    <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
-                                    <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
-                                    <div className="mt-4 flex gap-2"><Button className="flex-1" onClick={() => show(item)} type="button" variant="secondary">Edit</Button><Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button></div>
-                                </article>
+                            <article className="rounded-2xl border border-slate-100 p-4" key={item.id}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold capitalize text-fuchsia-700">{String(item.type).replaceAll('_', ' ')}</span>
+                                    <StatusBadge status={item.status ?? 'published'} />
+                                </div>
+                                <h2 className="mt-4 line-clamp-2 font-bold text-slate-950">{item.title ?? `${item.type} opportunity`}</h2>
+                                <p className="mt-2 line-clamp-3 min-h-16 text-sm leading-5 text-slate-500">{item.short_description || contactFrom(item).short_description || plainText(item.description)}</p>
+                                <p className="mt-3 text-[11px] text-slate-400">Added {formatDate(item.created_at)}</p>
+                                <div className="mt-4 flex gap-2">
+                                    <Link className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl border border-bphq-chrome bg-white px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-ivory" to={`/admin/opportunities/${item.id}/edit`}>Edit</Link>
+                                    <Button onClick={() => remove(item)} type="button" variant="danger">Delete</Button>
+                                </div>
+                            </article>
                         ))}
                     </div>
-                ) : <EmptyState action={<Button onClick={() => show()} type="button" variant="soft">Post an opportunity</Button>} description="Create a detailed listing with clear requirements and application guidance." icon="opportunity" title="No opportunities yet" />}
+                ) : (
+                    <EmptyState
+                        action={<Link className="inline-flex min-h-10 items-center justify-center rounded-xl bg-bphq-ivory px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-beige" to="/admin/opportunities/new">Post an opportunity</Link>}
+                        description="Create a detailed listing with clear requirements and application guidance."
+                        icon="opportunity"
+                        title="No opportunities yet"
+                    />
+                )}
                 <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
             </Card>
-
-            {open && (
-                <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setOpen(false)}>
-                    <Card className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
-                        <h2 className="text-lg font-bold text-slate-950">{editing ? 'Edit opportunity' : 'New opportunity'}</h2>
-                        <form className="mt-5 space-y-4" onSubmit={save}>
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                <Field label="Type"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))} value={form.type}><option value="job">Job</option><option value="partnership">Partnership</option><option value="vendor_call">Vendor call</option><option value="training">Training</option><option value="media">Media feature</option><option value="speaking">Speaking</option></select></Field>
-                                <Field label="Status"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} value={form.status}><option value="published">Published</option><option value="draft">Draft</option></select></Field>
-                                <Field label="Deadline"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} type="date" value={form.deadline} /></Field>
-                            </div>
-                            <Field label="Title"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} /></Field>
-                            <Field label="Short card description" hint="This is what appears on homepage and opportunity cards. Keep it short, clear, and direct."><textarea className={`${inputClass} min-h-24 resize-y leading-7`} maxLength={600} onChange={(event) => setForm((current) => ({ ...current, short_description: event.target.value }))} value={form.short_description} /></Field>
-                            <ClassicEditor label="Full opportunity details" onChange={(value) => setForm((current) => ({ ...current, description: value }))} value={form.description} />
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                <Field label="Location"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} value={form.location} /></Field>
-                                <Field label="Contact email"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, contact_email: event.target.value }))} type="email" value={form.contact_email} /></Field>
-                                <Field label="External URL optional"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, contact_url: event.target.value }))} type="url" value={form.contact_url} /></Field>
-                            </div>
-                            <div className="flex justify-end gap-2"><Button onClick={() => setOpen(false)} type="button" variant="secondary">Cancel</Button><Button busy={saving} type="submit">Save opportunity</Button></div>
-                        </form>
-                    </Card>
-                </div>
-            )}
         </div>
     );
 }
