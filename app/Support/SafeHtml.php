@@ -93,9 +93,9 @@ class SafeHtml
     {
         $allowed = match ($tag) {
             'a' => ['href', 'title'],
-            'blockquote' => ['cite', 'class'],
+            'blockquote' => ['cite', 'class', 'style'],
             'img' => ['alt', 'src', 'title'],
-            default => in_array($tag, self::ALIGNABLE_TAGS, true) ? ['class'] : [],
+            default => in_array($tag, self::ALIGNABLE_TAGS, true) ? ['class', 'style'] : [],
         };
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
@@ -110,6 +110,10 @@ class SafeHtml
             }
 
             if ($name === 'class' && ! self::cleanClassAttribute($element, $attribute->value)) {
+                $element->removeAttribute($attribute->name);
+            }
+
+            if ($name === 'style' && ! self::cleanStyleAttribute($element, $attribute->value)) {
                 $element->removeAttribute($attribute->name);
             }
         }
@@ -131,6 +135,19 @@ class SafeHtml
         }
 
         $element->setAttribute('class', implode(' ', $classes));
+
+        return true;
+    }
+
+    private static function cleanStyleAttribute(DOMElement $element, string $value): bool
+    {
+        preg_match('/(?:^|;)\s*text-align\s*:\s*(left|center|right|justify)\s*(?:;|$)/i', $value, $match);
+
+        if (! isset($match[1])) {
+            return false;
+        }
+
+        $element->setAttribute('style', 'text-align: '.strtolower($match[1]).';');
 
         return true;
     }

@@ -6,7 +6,7 @@ const options = {
         'h5', 'h6', 'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'strong', 'table',
         'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul',
     ],
-    ALLOWED_ATTR: ['alt', 'cite', 'class', 'href', 'rel', 'src', 'title'],
+    ALLOWED_ATTR: ['alt', 'cite', 'class', 'href', 'rel', 'src', 'style', 'title'],
     ALLOW_DATA_ATTR: false,
 };
 

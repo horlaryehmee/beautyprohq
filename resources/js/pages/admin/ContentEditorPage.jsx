@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import LinkExtension from '@tiptap/extension-link';
+import ImageExtension from '@tiptap/extension-image';
+import { Table as TableExtension, TableCell as TableCellExtension, TableHeader as TableHeaderExtension, TableRow as TableRowExtension } from '@tiptap/extension-table';
+import TextAlignExtension from '@tiptap/extension-text-align';
+import UnderlineExtension from '@tiptap/extension-underline';
+import { AlignCenter, AlignLeft, AlignRight, Bold, Heading2, Heading3, Image as ImageIcon, Italic, Link as LinkIcon, List, ListOrdered, Minus, Pilcrow, Quote, Table, Underline } from 'lucide-react';
 import { Button, Card, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
+import sanitizeHtml from '../../lib/sanitizeHtml';
 
 const contentTypes = {
     news: {
@@ -72,17 +81,6 @@ function cleanPayload(form, type) {
     return payload;
 }
 
-function selectedLineRange(textarea) {
-    const value = textarea.value;
-    let start = textarea.selectionStart ?? 0;
-    let end = textarea.selectionEnd ?? start;
-
-    while (start > 0 && value[start - 1] !== '\n') start -= 1;
-    while (end < value.length && value[end] !== '\n') end += 1;
-
-    return { start, end };
-}
-
 function normalizeUrl(value) {
     const url = String(value ?? '').trim();
     if (!url) return '';
@@ -90,164 +88,117 @@ function normalizeUrl(value) {
     return `https://${url}`;
 }
 
-function escapeAttribute(value) {
-    return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-}
-
 function ContentBodyEditor({ label, value, onChange }) {
-    const textareaRef = useRef(null);
-    const currentValue = String(value ?? '');
-
-    const replaceSelection = (formatter) => {
-        const textarea = textareaRef.current;
-        if (!textarea) return;
-
-        const start = textarea.selectionStart ?? 0;
-        const end = textarea.selectionEnd ?? start;
-        const selected = currentValue.slice(start, end);
-        const result = formatter(selected, { start, end, value: currentValue });
-        const replacement = typeof result === 'string' ? result : result.text;
-        const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
-        const nextStart = typeof result === 'string' ? start : result.start ?? start;
-        const nextEnd = typeof result === 'string' ? start + replacement.length : result.end ?? start + replacement.length;
-
-        onChange(nextValue);
-        window.requestAnimationFrame(() => {
-            textarea.focus();
-            textarea.setSelectionRange(nextStart, nextEnd);
-        });
-    };
-
-    const replaceLines = (formatter) => {
-        const textarea = textareaRef.current;
-        if (!textarea) return;
-
-        const { start, end } = selectedLineRange(textarea);
-        const selected = currentValue.slice(start, end) || 'Text';
-        const replacement = formatter(selected);
-        const nextValue = `${currentValue.slice(0, start)}${replacement}${currentValue.slice(end)}`;
-
-        onChange(nextValue);
-        window.requestAnimationFrame(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start, start + replacement.length);
-        });
-    };
-
-    const wrapInline = (open, close = open, placeholder = 'text') => {
-        replaceSelection((selected, selection) => {
-            const body = selected || placeholder;
-            const text = `${open}${body}${close}`;
-            const start = selection.start + open.length;
-            return { text, start, end: start + body.length };
-        });
-    };
-
-    const setBlock = (tag) => {
-        replaceLines((selected) => {
-            const text = selected.trim() || (tag === 'blockquote' ? 'Quote' : 'Paragraph text');
-            if (tag === 'paragraph') return `<p>${text}</p>`;
-            return `<${tag}>${text}</${tag}>`;
-        });
-    };
-
-    const addList = (ordered = false) => {
-        replaceLines((selected) => {
-            const items = selected.split('\n').map((line) => line.trim()).filter(Boolean);
-            const tag = ordered ? 'ol' : 'ul';
-            return `<${tag}>\n${(items.length ? items : ['List item']).map((item) => `  <li>${item.replace(/^[-*\d.)\s]+/, '')}</li>`).join('\n')}\n</${tag}>`;
-        });
-    };
-
-    const align = (direction) => {
-        replaceLines((selected) => `<p class="text-${direction}">${selected.trim() || 'Aligned paragraph'}</p>`);
-    };
+    const lastExternalValue = useRef(String(value ?? ''));
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({ link: false }),
+            LinkExtension.configure({
+                autolink: true,
+                defaultProtocol: 'https',
+                openOnClick: false,
+                protocols: ['http', 'https', 'mailto', 'tel'],
+            }),
+            ImageExtension.configure({ allowBase64: false, inline: false }),
+            TableExtension.configure({ resizable: true }),
+            TableRowExtension,
+            TableHeaderExtension,
+            TableCellExtension,
+            TextAlignExtension.configure({ types: ['heading', 'paragraph'] }),
+            UnderlineExtension,
+        ],
+        content: sanitizeHtml(value || ''),
+        editorProps: {
+            attributes: {
+                class: 'content-prose min-h-[520px] w-full max-w-none bg-white p-5 text-base leading-8 text-bphq-espresso outline-none',
+            },
+        },
+        immediatelyRender: false,
+        onUpdate: ({ editor: activeEditor }) => {
+            const html = activeEditor.getHTML();
+            lastExternalValue.current = html;
+            onChange(html);
+        },
+    });
 
     const addLink = () => {
         const url = normalizeUrl(window.prompt('Enter link URL'));
         if (!url) return;
-        replaceSelection((selected, selection) => {
-            const textValue = selected || 'Link text';
-            const open = `<a href="${escapeAttribute(url)}">`;
-            const text = `${open}${textValue}</a>`;
-            const start = selection.start + open.length;
-            return { text, start, end: start + textValue.length };
-        });
+        editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     };
 
     const addImage = () => {
         const src = normalizeUrl(window.prompt('Enter image URL'));
         if (!src) return;
         const alt = String(window.prompt('Describe the image for SEO/accessibility') ?? '').trim() || 'Content image';
-        replaceSelection(() => `<p><img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}"></p>`);
+        editor?.chain().focus().setImage({ src, alt }).run();
     };
 
     const addTable = () => {
-        replaceSelection(() => '<table>\n  <thead>\n    <tr><th>Heading</th><th>Heading</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>Value</td><td>Value</td></tr>\n  </tbody>\n</table>');
+        editor?.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run();
     };
 
+    useEffect(() => {
+        if (!editor) return;
+        const nextValue = String(value ?? '');
+        if (nextValue === lastExternalValue.current) return;
+        if (nextValue !== editor.getHTML()) {
+            editor.commands.setContent(sanitizeHtml(nextValue), { emitUpdate: false });
+            lastExternalValue.current = nextValue;
+        }
+    }, [editor, value]);
+
+    const active = (name, attributes = {}) => typeof name === 'object' ? editor?.isActive(name) : editor?.isActive(name, attributes);
+    const canEditTable = editor?.isActive('table');
+    const iconClass = 'size-4';
+    const buttonClass = (isActive = false) => `grid size-9 place-items-center rounded-lg border text-bphq-espresso transition ${isActive ? 'border-bphq-coffee bg-bphq-beige' : 'border-bphq-chrome bg-white hover:bg-bphq-beige'}`;
     const tools = [
-        { label: 'Bold', value: 'B', action: () => wrapInline('<strong>', '</strong>') },
-        { label: 'Italic', value: 'I', action: () => wrapInline('<em>', '</em>'), className: 'italic' },
-        { label: 'Bulleted list', value: 'UL', action: () => addList(false) },
-        { label: 'Numbered list', value: '1.', action: () => addList(true) },
-        { label: 'Quote', value: 'QT', action: () => setBlock('blockquote') },
-        { label: 'Align left', value: 'L', action: () => align('left') },
-        { label: 'Align center', value: 'C', action: () => align('center') },
-        { label: 'Align right', value: 'R', action: () => align('right') },
-        { label: 'Link', value: 'Link', action: addLink },
-        { label: 'Image', value: 'IMG', action: addImage },
-        { label: 'Table', value: 'Table', action: addTable },
-        { label: 'Divider', value: 'HR', action: () => replaceSelection(() => '<hr>') },
+        { label: 'Bold', icon: <Bold className={iconClass} />, active: active('bold'), action: () => editor?.chain().focus().toggleBold().run() },
+        { label: 'Italic', icon: <Italic className={iconClass} />, active: active('italic'), action: () => editor?.chain().focus().toggleItalic().run() },
+        { label: 'Underline', icon: <Underline className={iconClass} />, active: active('underline'), action: () => editor?.chain().focus().toggleUnderline().run() },
+        { label: 'Bulleted list', icon: <List className={iconClass} />, active: active('bulletList'), action: () => editor?.chain().focus().toggleBulletList().run() },
+        { label: 'Numbered list', icon: <ListOrdered className={iconClass} />, active: active('orderedList'), action: () => editor?.chain().focus().toggleOrderedList().run() },
+        { label: 'Quote', icon: <Quote className={iconClass} />, active: active('blockquote'), action: () => editor?.chain().focus().toggleBlockquote().run() },
+        { label: 'Align left', icon: <AlignLeft className={iconClass} />, active: active({ textAlign: 'left' }), action: () => editor?.chain().focus().setTextAlign('left').run() },
+        { label: 'Align center', icon: <AlignCenter className={iconClass} />, active: active({ textAlign: 'center' }), action: () => editor?.chain().focus().setTextAlign('center').run() },
+        { label: 'Align right', icon: <AlignRight className={iconClass} />, active: active({ textAlign: 'right' }), action: () => editor?.chain().focus().setTextAlign('right').run() },
+        { label: 'Link', icon: <LinkIcon className={iconClass} />, active: active('link'), action: addLink },
+        { label: 'Image', icon: <ImageIcon className={iconClass} />, action: addImage },
+        { label: 'Table', icon: <Table className={iconClass} />, active: active('table'), action: addTable },
+        { label: 'Divider', icon: <Minus className={iconClass} />, action: () => editor?.chain().focus().setHorizontalRule().run() },
     ];
 
     return (
         <div>
             <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span className="text-sm font-bold text-slate-700">{label}</span>
-                <span className="text-xs text-slate-400">Tools insert safe HTML that is cleaned again before publishing.</span>
+                <span className="text-xs text-slate-400">Format visually. Content is cleaned safely before publishing.</span>
             </div>
             <div className="overflow-hidden rounded-2xl border border-bphq-chrome bg-white">
                 <div className="flex flex-wrap items-center gap-2 border-b border-bphq-chrome bg-bphq-ivory p-2">
-                    <select
-                        aria-label="Paragraph style"
-                        className="min-h-9 rounded-lg border border-bphq-chrome bg-white px-3 text-sm font-semibold text-bphq-espresso outline-none"
-                        defaultValue="paragraph"
-                        onChange={(event) => {
-                            setBlock(event.target.value);
-                            event.target.value = 'paragraph';
-                        }}
-                    >
-                        <option value="paragraph">Paragraph</option>
-                        <option value="h2">H2 heading</option>
-                        <option value="h3">H3 heading</option>
-                        <option value="h4">H4 heading</option>
-                    </select>
+                    <button aria-label="Paragraph" className={buttonClass(active('paragraph'))} onClick={() => editor?.chain().focus().setParagraph().run()} title="Paragraph" type="button"><Pilcrow className={iconClass} /></button>
+                    <button aria-label="Heading 2" className={buttonClass(active('heading', { level: 2 }))} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2" type="button"><Heading2 className={iconClass} /></button>
+                    <button aria-label="Heading 3" className={buttonClass(active('heading', { level: 3 }))} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} title="Heading 3" type="button"><Heading3 className={iconClass} /></button>
                     {tools.map((tool) => (
                         <button
                             aria-label={tool.label}
-                            className={`grid min-h-9 min-w-9 place-items-center rounded-lg border border-bphq-chrome bg-white px-2 text-xs font-bold text-bphq-espresso transition hover:bg-bphq-beige ${tool.className ?? ''}`}
+                            className={buttonClass(tool.active)}
                             key={tool.label}
                             onClick={tool.action}
                             title={tool.label}
                             type="button"
                         >
-                            {tool.value}
+                            {tool.icon}
                         </button>
                     ))}
+                    {canEditTable && (
+                        <button aria-label="Delete table" className={buttonClass()} onClick={() => editor?.chain().focus().deleteTable().run()} title="Delete table" type="button">
+                            <span className="text-[10px] font-bold">DEL</span>
+                        </button>
+                    )}
                 </div>
-                <textarea
-                    className="min-h-[520px] w-full resize-y border-0 bg-white p-5 text-base leading-8 text-bphq-espresso outline-none placeholder:text-bphq-chrome"
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder="Write the full content here. Use the toolbar for headings, lists, quotes, links, images and tables."
-                    ref={textareaRef}
-                    required
-                    value={currentValue}
-                />
+                <EditorContent editor={editor} />
+                <textarea className="sr-only" readOnly required tabIndex={-1} value={value ?? ''} />
             </div>
         </div>
     );
