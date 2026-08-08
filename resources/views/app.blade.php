@@ -11,6 +11,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- Preload the LCP image BEFORE anything else — browser preload scanner picks this up first --}}
+    @isset($heroPreload)
+        @unless($heroPreload['inline'] ?? false)
+            <link rel="preload" as="image" href="{{ $heroPreload['src'] }}" @isset($heroPreload['srcset']) imagesrcset="{{ $heroPreload['srcset'] }}" imagesizes="{{ $heroPreload['sizes'] }}" @endisset fetchpriority="high">
+        @endunless
+    @endisset
     <meta name="theme-color" content="#2A1D14">
     <meta name="description" content="{{ $pageDescription ?? 'BeautyPro HQ connects customers with trusted beauty professionals and gives providers the tools to grow.' }}">
     <meta name="robots" content="{{ $pageRobots ?? 'index, follow' }}">
@@ -28,15 +34,11 @@
     <meta name="twitter:description" content="{{ $pageDescription ?? 'BeautyPro HQ connects customers with trusted beauty professionals and gives providers the tools to grow.' }}">
     <title>{{ $pageTitle ?? $brandSiteName }}</title>
     <link rel="icon" href="{{ $brandFaviconUrl }}" type="image/svg+xml">
-    {{-- Early resource hints before any blocking resources --}}
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
     <link rel="dns-prefetch" href="https://images.unsplash.com">
     <style>@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:'Playfair Display';font-style:normal;font-weight:400 600;font-display:swap;src:url('https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}</style>
     @isset($heroPreload)
-        @unless($heroPreload['inline'] ?? false)
-            <link rel="preload" as="image" href="{{ $heroPreload['src'] }}" @isset($heroPreload['srcset']) imagesrcset="{{ $heroPreload['srcset'] }}" imagesizes="{{ $heroPreload['sizes'] }}" @endisset fetchpriority="high">
-        @endunless
         @unless(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
             <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">window.__BPHQ_HERO_IMAGES__ = @json($heroPreload['initialImages']);</script>
         @endunless
@@ -58,7 +60,8 @@
         <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
     @endisset
     @viteReactRefresh
-    @if(($inlineHomepageCss ?? false) && ! \Illuminate\Support\Facades\Vite::isRunningHot())
+    {{-- Inline CSS on homepage; external CSS for SPA routes (login, etc.) --}}
+    @if($inlineHomepageCss ?? false)
         <style data-app-css>{!! \Illuminate\Support\Facades\Vite::content('resources/css/app.css') !!}</style>
         @vite(['resources/js/main.jsx'])
     @else
