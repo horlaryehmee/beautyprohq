@@ -72,7 +72,6 @@ class SecurityHeaders
             'connect-src '.implode(' ', $connectSources),
             "worker-src 'self' blob:",
             "manifest-src 'self'",
-            "require-trusted-types-for 'script'",
         ];
 
         if ($request->isSecure() && config('security.csp.upgrade_insecure_requests', true)) {
