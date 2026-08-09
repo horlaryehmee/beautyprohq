@@ -309,6 +309,24 @@ export default function ProviderProfilePage() {
     const websiteUrl = pro.profile.website ?? provider?.website ?? pro.profile.social_links?.website ?? provider?.social_links?.website ?? '';
     const profileCtaUrl = websiteUrl;
     const profileCtaLabel = 'Website';
+    const basePrice = Number(pro.profile.base_price ?? provider?.base_price ?? 0);
+    const defaultCurrency = pro.profile.default_currency ?? provider?.default_currency ?? 'NGN';
+    const profileCategory = pro.profile.category?.name ?? provider?.category?.name ?? '';
+    const cityCountry = [pro.profile.city ?? provider?.city, pro.profile.country ?? provider?.country].filter(Boolean).join(', ');
+    const contactPhone = pro.profile.contact_phone ?? provider?.contact_phone ?? provider?.user?.phone ?? '';
+    const contactEmail = pro.profile.contact_email ?? provider?.contact_email ?? '';
+    const onboardingDetails = useMemo(() => ([
+        ['Profession', pro.profession],
+        ['Category', profileCategory],
+        ['Service area', pro.location],
+        ['City / Country', cityCountry],
+        ['Base price', basePrice > 0 ? `From ${currency(basePrice, defaultCurrency)}` : 'Not listed'],
+        ['Services', `${services.length} listed`],
+        ['Contact phone', contactPhone],
+        ['Contact email', contactEmail],
+        ['Website', websiteUrl],
+        ['Trust', pro.verified ? 'BPHQ verified' : 'Not verified yet'],
+    ].filter(([, value]) => Boolean(value))), [basePrice, cityCountry, contactEmail, contactPhone, defaultCurrency, profileCategory, pro.location, pro.profession, pro.verified, services.length, websiteUrl]);
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
@@ -675,29 +693,27 @@ export default function ProviderProfilePage() {
                                     <p className="section-eyebrow">About</p>
                                     <h2 className="font-display text-3xl font-normal leading-tight text-[#2A1D14] sm:text-4xl">Meet {pro.name.split(' ')[0]}</h2>
                                     {pro.bio ? <p className="mt-5 whitespace-pre-line text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">{stripHtml(pro.bio)}</p> : <p className="mt-5 text-sm text-stone-500">This professional has not added a bio yet.</p>}
-                                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                                        {[
-                                            ['Profession', pro.profession],
-                                            ['Services', `${services.length} listed`],
-                                            ['Trust', pro.verified ? 'BPHQ verified' : 'Not verified yet'],
-                                        ].map(([label, value]) => (
+                                    <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                        {onboardingDetails.map(([label, value]) => (
                                             <div key={label} className="rounded-2xl bg-[#F7F3ED] p-4">
                                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">{label}</p>
-                                                <p className="mt-2 text-sm font-semibold text-[#2A1D14]">{value}</p>
+                                                {label === 'Website' ? (
+                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={safeUrl(value)} target="_blank" rel="noreferrer">{value}</a>
+                                                ) : label === 'Contact email' ? (
+                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={`mailto:${value}`}>{value}</a>
+                                                ) : label === 'Contact phone' ? (
+                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={`tel:${String(value).replace(/\s+/g, '')}`}>{value}</a>
+                                                ) : (
+                                                    <p className="mt-2 text-sm font-semibold text-[#2A1D14]">{value}</p>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
                                 </section>
 
                                 <section className="rounded-[1.8rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
-                                    <div className="flex items-end justify-between gap-4">
-                                        <div>
-                                            <p className="section-eyebrow">Portfolio</p>
-                                            <h2 className="font-display text-3xl font-normal text-[#2A1D14]">Gallery</h2>
-                                        </div>
-                                    </div>
                                     {portfolio.length > 0 ? (
-                                        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                             {portfolio.slice(0, 7).map((item, index) => (
                                                 <figure key={item.id} className={`group relative overflow-hidden rounded-2xl bg-[#F7F3ED] ${index === 0 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'}`}>
                                                     <img src={item.image} alt={item.title || `${pro.name} portfolio work`} className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
