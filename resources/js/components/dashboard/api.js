@@ -14,8 +14,7 @@ export const dashboardApi = axios.create({
 dashboardApi.interceptors.response.use(
     (response) => response,
     (error) => {
-        const protectedRoots = ['/provider', '/customer', '/admin'];
-        if (error.response?.status === 401 && protectedRoots.some((root) => window.location.pathname.startsWith(root))) {
+        if (error.response?.status === 401 && error.config?.url === '/auth/me') {
             window.dispatchEvent(new CustomEvent('bphq:unauthenticated'));
         }
 
