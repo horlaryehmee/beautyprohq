@@ -17,7 +17,7 @@ import {
 } from '../../components/dashboard';
 import { mediaUrl } from '../../lib/utils';
 
-const emptyProduct = { name: '', description: '', price: '', product_file: null, product_url: '', image_file: null, image_url: '', active: true };
+const emptyProduct = { name: '', description: '', price: '', product_url: '', image_file: null, image_url: '', active: true };
 const normalize = (value) => Array.isArray(value) ? value : value?.digital_products ?? value?.data ?? [];
 
 export default function ProviderDigitalProductsPage() {
@@ -35,7 +35,6 @@ export default function ProviderDigitalProductsPage() {
             name: product.name ?? product.title ?? '',
             description: product.description ?? '',
             price: product.price ?? '',
-            product_file: null,
             product_url: product.product_url ?? product.url ?? '',
             image_file: null,
             image_url: product.image_url ?? product.image ?? '',
@@ -54,8 +53,7 @@ export default function ProviderDigitalProductsPage() {
             payload.append('description', form.description ?? '');
             payload.append('price', Number(form.price));
             payload.append('is_active', form.active ? '1' : '0');
-            if (form.product_file instanceof File) payload.append('product_file', form.product_file);
-            else if (form.product_url) payload.append('url', form.product_url);
+            payload.append('url', form.product_url);
             if (form.image_file instanceof File) payload.append('image_file', form.image_file);
             else if (form.image_url) payload.append('image', form.image_url);
 
@@ -132,10 +130,8 @@ export default function ProviderDigitalProductsPage() {
                             <Field className="sm:col-span-2" label="Product name"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required value={form.name} /></Field>
                             <Field className="sm:col-span-2" label="Description"><textarea className={`${inputClass} min-h-24`} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} value={form.description} /></Field>
                             <Field label="Price"><input className={inputClass} min="0" onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} required type="number" value={form.price} /></Field>
-                            <Field className="sm:col-span-2" label="Product file" hint={editing && form.product_url ? 'Upload a new file only if you want to replace the current product file.' : 'Allowed: PDF, ZIP, images, Word, Excel, or PowerPoint files.'}>
-                                {form.product_url && !(form.product_file instanceof File) && <a className="mb-3 block truncate rounded-xl bg-slate-50 p-3 text-sm font-semibold text-fuchsia-700" href={mediaUrl(form.product_url)} rel="noreferrer" target="_blank">Current product file</a>}
-                                {form.product_file instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.product_file.name}</p>}
-                                <input accept=".pdf,.zip,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx" className={inputClass} onChange={(event) => setForm((current) => ({ ...current, product_file: event.target.files?.[0] ?? null }))} required={!editing && !form.product_url} type="file" />
+                            <Field className="sm:col-span-2" label="Product link" hint="Add the checkout, download, course, or product page link.">
+                                <input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, product_url: event.target.value }))} placeholder="https://..." required type="url" value={form.product_url} />
                             </Field>
                             <Field className="sm:col-span-2" label="Cover image" hint="Images are optimized before they are saved.">
                                 {form.image_url && !(form.image_file instanceof File) && <img alt="" className="mb-3 h-32 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={mediaUrl(form.image_url)} />}

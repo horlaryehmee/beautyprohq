@@ -335,21 +335,17 @@ class BusinessController extends Controller
             'name' => [$p, 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:3000'],
             'price' => ['nullable', 'numeric', 'min:0'],
-            'url' => [$partial ? 'sometimes' : 'required_without:product_file', 'string', 'max:1000'],
-            'product_file' => [$partial ? 'sometimes' : 'required_without:url', 'file', 'mimes:pdf,zip,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx', 'max:51200'],
+            'url' => [$partial ? 'sometimes' : 'required', 'url:http,https', 'max:1000'],
             'image' => ['nullable', 'string', 'max:1000'],
             'image_file' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
-        if ($request->hasFile('product_file')) {
-            $data['url'] = $uploads->store($request->file('product_file'))['path'];
-        }
         if ($request->hasFile('image_file')) {
             $data['image'] = $uploads->store($request->file('image_file'))['path'];
         }
 
-        unset($data['product_file'], $data['image_file']);
+        unset($data['image_file']);
 
         return $data;
     }

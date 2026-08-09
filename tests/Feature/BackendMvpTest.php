@@ -224,28 +224,18 @@ class BackendMvpTest extends TestCase
         $this->assertSame([], $profile->fresh()->booking_form_fields ?? []);
     }
 
-    public function test_provider_can_create_digital_product_with_uploaded_files(): void
+    public function test_provider_can_create_digital_product_with_link_and_uploaded_cover(): void
     {
         [$provider, $providerUser] = $this->provider('Digital Upload Studio', true);
         $this->mock(UploadService::class, function ($mock): void {
-            $mock->shouldReceive('store')->twice()->andReturn(
-                [
-                    'success' => true,
-                    'url' => '/storage/uploads/digital-guide.pdf',
-                    'path' => 'uploads/digital-guide.pdf',
-                    'filename' => 'digital-guide.pdf',
-                    'mime_type' => 'application/pdf',
-                    'size' => 12000,
-                ],
-                [
-                    'success' => true,
-                    'url' => '/storage/uploads/digital-cover.webp',
-                    'path' => 'uploads/digital-cover.webp',
-                    'filename' => 'digital-cover.webp',
-                    'mime_type' => 'image/webp',
-                    'size' => 1400,
-                ],
-            );
+            $mock->shouldReceive('store')->once()->andReturn([
+                'success' => true,
+                'url' => '/storage/uploads/digital-cover.webp',
+                'path' => 'uploads/digital-cover.webp',
+                'filename' => 'digital-cover.webp',
+                'mime_type' => 'image/webp',
+                'size' => 1400,
+            ]);
         });
 
         Sanctum::actingAs($providerUser);
@@ -253,17 +243,17 @@ class BackendMvpTest extends TestCase
             'name' => 'Client Prep Guide',
             'description' => 'A practical download for clients preparing for a beauty appointment.',
             'price' => 1500,
-            'product_file' => UploadedFile::fake()->create('guide.pdf', 20, 'application/pdf'),
+            'url' => 'https://example.com/client-prep-guide',
             'image_file' => $this->tinyPngUpload('cover.png'),
             'is_active' => true,
         ], ['Accept' => 'application/json'])->assertCreated()
-            ->assertJsonPath('data.url', 'uploads/digital-guide.pdf')
+            ->assertJsonPath('data.url', 'https://example.com/client-prep-guide')
             ->assertJsonPath('data.image', 'uploads/digital-cover.webp');
 
         $this->assertDatabaseHas('digital_products', [
             'provider_id' => $provider->id,
             'name' => 'Client Prep Guide',
-            'url' => 'uploads/digital-guide.pdf',
+            'url' => 'https://example.com/client-prep-guide',
             'image' => 'uploads/digital-cover.webp',
         ]);
     }
