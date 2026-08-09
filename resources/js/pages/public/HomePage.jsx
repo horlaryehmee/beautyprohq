@@ -387,7 +387,7 @@ export default function HomePage({ onVerifiedProviders }) {
     const partners = list(data?.partner_brands ?? data?.partners);
     const displayPartners = partners.length ? partners : ['GlowLab', 'LuxeSkin', 'Beauty Business Africa', 'NailPro Collective', 'StyleHouse', 'BPHQ Academy'];
     const visibleNewsAndEvents = newsAndEvents.slice(0, 10);
-    const visibleCommunity = showAllCommunity ? community : community.slice(0, 4);
+    const visibleCommunity = showAllCommunity ? community : community.slice(0, 3);
     const filteredVerifiedProviders = useMemo(() => {
         const matches = verified.filter((provider) => {
             const text = searchableProviderText(provider);
@@ -678,7 +678,7 @@ export default function HomePage({ onVerifiedProviders }) {
                     </div>
 
                     {loading ? (
-                        <LoadingCards count={4} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" />
+                        <LoadingCards count={3} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" />
                     ) : community.length ? (
                         <>
                             <div className="overflow-hidden rounded-[2rem] border border-[#ded2c7] bg-white shadow-[0_28px_90px_rgba(52,35,28,.10)]">
@@ -702,7 +702,7 @@ export default function HomePage({ onVerifiedProviders }) {
                                     </article>
 
                                     <div className="grid divide-y divide-[#eadfd5]">
-                                        {visibleCommunity.slice(1, 4).map((item, index) => (
+                                        {visibleCommunity.slice(1, 3).map((item, index) => (
                                             <Link to={(item.slug ?? item.id) ? `/community/${item.slug ?? item.id}` : '/community'} key={item.id} className="group grid min-h-[172px] grid-cols-[120px_1fr] gap-4 p-4 transition hover:bg-[#fbf7f1] sm:grid-cols-[170px_1fr] sm:p-5">
                                                 <div className="overflow-hidden rounded-2xl bg-[#f4efe9]">
                                                     <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 1) % communityFallbackImages.length], { widths: [240, 360, 520], sizes: '(min-width: 1024px) 170px, 120px', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
@@ -719,9 +719,9 @@ export default function HomePage({ onVerifiedProviders }) {
                                 </div>
                             </div>
 
-                            {visibleCommunity.length > 4 && (
+                            {visibleCommunity.length > 3 && (
                                 <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                    {visibleCommunity.slice(4).map((item, index) => (
+                                    {visibleCommunity.slice(3).map((item, index) => (
                                         <Link to={(item.slug ?? item.id) ? `/community/${item.slug ?? item.id}` : '/community'} key={item.id} className="group overflow-hidden rounded-3xl border border-[#ded2c7] bg-white shadow-[0_18px_50px_rgba(52,35,28,.07)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(52,35,28,.12)]">
                                             <div className="aspect-[4/3] overflow-hidden bg-[#f4efe9]">
                                                 <DeferredImage {...responsiveImage(mediaUrl(item.image_url ?? item.image) ?? communityFallbackImages[(index + 4) % communityFallbackImages.length], { widths: [360, 520, 720], sizes: '(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw', quality: 70 })} alt="" className="size-full object-cover transition duration-500 group-hover:scale-[1.06]" fetchPriority="low" />
@@ -735,7 +735,7 @@ export default function HomePage({ onVerifiedProviders }) {
                                 </div>
                             )}
 
-                            {!showAllCommunity && community.length > 4 && (
+                            {!showAllCommunity && community.length > 3 && (
                                 <div className="mt-8 text-center">
                                     <Link to="/community" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#34231c] px-7 text-xs font-black uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-[#4a2f26]">
                                         View Community Stories <Icon name="arrow" size={15} />

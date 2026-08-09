@@ -136,4 +136,9 @@ class ProviderProfile extends Model
     {
         return $this->hasMany(ContactEnquiry::class, 'provider_id');
     }
+
+    public function communityPosts(): HasMany
+    {
+        return $this->hasMany(CommunityPost::class, 'provider_id');
+    }
 }

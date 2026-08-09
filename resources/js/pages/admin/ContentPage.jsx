@@ -23,6 +23,8 @@ const typeFilters = {
         ['business_win', 'Business wins'],
         ['event_coverage', 'Event coverage'],
         ['day_in_the_life', 'Day in the life'],
+        ['community', 'Community updates'],
+        ['help', 'Help threads'],
     ],
 };
 
@@ -32,6 +34,7 @@ function ContentRow({ item, active }) {
     const summary = active === 'events'
         ? `${formatDate(item.date)} · ${item.location ?? 'No location'}`
         : plain(item.excerpt || item[config.bodyKey]);
+    const providerName = active === 'community' ? item.provider?.user?.name : null;
 
     return (
         <article className="grid grid-cols-[72px_1fr] gap-2.5 rounded-lg border border-slate-200 bg-white p-2 transition hover:border-slate-300 hover:shadow-sm lg:grid-cols-[96px_1fr_auto] lg:items-center lg:gap-4 lg:rounded-3xl lg:p-4">
@@ -45,6 +48,7 @@ function ContentRow({ item, active }) {
                     <span className="truncate text-[10px] font-semibold text-slate-400 lg:text-xs">{item.published_at ? formatDate(item.published_at) : 'Not published'}</span>
                 </div>
                 <Link to={editPath} className="mt-1 block line-clamp-1 text-sm font-bold leading-5 text-slate-950 transition hover:text-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 lg:mt-2 lg:text-lg">{item.title || 'Untitled'}</Link>
+                {providerName && <p className="mt-0.5 text-xs font-semibold text-fuchsia-700">Submitted by {providerName}</p>}
                 <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-slate-500 lg:mt-1 lg:line-clamp-2 lg:text-sm lg:leading-6">{summary || 'No summary yet.'}</p>
             </div>
             <div className="col-span-2 flex flex-wrap gap-2 pt-1 lg:col-span-1 lg:justify-end lg:pt-0">

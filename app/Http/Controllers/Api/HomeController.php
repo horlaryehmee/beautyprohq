@@ -17,7 +17,7 @@ class HomeController extends Controller
     {
         $providerRelations = ['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)];
 
-        $data = Cache::flexible('public.home.payload.v5', [60, 300], function () use ($providerRelations) {
+        $data = Cache::flexible('public.home.payload.v6', [60, 300], function () use ($providerRelations) {
             $featuredProviders = ProviderProfile::directory()
                 ->with($providerRelations)
                 ->orderByDesc('verified')
@@ -63,7 +63,7 @@ class HomeController extends Controller
                 'news' => $homepageUpdates->where('kind', 'news')->pluck('item')->values()->toArray(),
                 'events' => $homepageUpdates->where('kind', 'event')->pluck('item')->values()->toArray(),
                 'opportunities' => Opportunity::published()->orderByRaw('deadline IS NULL')->orderBy('deadline')->limit(6)->get()->toArray(),
-                'community' => CommunityPost::published()->with('provider.user:id,name')->latest('published_at')->limit(6)->get()->toArray(),
+                'community' => CommunityPost::published()->with('provider.user:id,name')->latest('published_at')->limit(3)->get()->toArray(),
                 'partner_brands' => [
                     ['name' => 'Zaron Cosmetics'],
                     ['name' => 'House of Tara'],

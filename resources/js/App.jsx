@@ -68,6 +68,7 @@ const ProviderLoyaltyPage = lazyWithReload(() => import('./pages/provider/Loyalt
 const ProviderPaymentsPage = lazyWithReload(() => import('./pages/provider/PaymentsPage'));
 const ProviderDigitalProductsPage = lazyWithReload(() => import('./pages/provider/DigitalProductsPage'));
 const ProviderContentCalendarPage = lazyWithReload(() => import('./pages/provider/ContentCalendarPage'));
+const ProviderCommunityPostsPage = lazyWithReload(() => import('./pages/provider/CommunityPostsPage'));
 const ProviderAnalyticsPage = lazyWithReload(() => import('./pages/provider/AnalyticsPage'));
 const ProviderSettingsPage = lazyWithReload(() => import('./pages/provider/SettingsPage'));
 const ProviderDocumentationPage = lazyWithReload(() => import('./pages/provider/DocumentationPage'));
@@ -178,6 +179,7 @@ export default function App() {
                                 <Route path="payments" element={<ProviderPaymentsPage />} />
                                 <Route path="digital-products" element={<ProviderDigitalProductsPage />} />
                                 <Route path="content-calendar" element={<ProviderContentCalendarPage />} />
+                                <Route path="community-posts" element={<ProviderCommunityPostsPage />} />
                                 <Route path="analytics" element={<ProviderAnalyticsPage />} />
                                 <Route path="settings" element={<ProviderSettingsPage />} />
                                 <Route path="documentation" element={<ProviderDocumentationPage />} />

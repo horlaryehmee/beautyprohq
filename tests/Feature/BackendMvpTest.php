@@ -411,6 +411,59 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.comments.0.replies.0.body', 'Replying to keep the discussion active.');
     }
 
+    public function test_homepage_limits_community_posts_to_three(): void
+    {
+        foreach (range(1, 5) as $index) {
+            CommunityPost::create([
+                'title' => "Homepage Community {$index}",
+                'content' => '<p>Approved community content for the homepage.</p>',
+                'type' => 'community',
+                'topic' => 'General',
+                'published_at' => now()->subMinutes($index),
+            ]);
+        }
+
+        $this->getJson('/api/home')
+            ->assertOk()
+            ->assertJsonCount(3, 'data.community');
+    }
+
+    public function test_paid_provider_can_submit_community_post_for_admin_approval(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->admin()->create();
+        [$profile, $providerUser] = $this->provider('Community Provider', true);
+        Sanctum::actingAs($providerUser);
+
+        $postId = $this->postJson('/api/provider/community-posts', [
+            'title' => 'How I prepare clients before a beauty appointment',
+            'content' => str_repeat('This provider submission shares useful client care, booking preparation, community learning, and professional standards. ', 3),
+            'type' => 'help',
+            'topic' => 'Client experience',
+            'group_name' => 'Service providers',
+            'mentions' => ['beautyprohq'],
+        ])->assertCreated()
+            ->assertJsonPath('data.status', 'pending approval')
+            ->json('data.id');
+
+        $this->assertDatabaseHas('community_posts', [
+            'id' => $postId,
+            'provider_id' => $profile->id,
+            'published_at' => null,
+        ]);
+
+        $this->getJson('/api/community-posts')->assertOk()->assertJsonMissing(['id' => $postId]);
+
+        Sanctum::actingAs($admin);
+        $this->putJson("/api/admin/community-posts/{$postId}", ['status' => 'published'])
+            ->assertOk()
+            ->assertJsonPath('data.id', $postId);
+
+        $this->getJson('/api/community-posts')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $postId]);
+    }
+
     public function test_admin_subscribers_include_names_and_are_paginated(): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());

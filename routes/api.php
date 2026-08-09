@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\LiveChatController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Provider\BookingController as ProviderBookingController;
 use App\Http\Controllers\Api\Provider\BusinessController as ProviderBusinessController;
+use App\Http\Controllers\Api\Provider\CommunityPostController as ProviderCommunityPostController;
 use App\Http\Controllers\Api\Provider\ContentCalendarController as ProviderContentCalendarController;
 use App\Http\Controllers\Api\Provider\DashboardController as ProviderDashboardController;
 use App\Http\Controllers\Api\Provider\LiveChatController as ProviderLiveChatController;
@@ -152,6 +153,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::post('/content-calendar', [ProviderContentCalendarController::class, 'store']);
             Route::put('/content-calendar/{contentCalendarItem}', [ProviderContentCalendarController::class, 'update']);
             Route::delete('/content-calendar/{contentCalendarItem}', [ProviderContentCalendarController::class, 'destroy']);
+            Route::get('/community-posts', [ProviderCommunityPostController::class, 'index']);
+            Route::post('/community-posts', [ProviderCommunityPostController::class, 'store'])->middleware('throttle:public-form');
+            Route::put('/community-posts/{communityPost}', [ProviderCommunityPostController::class, 'update'])->middleware('throttle:public-form');
+            Route::delete('/community-posts/{communityPost}', [ProviderCommunityPostController::class, 'destroy']);
             Route::get('/crm', [ProviderBusinessController::class, 'crm']);
             Route::put('/crm/{customer}', [ProviderBusinessController::class, 'updateCrm']);
             Route::post('/crm/{customer}/activities', [ProviderBusinessController::class, 'storeCrmActivity']);
