@@ -471,6 +471,51 @@ class BackendMvpTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_admin_session_can_load_main_dashboard_sections(): void
+    {
+        $admin = User::factory()->admin()->create(['password' => 'Password123']);
+
+        $this->withSession(['_token' => 'admin-session-csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'admin-session-csrf-token')
+            ->withHeader('Referer', rtrim(config('app.url'), '/').'/login');
+
+        $this->postJson('/api/auth/login', [
+            'email' => $admin->email,
+            'password' => 'Password123',
+        ])->assertOk();
+
+        foreach ([
+            '/api/auth/me',
+            '/api/admin/dashboard',
+            '/api/admin/activity',
+            '/api/admin/waitlist',
+            '/api/admin/users',
+            '/api/admin/directory',
+            '/api/admin/provider-categories',
+            '/api/admin/verifications',
+            '/api/admin/subscriptions',
+            '/api/admin/subscription-plans',
+            '/api/admin/news',
+            '/api/admin/events',
+            '/api/admin/community-posts',
+            '/api/admin/media',
+            '/api/admin/opportunities',
+            '/api/admin/announcements',
+            '/api/admin/settings/features',
+            '/api/admin/settings/branding',
+            '/api/admin/settings/currencies',
+            '/api/admin/settings/twilio',
+            '/api/admin/settings/smtp',
+            '/api/admin/settings/mailchimp',
+            '/api/admin/payment-settings/gateway',
+            '/api/admin/payment-settings/paystack',
+            '/api/admin/payment-settings/stripe',
+            '/api/admin/demo-data',
+        ] as $endpoint) {
+            $this->getJson($endpoint)->assertOk($endpoint);
+        }
+    }
+
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void
     {
         Notification::fake();
