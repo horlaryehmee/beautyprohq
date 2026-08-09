@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
+import { defaultCountries } from 'react-international-phone';
 
 const days = [
     ['1', 'Monday'],
@@ -15,6 +16,116 @@ const days = [
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
+const countryOptions = defaultCountries
+    .map(([name, iso2, dialCode]) => ({ code: iso2.toUpperCase(), name, dialCode: `+${dialCode}` }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+const defaultPhoneCountry = countryOptions.find((country) => country.code === 'NG') ?? countryOptions[0];
+
+function flagUrl(countryCode) {
+    return `https://flagcdn.com/w40/${String(countryCode).toLowerCase()}.png`;
+}
+
+function CountryPhoneField({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const selectedCountry = countryOptions.find((country) => String(value ?? '').startsWith(country.dialCode)) ?? defaultPhoneCountry;
+    const localNumber = String(value ?? '').replace(selectedCountry.dialCode, '').trim();
+
+    function updateCountry(countryCode) {
+        const nextCountry = countryOptions.find((country) => country.code === countryCode) ?? defaultPhoneCountry;
+        onChange(`${nextCountry.dialCode}${localNumber ? ` ${localNumber}` : ''}`);
+        setOpen(false);
+    }
+
+    function updateLocalNumber(nextValue) {
+        onChange(`${selectedCountry.dialCode}${nextValue ? ` ${nextValue}` : ''}`);
+    }
+
+    return (
+        <div className="block text-sm font-bold text-slate-700">
+            <span>Phone number</span>
+            <div className="relative mt-1.5 flex min-h-12 overflow-visible rounded-xl border border-slate-200 bg-white focus-within:border-fuchsia-400 focus-within:ring-4 focus-within:ring-fuchsia-100">
+                <button
+                    type="button"
+                    className="flex w-16 items-center justify-center gap-1 rounded-l-xl border-r border-slate-200 bg-white"
+                    onClick={() => setOpen((current) => !current)}
+                    aria-expanded={open}
+                    aria-label="Select country code"
+                >
+                    <img src={flagUrl(selectedCountry.code)} alt={`${selectedCountry.name} flag`} className="h-4 w-6 rounded-[2px] object-cover" loading="lazy" />
+                    <span className="text-xs text-slate-500">v</span>
+                </button>
+                {open && (
+                    <div className="absolute left-0 top-[calc(100%+.35rem)] z-50 max-h-72 w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                        {countryOptions.map((country) => (
+                            <button
+                                key={`${country.code}-${country.dialCode}`}
+                                type="button"
+                                className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 ${selectedCountry.code === country.code ? 'bg-slate-50' : ''}`}
+                                onClick={() => updateCountry(country.code)}
+                            >
+                                <img src={flagUrl(country.code)} alt={`${country.name} flag`} className="h-4 w-6 rounded-[2px] object-cover" loading="lazy" />
+                                <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                                <span className="shrink-0 font-black">{country.dialCode}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+                <span className="flex min-w-20 items-center justify-center border-r border-slate-200 px-3 text-sm font-black text-slate-800">{selectedCountry.dialCode}</span>
+                <input
+                    className="min-w-0 flex-1 px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                    value={localNumber}
+                    onChange={(event) => updateLocalNumber(event.target.value)}
+                    placeholder="802 123 4567"
+                    required
+                    type="tel"
+                />
+            </div>
+        </div>
+    );
+}
+
+function CountrySelectField({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const selectedCountry = countryOptions.find((country) => country.name.toLowerCase() === String(value ?? '').toLowerCase());
+
+    function choose(country) {
+        onChange(country.name);
+        setOpen(false);
+    }
+
+    return (
+        <div className="block text-sm font-bold text-slate-700">
+            <span>Country</span>
+            <div className="relative mt-1.5">
+                <button
+                    type="button"
+                    className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-900 transition focus:border-fuchsia-400 focus:outline-none focus:ring-4 focus:ring-fuchsia-100"
+                    onClick={() => setOpen((current) => !current)}
+                    aria-expanded={open}
+                >
+                    {selectedCountry ? <img src={flagUrl(selectedCountry.code)} alt={`${selectedCountry.name} flag`} className="h-4 w-6 rounded-[2px] object-cover" loading="lazy" /> : <span className="h-4 w-6 rounded-[2px] bg-slate-100" />}
+                    <span className={`min-w-0 flex-1 truncate ${selectedCountry ? 'font-semibold' : 'text-slate-400'}`}>{selectedCountry?.name ?? 'Select country'}</span>
+                    <span className="text-xs text-slate-500">v</span>
+                </button>
+                {open && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+.35rem)] z-50 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                        {countryOptions.map((country) => (
+                            <button
+                                key={country.code}
+                                type="button"
+                                className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 ${selectedCountry?.code === country.code ? 'bg-slate-50' : ''}`}
+                                onClick={() => choose(country)}
+                            >
+                                <img src={flagUrl(country.code)} alt={`${country.name} flag`} className="h-4 w-6 rounded-[2px] object-cover" loading="lazy" />
+                                <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 function ProviderOnboardingContent() {
     const navigate = useNavigate();
@@ -157,7 +268,7 @@ function ProviderOnboardingContent() {
                         {step === 2 && (
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <Field label="Email"><input className={inputClass} onChange={(event) => update('contact_email', event.target.value)} required type="email" value={form.contact_email} /></Field>
-                                <Field label="Phone number"><input className={inputClass} onChange={(event) => update('contact_phone', event.target.value)} required value={form.contact_phone} /></Field>
+                                <CountryPhoneField value={form.contact_phone} onChange={(phone) => update('contact_phone', phone)} />
                                 <Field className="sm:col-span-2" label="Website (optional)"><input className={inputClass} onChange={(event) => update('website', event.target.value)} placeholder="https://..." type="url" value={form.website} /></Field>
                             </div>
                         )}
@@ -180,7 +291,7 @@ function ProviderOnboardingContent() {
                         {step === 4 && (
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <Field className="sm:col-span-2" label="Location"><input className={inputClass} onChange={(event) => update('location', event.target.value)} placeholder="123 Main Street, Atlanta, GA" required value={form.location} /></Field>
-                                <Field label="Country"><input className={inputClass} onChange={(event) => update('country', event.target.value)} required value={form.country} /></Field>
+                                <CountrySelectField value={form.country} onChange={(country) => update('country', country)} />
                                 <Field label="City"><input className={inputClass} onChange={(event) => update('city', event.target.value)} required value={form.city} /></Field>
                             </div>
                         )}

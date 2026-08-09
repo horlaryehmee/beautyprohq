@@ -33,6 +33,86 @@ function displayTime(time) {
     return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
+function hasActivePaidPlan(provider) {
+    const subscription = provider?.user?.active_subscription ?? provider?.user?.activeSubscription;
+
+    return ['paid', 'pro'].includes(subscription?.plan) && subscription?.status === 'active';
+}
+
+const fallbackMapBounds = {
+    south: -35,
+    north: 38,
+    west: -18,
+    east: 55,
+};
+
+function openStreetMapEmbedUrl(bounds = fallbackMapBounds, marker = null) {
+    const params = new URLSearchParams({
+        bbox: [bounds.west, bounds.south, bounds.east, bounds.north].join(','),
+        layer: 'mapnik',
+    });
+
+    if (marker) {
+        params.set('marker', `${marker.lat},${marker.lon}`);
+    }
+
+    return `https://www.openstreetmap.org/export/embed.html?${params.toString()}`;
+}
+
+function LocationMap({ location, providerName }) {
+    const [mapData, setMapData] = useState(null);
+
+    useEffect(() => {
+        if (!location || location === 'Location not added') {
+            setMapData(null);
+            return undefined;
+        }
+
+        const controller = new AbortController();
+        const params = new URLSearchParams({
+            format: 'jsonv2',
+            limit: '1',
+            addressdetails: '0',
+            q: location,
+        });
+
+        fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+        })
+            .then((response) => response.ok ? response.json() : [])
+            .then((results) => {
+                const result = Array.isArray(results) ? results[0] : null;
+                const [south, north, west, east] = (result?.boundingbox ?? []).map(Number);
+                const lat = Number(result?.lat);
+                const lon = Number(result?.lon);
+
+                if ([south, north, west, east, lat, lon].every(Number.isFinite)) {
+                    setMapData({ bounds: { south, north, west, east }, marker: { lat, lon } });
+                } else {
+                    setMapData(null);
+                }
+            })
+            .catch((error) => {
+                if (error.name !== 'AbortError') {
+                    setMapData(null);
+                }
+            });
+
+        return () => controller.abort();
+    }, [location]);
+
+    return (
+        <iframe
+            title={`${providerName} location map`}
+            src={openStreetMapEmbedUrl(mapData?.bounds, mapData?.marker)}
+            className="absolute inset-0 size-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+        />
+    );
+}
+
 function portfolioItems(provider) {
     const profile = provider?.provider_profile ?? provider?.profile ?? provider ?? {};
     const source = profile.portfolio_items ?? profile.portfolio ?? profile.portfolio_images ?? provider?.portfolio_items ?? provider?.portfolio ?? [];
@@ -204,14 +284,18 @@ export default function ProviderProfilePage() {
     const portfolio = useMemo(() => portfolioItems(provider), [provider]);
     const availability = useMemo(() => availabilityItems(provider), [provider]);
     const socialLinks = useMemo(() => normalizeLinks(pro.profile.social_links), [pro.profile]);
-    const canBookDirectly = Boolean(provider?.can_book_directly ?? provider?.user?.active_subscription?.plan === 'paid' ?? provider?.user?.activeSubscription?.plan === 'paid');
+    const canBookDirectly = Boolean(provider?.can_book_directly ?? hasActivePaidPlan(provider));
     const canShowDigitalProducts = Boolean(provider?.can_show_digital_products ?? canBookDirectly);
     const digitalLinks = useMemo(() => {
         if (!canShowDigitalProducts) return [];
 
         return normalizeLinks(provider?.digital_products ?? provider?.digitalProducts ?? pro.profile.digital_products ?? pro.profile.digitalProducts);
     }, [canShowDigitalProducts, pro.profile, provider]);
-    const visibleTabs = useMemo(() => digitalLinks.length ? [...tabs, ['digital-products', 'Digital products']] : tabs, [digitalLinks.length]);
+    const visibleTabs = useMemo(() => {
+        const baseTabs = canBookDirectly ? tabs : tabs.filter(([key]) => key !== 'booking');
+
+        return digitalLinks.length ? [...baseTabs, ['digital-products', 'Digital products']] : baseTabs;
+    }, [canBookDirectly, digitalLinks.length]);
     const digitalPerPage = 9;
     const digitalPageCount = Math.max(1, Math.ceil(digitalLinks.length / digitalPerPage));
     const paginatedDigitalLinks = useMemo(() => {
@@ -229,9 +313,15 @@ export default function ProviderProfilePage() {
 
     useEffect(() => {
         if (activeTab === 'digital-products' && !digitalLinks.length) {
-            setActiveTab('booking');
+            setActiveTab(visibleTabs[0]?.[0] ?? 'about');
         }
-    }, [activeTab, digitalLinks.length]);
+    }, [activeTab, digitalLinks.length, visibleTabs]);
+
+    useEffect(() => {
+        if (!visibleTabs.some(([key]) => key === activeTab)) {
+            setActiveTab(visibleTabs[0]?.[0] ?? 'about');
+        }
+    }, [activeTab, visibleTabs]);
 
     useEffect(() => {
         setDigitalPage(1);
@@ -624,13 +714,7 @@ export default function ProviderProfilePage() {
                                         <Icon name="map" size={17} className="text-stone-400" /> Location
                                     </div>
                                     <div className="relative h-56 overflow-hidden bg-[#DCCCB8]">
-                                        <iframe
-                                            title={`${pro.name} location map`}
-                                            src={`https://maps.google.com/maps?q=${encodeURIComponent(pro.location)}&output=embed`}
-                                            className="absolute inset-0 size-full border-0"
-                                            loading="lazy"
-                                            referrerPolicy="no-referrer-when-downgrade"
-                                        />
+                                        <LocationMap location={pro.location} providerName={pro.name} />
                                     </div>
                                     <div className="flex items-center justify-between gap-4 p-4">
                                         <p className="min-w-0 truncate text-sm font-semibold text-stone-700">{pro.location}</p>
