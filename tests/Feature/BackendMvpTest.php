@@ -9,6 +9,7 @@ use App\Models\ContactEnquiry;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
+use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -107,6 +108,40 @@ class BackendMvpTest extends TestCase
         $this->assertFalse($guest->fresh()->is_guest);
         $this->assertSame($guest->id, Booking::findOrFail($bookingId)->customer_id);
         $this->assertSame(2, User::count());
+    }
+
+    public function test_provider_onboarding_requires_detailed_about_description(): void
+    {
+        Notification::fake();
+        $user = User::factory()->provider()->create(['name' => 'Brief Bio Artist']);
+        $profile = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'brief-bio-artist',
+            'profession' => 'Beauty Professional',
+        ]);
+        $category = ProviderCategory::firstOrFail();
+
+        Sanctum::actingAs($user);
+        $this->withHeader('Accept', 'application/json')->post('/api/provider/onboarding', [
+            'name' => 'Brief Bio Artist',
+            'provider_category_id' => $category->id,
+            'profession' => 'Makeup Artist',
+            'bio' => 'I do makeup for clients.',
+            'contact_email' => 'brief@example.test',
+            'contact_phone' => '+2348012345678',
+            'location' => '12 Test Street',
+            'country' => 'Nigeria',
+            'city' => 'Lagos',
+            'default_currency' => 'NGN',
+            'base_price' => 20000,
+            'availability' => [
+                ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
+            ],
+            'terms_accepted' => true,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('bio');
+
+        $this->assertNull($profile->fresh()->onboarding_completed_at);
     }
 
     public function test_login_me_and_role_protection_work_with_sanctum(): void

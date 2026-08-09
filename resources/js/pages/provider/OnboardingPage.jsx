@@ -16,6 +16,7 @@ const days = [
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
+const minimumBioWords = 40;
 const countryOptions = defaultCountries
     .map(([name, iso2, dialCode]) => ({ code: iso2.toUpperCase(), name, dialCode: `+${dialCode}` }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -23,6 +24,10 @@ const defaultPhoneCountry = countryOptions.find((country) => country.code === 'N
 
 function flagUrl(countryCode) {
     return `https://flagcdn.com/w40/${String(countryCode).toLowerCase()}.png`;
+}
+
+function wordCount(value) {
+    return String(value ?? '').trim().match(/\b[\w'-]+\b/g)?.length ?? 0;
 }
 
 function CountryPhoneField({ value, onChange }) {
@@ -42,7 +47,7 @@ function CountryPhoneField({ value, onChange }) {
 
     return (
         <div className="block text-sm font-bold text-slate-700">
-            <span>Phone number</span>
+            <span>Phone number <span aria-hidden="true" className="text-rose-600">*</span></span>
             <div className="relative mt-1.5 flex min-h-12 overflow-visible rounded-xl border border-slate-200 bg-white focus-within:border-fuchsia-400 focus-within:ring-4 focus-within:ring-fuchsia-100">
                 <button
                     type="button"
@@ -95,7 +100,7 @@ function CountrySelectField({ value, onChange }) {
 
     return (
         <div className="block text-sm font-bold text-slate-700">
-            <span>Country</span>
+            <span>Country <span aria-hidden="true" className="text-rose-600">*</span></span>
             <div className="relative mt-1.5">
                 <button
                     type="button"
@@ -162,6 +167,7 @@ function ProviderOnboardingContent() {
     });
 
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
+    const bioWords = wordCount(form.bio);
 
     const sections = useMemo(() => [
         ['General', 'Business details'],
@@ -192,6 +198,11 @@ function ProviderOnboardingContent() {
 
     const submit = async (event) => {
         event.preventDefault();
+        if (bioWords < minimumBioWords) {
+            setStep(0);
+            notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
+            return;
+        }
         setSaving(true);
         try {
             const payload = new FormData();
@@ -250,28 +261,42 @@ function ProviderOnboardingContent() {
                     <Card>
                         {step === 0 && (
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Business name"><input className={inputClass} onChange={(event) => update('name', event.target.value)} required value={form.name} /></Field>
-                                <Field label="Category">
+                                <Field label="Business name" required><input className={inputClass} onChange={(event) => update('name', event.target.value)} required value={form.name} /></Field>
+                                <Field label="Category" required>
                                     <select className={inputClass} onChange={(event) => update('provider_category_id', event.target.value)} required value={form.provider_category_id}>
                                         <option value="">Select category</option>
                                         {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                                     </select>
                                 </Field>
-                                <Field label="Professional title"><input className={inputClass} onChange={(event) => update('profession', event.target.value)} placeholder="Bridal Makeup Artist" required value={form.profession} /></Field>
-                                <Field className="sm:col-span-2" label="Description"><textarea className={`${inputClass} min-h-40`} minLength={20} onChange={(event) => update('bio', event.target.value)} required value={form.bio} /></Field>
+                                <Field label="Professional title" required><input className={inputClass} onChange={(event) => update('profession', event.target.value)} placeholder="Bridal Makeup Artist" required value={form.profession} /></Field>
+                                <Field
+                                    className="sm:col-span-2"
+                                    hint={`Write at least ${minimumBioWords} words about your experience, services, style, clients and what makes your work trustworthy. Current: ${bioWords} words.`}
+                                    label="About Me / Description"
+                                    required
+                                >
+                                    <textarea
+                                        className={`${inputClass} min-h-40`}
+                                        minLength={180}
+                                        onChange={(event) => update('bio', event.target.value)}
+                                        placeholder="Example: I am a certified bridal makeup artist with five years of experience creating soft glam, editorial and event looks for clients who want polished, long-lasting results..."
+                                        required
+                                        value={form.bio}
+                                    />
+                                </Field>
                             </div>
                         )}
 
                         {step === 1 && (
                             <div className="grid gap-5 sm:grid-cols-2">
-                                <Field label="Profile image"><input accept="image/*" className={inputClass} onChange={(event) => update('profile_photo', event.target.files?.[0] ?? null)} required type="file" /></Field>
-                                <Field label="Cover image"><input accept="image/*" className={inputClass} onChange={(event) => update('cover_image', event.target.files?.[0] ?? null)} required type="file" /></Field>
+                                <Field label="Profile image" required><input accept="image/*" className={inputClass} onChange={(event) => update('profile_photo', event.target.files?.[0] ?? null)} required type="file" /></Field>
+                                <Field label="Cover image" required><input accept="image/*" className={inputClass} onChange={(event) => update('cover_image', event.target.files?.[0] ?? null)} required type="file" /></Field>
                             </div>
                         )}
 
                         {step === 2 && (
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Email"><input className={inputClass} onChange={(event) => update('contact_email', event.target.value)} required type="email" value={form.contact_email} /></Field>
+                                <Field label="Email" required><input className={inputClass} onChange={(event) => update('contact_email', event.target.value)} required type="email" value={form.contact_email} /></Field>
                                 <CountryPhoneField value={form.contact_phone} onChange={(phone) => update('contact_phone', phone)} />
                                 <Field className="sm:col-span-2" label="Website (optional)"><input className={inputClass} onChange={(event) => update('website', event.target.value)} placeholder="https://..." type="url" value={form.website} /></Field>
                             </div>
@@ -294,20 +319,20 @@ function ProviderOnboardingContent() {
 
                         {step === 4 && (
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field className="sm:col-span-2" label="Location"><input className={inputClass} onChange={(event) => update('location', event.target.value)} placeholder="123 Main Street, Atlanta, GA" required value={form.location} /></Field>
+                                <Field className="sm:col-span-2" label="Location" required><input className={inputClass} onChange={(event) => update('location', event.target.value)} placeholder="123 Main Street, Atlanta, GA" required value={form.location} /></Field>
                                 <CountrySelectField value={form.country} onChange={(country) => update('country', country)} />
-                                <Field label="City"><input className={inputClass} onChange={(event) => update('city', event.target.value)} required value={form.city} /></Field>
+                                <Field label="City" required><input className={inputClass} onChange={(event) => update('city', event.target.value)} required value={form.city} /></Field>
                             </div>
                         )}
 
                         {step === 5 && (
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Currency">
+                                <Field label="Currency" required>
                                     <select className={inputClass} onChange={(event) => update('default_currency', event.target.value)} required value={form.default_currency}>
                                         {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
                                     </select>
                                 </Field>
-                                <Field label="Base price"><input className={inputClass} min="0" onChange={(event) => update('base_price', event.target.value)} required type="number" value={form.base_price} /></Field>
+                                <Field label="Base price" required><input className={inputClass} min="0" onChange={(event) => update('base_price', event.target.value)} required type="number" value={form.base_price} /></Field>
                             </div>
                         )}
 
@@ -363,7 +388,7 @@ function ProviderOnboardingContent() {
                                 </div>
                                 <label className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm font-bold text-slate-700">
                                     <input checked={form.terms_accepted} className="mt-1 size-4 accent-fuchsia-700" onChange={(event) => update('terms_accepted', event.target.checked)} required type="checkbox" />
-                                    I have read and accept the BeautyPro HQ terms and conditions.
+                                    <span>I have read and accept the BeautyPro HQ terms and conditions. <span aria-hidden="true" className="text-rose-600">*</span></span>
                                 </label>
                             </div>
                         )}
@@ -371,7 +396,13 @@ function ProviderOnboardingContent() {
                         <div className="mt-8 flex justify-between gap-3 border-t border-slate-100 pt-5">
                             <Button disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button" variant="secondary">Back</Button>
                             {step < sections.length - 1
-                                ? <Button onClick={() => setStep((current) => Math.min(sections.length - 1, current + 1))} type="button">Continue</Button>
+                                ? <Button onClick={() => {
+                                    if (step === 0 && bioWords < minimumBioWords) {
+                                        notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
+                                        return;
+                                    }
+                                    setStep((current) => Math.min(sections.length - 1, current + 1));
+                                }} type="button">Continue</Button>
                                 : <Button busy={saving} type="submit">Submit listing details</Button>}
                         </div>
                     </Card>

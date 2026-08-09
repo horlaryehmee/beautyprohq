@@ -115,10 +115,13 @@ export function IconButton({ label, icon, className = '', ...props }) {
     return <button aria-label={label} className={cx('grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-950', className)} title={label} type="button" {...props}><Icon name={icon} /></button>;
 }
 
-export function Field({ label, error, hint, className = '', children }) {
+export function Field({ label, error, hint, required = false, className = '', children }) {
     return (
         <label className={cx('block', className)}>
-            <span className="mb-1.5 block text-sm font-bold text-slate-700">{label}</span>
+            <span className="mb-1.5 block text-sm font-bold text-slate-700">
+                {label}
+                {required && <span aria-hidden="true" className="ml-1 text-rose-600">*</span>}
+            </span>
             {children}
             {error ? <span className="mt-1 block text-xs text-rose-600">{error}</span> : hint ? <span className="mt-1 block text-xs text-slate-400">{hint}</span> : null}
         </label>

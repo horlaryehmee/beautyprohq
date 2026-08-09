@@ -193,7 +193,18 @@ class DashboardController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'provider_category_id' => ['required', 'integer', 'exists:provider_categories,id'],
             'profession' => ['required', 'string', 'max:120'],
-            'bio' => ['required', 'string', 'min:20', 'max:5000'],
+            'bio' => [
+                'required',
+                'string',
+                'min:180',
+                'max:5000',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    preg_match_all("/\b[\pL\pN][\pL\pN'-]*\b/u", strip_tags((string) $value), $matches);
+                    if (count($matches[0] ?? []) < 40) {
+                        $fail('The About Me / Description must be well written and at least 40 words.');
+                    }
+                },
+            ],
             'profile_photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'cover_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'contact_email' => ['required', 'email', 'max:255'],
