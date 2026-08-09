@@ -17,6 +17,7 @@ const tabs = [
     ['booking', 'Booking'],
     ['about', 'About'],
     ['reviews', 'Review'],
+    ['contact', 'Contact'],
 ];
 
 function digitalProductImage(product) {
@@ -202,6 +203,85 @@ function InfoRow({ label, value, children }) {
     );
 }
 
+function ContactForm({ providerName, form, errors, submitting, onChange, onSubmit }) {
+    return (
+        <form onSubmit={onSubmit} className="rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm sm:rounded-[1.6rem] sm:p-6">
+            <div className="mb-5 flex items-center gap-2 text-sm font-bold text-[#2A1D14]">
+                <Icon name="mail" size={16} className="text-stone-400" /> Contact {providerName}
+            </div>
+
+            {errors.form && <InlineAlert className="mb-4">{errors.form}</InlineAlert>}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-stone-500">Your name</span>
+                    <input
+                        className="mt-2 min-h-12 w-full rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14] outline-none transition placeholder:text-stone-400 focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#DCCCB8]/45"
+                        value={form.name}
+                        onChange={(event) => onChange({ name: event.target.value })}
+                        autoComplete="name"
+                        required
+                    />
+                    {errors.name && <p className="mt-1 text-xs font-semibold text-red-600">{errors.name}</p>}
+                </label>
+
+                <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-stone-500">Your email</span>
+                    <input
+                        type="email"
+                        className="mt-2 min-h-12 w-full rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14] outline-none transition placeholder:text-stone-400 focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#DCCCB8]/45"
+                        value={form.email}
+                        onChange={(event) => onChange({ email: event.target.value })}
+                        autoComplete="email"
+                        required
+                    />
+                    {errors.email && <p className="mt-1 text-xs font-semibold text-red-600">{errors.email}</p>}
+                </label>
+            </div>
+
+            <label className="mt-4 block">
+                <span className="text-xs font-bold uppercase tracking-wide text-stone-500">Phone</span>
+                <input
+                    className="mt-2 min-h-12 w-full rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14] outline-none transition placeholder:text-stone-400 focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#DCCCB8]/45"
+                    value={form.phone}
+                    onChange={(event) => onChange({ phone: event.target.value })}
+                    autoComplete="tel"
+                />
+                {errors.phone && <p className="mt-1 text-xs font-semibold text-red-600">{errors.phone}</p>}
+            </label>
+
+            <label className="mt-4 block">
+                <span className="text-xs font-bold uppercase tracking-wide text-stone-500">Message</span>
+                <textarea
+                    className="mt-2 min-h-44 w-full resize-y rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm leading-6 text-[#2A1D14] outline-none transition placeholder:text-stone-400 focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#DCCCB8]/45"
+                    value={form.message}
+                    onChange={(event) => onChange({ message: event.target.value })}
+                    required
+                />
+                {errors.message && <p className="mt-1 text-xs font-semibold text-red-600">{errors.message}</p>}
+            </label>
+
+            <label className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden">
+                Website
+                <input
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.company_website}
+                    onChange={(event) => onChange({ company_website: event.target.value })}
+                />
+            </label>
+
+            <button
+                type="submit"
+                disabled={submitting}
+                className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2A1D14] px-5 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-[#3A2A1F] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+                {submitting ? 'Sending...' : 'Submit'}
+            </button>
+        </form>
+    );
+}
+
 export default function ProviderProfilePage() {
     const { provider: routeProvider, id, slug } = useParams();
     const navigate = useNavigate();
@@ -221,6 +301,16 @@ export default function ProviderProfilePage() {
     const [showTerms, setShowTerms] = useState(false);
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [digitalPage, setDigitalPage] = useState(1);
+    const [contactSubmitting, setContactSubmitting] = useState(false);
+    const [contactErrors, setContactErrors] = useState({});
+    const [contactStartedAt, setContactStartedAt] = useState(() => Math.floor(Date.now() / 1000));
+    const [contactForm, setContactForm] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        message: '',
+        company_website: '',
+    });
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -310,6 +400,8 @@ export default function ProviderProfilePage() {
 
     useEffect(() => {
         setDigitalPage(1);
+        setContactStartedAt(Math.floor(Date.now() / 1000));
+        setContactErrors({});
     }, [identifier, digitalLinks.length]);
 
     useEffect(() => {
@@ -399,6 +491,28 @@ export default function ProviderProfilePage() {
             toast.error(message);
         } finally {
             setReviewSubmitting(false);
+        }
+    }
+
+    async function submitContact(event) {
+        event.preventDefault();
+        setContactSubmitting(true);
+        setContactErrors({});
+        try {
+            await ensureCsrfCookie();
+            const response = await api.post(`/providers/${pro.id}/contact`, {
+                ...contactForm,
+                submitted_at: contactStartedAt,
+            });
+            toast.success(response?.data?.message || 'Your message has been sent.');
+            setContactForm({ name: '', email: '', phone: '', message: '', company_website: '' });
+            setContactStartedAt(Math.floor(Date.now() / 1000));
+        } catch (requestError) {
+            const parsed = apiError(requestError, 'Your message could not be sent.');
+            setContactErrors(parsed.fields?.message ? parsed.fields : { ...parsed.fields, form: parsed.message });
+            toast.error(parsed.message);
+        } finally {
+            setContactSubmitting(false);
         }
     }
 
@@ -647,6 +761,19 @@ export default function ProviderProfilePage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {activeTab === 'contact' && (
+                        <div className="mx-auto max-w-4xl">
+                            <ContactForm
+                                providerName={pro.name}
+                                form={contactForm}
+                                errors={contactErrors}
+                                submitting={contactSubmitting}
+                                onChange={(patch) => setContactForm((current) => ({ ...current, ...patch }))}
+                                onSubmit={submitContact}
+                            />
                         </div>
                     )}
 

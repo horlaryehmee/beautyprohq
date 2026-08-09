@@ -131,4 +131,9 @@ class ProviderProfile extends Model
     {
         return $this->belongsToMany(User::class, 'saved_providers', 'provider_id', 'customer_id');
     }
+
+    public function contactEnquiries(): HasMany
+    {
+        return $this->hasMany(ContactEnquiry::class, 'provider_id');
+    }
 }

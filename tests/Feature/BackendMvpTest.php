@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Availability;
 use App\Models\Booking;
+use App\Models\ContactEnquiry;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
@@ -12,6 +13,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
+use App\Notifications\ProviderContactEnquiryNotification;
 use App\Services\ContentNewsletterService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -96,6 +98,42 @@ class BackendMvpTest extends TestCase
             ->assertJsonCount(1, 'data.services')
             ->assertJsonMissingPath('data.payment_methods.0.account_reference')
             ->assertJsonMissingPath('data.payment_methods.0.instructions');
+    }
+
+    public function test_public_provider_contact_sends_spam_protected_email(): void
+    {
+        Notification::fake();
+        [$provider] = $this->provider('Contact Artist', true);
+        $provider->update(['contact_email' => 'studio@example.test']);
+
+        $this->postJson('/api/providers/'.$provider->slug.'/contact', [
+            'name' => 'Client One',
+            'email' => 'client@example.test',
+            'phone' => '+2348012345678',
+            'message' => 'I would like to ask about bridal makeup availability next month.',
+            'submitted_at' => now()->subSeconds(10)->timestamp,
+            'company_website' => '',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('contact_enquiries', [
+            'provider_id' => $provider->id,
+            'name' => 'Client One',
+            'email' => 'client@example.test',
+            'reason' => 'Provider profile enquiry',
+        ]);
+        Notification::assertSentOnDemand(ProviderContactEnquiryNotification::class, function ($notification, $channels, $notifiable) {
+            return ($notifiable->routes['mail'] ?? null) === 'studio@example.test';
+        });
+
+        $this->postJson('/api/providers/'.$provider->slug.'/contact', [
+            'name' => 'Bot',
+            'email' => 'bot@example.test',
+            'message' => 'This should not be accepted by the provider contact form.',
+            'submitted_at' => now()->subSeconds(10)->timestamp,
+            'company_website' => 'https://spam.example',
+        ])->assertUnprocessable();
+
+        $this->assertSame(1, ContactEnquiry::where('provider_id', $provider->id)->count());
     }
 
     public function test_customer_can_book_available_slot_and_provider_can_complete_it(): void

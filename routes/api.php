@@ -48,6 +48,7 @@ Route::get('/providers/{provider}', [ProviderDirectoryController::class, 'show']
 Route::get('/providers/{provider}/services', [ProviderDirectoryController::class, 'services']);
 Route::get('/providers/{provider}/availability', [ProviderDirectoryController::class, 'availability']);
 Route::get('/providers/{provider}/reviews', [ProviderDirectoryController::class, 'reviews']);
+Route::post('/providers/{provider}/contact', [ProviderDirectoryController::class, 'contact'])->middleware('throttle:public-form');
 Route::get('/news', [PublicContentController::class, 'news']);
 Route::get('/news/{news:slug}', [PublicContentController::class, 'showNews']);
 Route::get('/events', [PublicContentController::class, 'events']);

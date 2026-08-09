@@ -8,11 +8,15 @@ use App\Models\ProfileView;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Service;
+use App\Notifications\ProviderContactEnquiryNotification;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 
 class ProviderDirectoryController extends Controller
 {
@@ -145,6 +149,53 @@ class ProviderDirectoryController extends Controller
         $reviews = $provider->reviews()->where('is_approved', true)->with('customer:id,name')->latest()->paginate(10);
 
         return $this->success($reviews->items(), meta: $this->paginationMeta($reviews));
+    }
+
+    public function contact(Request $request, ProviderProfile $provider): JsonResponse
+    {
+        abort_unless($provider->is_listed && $provider->user->is_active, 404);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'message' => ['required', 'string', 'min:10', 'max:3000'],
+            'company_website' => ['nullable', 'string', 'max:255'],
+            'submitted_at' => ['required', 'integer'],
+        ]);
+
+        if (filled($validated['company_website'] ?? null) || now()->timestamp - (int) $validated['submitted_at'] < 4) {
+            throw ValidationException::withMessages(['message' => 'Your message could not be sent. Please try again.']);
+        }
+
+        if (preg_match_all('/https?:\/\//i', $validated['message']) > 2) {
+            throw ValidationException::withMessages(['message' => 'Please remove extra links from your message.']);
+        }
+
+        $enquiry = $provider->contactEnquiries()->create([
+            'user_id' => $request->user()?->id,
+            'reason' => 'Provider profile enquiry',
+            'name' => $validated['name'],
+            'email' => strtolower($validated['email']),
+            'phone' => $validated['phone'] ?? null,
+            'message' => $validated['message'],
+        ]);
+
+        $recipient = $provider->contact_email ?: $provider->user->email;
+
+        try {
+            Notification::route('mail', $recipient)->notify(new ProviderContactEnquiryNotification($provider->loadMissing('user:id,name,email'), $enquiry));
+        } catch (\Throwable $exception) {
+            Log::warning('Provider contact enquiry email failed.', [
+                'provider_id' => $provider->id,
+                'contact_enquiry_id' => $enquiry->id,
+                'exception' => $exception::class,
+            ]);
+
+            return $this->success(null, 'Your message was saved, but email delivery failed. The provider can still review it from BeautyPro HQ.', 202);
+        }
+
+        return $this->success(null, 'Your message has been sent to the provider.', 201);
     }
 
     private function directoryFilters(): array
