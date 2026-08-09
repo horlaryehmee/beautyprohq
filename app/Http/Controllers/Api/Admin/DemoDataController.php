@@ -7,6 +7,8 @@ use App\Models\Announcement;
 use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\CommunityPost;
+use App\Models\CommunityComment;
+use App\Models\CommunityReaction;
 use App\Models\CrmCustomer;
 use App\Models\DigitalProduct;
 use App\Models\Event;
@@ -439,15 +441,42 @@ class DemoDataController extends Controller
         }
 
         foreach ([
-            ['From home studio to growing beauty brand', 'A BeautyPro HQ member shares how clear pricing and client communication helped turn a small home studio into a growing beauty business.', 'story', 0],
-            ['Pro spotlight: building trust through great client care', 'This spotlight highlights the systems beauty professionals use to make clients feel prepared and confident.', 'spotlight', 1],
-            ['Community win: more beauty professionals getting discovered', 'Beauty professionals across the community are improving profiles and creating more visible paths for customers.', 'community', 2],
-        ] as [$title, $content, $type, $index]) {
+            ['From home studio to growing beauty brand', '<p>A BeautyPro HQ member shares how clear pricing, consistent client communication, and a strong portfolio helped turn a small home studio into a growing beauty business.</p><h2>What changed</h2><ul><li>Simple service packages.</li><li>Prep notes before each appointment.</li><li>Reviews and permission-based portfolio updates.</li></ul>', 'story', 'Business growth', 'Studio owners', 0],
+            ['Pro spotlight: building trust through great client care', '<p>This spotlight highlights the systems beauty professionals use to make clients feel prepared and confident.</p><h2>Trust signals</h2><ul><li>Fast replies.</li><li>Real portfolio images.</li><li>Transparent pricing and location details.</li></ul>', 'spotlight', 'Client experience', 'Service providers', 1],
+            ['Community win: more beauty professionals getting discovered', '<p>Beauty professionals across the community are improving profiles and creating more visible paths for customers.</p><h2>Member actions</h2><ul><li>Adding galleries.</li><li>Listing base prices.</li><li>Asking for profile feedback.</li></ul>', 'community', 'Discovery', 'General', 2],
+            ['Help thread: getting better client enquiries', '<p>Members are sharing practical ways to turn vague messages into clear booking conversations without sounding cold or automated.</p><h2>Discussion prompts</h2><ul><li>What questions do you ask every new client?</li><li>How do you handle budget questions?</li><li>What details reduce no-shows?</li></ul>', 'help', 'Help', 'New providers', 3],
+        ] as [$title, $content, $type, $topic, $group, $index]) {
             $provider = $providers->get($index);
-            CommunityPost::updateOrCreate(
+            $post = CommunityPost::updateOrCreate(
                 ['title' => $title],
-                ['is_demo' => true, 'content' => $content, 'type' => $type, 'provider_id' => $provider?->id, 'image' => $provider?->profile_photo, 'published_at' => now()->subDays($index + 1)],
+                [
+                    'is_demo' => true,
+                    'content' => $content,
+                    'type' => $type,
+                    'topic' => $topic,
+                    'group_name' => $group,
+                    'mentions' => [$provider?->slug ?: 'beautyprohq'],
+                    'rules' => ['Be respectful and constructive.', 'Keep replies relevant to the topic.', 'Report spam or unsafe content.'],
+                    'provider_id' => $provider?->id,
+                    'image' => $provider?->profile_photo,
+                    'published_at' => now()->subDays($index + 1),
+                ],
             );
+            foreach ($customers->take(3) as $offset => $customer) {
+                CommunityReaction::updateOrCreate(['community_post_id' => $post->id, 'user_id' => $customer->id], ['type' => ['like', 'love', 'helpful'][($index + $offset) % 3]]);
+            }
+            $comment = CommunityComment::updateOrCreate(
+                ['community_post_id' => $post->id, 'user_id' => $customers[0]->id, 'parent_id' => null],
+                ['body' => 'This demo discussion shows how members can comment, mention each other, and keep a thread active.', 'mentions' => [], 'status' => 'visible'],
+            );
+            CommunityComment::updateOrCreate(
+                ['community_post_id' => $post->id, 'user_id' => $customers[1]->id, 'parent_id' => $comment->id],
+                ['body' => 'Replying here so the demo includes nested conversation.', 'mentions' => [], 'status' => 'visible'],
+            );
+            $post->forceFill([
+                'reaction_count' => $post->reactions()->count(),
+                'comment_count' => $post->comments()->visible()->count(),
+            ])->save();
         }
 
         Announcement::updateOrCreate(

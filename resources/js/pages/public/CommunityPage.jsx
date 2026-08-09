@@ -26,6 +26,11 @@ function normalizePost(item, index) {
         date: item.published_at ?? item.created_at,
         typeLabel: typeLabel(item.type),
         author: item.provider?.user?.name ?? item.author?.name ?? 'BeautyPro HQ',
+        topic: item.topic ?? 'General',
+        groupName: item.group_name ?? item.groupName,
+        reactionCount: Number(item.reaction_count ?? 0),
+        commentCount: Number(item.comment_count ?? 0),
+        shareCount: Number(item.share_count ?? 0),
     };
 }
 
@@ -64,11 +69,17 @@ function StoryRow({ post, selected, onOpen }) {
             <div className="min-w-0 py-1">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-[#F7F3ED] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#3A2A1F] lg:px-2.5 lg:py-1 lg:text-[10px]">{post.typeLabel}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-500 ring-1 ring-stone-200 lg:px-2.5 lg:py-1 lg:text-[10px]">{post.topic}</span>
                     <span className="text-[10px] font-bold text-stone-400 lg:text-xs">{shortDate(post.date)}</span>
                 </div>
                 <h3 className="mt-1 line-clamp-2 font-display text-base font-normal leading-tight text-[#2A1D14] lg:mt-3 lg:text-2xl">{stripHtml(post.title)}</h3>
                 <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-stone-600 lg:mt-2 lg:line-clamp-2 lg:text-sm lg:leading-6">{stripHtml(post.content ?? post.excerpt)}</p>
-                <p className="mt-1 truncate text-[10px] font-bold text-stone-500 lg:mt-4 lg:text-xs">{post.author}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-bold text-stone-500 lg:mt-4 lg:text-xs">
+                    <span className="truncate">{post.author}</span>
+                    {post.groupName && <span>{post.groupName}</span>}
+                    <span>{post.reactionCount} reactions</span>
+                    <span>{post.commentCount} comments</span>
+                </div>
             </div>
         </button>
     );
@@ -95,8 +106,15 @@ function StoryPreview({ post, onOpen }) {
                 <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold text-stone-500">
                     <span>{post.author}</span>
                     {post.date && <span>{shortDate(post.date)}</span>}
+                    <span>{post.topic}</span>
+                    {post.groupName && <span>{post.groupName}</span>}
                 </div>
                 <p className="mt-5 line-clamp-5 text-sm leading-7 text-stone-600">{stripHtml(post.content ?? post.excerpt)}</p>
+                <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl bg-[#F7F3ED] p-2 text-center text-xs font-bold text-[#2A1D14]">
+                    <span>{post.reactionCount} likes</span>
+                    <span>{post.commentCount} replies</span>
+                    <span>{post.shareCount} shares</span>
+                </div>
                 <Button onClick={() => onOpen(post)} className="mt-6 w-full rounded-full bg-[#2A1D14] hover:bg-[#2A1D14]">
                     Open story <Icon name="arrow" size={15} />
                 </Button>
@@ -144,6 +162,8 @@ export default function CommunityPage() {
     const [meta, setMeta] = useState({});
     const [filters, setFilters] = useState({});
     const [activeType, setActiveType] = useState('all');
+    const [activeTopic, setActiveTopic] = useState('all');
+    const [activeGroup, setActiveGroup] = useState('all');
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -152,7 +172,15 @@ export default function CommunityPage() {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get('/community-posts', { params: { page, per_page: 10, type: activeType === 'all' ? undefined : activeType } });
+            const response = await api.get('/community-posts', {
+                params: {
+                    page,
+                    per_page: 10,
+                    type: activeType === 'all' ? undefined : activeType,
+                    topic: activeTopic === 'all' ? undefined : activeTopic,
+                    group: activeGroup === 'all' ? undefined : activeGroup,
+                },
+            });
             setPosts(collectionFrom(response).map(normalizePost));
             setMeta(metaFrom(response));
             setFilters(response?.data?.filters ?? response?.data?.meta?.filters ?? {});
@@ -161,7 +189,7 @@ export default function CommunityPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeType, page]);
+    }, [activeGroup, activeTopic, activeType, page]);
 
     useEffect(() => {
         load();
@@ -170,6 +198,8 @@ export default function CommunityPage() {
     const types = useMemo(() => {
         return filters.types?.length ? filters.types : Array.from(new Set(posts.map((post) => post.type).filter(Boolean)));
     }, [filters.types, posts]);
+    const topics = useMemo(() => filters.topics?.length ? filters.topics : Array.from(new Set(posts.map((post) => post.topic).filter(Boolean))), [filters.topics, posts]);
+    const groups = useMemo(() => filters.groups?.length ? filters.groups : Array.from(new Set(posts.map((post) => post.groupName).filter(Boolean))), [filters.groups, posts]);
 
     const preview = posts[0];
     const openPost = (post) => navigate(`/community/${post.slug ?? post.id}`);
@@ -178,6 +208,16 @@ export default function CommunityPage() {
 
     function selectType(type) {
         setActiveType(type);
+        setPage(1);
+    }
+
+    function selectTopic(topic) {
+        setActiveTopic(topic);
+        setPage(1);
+    }
+
+    function selectGroup(group) {
+        setActiveGroup(group);
         setPage(1);
     }
 
@@ -222,6 +262,24 @@ export default function CommunityPage() {
                                     </button>
                                 ))}
                             </div>
+                            <p className="mt-4 px-3 py-2 text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Topics</p>
+                            <div className="flex gap-1 overflow-x-auto scrollbar-none lg:grid lg:overflow-visible">
+                                <button type="button" onClick={() => selectTopic('all')} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeTopic === 'all' ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>All topics</button>
+                                {topics.map((topic) => (
+                                    <button key={topic} type="button" onClick={() => selectTopic(topic)} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeTopic === topic ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>{topic}</button>
+                                ))}
+                            </div>
+                            {groups.length > 0 && (
+                                <>
+                                    <p className="mt-4 px-3 py-2 text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Groups</p>
+                                    <div className="flex gap-1 overflow-x-auto scrollbar-none lg:grid lg:overflow-visible">
+                                        <button type="button" onClick={() => selectGroup('all')} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeGroup === 'all' ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>All groups</button>
+                                        {groups.map((group) => (
+                                            <button key={group} type="button" onClick={() => selectGroup(group)} className={`min-h-10 shrink-0 rounded-xl px-4 text-left text-xs font-bold transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeGroup === group ? 'bg-[#2A1D14] text-white' : 'text-[#3A2A1F] hover:bg-white hover:text-[#2A1D14]'}`}>{group}</button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                             <Button variant="secondary" onClick={load} disabled={loading} className="mt-3 w-full lg:mt-4">
                                 Refresh <Icon name="refresh" size={15} />
                             </Button>

@@ -58,6 +58,8 @@ Route::get('/opportunities', [PublicContentController::class, 'opportunities']);
 Route::get('/opportunities/{opportunity}', [PublicContentController::class, 'showOpportunity']);
 Route::get('/community-posts', [PublicContentController::class, 'community']);
 Route::get('/community-posts/{communityPost}', [PublicContentController::class, 'showCommunity']);
+Route::post('/community-posts/{communityPost}/shares', [PublicContentController::class, 'shareCommunity'])->middleware('throttle:public-form');
+Route::post('/community-posts/{communityPost}/reports', [PublicContentController::class, 'reportCommunity'])->middleware('throttle:public-form');
 Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:public-form');
 Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:public-form');
 Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:public-form');
@@ -83,6 +85,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
     Route::post('/upload', UploadController::class)->middleware('throttle:upload');
+    Route::post('/community-posts/{communityPost}/reactions', [PublicContentController::class, 'reactToCommunity'])->middleware('throttle:public-form');
+    Route::post('/community-posts/{communityPost}/comments', [PublicContentController::class, 'commentOnCommunity'])->middleware('throttle:public-form');
 
     Route::middleware('role:customer')->group(function (): void {
         Route::get('/bookings', [BookingController::class, 'index']);
@@ -228,6 +232,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/community-posts/{communityPost}', [AdminContentController::class, 'showCommunity']);
         Route::put('/community-posts/{communityPost}', [AdminContentController::class, 'updateCommunity']);
         Route::delete('/community-posts/{communityPost}', [AdminContentController::class, 'destroyCommunity']);
+        Route::get('/community-reports', [AdminContentController::class, 'communityReports']);
+        Route::patch('/community-reports/{report}', [AdminContentController::class, 'updateCommunityReport']);
         Route::get('/opportunities', [AdminContentController::class, 'opportunities']);
         Route::post('/opportunities', [AdminContentController::class, 'storeOpportunity']);
         Route::get('/opportunities/{opportunity}', [AdminContentController::class, 'showOpportunity']);

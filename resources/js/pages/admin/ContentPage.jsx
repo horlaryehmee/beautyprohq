@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, cx, formatDate, inputClass, useApiResource, useDebouncedValue } from '../../components/dashboard';
+import { Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiRequest, cx, formatDate, inputClass, useApiResource, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
 
 const contentTypes = {
     news: { label: 'News', singular: 'article', endpoint: '/admin/news', editBase: '/admin/content/news', bodyKey: 'content' },
@@ -62,6 +62,7 @@ function ContentRow({ item, active }) {
 }
 
 export default function AdminContentPage() {
+    const { notify } = useDashboardToast();
     const [active, setActive] = useState('news');
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState('all');
@@ -78,6 +79,7 @@ export default function AdminContentPage() {
     const news = useApiResource('/admin/news', [], { params: active === 'news' ? params : { page: 1, per_page: 8 } });
     const events = useApiResource('/admin/events', [], { params: active === 'events' ? params : { page: 1, per_page: 8 } });
     const community = useApiResource('/admin/community-posts', [], { params: active === 'community' ? params : { page: 1, per_page: 8 } });
+    const reports = useApiResource('/admin/community-reports', [], { params: active === 'community' ? { status: 'new', per_page: 6 } : { status: 'new', per_page: 1 } });
     const resources = { news, events, community };
     const resource = resources[active];
     const config = contentTypes[active];
@@ -96,6 +98,17 @@ export default function AdminContentPage() {
     const switchType = (key) => {
         setActive(key);
         setType('all');
+    };
+
+    const updateReport = async (report, patch) => {
+        try {
+            await apiRequest('patch', `/admin/community-reports/${report.id}`, patch);
+            notify('Moderation report updated.');
+            reports.reload();
+            community.reload();
+        } catch (requestError) {
+            notify(requestError?.response?.data?.message || 'Report could not be updated.', 'error');
+        }
     };
 
     return (
@@ -145,6 +158,44 @@ export default function AdminContentPage() {
                     </div>
                 </div>
             </Card>
+
+            {active === 'community' && (
+                <Card>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div>
+                            <h2 className="font-bold text-slate-950">Moderation queue</h2>
+                            <p className="mt-1 text-sm text-slate-500">Review reports from community members and hide reported comments when needed.</p>
+                        </div>
+                        <button type="button" onClick={reports.reload} className="min-h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700">Refresh</button>
+                    </div>
+                    {reports.loading ? <LoadingBlock rows={3} /> : normalize(reports.data).length ? (
+                        <div className="space-y-3">
+                            {normalize(reports.data).map((report) => (
+                                <article key={report.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <StatusBadge status={report.status} />
+                                                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{report.reason}</span>
+                                            </div>
+                                            <p className="mt-2 font-bold text-slate-950">{report.post?.title ?? 'Community post'}</p>
+                                            {report.comment?.body && <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{report.comment.body}</p>}
+                                            {report.details && <p className="mt-2 text-sm leading-6 text-slate-600">{report.details}</p>}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button type="button" onClick={() => updateReport(report, { status: 'resolved' })} className="min-h-9 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-700">Resolve</button>
+                                            {report.comment && <button type="button" onClick={() => updateReport(report, { status: 'resolved', hide_comment: true })} className="min-h-9 rounded-xl bg-amber-50 px-3 text-xs font-bold text-amber-700">Hide comment</button>}
+                                            <button type="button" onClick={() => updateReport(report, { status: 'dismissed' })} className="min-h-9 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700">Dismiss</button>
+                                        </div>
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    ) : (
+                        <EmptyState compact description="New community reports will appear here." title="No reports waiting" />
+                    )}
+                </Card>
+            )}
 
             <Card>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">

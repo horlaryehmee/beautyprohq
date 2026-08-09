@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Support\SafeHtml;
 use App\Models\Announcement;
+use App\Models\CommunityReport;
 use App\Models\CommunityPost;
 use App\Models\Event;
 use App\Models\News;
@@ -89,7 +90,7 @@ class ContentController extends Controller
 
     public function community(Request $request): JsonResponse
     {
-        return $this->listing(CommunityPost::with('provider.user:id,name')->latest(), $request, ['title', 'content', 'type'], ['type']);
+        return $this->listing(CommunityPost::with('provider.user:id,name')->latest(), $request, ['title', 'content', 'type', 'topic', 'group_name'], ['type', 'topic', 'group_name']);
     }
 
     public function showCommunity(CommunityPost $communityPost): JsonResponse
@@ -116,6 +117,33 @@ class ContentController extends Controller
     public function destroyCommunity(CommunityPost $communityPost): JsonResponse
     {
         return $this->removed($communityPost, 'Community post removed.');
+    }
+
+    public function communityReports(Request $request): JsonResponse
+    {
+        $reports = CommunityReport::with(['post:id,title,slug', 'comment:id,body', 'user:id,name,email'])
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
+            ->latest()
+            ->paginate($this->perPage($request, 20, 100));
+
+        return $this->success($reports->items(), meta: $this->paginationMeta($reports));
+    }
+
+    public function updateCommunityReport(Request $request, CommunityReport $report): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['new', 'reviewing', 'resolved', 'dismissed'])],
+            'hide_comment' => ['sometimes', 'boolean'],
+        ]);
+
+        $report->update(['status' => $validated['status']]);
+        if (($validated['hide_comment'] ?? false) && $report->comment) {
+            $report->comment->update(['status' => 'hidden']);
+            $post = $report->post;
+            $post?->forceFill(['comment_count' => $post->comments()->visible()->count()])->save();
+        }
+
+        return $this->updated($report->fresh(['post:id,title,slug', 'comment:id,body', 'user:id,name,email']), 'Community report updated.');
     }
 
     public function opportunities(Request $request): JsonResponse
@@ -238,10 +266,17 @@ class ContentController extends Controller
 
         $data = $this->publication($request->validate([
             'title' => [$p, 'string', 'max:180'], 'slug' => ['nullable', 'string', 'max:200'], 'content' => [$p, 'string'], 'type' => [$p, 'string', 'max:80'],
+            'topic' => ['nullable', 'string', 'max:100'], 'group_name' => ['nullable', 'string', 'max:100'],
+            'mentions' => ['nullable', 'array'], 'mentions.*' => ['string', 'max:40'],
+            'rules' => ['nullable', 'array'], 'rules.*' => ['string', 'max:180'],
             'image' => ['nullable', 'string', 'max:500'], 'provider_id' => ['nullable', 'exists:provider_profiles,id'],
             'seo_title' => ['nullable', 'string', 'max:180'], 'seo_description' => ['nullable', 'string', 'max:300'],
             'published_at' => ['nullable', 'date'], 'status' => ['sometimes', Rule::in(['draft', 'published'])],
         ]));
+        $data['topic'] = filled($data['topic'] ?? null) ? trim($data['topic']) : 'General';
+        $data['group_name'] = filled($data['group_name'] ?? null) ? trim($data['group_name']) : null;
+        $data['mentions'] = collect($data['mentions'] ?? [])->filter()->map(fn ($value) => Str::lower(ltrim(trim($value), '@')))->unique()->values()->all();
+        $data['rules'] = collect($data['rules'] ?? [])->filter()->map(fn ($value) => trim($value))->unique()->values()->all();
         if (array_key_exists('content', $data)) {
             $data['content'] = SafeHtml::clean($data['content']);
         }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import api, { collectionFrom, unwrap } from '../../lib/api';
+import api, { apiError, collectionFrom, ensureCsrfCookie, unwrap } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
@@ -59,6 +61,150 @@ function DetailBody({ content }) {
                 <p key={index}>{paragraph}</p>
             ))}
         </div>
+    );
+}
+
+function CommunityEngagement({ item, onReload }) {
+    const { user } = useAuth();
+    const toast = useToast();
+    const navigate = useNavigate();
+    const [comment, setComment] = useState('');
+    const [saving, setSaving] = useState(false);
+    const reactions = [
+        ['like', 'Like'],
+        ['love', 'Love'],
+        ['celebrate', 'Celebrate'],
+        ['helpful', 'Helpful'],
+    ];
+
+    async function requireUser() {
+        if (user) return true;
+        navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        return false;
+    }
+
+    async function react(type) {
+        if (!await requireUser()) return;
+        try {
+            await ensureCsrfCookie();
+            await api.post(`/community-posts/${item.id}/reactions`, { type });
+            await onReload();
+        } catch (requestError) {
+            toast.error(apiError(requestError, 'Reaction could not be saved.').message);
+        }
+    }
+
+    async function submitComment(event, parentId = null, body = comment, reset = () => setComment('')) {
+        event.preventDefault();
+        if (!await requireUser()) return;
+        setSaving(true);
+        try {
+            await ensureCsrfCookie();
+            await api.post(`/community-posts/${item.id}/comments`, { body, parent_id: parentId });
+            reset();
+            await onReload();
+            toast.success('Comment posted.');
+        } catch (requestError) {
+            toast.error(apiError(requestError, 'Comment could not be posted.').message);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function share() {
+        const url = window.location.href;
+        await api.post(`/community-posts/${item.id}/shares`, { channel: navigator.share ? 'native_share' : 'copy_link' }).catch(() => {});
+        if (navigator.share) {
+            await navigator.share({ title: stripHtml(item.title), url }).catch(() => {});
+        } else {
+            await navigator.clipboard?.writeText(url).catch(() => {});
+            toast.success('Community link copied.');
+        }
+        await onReload();
+    }
+
+    async function report(commentId = null) {
+        const details = window.prompt('Briefly tell moderators what is wrong with this content.');
+        if (details === null) return;
+        try {
+            await api.post(`/community-posts/${item.id}/reports`, {
+                community_comment_id: commentId,
+                reason: 'other',
+                details,
+            });
+            toast.success('Report sent to moderation.');
+        } catch (requestError) {
+            toast.error(apiError(requestError, 'Report could not be sent.').message);
+        }
+    }
+
+    return (
+        <section className="mt-10 rounded-lg border border-stone-200 bg-white p-5 sm:p-6">
+            <div className="flex flex-col gap-4 border-b border-stone-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Community interaction</p>
+                    <h2 className="mt-2 font-display text-3xl font-normal text-[#2A1D14]">Join the conversation</h2>
+                </div>
+                <button type="button" onClick={share} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-stone-200 px-4 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] hover:bg-[#F7F3ED]">
+                    Share <Icon name="external" size={14} />
+                </button>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+                {reactions.map(([key, label]) => (
+                    <button key={key} type="button" onClick={() => react(key)} className={`min-h-10 rounded-full border px-4 text-xs font-bold uppercase tracking-wide transition ${item.viewer_reaction === key ? 'border-[#2A1D14] bg-[#2A1D14] text-white' : 'border-stone-200 bg-white text-[#2A1D14] hover:bg-[#F7F3ED]'}`}>
+                        {label} · {Number(item.reaction_summary?.[key] ?? 0)}
+                    </button>
+                ))}
+                <button type="button" onClick={() => report()} className="min-h-10 rounded-full border border-rose-100 px-4 text-xs font-bold uppercase tracking-wide text-rose-700 hover:bg-rose-50">
+                    Report
+                </button>
+            </div>
+
+            <form className="mt-6" onSubmit={submitComment}>
+                <textarea className="min-h-28 w-full resize-y rounded-lg border border-stone-200 px-4 py-3 text-sm leading-6 text-[#2A1D14] outline-none focus:border-[#3A2A1F] focus:ring-4 focus:ring-[#3A2A1F]/10" placeholder="Add a comment. Mention members with @username." value={comment} onChange={(event) => setComment(event.target.value)} />
+                <button type="submit" disabled={saving || !comment.trim()} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-[#2A1D14] px-5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50">
+                    Post comment
+                </button>
+            </form>
+
+            <div className="mt-7 space-y-4">
+                {(item.comments ?? []).length ? item.comments.map((entry) => <CommunityComment key={entry.id} comment={entry} onReply={submitComment} onReport={report} saving={saving} />) : (
+                    <p className="rounded-lg border border-dashed border-stone-200 bg-[#F7F3ED] p-5 text-sm text-stone-600">No comments yet. Start the discussion.</p>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function CommunityComment({ comment, onReply, onReport, saving }) {
+    const [replying, setReplying] = useState(false);
+    const [reply, setReply] = useState('');
+    const author = comment.user?.name ?? 'Community member';
+
+    return (
+        <article className="rounded-lg border border-stone-200 bg-[#F7F3ED] p-4">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-sm font-bold text-[#2A1D14]">{author}</p>
+                    <p className="mt-1 text-xs font-semibold text-stone-400">{shortDate(comment.created_at)}</p>
+                </div>
+                <button type="button" onClick={() => onReport(comment.id)} className="text-xs font-bold uppercase tracking-wide text-stone-400 hover:text-rose-700">Report</button>
+            </div>
+            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-stone-700">{comment.body}</p>
+            <button type="button" onClick={() => setReplying((value) => !value)} className="mt-3 text-xs font-bold uppercase tracking-wide text-[#3A2A1F]">Reply</button>
+            {replying && (
+                <form className="mt-3" onSubmit={(event) => onReply(event, comment.id, reply, () => { setReply(''); setReplying(false); })}>
+                    <textarea className="min-h-20 w-full resize-y rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#3A2A1F]" value={reply} onChange={(event) => setReply(event.target.value)} />
+                    <button type="submit" disabled={saving || !reply.trim()} className="mt-2 min-h-9 rounded-full bg-[#2A1D14] px-4 text-xs font-bold uppercase tracking-wide text-white disabled:opacity-50">Post reply</button>
+                </form>
+            )}
+            {(comment.replies ?? []).length > 0 && (
+                <div className="mt-4 space-y-3 border-l-2 border-stone-200 pl-4">
+                    {comment.replies.map((replyItem) => <CommunityComment key={replyItem.id} comment={replyItem} onReply={onReply} onReport={onReport} saving={saving} />)}
+                </div>
+            )}
+        </article>
     );
 }
 
@@ -379,6 +525,8 @@ export default function ContentDetailPage({ type = 'news' }) {
                             <DetailBody content={normalized.body} />
                             {type === 'event' ? (
                                 <EventRegistrationForm event={normalized} />
+                            ) : type === 'community' ? (
+                                <CommunityEngagement item={normalized} onReload={load} />
                             ) : normalized.registration_url && (
                                 <a href={normalized.registration_url} target="_blank" rel="noreferrer" className={buttonClass({ className: 'mt-8 rounded-full' })}>
                                     Register now <Icon name="arrow" size={15} />
@@ -387,6 +535,7 @@ export default function ContentDetailPage({ type = 'news' }) {
                         </div>
                     </div>
                     <DetailPanel item={normalized} type={type} onShare={shareContent} />
+                    {type === 'community' && <CommunityRules item={normalized} />}
                 </article>
             </section>
 
@@ -407,6 +556,26 @@ export default function ContentDetailPage({ type = 'news' }) {
                 </section>
             )}
         </>
+    );
+}
+
+function CommunityRules({ item }) {
+    const rules = Array.isArray(item.rules) ? item.rules : [];
+    if (!rules.length && !item.topic && !item.group_name) return null;
+
+    return (
+        <aside className="mt-4 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_45px_rgba(52,35,28,.06)] lg:col-start-2 lg:mt-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Community</p>
+            <div className="mt-4 space-y-3 text-sm">
+                {item.topic && <p><span className="font-bold text-[#2A1D14]">Topic:</span> <span className="text-stone-600">{item.topic}</span></p>}
+                {item.group_name && <p><span className="font-bold text-[#2A1D14]">Group:</span> <span className="text-stone-600">{item.group_name}</span></p>}
+            </div>
+            {rules.length > 0 && (
+                <ul className="mt-4 space-y-2 text-sm leading-6 text-stone-600">
+                    {rules.map((rule) => <li key={rule}>- {rule}</li>)}
+                </ul>
+            )}
+        </aside>
     );
 }
 

@@ -175,8 +175,30 @@ class DatabaseSeeder extends Seeder
             ['title' => 'Makeup Artists for Fashion Campaign', 'type' => 'job', 'description' => 'A Lagos fashion label needs two experienced makeup artists for a two-day campaign shoot.', 'contact_info' => json_encode(['email' => 'opportunities@beautyprohq.test']), 'location' => 'Lagos', 'deadline' => now()->addDays(18)->toDateString(), 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
             ['title' => 'Beauty Educator Partnership', 'type' => 'partnership', 'description' => 'Partner with BPHQ on a practical online masterclass for early-career professionals.', 'contact_info' => json_encode(['email' => 'partners@beautyprohq.test']), 'location' => 'Remote', 'deadline' => now()->addMonth()->toDateString(), 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
         ]);
-        CommunityPost::create(['title' => 'From home studio to booked-out salon', 'content' => 'Amara shares how consistent systems, clear pricing and genuine client care helped her grow.', 'type' => 'story', 'provider_id' => $providers[0]->id, 'image' => $providers[0]->profile_photo, 'published_at' => now()->subDay()]);
-        CommunityPost::create(['title' => 'Pro spotlight: Kemi Crowns', 'content' => 'Meet the natural hair specialist building confidence one healthy-hair routine at a time.', 'type' => 'spotlight', 'provider_id' => $providers[1]->id, 'image' => $providers[1]->profile_photo, 'published_at' => now()->subDays(3)]);
+        CommunityPost::create([
+            'title' => 'From home studio to booked-out salon',
+            'content' => '<p>Amara shares how consistent systems, clear pricing, prep messages, and genuine client care helped her grow from occasional bookings to a more predictable beauty business.</p><h2>Key lessons</h2><ul><li>Make prices easy to understand.</li><li>Send prep instructions before every visit.</li><li>Use portfolio images that show real client outcomes.</li></ul>',
+            'type' => 'story',
+            'topic' => 'Business growth',
+            'group_name' => 'Studio owners',
+            'mentions' => ['amara-glam'],
+            'rules' => ['Be respectful and constructive.', 'Keep replies relevant to the topic.', 'Do not share private client information.'],
+            'provider_id' => $providers[0]->id,
+            'image' => $providers[0]->profile_photo,
+            'published_at' => now()->subDay(),
+        ]);
+        CommunityPost::create([
+            'title' => 'Pro spotlight: Kemi Crowns',
+            'content' => '<p>Meet the natural hair specialist building confidence one healthy-hair routine at a time. This spotlight opens a conversation about client education, retention, and trust.</p><h2>Discussion points</h2><ul><li>How do you prepare new clients?</li><li>What makes your care process memorable?</li><li>How do you follow up after service?</li></ul>',
+            'type' => 'spotlight',
+            'topic' => 'Client experience',
+            'group_name' => 'Service providers',
+            'mentions' => ['kemi-crowns'],
+            'rules' => ['Be respectful and constructive.', 'Keep replies relevant to the topic.', 'Report spam or unsafe content.'],
+            'provider_id' => $providers[1]->id,
+            'image' => $providers[1]->profile_photo,
+            'published_at' => now()->subDays(3),
+        ]);
         Announcement::create(['title' => 'Welcome to BeautyPro HQ', 'message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()]);
         NewsletterSubscriber::create(['name' => 'Demo Subscriber', 'email' => 'demo@beautyprohq.test', 'subscribed_at' => now()]);
 

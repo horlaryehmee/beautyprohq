@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -31,6 +32,8 @@ class CommunityPost extends Model
             'newsletter_notify_requested_at' => 'datetime',
             'newsletter_notified_at' => 'datetime',
             'is_demo' => 'boolean',
+            'mentions' => 'array',
+            'rules' => 'array',
         ];
     }
 
@@ -42,6 +45,26 @@ class CommunityPost extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(ProviderProfile::class, 'provider_id');
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(CommunityComment::class);
+    }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(CommunityReaction::class);
+    }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(CommunityShare::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(CommunityReport::class);
     }
 
     public function resolveRouteBinding($value, $field = null): ?self

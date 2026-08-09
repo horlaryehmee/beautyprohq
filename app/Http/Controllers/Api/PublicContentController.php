@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CommunityComment;
 use App\Models\CommunityPost;
+use App\Models\CommunityReport;
+use App\Models\CommunityShare;
 use App\Models\ContactEnquiry;
 use App\Models\Event;
 use App\Models\News;
@@ -21,6 +24,8 @@ use Illuminate\Http\Request;
 use Illuminate\Notifications\Notification as NotificationPayload;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class PublicContentController extends Controller
 {
@@ -108,6 +113,8 @@ class PublicContentController extends Controller
     {
         $validated = $request->validate([
             'type' => ['nullable', 'string', 'max:80'],
+            'topic' => ['nullable', 'string', 'max:100'],
+            'group' => ['nullable', 'string', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'between:1,48'],
         ]);
@@ -115,10 +122,14 @@ class PublicContentController extends Controller
         $paginator = CommunityPost::published()
             ->with('provider.user:id,name')
             ->when($validated['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
+            ->when($validated['topic'] ?? null, fn ($query, $topic) => $query->where('topic', $topic))
+            ->when($validated['group'] ?? null, fn ($query, $group) => $query->where('group_name', $group))
             ->latest('published_at')
             ->paginate($validated['per_page'] ?? 12);
 
-        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator) + [
+        $items = collect($paginator->items())->map(fn (CommunityPost $post) => $this->communityPayload($post, false))->values();
+
+        return $this->success($items, meta: $this->paginationMeta($paginator) + [
             'filters' => [
                 'types' => CommunityPost::published()
                     ->select('type')
@@ -127,15 +138,129 @@ class PublicContentController extends Controller
                     ->pluck('type')
                     ->filter()
                     ->values(),
+                'topics' => CommunityPost::published()
+                    ->select('topic')
+                    ->distinct()
+                    ->orderBy('topic')
+                    ->pluck('topic')
+                    ->filter()
+                    ->values(),
+                'groups' => CommunityPost::published()
+                    ->whereNotNull('group_name')
+                    ->select('group_name')
+                    ->distinct()
+                    ->orderBy('group_name')
+                    ->pluck('group_name')
+                    ->filter()
+                    ->values(),
             ],
         ]);
     }
 
-    public function showCommunity(CommunityPost $communityPost): JsonResponse
+    public function showCommunity(Request $request, CommunityPost $communityPost): JsonResponse
     {
         abort_unless($communityPost->published_at?->isPast(), 404);
 
-        return $this->success($communityPost->load('provider.user:id,name'));
+        return $this->success($this->communityPayload($communityPost->load([
+            'provider.user:id,name',
+            'comments' => fn ($query) => $query->visible()->whereNull('parent_id')->with(['user:id,name,role', 'replies' => fn ($replies) => $replies->visible()->with('user:id,name,role')->oldest()])->oldest(),
+        ]), true, $request));
+    }
+
+    public function reactToCommunity(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        abort_unless($communityPost->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['like', 'love', 'celebrate', 'helpful'])],
+        ]);
+
+        $existing = $communityPost->reactions()->where('user_id', $request->user()->id)->first();
+        if ($existing && $existing->type === $validated['type']) {
+            $existing->delete();
+        } else {
+            $communityPost->reactions()->updateOrCreate(
+                ['user_id' => $request->user()->id],
+                ['type' => $validated['type']]
+            );
+        }
+
+        $this->refreshCommunityCounters($communityPost);
+
+        return $this->success($this->communityPayload($communityPost->fresh(), false, $request), 'Reaction updated.');
+    }
+
+    public function commentOnCommunity(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        abort_unless($communityPost->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'min:2', 'max:1500'],
+            'parent_id' => ['nullable', 'integer', 'exists:community_comments,id'],
+        ]);
+
+        $parentId = $validated['parent_id'] ?? null;
+        if ($parentId && ! $communityPost->comments()->whereKey($parentId)->visible()->exists()) {
+            abort(422, 'Reply target is not available.');
+        }
+
+        $comment = $communityPost->comments()->create([
+            'user_id' => $request->user()->id,
+            'parent_id' => $parentId,
+            'body' => trim(strip_tags($validated['body'])),
+            'mentions' => $this->mentionsFrom($validated['body']),
+        ]);
+
+        $this->refreshCommunityCounters($communityPost);
+
+        return $this->success($comment->load('user:id,name,role'), 'Comment posted.', 201);
+    }
+
+    public function shareCommunity(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        abort_unless($communityPost->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'channel' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        CommunityShare::create([
+            'community_post_id' => $communityPost->id,
+            'user_id' => $request->user()?->id,
+            'channel' => $validated['channel'] ?? 'copy_link',
+            'ip_hash' => hash('sha256', $request->ip().'|'.$request->userAgent()),
+        ]);
+
+        $this->refreshCommunityCounters($communityPost);
+
+        return $this->success(['share_count' => $communityPost->fresh()->share_count], 'Share recorded.');
+    }
+
+    public function reportCommunity(Request $request, CommunityPost $communityPost): JsonResponse
+    {
+        abort_unless($communityPost->published_at?->isPast(), 404);
+
+        $validated = $request->validate([
+            'community_comment_id' => ['nullable', 'integer', 'exists:community_comments,id'],
+            'reason' => ['required', Rule::in(['spam', 'harassment', 'unsafe', 'off_topic', 'other'])],
+            'details' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if (($validated['community_comment_id'] ?? null) && ! $communityPost->comments()->whereKey($validated['community_comment_id'])->exists()) {
+            abort(422, 'Reported comment is not part of this community post.');
+        }
+
+        CommunityReport::create([
+            'community_post_id' => $communityPost->id,
+            'community_comment_id' => $validated['community_comment_id'] ?? null,
+            'user_id' => $request->user()?->id,
+            'reason' => $validated['reason'],
+            'details' => isset($validated['details']) ? trim(strip_tags($validated['details'])) : null,
+        ]);
+
+        $this->refreshCommunityCounters($communityPost);
+
+        return $this->success(null, 'Thanks. The report has been sent to moderation.');
     }
 
     public function subscribe(Request $request): JsonResponse
@@ -226,5 +351,58 @@ class PublicContentController extends Controller
                 'exception' => $exception::class,
             ]);
         }
+    }
+
+    private function communityPayload(CommunityPost $post, bool $detail = false, ?Request $request = null): array
+    {
+        $payload = $post->toArray();
+        $payload['reaction_summary'] = $post->reactions()
+            ->selectRaw('type, count(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+        $payload['viewer_reaction'] = $request?->user()
+            ? $post->reactions()->where('user_id', $request->user()->id)->value('type')
+            : null;
+        $payload['rules'] = $post->rules ?: $this->defaultCommunityRules();
+
+        if ($detail) {
+            $payload['comments'] = $post->comments->map(fn (CommunityComment $comment) => $this->commentPayload($comment))->values();
+        }
+
+        return $payload;
+    }
+
+    private function commentPayload(CommunityComment $comment): array
+    {
+        $payload = $comment->toArray();
+        $payload['replies'] = $comment->replies->map(fn (CommunityComment $reply) => $this->commentPayload($reply))->values();
+
+        return $payload;
+    }
+
+    private function mentionsFrom(string $value): array
+    {
+        preg_match_all('/@([a-zA-Z0-9_.-]{2,40})/', $value, $matches);
+
+        return collect($matches[1] ?? [])->map(fn ($item) => Str::lower($item))->unique()->values()->all();
+    }
+
+    private function defaultCommunityRules(): array
+    {
+        return [
+            'Be respectful and constructive.',
+            'Keep posts relevant to beauty, business, careers, events, and client experience.',
+            'Do not share private client information or spam promotions.',
+        ];
+    }
+
+    private function refreshCommunityCounters(CommunityPost $post): void
+    {
+        $post->forceFill([
+            'reaction_count' => $post->reactions()->count(),
+            'comment_count' => $post->comments()->visible()->count(),
+            'share_count' => $post->shares()->count(),
+            'report_count' => $post->reports()->count(),
+        ])->save();
     }
 }

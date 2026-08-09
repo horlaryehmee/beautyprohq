@@ -30,7 +30,7 @@ const contentTypes = {
         listPath: '/admin/content',
         endpoint: '/admin/community-posts',
         publicPath: (item) => item?.slug ? `/community/${item.slug}` : (item?.id ? `/community/${item.id}` : null),
-        empty: { title: '', slug: '', content: '', type: 'story', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '' },
+        empty: { title: '', slug: '', content: '', type: 'story', topic: 'General', group_name: '', mentions_text: '', rules_text: 'Be respectful and constructive.\nKeep posts relevant to the topic.\nDo not spam or share private client information.', image: '', status: 'published', published_at: '', notify_subscribers: false, seo_title: '', seo_description: '' },
         bodyKey: 'content',
     },
 };
@@ -54,6 +54,8 @@ function toForm(item, type) {
         date: item.date ? String(item.date).slice(0, 10) : '',
         published_at: item.published_at ? String(item.published_at).slice(0, 16) : '',
         notify_subscribers: false,
+        mentions_text: Array.isArray(item.mentions) ? item.mentions.map((mention) => `@${mention}`).join(', ') : '',
+        rules_text: Array.isArray(item.rules) ? item.rules.join('\n') : config.empty.rules_text,
     };
 }
 
@@ -67,6 +69,16 @@ function cleanPayload(form, type) {
     if (type === 'community') {
         delete payload.show_on_homepage;
         delete payload.homepage_sort_order;
+        payload.mentions = String(payload.mentions_text ?? '')
+            .split(',')
+            .map((item) => item.trim().replace(/^@/, ''))
+            .filter(Boolean);
+        payload.rules = String(payload.rules_text ?? '')
+            .split(/\n+/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+        delete payload.mentions_text;
+        delete payload.rules_text;
     }
     if (!payload.show_on_homepage) payload.homepage_sort_order = null;
 
@@ -438,16 +450,32 @@ export default function AdminContentEditorPage() {
                                 )}
 
                                 {type === 'community' && (
-                                    <Field label="Story type">
-                                        <select className={inputClass} onChange={(event) => updateForm({ type: event.target.value })} value={form.type ?? 'story'}>
-                                            <option value="story">Success story</option>
-                                            <option value="spotlight">Member spotlight</option>
-                                            <option value="pro_of_the_week">Pro of the week</option>
-                                            <option value="business_win">Beauty business win</option>
-                                            <option value="event_coverage">Event coverage</option>
-                                            <option value="day_in_the_life">Day in the life</option>
-                                        </select>
-                                    </Field>
+                                    <>
+                                        <Field label="Story type">
+                                            <select className={inputClass} onChange={(event) => updateForm({ type: event.target.value })} value={form.type ?? 'story'}>
+                                                <option value="story">Success story</option>
+                                                <option value="spotlight">Member spotlight</option>
+                                                <option value="pro_of_the_week">Pro of the week</option>
+                                                <option value="business_win">Beauty business win</option>
+                                                <option value="event_coverage">Event coverage</option>
+                                                <option value="day_in_the_life">Day in the life</option>
+                                                <option value="discussion">Discussion</option>
+                                                <option value="help">Help request</option>
+                                            </select>
+                                        </Field>
+                                        <Field label="Topic">
+                                            <input className={inputClass} onChange={(event) => updateForm({ topic: event.target.value })} placeholder="General, Help, Events..." value={form.topic ?? ''} />
+                                        </Field>
+                                        <Field label="Group">
+                                            <input className={inputClass} onChange={(event) => updateForm({ group_name: event.target.value })} placeholder="Makeup artists, Students, Studio owners..." value={form.group_name ?? ''} />
+                                        </Field>
+                                        <Field label="Mentions" hint="Comma-separated usernames, e.g. @amara, @kemi">
+                                            <input className={inputClass} onChange={(event) => updateForm({ mentions_text: event.target.value })} value={form.mentions_text ?? ''} />
+                                        </Field>
+                                        <Field label="Community rules" hint="One rule per line. These appear on the public story page.">
+                                            <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateForm({ rules_text: event.target.value })} value={form.rules_text ?? ''} />
+                                        </Field>
+                                    </>
                                 )}
                             </div>
                         </Card>

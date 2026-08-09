@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Availability;
 use App\Models\Booking;
+use App\Models\CommunityPost;
 use App\Models\ContactEnquiry;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
@@ -367,6 +368,47 @@ class BackendMvpTest extends TestCase
             'id' => $postId,
             'slug' => 'a-community-win-script',
         ]);
+    }
+
+    public function test_authenticated_members_can_interact_with_community_posts(): void
+    {
+        $post = CommunityPost::create([
+            'title' => 'Community Interaction Thread',
+            'slug' => 'community-interaction-thread',
+            'content' => '<p>Discuss useful community workflows.</p>',
+            'type' => 'discussion',
+            'topic' => 'Help',
+            'group_name' => 'New providers',
+            'published_at' => now(),
+        ]);
+        $member = User::factory()->create();
+        Sanctum::actingAs($member);
+
+        $this->postJson("/api/community-posts/{$post->id}/reactions", ['type' => 'helpful'])
+            ->assertOk()
+            ->assertJsonPath('data.viewer_reaction', 'helpful')
+            ->assertJsonPath('data.reaction_count', 1);
+
+        $commentId = $this->postJson("/api/community-posts/{$post->id}/comments", [
+            'body' => 'This is helpful for @newprovider.',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/community-posts/{$post->id}/comments", [
+            'body' => 'Replying to keep the discussion active.',
+            'parent_id' => $commentId,
+        ])->assertCreated();
+
+        $this->postJson("/api/community-posts/{$post->id}/shares", ['channel' => 'copy_link'])->assertOk();
+        $this->postJson("/api/community-posts/{$post->id}/reports", ['reason' => 'other', 'details' => 'Needs moderation review.'])->assertOk();
+
+        $this->getJson("/api/community-posts/{$post->slug}")
+            ->assertOk()
+            ->assertJsonPath('data.topic', 'Help')
+            ->assertJsonPath('data.group_name', 'New providers')
+            ->assertJsonPath('data.comment_count', 2)
+            ->assertJsonPath('data.share_count', 1)
+            ->assertJsonPath('data.report_count', 1)
+            ->assertJsonPath('data.comments.0.replies.0.body', 'Replying to keep the discussion active.');
     }
 
     public function test_admin_subscribers_include_names_and_are_paginated(): void
