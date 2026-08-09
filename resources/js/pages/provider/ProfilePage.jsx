@@ -35,12 +35,15 @@ function LinkList({ items = [], onRemove }) {
 
     return (
         <div className="mt-3 space-y-2">
-            {items.map((url, index) => (
-                <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3" key={`${url}-${index}`}>
-                    <a className="min-w-0 flex-1 truncate text-sm font-semibold text-fuchsia-700" href={url} rel="noreferrer" target="_blank">{url}</a>
-                    <button className="text-xs font-bold text-rose-600" onClick={() => onRemove(index)} type="button">Remove</button>
-                </div>
-            ))}
+            {items.map((url, index) => {
+                const href = mediaUrl(url);
+                return (
+                    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3" key={`${url}-${index}`}>
+                        <a className="min-w-0 flex-1 truncate text-sm font-semibold text-fuchsia-700" href={href} rel="noreferrer" target="_blank">{url}</a>
+                        <button className="text-xs font-bold text-rose-600" onClick={() => onRemove(index)} type="button">Remove</button>
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -102,8 +105,7 @@ export default function ProviderProfilePage() {
     });
     const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
     const [removingPortfolioId, setRemovingPortfolioId] = useState(null);
-    const [certificationUrl, setCertificationUrl] = useState('');
-    const [licenseUrl, setLicenseUrl] = useState('');
+    const [uploadingVerificationType, setUploadingVerificationType] = useState(null);
     const [saving, setSaving] = useState(false);
     const [verification, setVerification] = useState(null);
     const { notify } = useDashboardToast();
@@ -310,12 +312,26 @@ export default function ProviderProfilePage() {
     }));
     const removeBookingField = (index) => setForm((current) => ({ ...current, booking_form_fields: current.booking_form_fields.filter((_, fieldIndex) => fieldIndex !== index) }));
     const updateBookingFieldOptions = (index, value) => updateBookingField(index, { options: value.split('\n').map((option) => option.trim()).filter(Boolean) });
-    const addVerificationLink = (key, value, reset) => {
-        if (!value.trim()) return;
-        setForm((current) => ({ ...current, [key]: [...current[key], value.trim()] }));
-        reset('');
-    };
     const removeVerificationLink = (key, index) => setForm((current) => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
+    const uploadVerificationFile = async (type, event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        setUploadingVerificationType(type);
+        try {
+            const payload = new FormData();
+            payload.append('type', type);
+            payload.append('file', file);
+            const stored = await apiRequest('post', '/provider/verification/files', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const key = type === 'certification' ? 'certification_files' : 'license_files';
+            setForm((current) => ({ ...current, [key]: [...current[key], stored.path].slice(0, 10) }));
+            notify('Verification file uploaded.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setUploadingVerificationType(null);
+        }
+    };
 
     const submitVerification = async () => {
         setSaving(true);
@@ -509,8 +525,24 @@ export default function ProviderProfilePage() {
                             {verified ? <div className="rounded-2xl bg-[#ECFDF3] p-4 text-sm text-[#027A48] ring-1 ring-[#12B76A]/20"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-[#039855]">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-[#FFFAEB] p-4 text-sm text-[#B54708] ring-1 ring-[#F79009]/24"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
                                 <Field label="Professional information" hint="Include experience, training, specialties, licenses held, and any business registration detail."><textarea className={`${inputClass} min-h-36 resize-y`} onChange={change('professional_info')} value={form.professional_info} /></Field>
                                 <div className="grid gap-4 lg:grid-cols-2">
-                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">Certification links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setCertificationUrl(event.target.value)} placeholder="https://certificate-link..." type="url" value={certificationUrl} /><Button onClick={() => addVerificationLink('certification_files', certificationUrl, setCertificationUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} /></div>
-                                    <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">License links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setLicenseUrl(event.target.value)} placeholder="https://license-link..." type="url" value={licenseUrl} /><Button onClick={() => addVerificationLink('license_files', licenseUrl, setLicenseUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.license_files} onRemove={(index) => removeVerificationLink('license_files', index)} /></div>
+                                    <div className="rounded-2xl border border-slate-100 p-4">
+                                        <p className="font-bold text-slate-950">Certification files</p>
+                                        <p className="mt-1 text-xs font-semibold text-slate-400">Upload PDF, image, Word, or DOCX files.</p>
+                                        <label className={`mt-3 inline-flex min-h-10 cursor-pointer items-center justify-center rounded-xl border border-bphq-chrome bg-white px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-ivory ${uploadingVerificationType === 'certification' ? 'opacity-50' : ''}`}>
+                                            {uploadingVerificationType === 'certification' ? 'Uploading...' : 'Upload certification'}
+                                            <input accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" className="sr-only" disabled={uploadingVerificationType === 'certification'} onChange={(event) => uploadVerificationFile('certification', event)} type="file" />
+                                        </label>
+                                        <LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} />
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 p-4">
+                                        <p className="font-bold text-slate-950">License files</p>
+                                        <p className="mt-1 text-xs font-semibold text-slate-400">Upload PDF, image, Word, or DOCX files.</p>
+                                        <label className={`mt-3 inline-flex min-h-10 cursor-pointer items-center justify-center rounded-xl border border-bphq-chrome bg-white px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-ivory ${uploadingVerificationType === 'license' ? 'opacity-50' : ''}`}>
+                                            {uploadingVerificationType === 'license' ? 'Uploading...' : 'Upload license'}
+                                            <input accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" className="sr-only" disabled={uploadingVerificationType === 'license'} onChange={(event) => uploadVerificationFile('license', event)} type="file" />
+                                        </label>
+                                        <LinkList items={form.license_files} onRemove={(index) => removeVerificationLink('license_files', index)} />
+                                    </div>
                                 </div>
                                 <Button busy={saving} disabled={!portfolioItems.length || !form.professional_info.trim()} onClick={submitVerification} type="button" variant="soft">Submit for verification</Button>
                             </>}

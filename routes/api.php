@@ -119,6 +119,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::delete('/profile/portfolio/{portfolioItem}', [ProviderDashboardController::class, 'deletePortfolioImage']);
         Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding']);
         Route::get('/verification', [ProviderDashboardController::class, 'verification']);
+        Route::post('/verification/files', [ProviderDashboardController::class, 'uploadVerificationFile'])->middleware('throttle:upload');
         Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);
         Route::get('/subscription', [SubscriptionController::class, 'current']);
         Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:payment');
@@ -150,6 +151,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::put('/payment-accounts', [ProviderBusinessController::class, 'updatePaymentAccount']);
             Route::get('/digital-products', [ProviderBusinessController::class, 'products']);
             Route::post('/digital-products', [ProviderBusinessController::class, 'storeProduct']);
+            Route::post('/digital-products/{digitalProduct}', [ProviderBusinessController::class, 'updateProduct']);
             Route::put('/digital-products/{digitalProduct}', [ProviderBusinessController::class, 'updateProduct']);
             Route::delete('/digital-products/{digitalProduct}', [ProviderBusinessController::class, 'destroyProduct']);
             Route::get('/content-calendar', [ProviderContentCalendarController::class, 'index']);
@@ -158,6 +160,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::delete('/content-calendar/{contentCalendarItem}', [ProviderContentCalendarController::class, 'destroy']);
             Route::get('/community-posts', [ProviderCommunityPostController::class, 'index']);
             Route::post('/community-posts', [ProviderCommunityPostController::class, 'store'])->middleware('throttle:public-form');
+            Route::post('/community-posts/{communityPost}', [ProviderCommunityPostController::class, 'update'])->middleware('throttle:public-form');
             Route::put('/community-posts/{communityPost}', [ProviderCommunityPostController::class, 'update'])->middleware('throttle:public-form');
             Route::delete('/community-posts/{communityPost}', [ProviderCommunityPostController::class, 'destroy']);
             Route::get('/crm', [ProviderBusinessController::class, 'crm']);

@@ -224,6 +224,87 @@ class BackendMvpTest extends TestCase
         $this->assertSame([], $profile->fresh()->booking_form_fields ?? []);
     }
 
+    public function test_provider_can_create_digital_product_with_uploaded_files(): void
+    {
+        [$provider, $providerUser] = $this->provider('Digital Upload Studio', true);
+        $this->mock(UploadService::class, function ($mock): void {
+            $mock->shouldReceive('store')->twice()->andReturn(
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/digital-guide.pdf',
+                    'path' => 'uploads/digital-guide.pdf',
+                    'filename' => 'digital-guide.pdf',
+                    'mime_type' => 'application/pdf',
+                    'size' => 12000,
+                ],
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/digital-cover.webp',
+                    'path' => 'uploads/digital-cover.webp',
+                    'filename' => 'digital-cover.webp',
+                    'mime_type' => 'image/webp',
+                    'size' => 1400,
+                ],
+            );
+        });
+
+        Sanctum::actingAs($providerUser);
+        $this->post('/api/provider/digital-products', [
+            'name' => 'Client Prep Guide',
+            'description' => 'A practical download for clients preparing for a beauty appointment.',
+            'price' => 1500,
+            'product_file' => UploadedFile::fake()->create('guide.pdf', 20, 'application/pdf'),
+            'image_file' => $this->tinyPngUpload('cover.png'),
+            'is_active' => true,
+        ], ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.url', 'uploads/digital-guide.pdf')
+            ->assertJsonPath('data.image', 'uploads/digital-cover.webp');
+
+        $this->assertDatabaseHas('digital_products', [
+            'provider_id' => $provider->id,
+            'name' => 'Client Prep Guide',
+            'url' => 'uploads/digital-guide.pdf',
+            'image' => 'uploads/digital-cover.webp',
+        ]);
+    }
+
+    public function test_provider_verification_accepts_uploaded_file_paths(): void
+    {
+        [$provider, $providerUser] = $this->provider('Verification Upload Studio', false);
+        $this->mock(UploadService::class, function ($mock): void {
+            $mock->shouldReceive('store')->once()->andReturn([
+                'success' => true,
+                'url' => '/storage/uploads/certificate.pdf',
+                'path' => 'uploads/certificate.pdf',
+                'filename' => 'certificate.pdf',
+                'mime_type' => 'application/pdf',
+                'size' => 8000,
+            ]);
+        });
+
+        Sanctum::actingAs($providerUser);
+        $certificate = $this->post('/api/provider/verification/files', [
+            'type' => 'certification',
+            'file' => UploadedFile::fake()->create('certificate.pdf', 20, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.path', 'uploads/certificate.pdf')
+            ->json('data.path');
+
+        $this->postJson('/api/provider/verification', [
+            'portfolio_links' => ['uploads/portfolio-proof.webp'],
+            'professional_info' => 'Licensed provider with documented training and a completed professional portfolio.',
+            'certification_files' => [$certificate],
+            'license_files' => ['uploads/license.pdf'],
+        ])->assertCreated()
+            ->assertJsonPath('data.certification_files.0', 'uploads/certificate.pdf')
+            ->assertJsonPath('data.license_files.0', 'uploads/license.pdf');
+
+        $this->assertDatabaseHas('verification_requests', [
+            'provider_id' => $provider->id,
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_login_me_and_role_protection_work_with_sanctum(): void
     {
         $customer = User::factory()->create(['email' => 'customer@example.test', 'password' => 'Password123']);

@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\CommunityPost;
 use App\Models\User;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\UploadService;
 use App\Support\SafeHtml;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -30,11 +32,11 @@ class CommunityPostController extends Controller
         );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, UploadService $uploads): JsonResponse
     {
         $provider = $this->provider($request);
 
-        $post = CommunityPost::create($this->data($request) + [
+        $post = CommunityPost::create($this->data($request, false, $uploads) + [
             'provider_id' => $provider->id,
             'published_at' => null,
         ]);
@@ -44,12 +46,17 @@ class CommunityPostController extends Controller
         return $this->success($this->payload($post->fresh()), 'Community post submitted for admin approval.', 201);
     }
 
-    public function update(Request $request, CommunityPost $communityPost): JsonResponse
+    public function update(Request $request, CommunityPost $communityPost, UploadService $uploads): JsonResponse
     {
         $provider = $this->provider($request);
         abort_unless((int) $communityPost->provider_id === (int) $provider->id, 404);
 
-        $communityPost->update($this->data($request, true) + ['published_at' => null]);
+        $data = $this->data($request, true, $uploads);
+        $oldImage = $communityPost->image;
+        $communityPost->update($data + ['published_at' => null]);
+        if (array_key_exists('image', $data)) {
+            $this->deleteStoredUpload($oldImage);
+        }
         $this->notifyAdmins($communityPost->fresh(), $request->user()->name);
 
         return $this->success($this->payload($communityPost->fresh()), 'Community post updated and sent back for admin approval.');
@@ -60,12 +67,13 @@ class CommunityPostController extends Controller
         $provider = $this->provider($request);
         abort_unless((int) $communityPost->provider_id === (int) $provider->id, 404);
 
+        $this->deleteStoredUpload($communityPost->image);
         $communityPost->delete();
 
         return $this->success(null, 'Community post removed.');
     }
 
-    private function data(Request $request, bool $partial = false): array
+    private function data(Request $request, bool $partial, UploadService $uploads): array
     {
         $p = $partial ? 'sometimes' : 'required';
 
@@ -78,7 +86,13 @@ class CommunityPostController extends Controller
             'mentions' => ['nullable', 'array'],
             'mentions.*' => ['string', 'max:40'],
             'image' => ['nullable', 'string', 'max:500'],
+            'image_file' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        if ($request->hasFile('image_file')) {
+            $data['image'] = $uploads->store($request->file('image_file'))['path'];
+        }
+        unset($data['image_file']);
 
         if (array_key_exists('content', $data)) {
             $data['content'] = SafeHtml::clean($data['content']);
@@ -146,5 +160,15 @@ class CommunityPostController extends Controller
                 'exception' => $exception::class,
             ]);
         }
+    }
+
+    private function deleteStoredUpload(?string $path): void
+    {
+        $path = str_replace('\\', '/', trim((string) $path));
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, '..') || preg_match('#^https?://#i', $path)) {
+            return;
+        }
+
+        Storage::disk((string) config('filesystems.upload_disk', 'public'))->delete(preg_replace('#^storage/#', '', $path));
     }
 }

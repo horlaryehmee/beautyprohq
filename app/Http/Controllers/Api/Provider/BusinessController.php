@@ -11,9 +11,11 @@ use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\User;
 use App\Models\AppSetting;
+use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class BusinessController extends Controller
@@ -288,19 +290,29 @@ class BusinessController extends Controller
         return $this->success($request->user()->providerProfile->digitalProducts()->latest()->get());
     }
 
-    public function storeProduct(Request $request): JsonResponse
+    public function storeProduct(Request $request, UploadService $uploads): JsonResponse
     {
-        $data = $this->productData($request);
+        $data = $this->productData($request, false, $uploads);
         $data['currency'] ??= $request->user()->providerProfile->default_currency ?? config('currencies.default', 'NGN');
         $product = $request->user()->providerProfile->digitalProducts()->create($data);
 
         return $this->success($product, 'Digital product created.', 201);
     }
 
-    public function updateProduct(Request $request, DigitalProduct $digitalProduct): JsonResponse
+    public function updateProduct(Request $request, DigitalProduct $digitalProduct, UploadService $uploads): JsonResponse
     {
         $this->ownProduct($request, $digitalProduct);
-        $digitalProduct->update($this->productData($request, true));
+        $data = $this->productData($request, true, $uploads);
+        $oldUrl = $digitalProduct->url;
+        $oldImage = $digitalProduct->image;
+        $digitalProduct->update($data);
+
+        if (array_key_exists('url', $data)) {
+            $this->deleteStoredUpload($oldUrl);
+        }
+        if (array_key_exists('image', $data)) {
+            $this->deleteStoredUpload($oldImage);
+        }
 
         return $this->success($digitalProduct->fresh(), 'Digital product updated.');
     }
@@ -308,27 +320,52 @@ class BusinessController extends Controller
     public function destroyProduct(Request $request, DigitalProduct $digitalProduct): JsonResponse
     {
         $this->ownProduct($request, $digitalProduct);
+        $this->deleteStoredUpload($digitalProduct->url);
+        $this->deleteStoredUpload($digitalProduct->image);
         $digitalProduct->delete();
 
         return $this->success(null, 'Digital product removed.');
     }
 
-    private function productData(Request $request, bool $partial = false): array
+    private function productData(Request $request, bool $partial, UploadService $uploads): array
     {
         $p = $partial ? 'sometimes' : 'required';
 
-        return $request->validate([
+        $data = $request->validate([
             'name' => [$p, 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:3000'],
             'price' => ['nullable', 'numeric', 'min:0'],
-            'url' => [$p, 'url', 'max:500'],
-            'image' => ['nullable', 'url', 'max:500'],
+            'url' => [$partial ? 'sometimes' : 'required_without:product_file', 'string', 'max:1000'],
+            'product_file' => [$partial ? 'sometimes' : 'required_without:url', 'file', 'mimes:pdf,zip,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx', 'max:51200'],
+            'image' => ['nullable', 'string', 'max:1000'],
+            'image_file' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
+
+        if ($request->hasFile('product_file')) {
+            $data['url'] = $uploads->store($request->file('product_file'))['path'];
+        }
+        if ($request->hasFile('image_file')) {
+            $data['image'] = $uploads->store($request->file('image_file'))['path'];
+        }
+
+        unset($data['product_file'], $data['image_file']);
+
+        return $data;
     }
 
     private function ownProduct(Request $request, DigitalProduct $product): void
     {
         abort_unless($product->provider_id === $request->user()->providerProfile->id, 403);
+    }
+
+    private function deleteStoredUpload(?string $path): void
+    {
+        $path = str_replace('\\', '/', trim((string) $path));
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, '..') || preg_match('#^https?://#i', $path)) {
+            return;
+        }
+
+        Storage::disk((string) config('filesystems.upload_disk', 'public'))->delete(preg_replace('#^storage/#', '', $path));
     }
 }

@@ -421,6 +421,21 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function uploadVerificationFile(Request $request, UploadService $uploads): JsonResponse
+    {
+        $validated = $request->validate([
+            'type' => ['required', Rule::in(['certification', 'license'])],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
+        ]);
+
+        $stored = $uploads->store($validated['file']);
+
+        return $this->success([
+            ...$stored,
+            'type' => $validated['type'],
+        ], 'Verification file uploaded.', 201);
+    }
+
     public function submitVerification(Request $request): JsonResponse
     {
         $provider = $request->user()->providerProfile;
@@ -429,14 +444,14 @@ class DashboardController extends Controller
 
         $validated = $request->validate([
             'portfolio_links' => ['required', 'array', 'min:1'],
-            'portfolio_links.*' => ['required', 'url', 'max:500'],
+            'portfolio_links.*' => ['required', 'string', 'max:1000'],
             'social_links' => ['nullable', 'array'],
             'social_links.*' => ['nullable', 'url', 'max:500'],
             'professional_info' => ['required', 'string', 'max:5000'],
             'certification_files' => ['nullable', 'array'],
-            'certification_files.*' => ['required', 'url:http,https', 'max:1000'],
+            'certification_files.*' => ['required', 'string', 'max:1000'],
             'license_files' => ['nullable', 'array'],
-            'license_files.*' => ['required', 'url:http,https', 'max:1000'],
+            'license_files.*' => ['required', 'string', 'max:1000'],
         ]);
 
         $verification = VerificationRequest::create([

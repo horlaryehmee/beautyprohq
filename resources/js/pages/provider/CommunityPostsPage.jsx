@@ -17,8 +17,9 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
+import { mediaUrl } from '../../lib/utils';
 
-const emptyPost = { title: '', content: '', type: 'community', topic: 'General', group_name: '', mentions: '', image: '' };
+const emptyPost = { title: '', content: '', type: 'community', topic: 'General', group_name: '', mentions: '', image: '', image_file: null };
 const normalize = (value) => Array.isArray(value) ? value : value?.data ?? [];
 const plain = (value) => String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -31,18 +32,7 @@ function formFrom(item) {
         group_name: item?.group_name ?? '',
         mentions: Array.isArray(item?.mentions) ? item.mentions.join(', ') : '',
         image: item?.image ?? '',
-    };
-}
-
-function payloadFrom(form) {
-    return {
-        title: form.title,
-        content: form.content,
-        type: form.type || 'community',
-        topic: form.topic || 'General',
-        group_name: form.group_name || null,
-        mentions: form.mentions.split(',').map((item) => item.trim()).filter(Boolean),
-        image: form.image || null,
+        image_file: null,
     };
 }
 
@@ -67,7 +57,18 @@ export default function ProviderCommunityPostsPage() {
         event.preventDefault();
         setSaving(true);
         try {
-            const saved = await apiRequest(editing ? 'put' : 'post', editing ? `/provider/community-posts/${editing.id}` : '/provider/community-posts', payloadFrom(form));
+            const payload = new FormData();
+            if (editing) payload.append('_method', 'PUT');
+            payload.append('title', form.title);
+            payload.append('content', form.content);
+            payload.append('type', form.type || 'community');
+            payload.append('topic', form.topic || 'General');
+            payload.append('group_name', form.group_name || '');
+            form.mentions.split(',').map((item) => item.trim()).filter(Boolean).forEach((mention) => payload.append('mentions[]', mention));
+            if (form.image_file instanceof File) payload.append('image_file', form.image_file);
+            else if (form.image) payload.append('image', form.image);
+
+            const saved = await apiRequest('post', editing ? `/provider/community-posts/${editing.id}` : '/provider/community-posts', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
             resource.setData((current) => editing ? normalize(current).map((item) => item.id === editing.id ? saved : item) : [saved, ...normalize(current)]);
             setShowForm(false);
             notify(editing ? 'Community post updated for approval.' : 'Community post submitted for approval.');
@@ -108,7 +109,7 @@ export default function ProviderCommunityPostsPage() {
                             <Card key={post.id}>
                                 <div className="grid gap-4 md:grid-cols-[96px_1fr_auto] md:items-center">
                                     <div className="aspect-square overflow-hidden rounded-2xl bg-slate-100">
-                                        {post.image ? <img alt="" className="size-full object-cover" src={post.image} onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-full place-items-center text-xs font-bold uppercase tracking-wide text-slate-400">Image</div>}
+                                        {post.image ? <img alt="" className="size-full object-cover" src={mediaUrl(post.image)} onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-full place-items-center text-xs font-bold uppercase tracking-wide text-slate-400">Image</div>}
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
@@ -147,7 +148,11 @@ export default function ProviderCommunityPostsPage() {
                             <Field label="Type"><select className={inputClass} onChange={update('type')} value={form.type}>{['community', 'story', 'spotlight', 'help', 'business_win', 'event_coverage'].map((item) => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}</select></Field>
                             <Field label="Topic"><input className={inputClass} onChange={update('topic')} placeholder="Client experience, pricing, growth..." value={form.topic} /></Field>
                             <Field label="Group"><input className={inputClass} onChange={update('group_name')} placeholder="General, Studio owners..." value={form.group_name} /></Field>
-                            <Field label="Image URL"><input className={inputClass} onChange={update('image')} placeholder="https://..." value={form.image} /></Field>
+                            <Field label="Image">
+                                {form.image && !(form.image_file instanceof File) && <img alt="" className="mb-3 h-28 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={mediaUrl(form.image)} />}
+                                {form.image_file instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.image_file.name}</p>}
+                                <input accept="image/*" className={inputClass} onChange={(event) => setForm((current) => ({ ...current, image_file: event.target.files?.[0] ?? null }))} type="file" />
+                            </Field>
                             <Field className="sm:col-span-2" label="Mentions"><input className={inputClass} onChange={update('mentions')} placeholder="@beautyprohq, @profile-slug" value={form.mentions} /></Field>
                             <Field className="sm:col-span-2" label="Content"><textarea className={`${inputClass} min-h-56`} onChange={update('content')} required value={form.content} /></Field>
                             <div className="flex justify-end gap-2 sm:col-span-2">

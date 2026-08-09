@@ -25,7 +25,7 @@ function digitalProductImage(product) {
 }
 
 function digitalProductUrl(product) {
-    return safeUrl(product?.url ?? product?.link ?? product?.product_url);
+    return mediaUrl(product?.url ?? product?.link ?? product?.product_url);
 }
 
 function displayTime(time) {

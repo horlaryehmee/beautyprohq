@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Button, Card, EmptyState, ErrorState, LoadingBlock, PageHeader, Pagination, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast } from '../../components/dashboard';
+import { mediaUrl } from '../../lib/utils';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.verifications ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
@@ -21,7 +22,7 @@ function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
             <p className="text-sm font-bold text-slate-700">{title}</p>
             <div className="mt-2 space-y-2">
                 {items.length ? items.map((url) => (
-                    <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={url} key={url} rel="noreferrer" target="_blank">
+                    <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={mediaUrl(url)} key={url} rel="noreferrer" target="_blank">
                         Open link â†—
                     </a>
                 )) : <p className="text-sm text-slate-400">No links provided.</p>}
