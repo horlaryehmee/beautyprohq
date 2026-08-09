@@ -224,7 +224,7 @@ function DetailPanel({ item, type, onShare }) {
     return (
         <aside className="lg:sticky lg:top-24">
             <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_45px_rgba(52,35,28,.06)]">
-                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">{type === 'event' ? 'Event details' : 'Article details'}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">{type === 'event' ? 'Event details' : type === 'community' ? 'Community details' : 'Article details'}</p>
                 <dl className="mt-4 space-y-4">
                     {details.map(([label, value]) => (
                         <div key={label}>
@@ -233,6 +233,7 @@ function DetailPanel({ item, type, onShare }) {
                         </div>
                     ))}
                 </dl>
+                {type === 'community' && <CommunityRules item={item} />}
                 <div className="mt-5 grid gap-2">
                     {type === 'event' && (
                         <a href="#event-registration" className={buttonClass({ className: 'w-full rounded-full' })}>
@@ -535,7 +536,6 @@ export default function ContentDetailPage({ type = 'news' }) {
                         </div>
                     </div>
                     <DetailPanel item={normalized} type={type} onShare={shareContent} />
-                    {type === 'community' && <CommunityRules item={normalized} />}
                 </article>
             </section>
 
@@ -564,7 +564,7 @@ function CommunityRules({ item }) {
     if (!rules.length && !item.topic && !item.group_name) return null;
 
     return (
-        <aside className="mt-4 rounded-lg border border-stone-200 bg-white p-5 shadow-[0_18px_45px_rgba(52,35,28,.06)] lg:col-start-2 lg:mt-0">
+        <div className="mt-5 border-t border-stone-200 pt-5">
             <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#3A2A1F]">Community</p>
             <div className="mt-4 space-y-3 text-sm">
                 {item.topic && <p><span className="font-bold text-[#2A1D14]">Topic:</span> <span className="text-stone-600">{item.topic}</span></p>}
@@ -575,7 +575,7 @@ function CommunityRules({ item }) {
                     {rules.map((rule) => <li key={rule}>- {rule}</li>)}
                 </ul>
             )}
-        </aside>
+        </div>
     );
 }
 
