@@ -6,7 +6,6 @@ use App\Http\Middleware\EnsurePaidProvider;
 use App\Http\Middleware\EnsureVerifiedProvider;
 use App\Http\Middleware\RequestContext;
 use App\Http\Middleware\SecurityHeaders;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Http\Request;
@@ -51,12 +50,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request, \Throwable $exception): bool => $request->is('api/*') || $request->expectsJson()
         );
-        $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json(['message' => 'Unauthenticated.'], 401);
-            }
-            return null;
-        });
         $exceptions->context(fn (): array => array_filter([
             'request_id' => request()?->attributes->get('request_id'),
             'method' => request()?->method(),
