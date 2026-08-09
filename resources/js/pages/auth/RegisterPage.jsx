@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthShell from '../../components/layout/AuthShell';
 import Button from '../../components/ui/Button';
 import FormField from '../../components/ui/FormField';
@@ -107,10 +107,13 @@ function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSele
 export default function RegisterPage() {
     const { register } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedRole = searchParams.get('role') === 'customer' ? 'customer' : 'provider';
+    const requestedEmail = searchParams.get('email') ?? '';
     const [step, setStep] = useState(1);
     const [displayCurrency, setDisplayCurrency] = useState('NGN');
     const [currencyOpen, setCurrencyOpen] = useState(false);
-    const [form, setForm] = useState({ name: '', email: '', role: 'provider', plan: 'paid', password: '', password_confirmation: '' });
+    const [form, setForm] = useState({ name: '', email: requestedEmail, role: requestedRole, plan: requestedRole === 'customer' ? 'free' : 'paid', password: '', password_confirmation: '' });
     const [plans, setPlans] = useState([]);
     const [currencies, setCurrencies] = useState(fallbackCurrencies);
     const [accepted, setAccepted] = useState(false);
@@ -128,6 +131,18 @@ export default function RegisterPage() {
 
     const visiblePlans = plans.length ? plans : fallbackPlans;
     const selectedPlan = useMemo(() => visiblePlans.find((plan) => plan.key === form.plan) ?? visiblePlans.find((plan) => plan.key === 'paid') ?? visiblePlans[0], [form.plan, visiblePlans]);
+    const isCustomerSignup = form.role === 'customer';
+    const steps = isCustomerSignup ? ['Account', 'Confirm'] : ['Plan', 'Account', 'Confirm'];
+
+    useEffect(() => {
+        setForm((current) => ({
+            ...current,
+            email: requestedEmail || current.email,
+            role: requestedRole,
+            plan: requestedRole === 'customer' ? 'free' : current.plan || 'paid',
+        }));
+        setStep(1);
+    }, [requestedEmail, requestedRole]);
 
     function update(key, value) {
         setForm((current) => ({ ...current, [key]: value }));
@@ -144,7 +159,7 @@ export default function RegisterPage() {
         setError('');
         try {
             await register(form);
-            navigate('/verify-email', { replace: true });
+            navigate(isCustomerSignup ? '/customer' : '/verify-email', { replace: true });
         } catch (requestError) {
             const parsed = apiError(requestError, 'Your account could not be created.');
             setError(parsed.message);
@@ -156,13 +171,13 @@ export default function RegisterPage() {
 
     return (
         <AuthShell
-            eyebrow={`Step ${step} of 3`}
-            title="Join BeautyPro HQ as a professional"
-            description="Choose your provider plan first. Customers can book without creating an account."
+            eyebrow={`Step ${step} of ${steps.length}`}
+            title={isCustomerSignup ? 'Create your customer account' : 'Join BeautyPro HQ as a professional'}
+            description={isCustomerSignup ? 'Use the same email from your booking to track bookings, payments and provider updates.' : 'Choose your provider plan first. Customers can book without creating an account.'}
             footer={<>Already have an account? <Link to="/login" className="font-semibold text-rose-700 hover:text-rose-900">Log in</Link></>}
         >
-            <div className="mb-6 grid grid-cols-3 gap-2">
-                {['Plan', 'Account', 'Confirm'].map((label, index) => (
+            <div className={`mb-6 grid gap-2 ${isCustomerSignup ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {steps.map((label, index) => (
                     <button
                         className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${step === index + 1 ? 'bg-plum-950 text-white' : index + 1 < step ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}
                         key={label}
@@ -176,7 +191,7 @@ export default function RegisterPage() {
 
             {error && <InlineAlert>{error}</InlineAlert>}
 
-            {step === 1 && (
+            {!isCustomerSignup && step === 1 && (
                 <div className="space-y-4">
                     <div className="relative flex justify-end">
                         <button
@@ -223,35 +238,44 @@ export default function RegisterPage() {
                 </div>
             )}
 
-            {step === 2 && (
-                <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); setStep(3); }}>
+            {(isCustomerSignup ? step === 1 : step === 2) && (
+                <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); setStep(isCustomerSignup ? 2 : 3); }}>
                     <FormField label="Full name" icon="user" autoComplete="name" value={form.name} onChange={(event) => update('name', event.target.value)} error={errors.name} placeholder="Your full name" required autoFocus />
                     <FormField label="Email address" type="email" icon="mail" autoComplete="email" value={form.email} onChange={(event) => update('email', event.target.value)} error={errors.email} placeholder="you@example.com" required />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <FormField label="Password" type="password" autoComplete="new-password" value={form.password} onChange={(event) => update('password', event.target.value)} error={errors.password} hint="Use 8+ characters with letters and numbers." placeholder="Create a password" minLength={8} required />
                         <FormField label="Confirm password" type="password" autoComplete="new-password" value={form.password_confirmation} onChange={(event) => update('password_confirmation', event.target.value)} error={errors.password_confirmation} placeholder="Repeat password" required />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={() => setStep(1)} type="button" variant="secondary">Back</Button>
+                    <div className={`grid gap-2 ${isCustomerSignup ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                        {!isCustomerSignup && <Button onClick={() => setStep(1)} type="button" variant="secondary">Back</Button>}
                         <Button type="submit">Continue</Button>
                     </div>
                 </form>
             )}
 
-            {step === 3 && (
+            {(isCustomerSignup ? step === 2 : step === 3) && (
                 <form className="space-y-4" onSubmit={submit}>
-                    <div className="rounded-2xl border border-stone-200 bg-white p-5">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Selected plan</p>
-                        <h2 className="mt-1 text-xl font-semibold text-plum-950">{selectedPlan?.name}</h2>
-                        <p className="mt-2 text-sm text-stone-600">You can set your service pricing currency later inside Services.</p>
-                    </div>
+                    {!isCustomerSignup && (
+                        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Selected plan</p>
+                            <h2 className="mt-1 text-xl font-semibold text-plum-950">{selectedPlan?.name}</h2>
+                            <p className="mt-2 text-sm text-stone-600">You can set your service pricing currency later inside Services.</p>
+                        </div>
+                    )}
+                    {isCustomerSignup && (
+                        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Customer account</p>
+                            <h2 className="mt-1 text-xl font-semibold text-plum-950">{form.email}</h2>
+                            <p className="mt-2 text-sm text-stone-600">Your previous guest bookings with this email will stay connected to this account.</p>
+                        </div>
+                    )}
                     <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-cream-100 p-3 text-xs font-medium leading-5 text-stone-600">
                         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-0.5 size-4 shrink-0 rounded border-stone-300 accent-plum-900" />
                         I agree to use BeautyPro HQ responsibly and accept the platform terms and privacy notice.
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                        <Button onClick={() => setStep(2)} type="button" variant="secondary">Back</Button>
-                        <Button type="submit" disabled={submitting}>{submitting ? 'Creating account...' : 'Create professional account'}</Button>
+                        <Button onClick={() => setStep(isCustomerSignup ? 1 : 2)} type="button" variant="secondary">Back</Button>
+                        <Button type="submit" disabled={submitting}>{submitting ? 'Creating account...' : (isCustomerSignup ? 'Create customer account' : 'Create professional account')}</Button>
                     </div>
                 </form>
             )}

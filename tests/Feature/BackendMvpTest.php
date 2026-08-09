@@ -14,6 +14,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
+use App\Notifications\BookingStatusNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
 use App\Services\ContentNewsletterService;
 use Carbon\Carbon;
@@ -51,6 +52,61 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseHas('provider_profiles', ['slug' => 'demo-artist']);
         $this->assertDatabaseCount('personal_access_tokens', 0);
         $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.email', 'artist@example.test');
+    }
+
+    public function test_guest_customer_can_create_account_later_with_booking_email(): void
+    {
+        Notification::fake();
+        [$provider] = $this->provider('Guest Upgrade Studio', true);
+        $service = $provider->services()->create(['name' => 'Guest Facial', 'category' => 'Skincare', 'service_type' => 'in_person', 'price' => 18000, 'duration_minutes' => 60]);
+        $date = Carbon::tomorrow();
+        if ($date->dayOfWeek === 0) {
+            $date->addDay();
+        }
+        Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
+
+        $bookingId = $this->postJson('/api/guest-bookings', [
+            'provider_id' => $provider->id,
+            'service_id' => $service->id,
+            'date' => $date->toDateString(),
+            'time' => '10:00',
+            'payment_method' => 'manual',
+            'customer' => [
+                'name' => 'Guest Client',
+                'email' => 'guest-client@example.test',
+                'phone' => '+2348012345678',
+                'create_account' => false,
+            ],
+        ])->assertCreated()->json('data.id');
+
+        $guest = User::where('email', 'guest-client@example.test')->firstOrFail();
+        $this->assertTrue($guest->is_guest);
+        $this->assertSame($guest->id, Booking::findOrFail($bookingId)->customer_id);
+        Notification::assertSentTo($guest, BookingStatusNotification::class, function (BookingStatusNotification $notification) use ($guest) {
+            $mail = $notification->toMail($guest);
+
+            return str_contains($mail->actionUrl, '/register?')
+                && str_contains($mail->actionUrl, 'role=customer')
+                && str_contains($mail->actionUrl, 'guest-client%40example.test');
+        });
+
+        $this->withSession(['_token' => 'customer-registration-csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'customer-registration-csrf-token')
+            ->withHeader('Referer', rtrim(config('app.url'), '/').'/register?role=customer');
+
+        $this->postJson('/api/auth/register', [
+            'name' => 'Guest Client',
+            'email' => 'guest-client@example.test',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'role' => 'customer',
+        ])->assertCreated()
+            ->assertJsonPath('data.user.id', $guest->id)
+            ->assertJsonPath('data.user.role', 'customer');
+
+        $this->assertFalse($guest->fresh()->is_guest);
+        $this->assertSame($guest->id, Booking::findOrFail($bookingId)->customer_id);
+        $this->assertSame(2, User::count());
     }
 
     public function test_login_me_and_role_protection_work_with_sanctum(): void
@@ -183,6 +239,37 @@ class BackendMvpTest extends TestCase
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
         $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'points' => 10]);
         $this->assertDatabaseHas('crm_customers', ['provider_id' => $provider->id, 'customer_id' => $customer->id]);
+    }
+
+    public function test_guest_booking_account_creation_requires_matching_password_confirmation(): void
+    {
+        Notification::fake();
+        [$provider] = $this->provider('Password Confirm Studio', true);
+        $service = $provider->services()->create(['name' => 'Password Facial', 'category' => 'Skincare', 'service_type' => 'in_person', 'price' => 22000, 'duration_minutes' => 60]);
+        $date = Carbon::tomorrow();
+        if ($date->dayOfWeek === 0) {
+            $date->addDay();
+        }
+        Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
+
+        $this->postJson('/api/guest-bookings', [
+            'provider_id' => $provider->id,
+            'service_id' => $service->id,
+            'date' => $date->toDateString(),
+            'time' => '10:00',
+            'payment_method' => 'manual',
+            'customer' => [
+                'name' => 'Password Client',
+                'email' => 'password-client@example.test',
+                'phone' => '+2348012345678',
+                'create_account' => true,
+                'password' => 'Password123',
+                'password_confirmation' => 'Different123',
+            ],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('customer.password');
+
+        $this->assertDatabaseMissing('users', ['email' => 'password-client@example.test']);
     }
 
     public function test_referrer_earns_loyalty_points_after_referred_booking_is_completed(): void

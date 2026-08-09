@@ -341,7 +341,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [notes, setNotes] = useState('');
     const [referralCode, setReferralCode] = useState('');
     const [redeemLoyalty, setRedeemLoyalty] = useState(false);
-    const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '' });
+    const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '', password_confirmation: '' });
     const [paymentMethod, setPaymentMethod] = useState('');
     const [manualBooking, setManualBooking] = useState(null);
     const [availabilityData, setAvailabilityData] = useState(null);
@@ -366,7 +366,8 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         });
     }, [monthOffset, provider?.availability]);
     const slots = useMemo(() => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date), [availabilityData, selectedService?.duration_minutes, date]);
-    const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim() && (!customer.create_account || customer.password.length >= 8);
+    const passwordComplete = customer.password.length >= 8 && customer.password === customer.password_confirmation;
+    const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim() && (!customer.create_account || passwordComplete);
     const providerTimezone = provider?.timezone || provider?.provider_timezone || 'Africa/Lagos';
     const timezoneChoices = useMemo(() => timezoneOptions(providerTimezone), [providerTimezone]);
     const timezoneLabel = useMemo(() => timezoneDisplayName(selectedTimezone), [selectedTimezone]);
@@ -407,7 +408,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setNotes('');
         setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
         setRedeemLoyalty(false);
-        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '' });
+        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '', password_confirmation: '' });
         setPaymentMethod(provider?.default_payment_gateway || paymentMethods[0]?.gateway || '');
         setManualBooking(null);
         setAvailabilityData(null);
@@ -464,7 +465,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             return;
         }
         if (step === 3 && !detailsComplete) {
-            setError(customer.create_account ? 'Name, email, phone number and an 8 character password are required.' : 'Name, email and phone number are required.');
+            setError(customer.create_account ? 'Name, email, phone number and matching passwords of at least 8 characters are required.' : 'Name, email and phone number are required.');
             return;
         }
         if (step === 4 && !selectedPaymentMethod && !redeemLoyalty) {
@@ -900,7 +901,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                                 <input
                                                                     checked={customer.create_account}
                                                                     className="mt-1 size-4 accent-[#3A2A1F]"
-                                                                    onChange={(event) => setCustomer((current) => ({ ...current, create_account: event.target.checked, password: event.target.checked ? current.password : '' }))}
+                                                                    onChange={(event) => setCustomer((current) => ({ ...current, create_account: event.target.checked, password: event.target.checked ? current.password : '', password_confirmation: event.target.checked ? current.password_confirmation : '' }))}
                                                                     type="checkbox"
                                                                 />
                                                                 <span>
@@ -909,15 +910,24 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                                 </span>
                                                             </label>
                                                             {customer.create_account && (
-                                                                <FormField
-                                                                    className="mt-3"
-                                                                    label="Password"
-                                                                    type="password"
-                                                                    value={customer.password}
-                                                                    onChange={(event) => setCustomer((current) => ({ ...current, password: event.target.value }))}
-                                                                    placeholder="Minimum 8 characters"
-                                                                    required
-                                                                />
+                                                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                                                    <FormField
+                                                                        label="Password"
+                                                                        type="password"
+                                                                        value={customer.password}
+                                                                        onChange={(event) => setCustomer((current) => ({ ...current, password: event.target.value }))}
+                                                                        placeholder="Minimum 8 characters"
+                                                                        required
+                                                                    />
+                                                                    <FormField
+                                                                        label="Confirm password"
+                                                                        type="password"
+                                                                        value={customer.password_confirmation}
+                                                                        onChange={(event) => setCustomer((current) => ({ ...current, password_confirmation: event.target.value }))}
+                                                                        placeholder="Repeat password"
+                                                                        required
+                                                                    />
+                                                                </div>
                                                             )}
                                                         </div>
                                                     )}

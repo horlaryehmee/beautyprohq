@@ -30,20 +30,48 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email:rfc', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email:rfc', 'max:255'],
             'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
-            'role' => ['required', Rule::in(['provider'])],
+            'role' => ['required', Rule::in(['provider', 'customer'])],
             'plan' => ['nullable', Rule::in(['free', 'paid'])],
         ]);
         $validated['email'] = Str::lower(trim($validated['email']));
         $validated['plan'] = $validated['plan'] ?? 'free';
 
-        $user = DB::transaction(function () use ($validated): User {
+        $existingUser = User::where('email', $validated['email'])->first();
+        if ($existingUser && (! $existingUser->is_guest || ! $existingUser->isCustomer() || $validated['role'] !== 'customer')) {
+            return response()->json([
+                'message' => $existingUser->isCustomer()
+                    ? 'An account already exists with this email. Please log in instead.'
+                    : 'This email is already used by another account type. Please log in or use another email.',
+                'errors' => [
+                    'email' => [$existingUser->isCustomer()
+                        ? 'An account already exists with this email. Please log in instead.'
+                        : 'This email is already used by another account type.'],
+                ],
+            ], 422);
+        }
+
+        $user = DB::transaction(function () use ($validated, $existingUser): User {
             $selectedPlan = $validated['plan'];
             unset($validated['plan']);
+
+            if ($existingUser) {
+                $existingUser->update([
+                    'name' => $validated['name'],
+                    'password' => $validated['password'],
+                    'is_guest' => false,
+                    'is_active' => true,
+                    'preferred_currency' => $existingUser->preferred_currency ?: config('currencies.default', 'NGN'),
+                ]);
+
+                return $existingUser;
+            }
+
             $user = User::create($validated + [
                 'preferred_currency' => config('currencies.default', 'NGN'),
                 'is_active' => true,
+                'is_guest' => false,
             ]);
 
             if ($user->isProvider()) {

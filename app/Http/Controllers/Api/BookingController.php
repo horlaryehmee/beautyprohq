@@ -79,7 +79,8 @@ class BookingController extends Controller
             'customer.email' => ['required', 'email:rfc', 'max:255'],
             'customer.phone' => ['required', 'string', 'max:40'],
             'customer.create_account' => ['nullable', 'boolean'],
-            'customer.password' => ['nullable', 'required_if:customer.create_account,true', 'string', 'min:8', 'max:255'],
+            'customer.password' => ['nullable', 'required_if:customer.create_account,true', 'string', 'min:8', 'max:255', 'confirmed'],
+            'customer.password_confirmation' => ['nullable', 'required_if:customer.create_account,true', 'string', 'max:255'],
         ]);
 
         $email = Str::lower(trim($validated['customer']['email']));
@@ -233,6 +234,11 @@ class BookingController extends Controller
         }
         if ($booking->payment?->status === 'paid') {
             $this->notifyBookingPaymentPaid($booking->payment);
+        } else {
+            $this->safeNotify($booking->customer, new BookingStatusNotification(
+                $booking,
+                "Your booking request with {$provider->user->name} has been created. You will receive updates by email."
+            ));
         }
 
         return $this->success($booking, 'Booking request created.', 201);

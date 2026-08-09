@@ -23,8 +23,20 @@ class BookingStatusNotification extends Notification
         $path = $notifiable->role === 'provider' ? '/provider/bookings' : '/customer/bookings';
         $this->booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
         $payment = $this->booking->payment;
+        $frontendUrl = rtrim(config('app.frontend_url', config('app.url')), '/');
+        $isCustomerMessage = $notifiable->role === 'customer' && (int) $notifiable->id === (int) $this->booking->customer_id;
+        $actionLabel = 'View your bookings';
+        $actionUrl = $frontendUrl.$path;
 
-        return (new MailMessage)
+        if ($isCustomerMessage && $notifiable->is_guest) {
+            $actionLabel = 'Create your account';
+            $actionUrl = $frontendUrl.'/register?'.http_build_query([
+                'role' => 'customer',
+                'email' => $notifiable->email,
+            ]);
+        }
+
+        $mail = (new MailMessage)
             ->subject('BeautyPro HQ booking update')
             ->greeting("Hello {$notifiable->name},")
             ->line($this->message)
@@ -37,8 +49,15 @@ class BookingStatusNotification extends Notification
             ->line('Duration: '.($this->booking->service?->duration_minutes ?? 0).' minutes')
             ->line('Payment: '.($payment ? strtoupper((string) $payment->currency).' '.number_format((float) $payment->amount, 2).' via '.ucfirst((string) ($payment->gateway ?? 'gateway')).' - '.ucfirst((string) $payment->status) : 'Not available'))
             ->line('Reference: '.($payment?->reference ?: 'Not available'))
-            ->line('Notes: '.($this->booking->notes ?: 'None'))
-            ->action('View your bookings', rtrim(config('app.frontend_url', config('app.url')), '/').$path);
+            ->line('Notes: '.($this->booking->notes ?: 'None'));
+
+        if ($isCustomerMessage) {
+            $mail->line($notifiable->is_guest
+                ? 'Create a customer account with this same email to track this booking, payments and future updates.'
+                : 'Log in to your customer account to manage this booking and view updates.');
+        }
+
+        return $mail->action($actionLabel, $actionUrl);
     }
 
     public function toArray(object $notifiable): array
