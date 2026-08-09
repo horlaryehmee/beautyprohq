@@ -735,7 +735,7 @@ export default function ProviderProfilePage() {
                                 <InfoPanel title="Location" icon="map">
                                     <InfoRow label="Country" value={pro.profile.country ?? provider?.country ?? 'Not listed'} />
                                     <InfoRow label="City" value={pro.profile.city ?? provider?.city ?? 'Not listed'} />
-                                    <InfoRow label="Service area" value={pro.location} />
+                                    <InfoRow label="Address / Location" value={pro.location} />
                                 </InfoPanel>
 
                                 <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white shadow-sm sm:rounded-[1.6rem]">
