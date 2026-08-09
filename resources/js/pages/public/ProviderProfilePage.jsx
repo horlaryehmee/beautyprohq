@@ -39,76 +39,16 @@ function hasActivePaidPlan(provider) {
     return ['paid', 'pro'].includes(subscription?.plan) && subscription?.status === 'active';
 }
 
-const fallbackMapBounds = {
-    south: -35,
-    north: 38,
-    west: -18,
-    east: 55,
-};
-
-function openStreetMapEmbedUrl(bounds = fallbackMapBounds, marker = null) {
-    const params = new URLSearchParams({
-        bbox: [bounds.west, bounds.south, bounds.east, bounds.north].join(','),
-        layer: 'mapnik',
-    });
-
-    if (marker) {
-        params.set('marker', `${marker.lat},${marker.lon}`);
-    }
-
-    return `https://www.openstreetmap.org/export/embed.html?${params.toString()}`;
-}
-
 function LocationMap({ location, providerName }) {
-    const [mapData, setMapData] = useState(null);
-
-    useEffect(() => {
-        if (!location || location === 'Location not added') {
-            setMapData(null);
-            return undefined;
-        }
-
-        const controller = new AbortController();
-        const params = new URLSearchParams({
-            format: 'jsonv2',
-            limit: '1',
-            addressdetails: '0',
-            q: location,
-        });
-
-        fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-            signal: controller.signal,
-            headers: { Accept: 'application/json' },
-        })
-            .then((response) => response.ok ? response.json() : [])
-            .then((results) => {
-                const result = Array.isArray(results) ? results[0] : null;
-                const [south, north, west, east] = (result?.boundingbox ?? []).map(Number);
-                const lat = Number(result?.lat);
-                const lon = Number(result?.lon);
-
-                if ([south, north, west, east, lat, lon].every(Number.isFinite)) {
-                    setMapData({ bounds: { south, north, west, east }, marker: { lat, lon } });
-                } else {
-                    setMapData(null);
-                }
-            })
-            .catch((error) => {
-                if (error.name !== 'AbortError') {
-                    setMapData(null);
-                }
-            });
-
-        return () => controller.abort();
-    }, [location]);
+    const query = encodeURIComponent(location && location !== 'Location not added' ? location : providerName);
 
     return (
         <iframe
             title={`${providerName} location map`}
-            src={openStreetMapEmbedUrl(mapData?.bounds, mapData?.marker)}
+            src={`https://www.google.com/maps?q=${query}&output=embed`}
             className="absolute inset-0 size-full border-0"
             loading="lazy"
-            referrerPolicy="no-referrer"
+            referrerPolicy="no-referrer-when-downgrade"
         />
     );
 }

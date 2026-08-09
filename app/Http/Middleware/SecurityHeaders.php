@@ -52,7 +52,7 @@ class SecurityHeaders
         }
         $scriptSources = [...$scriptSources, ...$this->inlineScriptHashes($response)];
 
-        $connectSources = ["'self'", 'https://nominatim.openstreetmap.org'];
+        $connectSources = ["'self'"];
         if (app()->isLocal()) {
             $scriptSources = [...$scriptSources, "'unsafe-eval'", 'http://localhost:5173', 'http://127.0.0.1:5173'];
             $connectSources = [...$connectSources, 'http://localhost:5173', 'http://127.0.0.1:5173', 'ws://localhost:5173', 'ws://127.0.0.1:5173'];
@@ -70,7 +70,7 @@ class SecurityHeaders
             "img-src 'self' https: data: blob:",
             "media-src 'self' https: data: blob:",
             'connect-src '.implode(' ', $connectSources),
-            "frame-src 'self' https://www.openstreetmap.org",
+            "frame-src 'self' https://www.google.com https://maps.google.com",
             "worker-src 'self' blob:",
             "manifest-src 'self'",
         ];
