@@ -14,6 +14,18 @@ function dashboardFor(role) {
     return '/customer';
 }
 
+function safeRedirectFor(value, role) {
+    const fallback = dashboardFor(role);
+    if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+
+    const path = value.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
+    if (['/', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].includes(path)) {
+        return fallback;
+    }
+
+    return value;
+}
+
 export default function LoginPage() {
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -44,7 +56,7 @@ export default function LoginPage() {
                 return;
             }
             const redirect = searchParams.get('redirect') ?? location.state?.from;
-            navigate(redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : dashboardFor(user?.role), { replace: true });
+            navigate(safeRedirectFor(redirect, user?.role), { replace: true });
         } catch (requestError) {
             const parsed = apiError(requestError, 'We could not log you in with those details.');
             setError(parsed.message);
