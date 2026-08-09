@@ -36,9 +36,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(SubscriptionPlanSeeder::class);
 
-        $admin = User::create([
-            'name' => 'BeautyPro HQ Admin',
+        $admin = User::updateOrCreate([
             'email' => 'admin@beautyprohq.test',
+        ], [
+            'name' => 'BeautyPro HQ Admin',
             'password' => 'password',
             'role' => 'admin',
             'email_verified_at' => now(),
@@ -50,8 +51,10 @@ class DatabaseSeeder extends Seeder
             ['Zainab Bello', 'zainab@beautyprohq.test'],
             ['Chioma Eze', 'chioma@beautyprohq.test'],
         ];
-        $customers = collect($customerData)->map(fn ($item) => User::create([
-            'name' => $item[0], 'email' => $item[1], 'password' => 'password', 'role' => 'customer', 'email_verified_at' => now(),
+        $customers = collect($customerData)->map(fn ($item) => User::updateOrCreate([
+            'email' => $item[1],
+        ], [
+            'name' => $item[0], 'password' => 'password', 'role' => 'customer', 'email_verified_at' => now(),
         ]));
 
         $providerData = [
@@ -67,7 +70,7 @@ class DatabaseSeeder extends Seeder
 
         $providers = collect();
         foreach ($providerData as $index => [$name, $email, $profession, $location, $verified, $slug, $photo]) {
-            $user = User::create(['name' => $name, 'email' => $email, 'password' => 'password', 'role' => 'provider', 'email_verified_at' => now()]);
+            $user = User::updateOrCreate(['email' => $email], ['name' => $name, 'password' => 'password', 'role' => 'provider', 'email_verified_at' => now()]);
             $categorySlug = match (true) {
                 str_contains(strtolower($profession), 'makeup') => 'makeup-artist',
                 str_contains(strtolower($profession), 'hair') || str_contains(strtolower($profession), 'wig') => 'hairstylist',
@@ -78,8 +81,10 @@ class DatabaseSeeder extends Seeder
                 default => 'esthetician-skin-specialist',
             };
             $categoryId = ProviderCategory::where('slug', $categorySlug)->value('id');
-            $profile = ProviderProfile::create([
-                'user_id' => $user->id, 'provider_category_id' => $categoryId, 'slug' => $slug, 'profession' => $profession,
+            $profile = ProviderProfile::updateOrCreate([
+                'user_id' => $user->id,
+            ], [
+                'provider_category_id' => $categoryId, 'slug' => $slug, 'profession' => $profession,
                 'bio' => "{$name} delivers thoughtful, modern beauty services with a focus on comfort, craft and results.",
                 'location' => $location, 'country' => 'Nigeria', 'city' => $location, 'verified' => $verified, 'is_pro_of_week' => $index === 0,
                 'rating' => 0, 'review_count' => 0,
@@ -103,15 +108,17 @@ class DatabaseSeeder extends Seeder
                 default => [['Skin Consultation', 'Skincare', 15000, 45], ['Signature Facial', 'Skincare', 40000, 90], ['Glow Treatment', 'Skincare', 55000, 120]],
             };
             foreach ($services as [$serviceName, $category, $price, $duration]) {
-                $profile->services()->create(['name' => $serviceName, 'category' => $category, 'price' => $price, 'duration_minutes' => $duration, 'service_type' => str_contains($serviceName, 'Consultation') ? 'virtual' : 'in_person', 'description' => "Professional {$serviceName} tailored to your needs."]);
+                $profile->services()->updateOrCreate(['name' => $serviceName], ['category' => $category, 'price' => $price, 'duration_minutes' => $duration, 'service_type' => str_contains($serviceName, 'Consultation') ? 'virtual' : 'in_person', 'description' => "Professional {$serviceName} tailored to your needs."]);
             }
             foreach (range(1, 6) as $day) {
-                $profile->availability()->create(['day_of_week' => $day, 'start_time' => '09:00', 'end_time' => $day === 6 ? '15:00' : '18:00']);
+                $profile->availability()->updateOrCreate(['day_of_week' => $day, 'start_time' => '09:00', 'end_time' => $day === 6 ? '15:00' : '18:00'], []);
             }
-            $profile->portfolioItems()->createMany([
+            foreach ([
                 ['title' => 'Signature finish', 'media_url' => 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=80', 'sort_order' => 1],
                 ['title' => 'Client transformation', 'media_url' => 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=900&q=80', 'sort_order' => 2],
-            ]);
+            ] as $portfolioItem) {
+                $profile->portfolioItems()->updateOrCreate(['title' => $portfolioItem['title']], $portfolioItem);
+            }
             if ($verified) {
                 $digitalProduct = match ($index % 5) {
                     0 => ['Bridal Prep Checklist', 'A practical checklist for brides preparing for makeup trials and wedding-day glam.', 9500, 'https://example.com/bridal-prep-checklist'],
@@ -120,11 +127,11 @@ class DatabaseSeeder extends Seeder
                     3 => ['Glow Skin Prep Guide', 'A pre-facial and post-treatment guide for better skincare results.', 9000, 'https://example.com/glow-skin-prep'],
                     default => ['Beauty Client Care Template', 'A reusable client-care message template for beauty professionals.', 7500, 'https://example.com/client-care-template'],
                 };
-                $profile->digitalProducts()->create(['name' => $digitalProduct[0], 'description' => $digitalProduct[1], 'price' => $digitalProduct[2], 'url' => $digitalProduct[3], 'image' => $photo]);
+                $profile->digitalProducts()->updateOrCreate(['name' => $digitalProduct[0]], ['description' => $digitalProduct[1], 'price' => $digitalProduct[2], 'url' => $digitalProduct[3], 'image' => $photo]);
             }
-            $profile->rewards()->create(['name' => '₦5,000 service credit', 'description' => 'Redeem on your next appointment.', 'points_required' => 100]);
-            Subscription::create(['user_id' => $user->id, 'plan' => $verified ? 'pro' : 'free', 'status' => 'active', 'starts_at' => now()]);
-            VerificationRequest::create(['provider_id' => $profile->id, 'portfolio_links' => $profile->portfolio_links, 'certification_files' => [], 'status' => $verified ? 'approved' : ($index === 5 ? 'pending' : 'rejected'), 'reviewed_by' => $verified ? $admin->id : null, 'reviewed_at' => $verified ? now()->subDays(20) : null]);
+            $profile->rewards()->updateOrCreate(['name' => '₦5,000 service credit'], ['description' => 'Redeem on your next appointment.', 'points_required' => 100]);
+            Subscription::updateOrCreate(['user_id' => $user->id, 'plan' => $verified ? 'pro' : 'free'], ['status' => 'active', 'starts_at' => now()]);
+            VerificationRequest::updateOrCreate(['provider_id' => $profile->id], ['portfolio_links' => $profile->portfolio_links, 'certification_files' => [], 'status' => $verified ? 'approved' : ($index === 5 ? 'pending' : 'rejected'), 'reviewed_by' => $verified ? $admin->id : null, 'reviewed_at' => $verified ? now()->subDays(20) : null]);
             $providers->push($profile);
         }
 
@@ -141,18 +148,20 @@ class DatabaseSeeder extends Seeder
                 8, 11 => 'confirmed', 9 => 'pending', default => 'cancelled'
             };
             $date = $status === 'completed' ? Carbon::today()->subDays(7 + $index) : $nextWorkingDay(2 + $index);
-            $booking = Booking::create([
+            $booking = Booking::updateOrCreate([
                 'provider_id' => $provider->id, 'customer_id' => $customer->id, 'service_id' => $service->id,
-                'date' => $date, 'time' => '11:00', 'end_time' => Carbon::parse('11:00')->addMinutes($service->duration_minutes)->format('H:i:s'),
+                'date' => $date, 'time' => '11:00',
+            ], [
+                'end_time' => Carbon::parse('11:00')->addMinutes($service->duration_minutes)->format('H:i:s'),
                 'status' => $status, 'notes' => $index % 3 === 0 ? 'First visit — please share preparation tips.' : null,
                 'cancelled_at' => $status === 'cancelled' ? now() : null,
             ]);
-            Payment::create(['booking_id' => $booking->id, 'amount' => $service->price, 'provider_id' => $provider->id, 'gateway' => 'paystack', 'reference' => 'BPHQ-DEMO-'.str_pad((string) $booking->id, 4, '0', STR_PAD_LEFT), 'status' => $status === 'completed' ? 'paid' : 'pending', 'paid_at' => $status === 'completed' ? $date : null]);
+            Payment::updateOrCreate(['booking_id' => $booking->id], ['amount' => $service->price, 'provider_id' => $provider->id, 'gateway' => 'paystack', 'reference' => 'BPHQ-DEMO-'.str_pad((string) $booking->id, 4, '0', STR_PAD_LEFT), 'status' => $status === 'completed' ? 'paid' : 'pending', 'paid_at' => $status === 'completed' ? $date : null]);
             if ($status === 'completed') {
-                $review = Review::create(['booking_id' => $booking->id, 'provider_id' => $provider->id, 'customer_id' => $customer->id, 'rating' => 5 - ($index % 2), 'comment' => $index % 2 ? 'Warm, professional service and a beautiful result.' : 'Excellent experience. I will definitely book again.']);
+                $review = Review::updateOrCreate(['booking_id' => $booking->id], ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'rating' => 5 - ($index % 2), 'comment' => $index % 2 ? 'Warm, professional service and a beautiful result.' : 'Excellent experience. I will definitely book again.']);
                 $crm = CrmCustomer::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id], ['notes' => 'Prefers morning appointments.', 'tags' => ['returning'], 'last_service_at' => $date]);
                 $loyalty = Loyalty::firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id], ['points' => 40, 'lifetime_points' => 40]);
-                LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => 40, 'reason' => 'Demo completed booking']);
+                LoyaltyTransaction::updateOrCreate(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'reason' => 'Demo completed booking'], ['points' => 40]);
             }
         }
         foreach ($providers as $provider) {
@@ -161,21 +170,27 @@ class DatabaseSeeder extends Seeder
                 'review_count' => $provider->reviews()->where('is_approved', true)->count(),
             ]);
         }
-        SavedProvider::create(['customer_id' => $customers[0]->id, 'provider_id' => $providers[0]->id]);
-        SavedProvider::create(['customer_id' => $customers[0]->id, 'provider_id' => $providers[1]->id]);
+        SavedProvider::updateOrCreate(['customer_id' => $customers[0]->id, 'provider_id' => $providers[0]->id]);
+        SavedProvider::updateOrCreate(['customer_id' => $customers[0]->id, 'provider_id' => $providers[1]->id]);
 
-        News::insert([
+        if (! News::whereIn('slug', ['beauty-professionals-creative-economy', 'prepare-clients-flawless-appointment'])->exists()) {
+            News::insert([
             ['title' => 'Beauty professionals shaping Nigeria’s creative economy', 'slug' => 'beauty-professionals-creative-economy', 'excerpt' => 'Independent beauty professionals are building sustainable careers and stronger communities.', 'content' => 'Across Nigeria, beauty professionals are combining craft, business discipline and community to create meaningful economic opportunity.', 'image' => 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=80', 'published_at' => now()->subDays(2), 'author_id' => $admin->id, 'created_at' => now(), 'updated_at' => now()],
             ['title' => 'Five ways to prepare clients for a flawless appointment', 'slug' => 'prepare-clients-flawless-appointment', 'excerpt' => 'Simple communication habits that improve every appointment.', 'content' => 'Clear reminders, thoughtful consultations and transparent after-care guidance make the client experience smoother.', 'image' => 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=1200&q=80', 'published_at' => now()->subDays(5), 'author_id' => $admin->id, 'created_at' => now(), 'updated_at' => now()],
-        ]);
-        Event::insert([
+            ]);
+        }
+        if (! Event::whereIn('slug', ['bphq-business-breakfast', 'portfolio-day-abuja'])->exists()) {
+            Event::insert([
             ['title' => 'BPHQ Business Breakfast', 'slug' => 'bphq-business-breakfast', 'date' => now()->addWeeks(2), 'location' => 'Victoria Island, Lagos', 'description' => 'A practical morning of pricing, client retention and peer networking.', 'image' => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1200&q=80', 'registration_url' => 'https://example.com/bphq-breakfast', 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
             ['title' => 'Portfolio Day Abuja', 'slug' => 'portfolio-day-abuja', 'date' => now()->addMonth(), 'location' => 'Wuse 2, Abuja', 'description' => 'Create portfolio-ready work with photographers and creative directors.', 'image' => 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=1200&q=80', 'registration_url' => 'https://example.com/portfolio-day', 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
-        ]);
-        Opportunity::insert([
+            ]);
+        }
+        if (! Opportunity::whereIn('title', ['Makeup Artists for Fashion Campaign', 'Beauty Educator Partnership'])->exists()) {
+            Opportunity::insert([
             ['title' => 'Makeup Artists for Fashion Campaign', 'type' => 'job', 'description' => 'A Lagos fashion label needs two experienced makeup artists for a two-day campaign shoot.', 'contact_info' => json_encode(['email' => 'opportunities@beautyprohq.test']), 'location' => 'Lagos', 'deadline' => now()->addDays(18)->toDateString(), 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
             ['title' => 'Beauty Educator Partnership', 'type' => 'partnership', 'description' => 'Partner with BPHQ on a practical online masterclass for early-career professionals.', 'contact_info' => json_encode(['email' => 'partners@beautyprohq.test']), 'location' => 'Remote', 'deadline' => now()->addMonth()->toDateString(), 'published_at' => now(), 'created_at' => now(), 'updated_at' => now()],
-        ]);
+            ]);
+        }
         $communityMembers = collect([$admin])
             ->concat($customers)
             ->concat($providers->map(fn (ProviderProfile $provider) => $provider->user))
@@ -183,7 +198,7 @@ class DatabaseSeeder extends Seeder
             ->values();
         foreach (CommunityDemoContent::posts() as $index => $post) {
             $provider = $providers[$index % $providers->count()];
-            $communityPost = CommunityPost::create($post + [
+            $communityPost = CommunityPost::updateOrCreate(['title' => $post['title']], $post + [
                 'is_demo' => true,
                 'provider_id' => $provider->id,
                 'mentions' => array_values(array_unique(array_merge($post['mentions'], [$provider->slug]))),
@@ -194,9 +209,10 @@ class DatabaseSeeder extends Seeder
 
             CommunityDemoContent::seedInteractions($communityPost, $communityMembers, $index);
         }
-        Announcement::create(['title' => 'Welcome to BeautyPro HQ', 'message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()]);
-        NewsletterSubscriber::create(['name' => 'Demo Subscriber', 'email' => 'demo@beautyprohq.test', 'subscribed_at' => now()]);
+        Announcement::updateOrCreate(['title' => 'Welcome to BeautyPro HQ'], ['message' => 'Complete your profile and availability to start receiving bookings.', 'audience' => 'provider', 'published_at' => now()]);
+        NewsletterSubscriber::updateOrCreate(['email' => 'demo@beautyprohq.test'], ['name' => 'Demo Subscriber', 'subscribed_at' => now()]);
 
         $this->call(NewsEventsDemoSeeder::class);
+        $this->call(LiveContentSeeder::class);
     }
 }
