@@ -579,7 +579,7 @@ export default function ProviderProfilePage() {
                 <div className="page-container">
                     <div className="flex w-full gap-1 overflow-x-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-[0_12px_35px_rgba(52,35,28,.06)] sm:w-fit">
                     {visibleTabs.map(([key, label]) => (
-                        <button key={key} type="button" onClick={() => setActiveTab(key)} className={`min-h-10 flex-1 shrink-0 rounded-xl px-3 text-xs font-semibold transition sm:min-h-11 sm:flex-none sm:px-7 sm:text-sm ${activeTab === key ? 'bg-[#2A1D14] text-white shadow-sm' : 'text-stone-500 hover:bg-[#F7F3ED] hover:text-[#2A1D14]'}`}>
+                        <button key={key} type="button" onClick={() => setActiveTab(key)} className={`min-h-10 shrink-0 whitespace-nowrap rounded-xl px-4 text-xs font-semibold transition sm:min-h-11 sm:px-7 sm:text-sm ${activeTab === key ? 'bg-[#2A1D14] text-white shadow-sm' : 'text-stone-500 hover:bg-[#F7F3ED] hover:text-[#2A1D14]'}`}>
                             {label}
                         </button>
                     ))}
