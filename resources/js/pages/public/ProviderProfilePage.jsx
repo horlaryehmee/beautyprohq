@@ -116,10 +116,13 @@ function LocationMap({ location, providerName }) {
 function portfolioItems(provider) {
     const profile = provider?.provider_profile ?? provider?.profile ?? provider ?? {};
     const source = profile.portfolio_items ?? profile.portfolio ?? profile.portfolio_images ?? provider?.portfolio_items ?? provider?.portfolio ?? [];
-    if (!Array.isArray(source)) return [];
-    return source
+    const profilePhoto = mediaUrl(profile.profile_photo_url ?? profile.profile_photo ?? provider?.profile_photo_url ?? provider?.profile_photo);
+    if (!Array.isArray(source)) return profilePhoto ? [{ id: 'profile-photo', image: profilePhoto, title: 'Profile photo' }] : [];
+    const items = source
         .map((item, index) => typeof item === 'string' ? { id: index, image: mediaUrl(item) } : { id: item.id ?? index, image: mediaUrl(item.media_url ?? item.image_url ?? item.image ?? item.url), title: item.title })
         .filter((item) => item.image);
+
+    return items.length ? items : (profilePhoto ? [{ id: 'profile-photo', image: profilePhoto, title: 'Profile photo' }] : []);
 }
 
 function availabilityItems(provider) {

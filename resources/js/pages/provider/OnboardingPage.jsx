@@ -157,6 +157,7 @@ function ProviderOnboardingContent() {
             { day_of_week: 4, start_time: '09:00', end_time: '18:00' },
             { day_of_week: 5, start_time: '09:00', end_time: '18:00' },
         ],
+        portfolio_images: [],
         terms_accepted: false,
     });
 
@@ -170,6 +171,7 @@ function ProviderOnboardingContent() {
         ['Location', 'Country and city'],
         ['Pricing', 'Base price and currency'],
         ['Work hours', 'Availability'],
+        ['Portfolio', 'Up to 6 images'],
         ['Terms', 'Review and accept'],
     ], []);
 
@@ -196,6 +198,8 @@ function ProviderOnboardingContent() {
             Object.entries(form).forEach(([key, value]) => {
                 if (key === 'social_links' || key === 'availability') {
                     payload.append(key, JSON.stringify(value));
+                } else if (key === 'portfolio_images') {
+                    value.forEach((file) => payload.append('portfolio_images[]', file));
                 } else if (value instanceof File) {
                     payload.append(key, value);
                 } else {
@@ -326,6 +330,31 @@ function ProviderOnboardingContent() {
                         )}
 
                         {step === 7 && (
+                            <div className="space-y-5">
+                                <Field label="Portfolio gallery images (optional)">
+                                    <input
+                                        accept="image/*"
+                                        className={inputClass}
+                                        multiple
+                                        onChange={(event) => update('portfolio_images', Array.from(event.target.files ?? []).slice(0, 6))}
+                                        type="file"
+                                    />
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Add up to 6 images. If you skip this, your profile picture will be used in the gallery.</p>
+                                </Field>
+                                {form.portfolio_images.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                        {form.portfolio_images.map((file, index) => (
+                                            <div key={`${file.name}-${index}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+                                                <span className="block truncate">{file.name}</span>
+                                                <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 8 && (
                             <div className="space-y-5">
                                 <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
                                     <h2 className="font-semibold text-slate-950">BeautyPro HQ provider terms</h2>

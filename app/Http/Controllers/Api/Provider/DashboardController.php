@@ -211,6 +211,8 @@ class DashboardController extends Controller
             'availability.*.day_of_week' => ['required', 'integer', 'between:0,6'],
             'availability.*.start_time' => ['required', 'date_format:H:i'],
             'availability.*.end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'portfolio_images' => ['sometimes', 'array', 'max:6'],
+            'portfolio_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'terms_accepted' => ['accepted'],
         ]);
 
@@ -249,6 +251,15 @@ class DashboardController extends Controller
             $provider->availability()->delete();
             foreach ($validated['availability'] as $slot) {
                 $provider->availability()->create($slot + ['is_active' => true]);
+            }
+
+            foreach (array_slice($request->file('portfolio_images', []), 0, 6) as $index => $image) {
+                $provider->portfolioItems()->create([
+                    'title' => 'Portfolio image '.($index + 1),
+                    'media_url' => $image->store('providers/portfolio', 'public'),
+                    'media_type' => 'image',
+                    'sort_order' => $index,
+                ]);
             }
         });
 
