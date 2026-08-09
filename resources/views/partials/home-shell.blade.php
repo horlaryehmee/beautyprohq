@@ -14,8 +14,8 @@
             <button type="button" tabindex="-1" class="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Open navigation">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
-            <a href="/" class="inline-flex scale-90 items-center leading-none" aria-label="BeautyPro HQ home">
-                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="h-24 w-auto object-contain sm:h-28">
+            <a href="/" class="inline-flex items-center leading-none" aria-label="BeautyPro HQ home">
+                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="block h-20 w-auto object-contain sm:h-24">
             </a>
             <a href="/login" class="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>

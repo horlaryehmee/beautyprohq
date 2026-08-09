@@ -132,7 +132,7 @@ export default function PublicLayout() {
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
-                    <Logo className="scale-90" />
+                    <Logo imageClassName="h-20 sm:h-24" />
                     <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                         <Icon name="user" size={24} />
                     </Link>

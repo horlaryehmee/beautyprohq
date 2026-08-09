@@ -23,21 +23,28 @@
             <td align="center">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;">
                     <tr>
-                        <td style="padding:0 0 20px;text-align:center;">
-                            <a href="{{ $frontendUrl }}" style="text-decoration:none;color:{{ $ink }};">
-                                @if($emailLogo)
-                                    <img src="{{ $emailLogo }}" alt="{{ $appName }}" width="120" style="display:inline-block;max-width:160px;width:120px;height:auto;border:0;outline:none;text-decoration:none;">
-                                @else
-                                    <div style="font-family:Georgia,'Times New Roman',serif;font-size:36px;line-height:1;font-weight:500;letter-spacing:0;color:{{ $ink }};">{{ $appName }}</div>
-                                @endif
-                            </a>
-                        </td>
-                    </tr>
-                    <tr>
                         <td style="overflow:hidden;border-radius:24px;background:#FFFFFF;box-shadow:0 22px 70px rgba(42,29,20,.10);border:1px solid {{ $border }};">
-                            <div style="background:{{ $ink }};padding:18px 26px;color:#FFFFFF;">
-                                <div style="font-size:12px;line-height:1.4;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#F7F3ED;">BeautyPro HQ Notification</div>
-                            </div>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{{ $ink }};">
+                                <tr>
+                                    <td style="padding:18px 26px;">
+                                        <a href="{{ $frontendUrl }}" style="display:inline-block;text-decoration:none;color:#FFFFFF;">
+                                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                                <tr>
+                                                    @if($emailLogo)
+                                                        <td style="padding:0 14px 0 0;vertical-align:middle;">
+                                                            <img src="{{ $emailLogo }}" alt="{{ $appName }}" width="54" style="display:block;max-width:54px;width:54px;height:auto;border:0;outline:none;text-decoration:none;">
+                                                        </td>
+                                                    @endif
+                                                    <td style="vertical-align:middle;">
+                                                        <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.05;font-weight:500;letter-spacing:0;color:#FFFFFF;">{{ $appName }}</div>
+                                                        <div style="margin-top:5px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#EADFD5;">Notification</div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
                             <div style="padding:34px 30px 16px;">
                                 @if (! empty($greeting))
                                     <h1 style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;font-weight:500;color:{{ $ink }};">{{ $greeting }}</h1>
