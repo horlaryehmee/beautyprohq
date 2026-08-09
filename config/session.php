@@ -156,7 +156,9 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    'domain' => filled(env('SESSION_DOMAIN')) && env('SESSION_DOMAIN') !== 'null'
+        ? env('SESSION_DOMAIN')
+        : null,
 
     /*
     |--------------------------------------------------------------------------
