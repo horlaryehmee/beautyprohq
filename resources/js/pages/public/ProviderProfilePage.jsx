@@ -710,7 +710,7 @@ export default function ProviderProfilePage() {
                     {activeTab === 'about' && (
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)]">
                             <div className="space-y-6">
-                                <InfoPanel title="Description" icon="content">
+                                <InfoPanel title={`About ${pro.name}`} icon="content">
                                     {pro.bio ? <p className="whitespace-pre-line text-sm leading-7 text-stone-700">{stripHtml(pro.bio)}</p> : <p className="text-sm leading-7 text-stone-500">This professional has not added a description yet.</p>}
                                 </InfoPanel>
 
@@ -755,18 +755,18 @@ export default function ProviderProfilePage() {
                             </div>
 
                             <div className="space-y-6">
-                                <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white shadow-sm sm:rounded-[1.6rem]">
+                                <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white p-3 shadow-sm sm:rounded-[1.6rem]">
                                     {portfolio.length > 0 ? (
-                                        <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-2">
-                                            {portfolio.slice(0, 7).map((item, index) => (
-                                                <figure key={item.id} className={`group relative overflow-hidden rounded-2xl bg-[#F7F3ED] ${index === 0 ? 'col-span-2 aspect-[16/10]' : 'aspect-square'}`}>
+                                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                            {portfolio.slice(0, 6).map((item, index) => (
+                                                <figure key={item.id} className={`group relative overflow-hidden rounded-xl bg-[#F7F3ED] sm:rounded-2xl ${index === 0 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'}`}>
                                                     <img src={item.image} alt={item.title || `${pro.name} portfolio work`} className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                                                     <div className="absolute inset-0 opacity-0 transition group-hover:bg-black/18 group-hover:opacity-100" />
                                                 </figure>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-6 rounded-2xl border border-dashed border-stone-200 bg-[#FFFFFF] p-6 text-sm leading-6 text-stone-500">Portfolio images will appear here when this professional uploads gallery work.</div>
+                                        <div className="rounded-2xl border border-dashed border-stone-200 bg-[#FFFFFF] p-5 text-sm leading-6 text-stone-500">Portfolio images will appear here when this professional uploads gallery work.</div>
                                     )}
                                 </section>
 
