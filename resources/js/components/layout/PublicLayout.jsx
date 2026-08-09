@@ -108,9 +108,13 @@ export default function PublicLayout() {
             : tab.to && location.pathname.startsWith(tab.to)
     ));
     const brand = window.__BPHQ_BRAND__ ?? {};
+    const mobileHeaderHeight = Number(brand.mobile_header_height ?? 96);
+    const desktopHeaderHeight = Number(brand.desktop_header_height ?? 112);
     const headerStyle = {
-        '--bphq-mobile-header-height': `${Number(brand.mobile_header_height ?? 96)}px`,
-        '--bphq-desktop-header-height': `${Number(brand.desktop_header_height ?? 112)}px`,
+        '--bphq-mobile-header-height': `${mobileHeaderHeight}px`,
+        '--bphq-mobile-logo-height': `${Math.max(40, mobileHeaderHeight - 16)}px`,
+        '--bphq-desktop-header-height': `${desktopHeaderHeight}px`,
+        '--bphq-desktop-logo-height': `${Math.max(56, desktopHeaderHeight - 16)}px`,
     };
 
     function handleMobileTabChange(index, tab) {
@@ -132,7 +136,7 @@ export default function PublicLayout() {
                     <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
-                    <Logo imageClassName="h-20 sm:h-24" />
+                    <Logo imageClassName="max-h-none" imageStyle={{ height: 'var(--bphq-mobile-logo-height)' }} />
                     <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                         <Icon name="user" size={24} />
                     </Link>
@@ -192,7 +196,7 @@ export default function PublicLayout() {
 
             {!isBookingPage && <header className={`sticky top-0 z-50 hidden border-b transition lg:block ${scrolled ? 'border-stone-200/80 bg-cream-50/95 shadow-[0_6px_28px_rgba(65,31,53,.06)] backdrop-blur-xl' : 'border-transparent bg-cream-50/80 backdrop-blur-md'}`} style={headerStyle}>
                 <div className="page-container flex h-[var(--bphq-desktop-header-height)] items-center justify-between gap-5">
-                    <Logo />
+                    <Logo imageClassName="max-h-none" imageStyle={{ height: 'var(--bphq-desktop-logo-height)' }} />
 
                     <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
                         {links.map((link) => link.action === 'contact' ? (

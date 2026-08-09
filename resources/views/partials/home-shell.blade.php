@@ -9,13 +9,13 @@
 @endphp
 
 <div class="min-h-screen bg-cream-50 text-plum-950" data-bphq-first-paint>
-    <header class="sticky top-0 z-50 border-b border-stone-200/70 bg-[#F7F3ED]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden">
-        <div class="flex h-24 items-center justify-between px-4">
+    <header class="sticky top-0 z-50 border-b border-stone-200/70 bg-[#F7F3ED]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden" style="--bphq-mobile-header-height: {{ $brandMobileHeaderHeight ?? 96 }}px; --bphq-mobile-logo-height: {{ max(40, ($brandMobileHeaderHeight ?? 96) - 16) }}px;">
+        <div class="flex items-center justify-between px-4" style="height: var(--bphq-mobile-header-height);">
             <button type="button" tabindex="-1" class="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Open navigation">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
             <a href="/" class="inline-flex items-center leading-none" aria-label="BeautyPro HQ home">
-                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="block h-20 w-auto object-contain sm:h-24">
+                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="block w-auto object-contain" style="height: var(--bphq-mobile-logo-height);">
             </a>
             <a href="/login" class="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
@@ -23,10 +23,10 @@
         </div>
     </header>
 
-    <header class="sticky top-0 z-50 hidden border-b border-transparent bg-cream-50/80 backdrop-blur-md lg:block">
-        <div class="page-container flex h-28 items-center justify-between gap-5">
+    <header class="sticky top-0 z-50 hidden border-b border-transparent bg-cream-50/80 backdrop-blur-md lg:block" style="--bphq-desktop-header-height: {{ $brandDesktopHeaderHeight ?? 112 }}px; --bphq-desktop-logo-height: {{ max(56, ($brandDesktopHeaderHeight ?? 112) - 16) }}px;">
+        <div class="page-container flex items-center justify-between gap-5" style="height: var(--bphq-desktop-header-height);">
             <a href="/" class="inline-flex items-center leading-none" aria-label="BeautyPro HQ home">
-                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="h-28 w-auto object-contain">
+                <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="w-auto object-contain" style="height: var(--bphq-desktop-logo-height);">
             </a>
             <nav class="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
                 <a href="/" class="rounded-lg bg-white px-3.5 py-2 text-sm font-bold text-plum-900 shadow-sm">Home</a>
