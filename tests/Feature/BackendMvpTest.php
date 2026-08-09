@@ -203,6 +203,27 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseMissing('portfolio_items', ['id' => $itemId]);
     }
 
+    public function test_free_provider_cannot_manage_custom_booking_questions(): void
+    {
+        $user = User::factory()->provider()->create(['name' => 'Free Booking Profile']);
+        $profile = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'free-booking-profile-'.$user->id,
+            'profession' => 'Beauty Professional',
+            'location' => 'Lagos',
+        ]);
+
+        Sanctum::actingAs($user);
+        $this->putJson('/api/provider/profile', [
+            'booking_form_fields' => [
+                ['label' => 'What result are you hoping for?', 'type' => 'textarea', 'required' => true],
+            ],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('booking_form_fields');
+
+        $this->assertSame([], $profile->fresh()->booking_form_fields ?? []);
+    }
+
     public function test_login_me_and_role_protection_work_with_sanctum(): void
     {
         $customer = User::factory()->create(['email' => 'customer@example.test', 'password' => 'Password123']);

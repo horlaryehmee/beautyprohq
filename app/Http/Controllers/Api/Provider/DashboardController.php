@@ -136,6 +136,15 @@ class DashboardController extends Controller
         ]);
 
         $provider = $request->user()->providerProfile;
+        if (array_key_exists('booking_form_fields', $validated) && ! $request->user()->hasPaidPlan()) {
+            return response()->json([
+                'message' => 'Custom booking questions are available on paid plans.',
+                'errors' => [
+                    'booking_form_fields' => ['Custom booking questions are available on paid plans.'],
+                ],
+            ], 422);
+        }
+
         if ((array_key_exists('cover_image', $validated) || $request->hasFile('cover_image')) && ! $request->user()->hasPaidPlan()) {
             $incomingCover = $request->hasFile('cover_image') ? null : ($validated['cover_image'] ?? null);
             $coverChanged = $request->hasFile('cover_image')

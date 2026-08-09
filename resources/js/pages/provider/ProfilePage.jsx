@@ -108,19 +108,6 @@ export default function ProviderProfilePage() {
     const [verification, setVerification] = useState(null);
     const { notify } = useDashboardToast();
 
-    const sections = useMemo(() => [
-        ['General', 'Business details'],
-        ['Images', 'Profile and cover'],
-        ['Contact', 'Email, phone, website'],
-        ['Socials', 'Social networks'],
-        ['Location', 'Country and city'],
-        ['Pricing', 'Base price and currency'],
-        ['Work hours', 'Availability'],
-        ['Portfolio', 'Best work images'],
-        ['Booking form', 'Extra questions'],
-        ['Verification', 'Review material'],
-    ], []);
-
     useEffect(() => {
         if (!resource.data || !Object.keys(resource.data).length) return;
         const current = resource.data;
@@ -161,10 +148,24 @@ export default function ProviderProfilePage() {
     const verified = Boolean(profile.verified);
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
     const activeSubscription = profile.user?.active_subscription ?? profile.user?.activeSubscription;
-    const canEditCoverImage = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
+    const hasPaidPlan = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
+    const canEditCoverImage = hasPaidPlan;
     const profilePhotoSrc = form.profile_photo instanceof File ? null : mediaUrl(form.profile_photo);
     const coverImageSrc = form.cover_image instanceof File ? null : mediaUrl(form.cover_image);
     const portfolioItems = [...(form.portfolio_items ?? [])].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
+    const sections = useMemo(() => [
+        ['General', 'Business details'],
+        ['Images', 'Profile and cover'],
+        ['Contact', 'Email, phone, website'],
+        ['Socials', 'Social networks'],
+        ['Location', 'Country and city'],
+        ['Pricing', 'Base price and currency'],
+        ['Work hours', 'Availability'],
+        ['Portfolio', 'Best work images'],
+        ...(hasPaidPlan ? [['Booking form', 'Extra questions']] : []),
+        ['Verification', 'Review material'],
+    ], [hasPaidPlan]);
+    const currentSection = sections[step]?.[0] ?? 'General';
     const profileStrength = Math.min(100, [
         form.name,
         form.provider_category_id,
@@ -201,6 +202,12 @@ export default function ProviderProfilePage() {
         stepButtonRefs.current[step]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }, [step]);
 
+    useEffect(() => {
+        if (step >= sections.length) {
+            setStep(Math.max(0, sections.length - 1));
+        }
+    }, [sections.length, step]);
+
     const saveProfile = async (event) => {
         event.preventDefault();
         setSaving(true);
@@ -208,6 +215,15 @@ export default function ProviderProfilePage() {
             const socialLinks = rowsToSocialObject(form.social_links);
             if (form.website) socialLinks.website = form.website;
 
+            const bookingFormFields = form.booking_form_fields
+                .filter((field) => field.label?.trim())
+                .slice(0, 8)
+                .map((field) => ({
+                    label: field.label.trim(),
+                    type: field.type || 'text',
+                    required: Boolean(field.required),
+                    options: (field.options ?? []).filter((option) => option?.trim()).map((option) => option.trim()).slice(0, 12),
+                }));
             const payload = {
                 name: form.name,
                 provider_category_id: form.provider_category_id || null,
@@ -223,15 +239,7 @@ export default function ProviderProfilePage() {
                 default_currency: form.default_currency,
                 base_price: form.base_price || null,
                 availability: form.availability,
-                booking_form_fields: form.booking_form_fields
-                    .filter((field) => field.label?.trim())
-                    .slice(0, 8)
-                    .map((field) => ({
-                        label: field.label.trim(),
-                        type: field.type || 'text',
-                        required: Boolean(field.required),
-                        options: (field.options ?? []).filter((option) => option?.trim()).map((option) => option.trim()).slice(0, 12),
-                    })),
+                ...(hasPaidPlan ? { booking_form_fields: bookingFormFields } : {}),
             };
             const hasImageUpload = form.profile_photo instanceof File || form.cover_image instanceof File;
             const requestPayload = hasImageUpload ? new FormData() : payload;
@@ -355,7 +363,7 @@ export default function ProviderProfilePage() {
                 </aside>
 
                 <Card className="min-w-0 p-4 sm:p-6">
-                    {step === 0 && (
+                    {currentSection === 'General' && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Business name"><input className={inputClass} onChange={change('name')} required value={form.name} /></Field>
                             <Field label="Category"><select className={inputClass} onChange={change('provider_category_id')} required value={form.provider_category_id}><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
@@ -364,7 +372,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 1 && (
+                    {currentSection === 'Images' && (
                         <div className="grid gap-5 sm:grid-cols-2">
                             <Field label="Profile image">
                                 {profilePhotoSrc && <img alt="" className="mb-3 h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200" src={profilePhotoSrc} />}
@@ -382,7 +390,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 2 && (
+                    {currentSection === 'Contact' && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Email"><input className={inputClass} onChange={change('contact_email')} required type="email" value={form.contact_email} /></Field>
                             <Field label="Phone number"><input className={inputClass} onChange={change('contact_phone')} required value={form.contact_phone} /></Field>
@@ -390,7 +398,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 3 && (
+                    {currentSection === 'Socials' && (
                         <div className="space-y-3">
                             {form.social_links.map((item, index) => (
                                 <div className="grid min-w-0 gap-3 sm:grid-cols-[180px_1fr_auto]" key={index}>
@@ -403,7 +411,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 4 && (
+                    {currentSection === 'Location' && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field className="sm:col-span-2" label="Location"><input className={inputClass} onChange={change('location')} placeholder="123 Main Street, Lekki" required value={form.location} /></Field>
                             <Field label="Country"><input className={inputClass} onChange={change('country')} required value={form.country} /></Field>
@@ -411,14 +419,14 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 5 && (
+                    {currentSection === 'Pricing' && (
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="Currency"><select className={inputClass} onChange={change('default_currency')} required value={form.default_currency}>{currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></Field>
                             <Field label="Base price"><input className={inputClass} min="0" onChange={change('base_price')} required type="number" value={form.base_price} /></Field>
                         </div>
                     )}
 
-                    {step === 6 && (
+                    {currentSection === 'Work hours' && (
                         <div className="space-y-3">
                             {days.map(([value, label]) => {
                                 const slot = form.availability.find((item) => Number(item.day_of_week) === Number(value));
@@ -433,7 +441,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 7 && (
+                    {currentSection === 'Portfolio' && (
                         <div className="space-y-5">
                             <CardHeader description="Upload up to 6 clear images of your work. Images are optimized before they are saved." title="Portfolio" />
                             <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -469,7 +477,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 8 && (
+                    {currentSection === 'Booking form' && hasPaidPlan && (
                         <div className="space-y-5">
                             <CardHeader description="The default booking form always includes name, email, phone number and note. Add only extra provider-specific questions here." title="Custom booking questions" />
                             {form.booking_form_fields.length ? (
@@ -495,7 +503,7 @@ export default function ProviderProfilePage() {
                         </div>
                     )}
 
-                    {step === 9 && (
+                    {currentSection === 'Verification' && (
                         <div className="space-y-5">
                             <CardHeader description="This is what admin reviews before awarding the BPHQ verified badge." title="Verification submission" />
                             {verified ? <div className="rounded-2xl bg-[#ECFDF3] p-4 text-sm text-[#027A48] ring-1 ring-[#12B76A]/20"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-[#039855]">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-[#FFFAEB] p-4 text-sm text-[#B54708] ring-1 ring-[#F79009]/24"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
