@@ -31,6 +31,22 @@ class OperationalHardeningTest extends TestCase
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
     }
 
+    public function test_sanctum_stateful_domains_include_configured_app_host(): void
+    {
+        $_ENV['APP_URL'] = 'https://beautyprohq.example.test';
+        $_SERVER['APP_URL'] = 'https://beautyprohq.example.test';
+        $_ENV['FRONTEND_URL'] = 'https://frontend.example.test';
+        $_SERVER['FRONTEND_URL'] = 'https://frontend.example.test';
+        $_ENV['SANCTUM_STATEFUL_DOMAINS'] = 'legacy.example.test';
+        $_SERVER['SANCTUM_STATEFUL_DOMAINS'] = 'legacy.example.test';
+
+        $stateful = include base_path('config/sanctum.php');
+
+        $this->assertContains('beautyprohq.example.test', $stateful['stateful']);
+        $this->assertContains('frontend.example.test', $stateful['stateful']);
+        $this->assertContains('legacy.example.test', $stateful['stateful']);
+    }
+
     public function test_disabled_accounts_are_rejected_even_with_valid_authentication(): void
     {
         $user = User::factory()->create(['is_active' => false]);
