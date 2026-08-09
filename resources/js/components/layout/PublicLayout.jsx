@@ -112,7 +112,8 @@ export default function PublicLayout() {
     const desktopHeaderHeight = Number(brand.desktop_header_height ?? 112);
     const headerStyle = {
         '--bphq-mobile-header-height': `${mobileHeaderHeight}px`,
-        '--bphq-mobile-logo-height': `${Math.max(40, mobileHeaderHeight - 16)}px`,
+        '--bphq-mobile-logo-height': `${Math.max(28, Math.min(mobileHeaderHeight - 12, Math.round(mobileHeaderHeight * 0.72)))}px`,
+        '--bphq-mobile-control-size': `${Math.max(32, Math.min(40, mobileHeaderHeight - 16))}px`,
         '--bphq-desktop-header-height': `${desktopHeaderHeight}px`,
         '--bphq-desktop-logo-height': `${Math.max(56, desktopHeaderHeight - 16)}px`,
     };
@@ -131,23 +132,23 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            {!isBookingPage && <header className="sticky top-0 z-50 transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden" style={headerStyle}>
-                <div className="flex h-[var(--bphq-mobile-header-height)] items-center justify-between px-4">
-                    <button type="button" className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
+            {!isBookingPage && <header className="sticky top-0 z-50 overflow-hidden transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden" style={headerStyle}>
+                <div className="flex h-[var(--bphq-mobile-header-height)] items-center justify-between overflow-hidden px-4">
+                    <button type="button" className="grid place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" style={{ height: 'var(--bphq-mobile-control-size)', width: 'var(--bphq-mobile-control-size)' }} onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
-                    <Logo imageClassName="max-h-none" imageStyle={{ height: 'var(--bphq-mobile-logo-height)' }} />
-                    <Link to={user ? dashboardPath(user.role) : '/login'} className="grid size-10 place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" aria-label="Account">
+                    <Logo className="h-full max-w-[58vw] overflow-hidden" imageClassName="max-h-full max-w-full" imageStyle={{ height: 'var(--bphq-mobile-logo-height)' }} />
+                    <Link to={user ? dashboardPath(user.role) : '/login'} className="grid place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" style={{ height: 'var(--bphq-mobile-control-size)', width: 'var(--bphq-mobile-control-size)' }} aria-label="Account">
                         <Icon name="user" size={24} />
                     </Link>
                 </div>
             </header>}
 
-            {!isBookingPage && <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none invisible'}`} aria-hidden={!open} {...(!open && { inert: '' })}>
+            {!isBookingPage && <div className={`fixed inset-0 z-[90] lg:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none invisible'}`} style={headerStyle} aria-hidden={!open} {...(!open && { inert: '' })}>
                 <button type="button" className={`absolute inset-0 bg-[#2A1D14]/45 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={() => setOpen(false)} aria-label="Close navigation" />
                 <aside className={`absolute inset-y-0 left-0 flex w-[84vw] max-w-[340px] flex-col bg-[#F7F3ED] shadow-[18px_0_60px_rgba(36,23,17,.22)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="flex items-center justify-between border-b border-stone-200 px-5 py-5">
-                        <Logo />
+                        <Logo className="max-w-[68%] overflow-hidden" imageClassName="max-h-full max-w-full" imageStyle={{ height: 'var(--bphq-mobile-logo-height)' }} />
                         <button type="button" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full bg-white text-[#2A1D14] shadow-sm" aria-label="Close navigation">
                             <Icon name="x" size={20} />
                         </button>
