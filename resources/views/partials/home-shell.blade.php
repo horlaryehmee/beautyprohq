@@ -9,8 +9,8 @@
 @endphp
 
 <div class="min-h-screen bg-cream-50 text-plum-950" data-bphq-first-paint>
-    <header class="sticky top-0 z-50 overflow-hidden border-b border-stone-200/70 bg-[#F7F3ED]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden" style="--bphq-mobile-header-height: {{ $brandMobileHeaderHeight ?? 96 }}px; --bphq-mobile-logo-height: {{ max(28, min(($brandMobileHeaderHeight ?? 96) - 12, (int) round(($brandMobileHeaderHeight ?? 96) * 0.72))) }}px; --bphq-mobile-control-size: {{ max(32, min(40, ($brandMobileHeaderHeight ?? 96) - 16)) }}px;">
-        <div class="flex items-center justify-between overflow-hidden px-4" style="height: var(--bphq-mobile-header-height);">
+    <header class="sticky top-0 z-50 overflow-hidden border-b border-stone-200/70 bg-[#F7F3ED]/96 shadow-[0_8px_28px_rgba(52,35,28,.06)] backdrop-blur-xl lg:hidden" style="height: {{ $brandMobileHeaderHeight ?? 96 }}px; --bphq-mobile-header-height: {{ $brandMobileHeaderHeight ?? 96 }}px; --bphq-mobile-logo-height: {{ max(28, ($brandMobileHeaderHeight ?? 96) - 8) }}px; --bphq-mobile-control-size: {{ max(32, min(40, ($brandMobileHeaderHeight ?? 96) - 16)) }}px;">
+        <div class="flex h-full items-center justify-between overflow-hidden px-4">
             <button type="button" tabindex="-1" class="grid place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" style="height: var(--bphq-mobile-control-size); width: var(--bphq-mobile-control-size);" aria-label="Open navigation">
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
@@ -23,7 +23,7 @@
         </div>
     </header>
 
-    <header class="sticky top-0 z-50 hidden border-b border-transparent bg-cream-50/80 backdrop-blur-md lg:block" style="--bphq-desktop-header-height: {{ $brandDesktopHeaderHeight ?? 112 }}px; --bphq-desktop-logo-height: {{ max(56, ($brandDesktopHeaderHeight ?? 112) - 16) }}px;">
+    <header class="sticky top-0 z-50 hidden border-b border-transparent bg-cream-50/80 backdrop-blur-md lg:block" style="--bphq-desktop-header-height: {{ $brandDesktopHeaderHeight ?? 112 }}px; --bphq-desktop-logo-height: {{ max(56, ($brandDesktopHeaderHeight ?? 112) - 8) }}px;">
         <div class="page-container flex items-center justify-between gap-5" style="height: var(--bphq-desktop-header-height);">
             <a href="/" class="inline-flex items-center leading-none" aria-label="BeautyPro HQ home">
                 <img src="/brand/bphq-logo-transparent.svg" alt="BeautyPro HQ" width="168" height="168" class="w-auto object-contain" style="height: var(--bphq-desktop-logo-height);">

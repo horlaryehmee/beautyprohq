@@ -465,7 +465,7 @@ export default function AdminSettingsPage() {
                                 <input
                                     className={inputClass}
                                     min="64"
-                                    max="180"
+                                    max="260"
                                     onChange={(event) => setBrandingForm((current) => ({ ...current, desktop_header_height: Number(event.target.value) }))}
                                     type="number"
                                     value={brandingForm.desktop_header_height}
@@ -475,7 +475,7 @@ export default function AdminSettingsPage() {
                                 <input
                                     className={inputClass}
                                     min="56"
-                                    max="140"
+                                    max="220"
                                     onChange={(event) => setBrandingForm((current) => ({ ...current, mobile_header_height: Number(event.target.value) }))}
                                     type="number"
                                     value={brandingForm.mobile_header_height}

@@ -488,8 +488,8 @@ class SubscriptionController extends Controller
             'logo_url' => ['nullable', 'string', 'max:500'],
             'email_logo_url' => ['nullable', 'string', 'max:500'],
             'favicon_url' => ['nullable', 'string', 'max:500'],
-            'desktop_header_height' => ['nullable', 'integer', 'min:64', 'max:180'],
-            'mobile_header_height' => ['nullable', 'integer', 'min:56', 'max:140'],
+            'desktop_header_height' => ['nullable', 'integer', 'min:64', 'max:260'],
+            'mobile_header_height' => ['nullable', 'integer', 'min:56', 'max:220'],
         ]);
 
         AppSetting::setValue('branding.site_name', $validated['site_name'] ?? null);

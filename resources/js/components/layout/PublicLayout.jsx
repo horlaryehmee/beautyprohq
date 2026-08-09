@@ -112,10 +112,10 @@ export default function PublicLayout() {
     const desktopHeaderHeight = Number(brand.desktop_header_height ?? 112);
     const headerStyle = {
         '--bphq-mobile-header-height': `${mobileHeaderHeight}px`,
-        '--bphq-mobile-logo-height': `${Math.max(28, Math.min(mobileHeaderHeight - 12, Math.round(mobileHeaderHeight * 0.72)))}px`,
+        '--bphq-mobile-logo-height': `${Math.max(28, mobileHeaderHeight - 8)}px`,
         '--bphq-mobile-control-size': `${Math.max(32, Math.min(40, mobileHeaderHeight - 16))}px`,
         '--bphq-desktop-header-height': `${desktopHeaderHeight}px`,
-        '--bphq-desktop-logo-height': `${Math.max(56, desktopHeaderHeight - 16)}px`,
+        '--bphq-desktop-logo-height': `${Math.max(56, desktopHeaderHeight - 8)}px`,
     };
 
     function handleMobileTabChange(index, tab) {
@@ -132,8 +132,8 @@ export default function PublicLayout() {
 
     return (
         <div className="min-h-screen bg-cream-50 text-plum-950">
-            {!isBookingPage && <header className="sticky top-0 z-50 overflow-hidden transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden" style={headerStyle}>
-                <div className="flex h-[var(--bphq-mobile-header-height)] items-center justify-between overflow-hidden px-4">
+            {!isBookingPage && <header className="sticky top-0 z-50 h-[var(--bphq-mobile-header-height)] overflow-hidden transform-gpu border-b border-stone-200/70 bg-[#F7F3ED] shadow-[0_8px_28px_rgba(52,35,28,.06)] [backface-visibility:hidden] lg:hidden" style={headerStyle}>
+                <div className="flex h-full items-center justify-between overflow-hidden px-4">
                     <button type="button" className="grid place-items-center rounded-2xl border border-stone-200 bg-white text-[#2A1D14]" style={{ height: 'var(--bphq-mobile-control-size)', width: 'var(--bphq-mobile-control-size)' }} onClick={() => setOpen(true)} aria-expanded={open} aria-label="Open navigation">
                         <Icon name="menu" size={26} />
                     </button>
