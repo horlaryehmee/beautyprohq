@@ -236,6 +236,29 @@ function SocialIcon({ label }) {
     return <Icon name="external" size={18} />;
 }
 
+function InfoPanel({ title, icon = 'content', action, children }) {
+    return (
+        <section className="rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm sm:rounded-[1.6rem] sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-[#2A1D14]">
+                    <Icon name={icon} size={16} className="text-stone-400" /> {title}
+                </h3>
+                {action}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function InfoRow({ label, value, children }) {
+    return (
+        <div className="flex items-start justify-between gap-4 border-b border-stone-100 py-3 text-sm last:border-b-0">
+            <span className="text-stone-500">{label}</span>
+            <span className="max-w-[62%] text-right font-semibold text-[#2A1D14]">{children ?? value}</span>
+        </div>
+    );
+}
+
 export default function ProviderProfilePage() {
     const { provider: routeProvider, id, slug } = useParams();
     const navigate = useNavigate();
@@ -315,18 +338,16 @@ export default function ProviderProfilePage() {
     const cityCountry = [pro.profile.city ?? provider?.city, pro.profile.country ?? provider?.country].filter(Boolean).join(', ');
     const contactPhone = pro.profile.contact_phone ?? provider?.contact_phone ?? provider?.user?.phone ?? '';
     const contactEmail = pro.profile.contact_email ?? provider?.contact_email ?? '';
-    const onboardingDetails = useMemo(() => ([
-        ['Profession', pro.profession],
-        ['Category', profileCategory],
-        ['Service area', pro.location],
-        ['City / Country', cityCountry],
-        ['Base price', basePrice > 0 ? `From ${currency(basePrice, defaultCurrency)}` : 'Not listed'],
-        ['Services', `${services.length} listed`],
-        ['Contact phone', contactPhone],
-        ['Contact email', contactEmail],
-        ['Website', websiteUrl],
-        ['Trust', pro.verified ? 'BPHQ verified' : 'Not verified yet'],
-    ].filter(([, value]) => Boolean(value))), [basePrice, cityCountry, contactEmail, contactPhone, defaultCurrency, profileCategory, pro.location, pro.profession, pro.verified, services.length, websiteUrl]);
+    const categorySummary = useMemo(() => {
+        const serviceCategories = Array.from(new Set(services.map((service) => service.category).filter(Boolean)));
+
+        return [profileCategory, ...serviceCategories.filter((category) => category !== profileCategory)].filter(Boolean).join(', ');
+    }, [profileCategory, services]);
+    const paymentMethodLabel = useMemo(() => {
+        const methods = Array.isArray(provider?.payment_methods) ? provider.payment_methods : [];
+
+        return methods.length ? methods.map((method) => method.label ?? method.gateway).filter(Boolean).join(', ') : 'Not listed';
+    }, [provider?.payment_methods]);
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
@@ -687,35 +708,58 @@ export default function ProviderProfilePage() {
                     )}
 
                     {activeTab === 'about' && (
-                        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
+                        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)]">
                             <div className="space-y-6">
-                                <section className="rounded-[1.8rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
-                                    <p className="section-eyebrow">About</p>
-                                    <h2 className="font-display text-3xl font-normal leading-tight text-[#2A1D14] sm:text-4xl">Meet {pro.name.split(' ')[0]}</h2>
-                                    {pro.bio ? <p className="mt-5 whitespace-pre-line text-sm leading-7 text-stone-600 sm:text-base sm:leading-8">{stripHtml(pro.bio)}</p> : <p className="mt-5 text-sm text-stone-500">This professional has not added a bio yet.</p>}
-                                    <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                        {onboardingDetails.map(([label, value]) => (
-                                            <div key={label} className="rounded-2xl bg-[#F7F3ED] p-4">
-                                                <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">{label}</p>
-                                                {label === 'Website' ? (
-                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={safeUrl(value)} target="_blank" rel="noreferrer">{value}</a>
-                                                ) : label === 'Contact email' ? (
-                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={`mailto:${value}`}>{value}</a>
-                                                ) : label === 'Contact phone' ? (
-                                                    <a className="mt-2 block truncate text-sm font-semibold text-[#2A1D14] underline decoration-[#DCCCB8] underline-offset-4" href={`tel:${String(value).replace(/\s+/g, '')}`}>{value}</a>
-                                                ) : (
-                                                    <p className="mt-2 text-sm font-semibold text-[#2A1D14]">{value}</p>
-                                                )}
-                                            </div>
-                                        ))}
+                                <InfoPanel title="Description" icon="content">
+                                    {pro.bio ? <p className="whitespace-pre-line text-sm leading-7 text-stone-700">{stripHtml(pro.bio)}</p> : <p className="text-sm leading-7 text-stone-500">This professional has not added a description yet.</p>}
+                                </InfoPanel>
+
+                                <InfoPanel title="Social networks" icon="external">
+                                    {socialLinks.length ? (
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            {socialLinks.map((item) => (
+                                                <a key={`${item.label}-${item.url}`} href={safeUrl(item.url)} target="_blank" rel="noreferrer" className="group flex min-h-14 items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 transition hover:border-[#3A2A1F]/30 hover:bg-[#F7F3ED]">
+                                                    <span className="grid size-9 place-items-center rounded-full bg-[#F7F3ED] text-[#3A2A1F]"><SocialIcon label={item.label} /></span>
+                                                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-[#2A1D14]">{item.label}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : <p className="text-sm leading-6 text-stone-500">Social media accounts have not been added yet.</p>}
+                                </InfoPanel>
+
+                                <InfoPanel title="Pricing" icon="content">
+                                    <InfoRow label="Base price" value={basePrice > 0 ? currency(basePrice, defaultCurrency) : 'Not listed'} />
+                                    <InfoRow label="Payment method" value={paymentMethodLabel} />
+                                </InfoPanel>
+
+                                <InfoPanel title="Location" icon="map">
+                                    <InfoRow label="Country" value={pro.profile.country ?? provider?.country ?? 'Not listed'} />
+                                    <InfoRow label="City" value={pro.profile.city ?? provider?.city ?? 'Not listed'} />
+                                    <InfoRow label="Service area" value={pro.location} />
+                                </InfoPanel>
+
+                                <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white shadow-sm sm:rounded-[1.6rem]">
+                                    <div className="flex items-center gap-2 p-5 pb-3 text-sm font-bold text-[#2A1D14]">
+                                        <Icon name="map" size={16} className="text-stone-400" /> Map
+                                    </div>
+                                    <div className="relative h-64 overflow-hidden bg-[#DCCCB8]">
+                                        <LocationMap location={pro.location} providerName={pro.name} />
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4 p-4">
+                                        <p className="min-w-0 truncate text-sm font-semibold text-stone-700">{pro.location}</p>
+                                        <a className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#F7F3ED] px-4 text-sm font-semibold text-[#2A1D14] transition hover:bg-[#DCCCB8]" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pro.location)}`} target="_blank" rel="noreferrer">
+                                            Directions
+                                        </a>
                                     </div>
                                 </section>
+                            </div>
 
-                                <section className="rounded-[1.8rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
+                            <div className="space-y-6">
+                                <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white shadow-sm sm:rounded-[1.6rem]">
                                     {portfolio.length > 0 ? (
-                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-2">
                                             {portfolio.slice(0, 7).map((item, index) => (
-                                                <figure key={item.id} className={`group relative overflow-hidden rounded-2xl bg-[#F7F3ED] ${index === 0 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'}`}>
+                                                <figure key={item.id} className={`group relative overflow-hidden rounded-2xl bg-[#F7F3ED] ${index === 0 ? 'col-span-2 aspect-[16/10]' : 'aspect-square'}`}>
                                                     <img src={item.image} alt={item.title || `${pro.name} portfolio work`} className="size-full object-cover transition duration-500 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                                                     <div className="absolute inset-0 opacity-0 transition group-hover:bg-black/18 group-hover:opacity-100" />
                                                 </figure>
@@ -725,43 +769,30 @@ export default function ProviderProfilePage() {
                                         <div className="mt-6 rounded-2xl border border-dashed border-stone-200 bg-[#FFFFFF] p-6 text-sm leading-6 text-stone-500">Portfolio images will appear here when this professional uploads gallery work.</div>
                                     )}
                                 </section>
-                            </div>
 
-                            <aside className="space-y-6 lg:sticky lg:top-28 lg:self-start">
-                                <section className="overflow-hidden rounded-[1.8rem] border border-stone-200 bg-white shadow-sm">
-                                    <div className="flex items-center gap-2 p-4 pb-3 text-sm font-semibold text-[#2A1D14]">
-                                        <Icon name="map" size={17} className="text-stone-400" /> Location
-                                    </div>
-                                    <div className="relative h-56 overflow-hidden bg-[#DCCCB8]">
-                                        <LocationMap location={pro.location} providerName={pro.name} />
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4 p-4">
-                                        <p className="min-w-0 truncate text-sm font-semibold text-stone-700">{pro.location}</p>
-                                        <a className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#F7F3ED] px-4 text-sm font-semibold text-[#2A1D14] transition hover:bg-[#DCCCB8]" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pro.location)}`} target="_blank" rel="noreferrer">
-                                            Get Directions
-                                        </a>
-                                    </div>
-                                </section>
-
-                                <section className="rounded-[1.8rem] border border-stone-200 bg-white p-5 shadow-sm">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div>
-                                            <p className="section-eyebrow">Social</p>
-                                            <h3 className="font-display text-2xl font-normal text-[#2A1D14]">Connect</h3>
-                                        </div>
-                                        <Icon name="external" className="text-[#3A2A1F]" />
-                                    </div>
-                                    {socialLinks.length ? (
-                                        <div className="mt-5 grid grid-cols-2 gap-3">
-                                            {socialLinks.map((item) => (
-                                                <a key={`${item.label}-${item.url}`} href={safeUrl(item.url)} target="_blank" rel="noreferrer" className="group flex min-h-16 items-center gap-3 rounded-2xl border border-stone-200 bg-[#FFFFFF] p-3 transition hover:border-[#3A2A1F]/30 hover:bg-[#F7F3ED]">
-                                                    <span className="grid size-10 place-items-center rounded-full bg-white text-[#3A2A1F] shadow-sm"><SocialIcon label={item.label} /></span>
-                                                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-[#2A1D14]">{item.label}</span>
-                                                </a>
+                                <InfoPanel title="Category" icon="content">
+                                    <p className="text-sm font-semibold leading-7 text-[#2A1D14]">{categorySummary || pro.profession}</p>
+                                    {services.length > 0 && (
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            {services.slice(0, 8).map((service) => (
+                                                <span key={service.id} className="rounded-full bg-[#F7F3ED] px-3 py-1 text-xs font-semibold text-stone-600">{service.name}</span>
                                             ))}
                                         </div>
-                                    ) : <p className="mt-4 text-sm leading-6 text-stone-500">Social media accounts have not been added yet.</p>}
-                                </section>
+                                    )}
+                                </InfoPanel>
+
+                                <InfoPanel
+                                    title={availability.length ? 'Opening hours' : 'By appointment only'}
+                                    icon="clock"
+                                    action={availability.length ? <span className="text-xs font-semibold text-stone-500">Open hours today vary</span> : <span className="text-xs font-semibold text-stone-500">Contact provider</span>}
+                                >
+                                    <div className="divide-y divide-stone-100">
+                                        {dayNames.map((day, index) => {
+                                            const rows = availability.filter((item) => String(item.day_of_week).toLowerCase() === day.toLowerCase() || Number(item.day_of_week) === index);
+                                            return <InfoRow key={day} label={day} value={rows.length ? rows.map((row) => `${displayTime(row.start_time)} - ${displayTime(row.end_time)}`).join(', ') : (availability.length ? 'Closed' : 'By appointment only')} />;
+                                        })}
+                                    </div>
+                                </InfoPanel>
 
                                 <section className="rounded-[1.8rem] border border-stone-200 bg-[#2A1D14] p-5 text-white shadow-sm">
                                     <p className="section-eyebrow text-rose-100">Terms</p>
@@ -771,7 +802,7 @@ export default function ProviderProfilePage() {
                                         View terms <Icon name="arrow" size={14} />
                                     </button>
                                 </section>
-                            </aside>
+                            </div>
                         </div>
                     )}
 
