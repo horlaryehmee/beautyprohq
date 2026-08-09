@@ -39,8 +39,11 @@ function hasActivePaidPlan(provider) {
     return ['paid', 'pro'].includes(subscription?.plan) && subscription?.status === 'active';
 }
 
-function LocationMap({ location, providerName }) {
-    const query = encodeURIComponent(location && location !== 'Location not added' ? location : providerName);
+function LocationMap({ location, city, country, providerName }) {
+    const queryText = [location, city, country]
+        .filter((part) => part && part !== 'Location not added')
+        .join(', ') || providerName;
+    const query = encodeURIComponent(queryText);
 
     return (
         <iframe
@@ -683,7 +686,7 @@ export default function ProviderProfilePage() {
                                         <Icon name="map" size={16} className="text-stone-400" /> Map
                                     </div>
                                     <div className="relative h-64 overflow-hidden bg-[#DCCCB8]">
-                                        <LocationMap location={pro.location} providerName={pro.name} />
+                                        <LocationMap location={pro.location} city={pro.profile.city ?? provider?.city} country={pro.profile.country ?? provider?.country} providerName={pro.name} />
                                     </div>
                                     <div className="flex items-center justify-between gap-4 p-4">
                                         <p className="min-w-0 truncate text-sm font-semibold text-stone-700">{pro.location}</p>
