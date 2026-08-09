@@ -96,9 +96,20 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/providers/'.$provider->slug)
             ->assertOk()
             ->assertJsonPath('data.user.name', 'Maya Beauty')
+            ->assertJsonPath('data.referral_rewards_available', false)
             ->assertJsonCount(1, 'data.services')
             ->assertJsonMissingPath('data.payment_methods.0.account_reference')
             ->assertJsonMissingPath('data.payment_methods.0.instructions');
+
+        $provider->update([
+            'loyalty_enabled' => true,
+            'referral_rewards_enabled' => true,
+            'loyalty_referral_points' => 25,
+        ]);
+
+        $this->getJson('/api/providers/'.$provider->slug)
+            ->assertOk()
+            ->assertJsonPath('data.referral_rewards_available', true);
     }
 
     public function test_public_provider_contact_sends_spam_protected_email(): void

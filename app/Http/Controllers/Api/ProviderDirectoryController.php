@@ -97,6 +97,11 @@ class ProviderDirectoryController extends Controller
         $data->setAttribute('is_saved', $request->user()?->isCustomer() ? $request->user()->savedProviders()->whereKey($provider->id)->exists() : false);
         $data->setAttribute('can_book_directly', $hasPaidPlan);
         $data->setAttribute('can_show_digital_products', $hasPaidPlan);
+        $data->setAttribute('referral_rewards_available', (bool) (
+            $data->loyalty_enabled
+            && $data->referral_rewards_enabled
+            && (int) ($data->loyalty_referral_points ?? 0) > 0
+        ));
         $data->setAttribute('payment_methods', $hasPaidPlan ? $data->paymentAccounts->map(fn ($account) => [
             'gateway' => $account->gateway,
             'label' => match ($account->gateway) {

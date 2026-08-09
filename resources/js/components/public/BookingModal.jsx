@@ -383,6 +383,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         : (serviceTypeLabel ? serviceTypeLabel : `${locationOptionCount} location option`);
     const selectedServiceDescription = selectedService?.description ? stripHtml(selectedService.description) : '';
     const selectedServicePrice = selectedService ? currency(selectedService.price, selectedService.currency ?? 'NGN') : '';
+    const referralRewardsAvailable = Boolean(
+        provider?.referral_rewards_available
+        ?? (provider?.loyalty_enabled && provider?.referral_rewards_enabled && Number(provider?.loyalty_referral_points ?? 0) > 0),
+    );
     const loyaltyPointsRequired = useMemo(() => {
         const minimum = Number(provider?.loyalty_points_required ?? 0);
         const value = Number(provider?.loyalty_reward_value_amount ?? 0);
@@ -403,7 +407,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setDate('');
         setTime('');
         setNotes('');
-        setReferralCode(new URLSearchParams(window.location.search).get('ref') ?? '');
+        setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
         setCustomFields({});
         setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '' });
@@ -425,7 +429,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             }
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, initialService, availableServices, onClose, standalone, user, provider?.default_payment_gateway, paymentMethods]);
+    }, [open, initialService, availableServices, onClose, standalone, user, provider?.default_payment_gateway, paymentMethods, referralRewardsAvailable]);
 
     useEffect(() => {
         if (!open || !date || !pro.slug) return;
@@ -541,7 +545,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 date,
                 time,
                 notes: notes.trim(),
-                referral_code: referralCode.trim() || undefined,
+                referral_code: referralRewardsAvailable ? (referralCode.trim() || undefined) : undefined,
                 custom_fields: { ...customFields, _booking_timezone: selectedTimezone },
                 redeem_loyalty: redeemLoyalty || undefined,
                 payment_method: selectedPaymentMethod?.gateway,
@@ -951,7 +955,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     )}
                                                 </div>
                                                 {renderProviderQuestions()}
-                                                <FormField label="Referral code (optional)" value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} maxLength={60} placeholder="BPHQ-..." />
+                                                {referralRewardsAvailable && <FormField label="Referral code (optional)" value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} maxLength={60} placeholder="BPHQ-..." />}
                                                 <FormField as="textarea" label="Note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                             </div>
                                         </div>
