@@ -6,6 +6,7 @@ use App\Models\CommunityPost;
 use App\Models\User;
 use App\Models\Opportunity;
 use App\Models\ProviderProfile;
+use App\Support\CommunityDemoContent;
 use Illuminate\Database\Seeder;
 
 class LiveContentSeeder extends Seeder
@@ -69,71 +70,21 @@ class LiveContentSeeder extends Seeder
             'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=1200&q=80',
         ];
 
-        $posts = [
-            [
-                'title' => 'From home studio to growing beauty brand',
-                'content' => '<p>When this member started, most bookings came from friends and referrals. The breakthrough came from treating the home studio like a complete client experience: clear pricing, a simple consultation flow, confirmed arrival instructions, and a gallery that showed consistent results.</p><h2>What changed</h2><ul><li>She grouped services into simple packages clients could understand quickly.</li><li>She started sending prep notes before each appointment.</li><li>She asked happy clients for reviews and permission to show finished looks.</li></ul><p>The result was fewer back-and-forth messages, better prepared clients, and more repeat bookings from people who trusted the process before they arrived.</p>',
-                'type' => 'story',
-                'topic' => 'Business growth',
-                'group_name' => 'Studio owners',
-                'mentions' => ['amara-glam'],
-            ],
-            [
-                'title' => 'Pro spotlight: building trust through great client care',
-                'content' => '<p>Great client care starts before the appointment. This spotlight looks at the small systems beauty professionals use to reduce anxiety, set expectations, and create a polished experience.</p><h2>Trust signals that matter</h2><ul><li>Fast, clear replies that confirm availability and service details.</li><li>Photos that show real work, not only inspiration images.</li><li>Transparent pricing, payment methods, and location information.</li><li>Aftercare messages that help clients keep results longer.</li></ul><p>Members in the discussion are sharing the exact messages and checklists that have improved their repeat bookings.</p>',
-                'type' => 'spotlight',
-                'topic' => 'Client experience',
-                'group_name' => 'Service providers',
-                'mentions' => ['kemi-crowns'],
-            ],
-            [
-                'title' => 'Community win: more beauty professionals getting discovered',
-                'content' => '<p>Community members are getting more intentional about visibility. The most improved profiles have three things in common: accurate location details, compact galleries, and descriptions that explain the client experience in plain language.</p><h2>What members are doing</h2><ul><li>Adding portfolio images that represent their actual work.</li><li>Listing service categories and base prices clearly.</li><li>Using community feedback to improve bios and booking expectations.</li></ul><p>This thread is open for members to share profile updates, ask for feedback, and celebrate small discovery wins.</p>',
-                'type' => 'community',
-                'topic' => 'Discovery',
-                'group_name' => 'General',
-                'mentions' => ['beautyprohq'],
-            ],
-        ];
-
-        $members = User::whereIn('role', ['customer', 'provider'])->where('is_active', true)->limit(4)->get();
-        foreach ($posts as $index => $post) {
+        $members = User::whereIn('role', ['admin', 'customer', 'provider'])->where('is_active', true)->limit(8)->get();
+        foreach (CommunityDemoContent::posts() as $index => $post) {
             $provider = $providers->get($index);
-            CommunityPost::updateOrCreate(
+            $communityPost = CommunityPost::updateOrCreate(
                 ['title' => $post['title']],
                 $post + [
                     'provider_id' => $provider?->id,
-                    'image' => $provider?->profile_photo ?: $fallbackImages[$index],
-                    'rules' => [
-                        'Be respectful and constructive.',
-                        'Keep replies relevant to the topic.',
-                        'Do not share private client information or spam promotions.',
-                    ],
+                    'mentions' => array_values(array_unique(array_merge($post['mentions'], [$provider?->slug ?: 'beautyprohq']))),
+                    'image' => $provider?->profile_photo ?: $fallbackImages[$index % count($fallbackImages)],
+                    'rules' => CommunityDemoContent::rules(),
                     'published_at' => now()->subDays($index + 1),
                 ],
-            )->tap(function (CommunityPost $communityPost) use ($members, $index): void {
-                foreach ($members->take(3) as $offset => $member) {
-                    $communityPost->reactions()->updateOrCreate(['user_id' => $member->id], ['type' => ['like', 'helpful', 'celebrate'][($index + $offset) % 3]]);
-                }
-                $commenter = $members->first();
-                if ($commenter) {
-                    $comment = $communityPost->comments()->updateOrCreate(
-                        ['user_id' => $commenter->id, 'parent_id' => null],
-                        ['body' => 'This is useful. I am taking notes for my own client flow.', 'mentions' => [], 'status' => 'visible']
-                    );
-                    $replyUser = $members->skip(1)->first();
-                    if ($replyUser) {
-                        $communityPost->comments()->updateOrCreate(
-                            ['user_id' => $replyUser->id, 'parent_id' => $comment->id],
-                            ['body' => 'Same here. The pricing and prep-note ideas are practical.', 'mentions' => [], 'status' => 'visible']
-                        );
-                    }
-                }
-                $communityPost->forceFill([
-                    'reaction_count' => $communityPost->reactions()->count(),
-                    'comment_count' => $communityPost->comments()->visible()->count(),
-                ])->save();
-            });
+            );
+
+            CommunityDemoContent::seedInteractions($communityPost, $members, $index);
         }
 
         $this->command?->info('Live opportunities and community posts seeded.');
