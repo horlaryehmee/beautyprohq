@@ -15,6 +15,7 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
+import { mediaUrl } from '../../lib/utils';
 
 const days = [
     ['1', 'Monday'],
@@ -93,12 +94,14 @@ export default function ProviderProfilePage() {
         base_price: '',
         availability: defaultAvailability,
         portfolio_links: [],
+        portfolio_items: [],
         booking_form_fields: [],
         certification_files: [],
         license_files: [],
         professional_info: '',
     });
-    const [portfolioUrl, setPortfolioUrl] = useState('');
+    const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
+    const [removingPortfolioId, setRemovingPortfolioId] = useState(null);
     const [certificationUrl, setCertificationUrl] = useState('');
     const [licenseUrl, setLicenseUrl] = useState('');
     const [saving, setSaving] = useState(false);
@@ -113,7 +116,7 @@ export default function ProviderProfilePage() {
         ['Location', 'Country and city'],
         ['Pricing', 'Base price and currency'],
         ['Work hours', 'Availability'],
-        ['Portfolio', 'Best work links'],
+        ['Portfolio', 'Best work images'],
         ['Booking form', 'Extra questions'],
         ['Verification', 'Review material'],
     ], []);
@@ -142,7 +145,8 @@ export default function ProviderProfilePage() {
                 start_time: String(slot.start_time ?? '09:00').slice(0, 5),
                 end_time: String(slot.end_time ?? '18:00').slice(0, 5),
             })) : defaultAvailability,
-            portfolio_links: current.portfolio_links ?? current.portfolio_items?.map((item) => item.url ?? item.image_url).filter(Boolean) ?? [],
+            portfolio_links: current.portfolio_links ?? [],
+            portfolio_items: current.portfolio_items ?? current.portfolioItems ?? [],
             booking_form_fields: Array.isArray(current.booking_form_fields) ? current.booking_form_fields : [],
             certification_files: [],
             license_files: [],
@@ -158,6 +162,9 @@ export default function ProviderProfilePage() {
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
     const activeSubscription = profile.user?.active_subscription ?? profile.user?.activeSubscription;
     const canEditCoverImage = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
+    const profilePhotoSrc = form.profile_photo instanceof File ? null : mediaUrl(form.profile_photo);
+    const coverImageSrc = form.cover_image instanceof File ? null : mediaUrl(form.cover_image);
+    const portfolioItems = [...(form.portfolio_items ?? [])].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
     const profileStrength = Math.min(100, [
         form.name,
         form.provider_category_id,
@@ -201,13 +208,11 @@ export default function ProviderProfilePage() {
             const socialLinks = rowsToSocialObject(form.social_links);
             if (form.website) socialLinks.website = form.website;
 
-            const updated = await apiRequest('put', '/provider/profile', {
+            const payload = {
                 name: form.name,
                 provider_category_id: form.provider_category_id || null,
                 profession: form.profession,
                 bio: form.bio,
-                profile_photo: form.profile_photo || null,
-                cover_image: form.cover_image || null,
                 contact_email: form.contact_email || null,
                 contact_phone: form.contact_phone || null,
                 website: form.website || null,
@@ -218,7 +223,6 @@ export default function ProviderProfilePage() {
                 default_currency: form.default_currency,
                 base_price: form.base_price || null,
                 availability: form.availability,
-                portfolio_links: form.portfolio_links,
                 booking_form_fields: form.booking_form_fields
                     .filter((field) => field.label?.trim())
                     .slice(0, 8)
@@ -228,7 +232,21 @@ export default function ProviderProfilePage() {
                         required: Boolean(field.required),
                         options: (field.options ?? []).filter((option) => option?.trim()).map((option) => option.trim()).slice(0, 12),
                     })),
-            });
+            };
+            const hasImageUpload = form.profile_photo instanceof File || form.cover_image instanceof File;
+            const requestPayload = hasImageUpload ? new FormData() : payload;
+            if (hasImageUpload) {
+                requestPayload.append('_method', 'PUT');
+                Object.entries(payload).forEach(([key, value]) => {
+                    requestPayload.append(key, Array.isArray(value) || typeof value === 'object' ? JSON.stringify(value) : (value ?? ''));
+                });
+                if (form.profile_photo instanceof File) requestPayload.append('profile_photo', form.profile_photo);
+                if (form.cover_image instanceof File) requestPayload.append('cover_image', form.cover_image);
+            }
+
+            const updated = hasImageUpload
+                ? await apiRequest('post', '/provider/profile', requestPayload, { headers: { 'Content-Type': 'multipart/form-data' } })
+                : await apiRequest('put', '/provider/profile', payload);
             resource.setData((current) => ({ ...current, ...(updated ?? {}) }));
             notify('Profile changes saved.');
         } catch (error) {
@@ -238,12 +256,42 @@ export default function ProviderProfilePage() {
         }
     };
 
-    const addPortfolioLink = () => {
-        if (!portfolioUrl.trim()) return;
-        setForm((current) => ({ ...current, portfolio_links: [...current.portfolio_links, portfolioUrl.trim()] }));
-        setPortfolioUrl('');
+    const uploadPortfolioImage = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (form.portfolio_items.length >= 6) {
+            notify('You can add up to 6 portfolio images.', 'error');
+            return;
+        }
+        setUploadingPortfolio(true);
+        try {
+            const payload = new FormData();
+            payload.append('image', file);
+            const item = await apiRequest('post', '/provider/profile/portfolio', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            setForm((current) => ({ ...current, portfolio_items: [...current.portfolio_items, item].slice(0, 6) }));
+            resource.setData((current) => ({ ...current, portfolio_items: [...(current?.portfolio_items ?? current?.portfolioItems ?? []), item].slice(0, 6) }));
+            notify('Portfolio image uploaded.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setUploadingPortfolio(false);
+        }
     };
-    const removePortfolioLink = (index) => setForm((current) => ({ ...current, portfolio_links: current.portfolio_links.filter((_, itemIndex) => itemIndex !== index) }));
+    const removePortfolioImage = async (item) => {
+        setRemovingPortfolioId(item.id);
+        try {
+            const updated = await apiRequest('delete', `/provider/profile/portfolio/${item.id}`);
+            const items = updated?.portfolio_items ?? updated?.portfolioItems ?? [];
+            setForm((current) => ({ ...current, portfolio_items: items }));
+            resource.setData((current) => ({ ...current, portfolio_items: items }));
+            notify('Portfolio image removed.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setRemovingPortfolioId(null);
+        }
+    };
     const addBookingField = () => setForm((current) => ({
         ...current,
         booking_form_fields: [...current.booking_form_fields, { label: '', type: 'text', required: false, options: [] }].slice(0, 8),
@@ -265,7 +313,7 @@ export default function ProviderProfilePage() {
         setSaving(true);
         try {
             const result = await apiRequest('post', '/provider/verification', {
-                portfolio_links: form.portfolio_links,
+                portfolio_links: form.portfolio_items.map((item) => mediaUrl(item.media_url ?? item.image_url ?? item.image)).filter(Boolean).map((url) => url.startsWith('/') ? `${window.location.origin}${url}` : url),
                 social_links: rowsToSocialObject(form.social_links),
                 professional_info: form.professional_info || [form.profession, form.location, form.bio].filter(Boolean).join('\n\n'),
                 certification_files: form.certification_files,
@@ -318,10 +366,18 @@ export default function ProviderProfilePage() {
 
                     {step === 1 && (
                         <div className="grid gap-5 sm:grid-cols-2">
-                            <Field label="Profile image URL"><input className={inputClass} onChange={change('profile_photo')} placeholder="https://..." type="url" value={form.profile_photo} /></Field>
-                            <Field label="Cover image URL">
-                                <input className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={change('cover_image')} placeholder="https://..." type="url" value={form.cover_image} />
+                            <Field label="Profile image">
+                                {profilePhotoSrc && <img alt="" className="mb-3 h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200" src={profilePhotoSrc} />}
+                                {form.profile_photo instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.profile_photo.name}</p>}
+                                <input accept="image/*" className={inputClass} onChange={(event) => update('profile_photo', event.target.files?.[0] ?? form.profile_photo)} type="file" />
+                                <p className="mt-2 text-xs font-semibold text-slate-400">Uploads are optimized before they are saved.</p>
+                            </Field>
+                            <Field label="Cover image">
+                                {coverImageSrc && <img alt="" className="mb-3 h-28 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={coverImageSrc} />}
+                                {form.cover_image instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.cover_image.name}</p>}
+                                <input accept="image/*" className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={(event) => update('cover_image', event.target.files?.[0] ?? form.cover_image)} type="file" />
                                 {!canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Cover image editing is available on the Pro plan.</p>}
+                                {canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Uploads are optimized before they are saved.</p>}
                             </Field>
                         </div>
                     )}
@@ -378,10 +434,38 @@ export default function ProviderProfilePage() {
                     )}
 
                     {step === 7 && (
-                        <div>
-                            <CardHeader description="Add links to your best work. These can also support verification." title="Portfolio" />
-                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="https://instagram.com/p/... or image URL" type="url" value={portfolioUrl} /><Button onClick={addPortfolioLink} type="button" variant="secondary">Add link</Button></div>
-                            <LinkList items={form.portfolio_links} onRemove={removePortfolioLink} />
+                        <div className="space-y-5">
+                            <CardHeader description="Upload up to 6 clear images of your work. Images are optimized before they are saved." title="Portfolio" />
+                            <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900">{portfolioItems.length}/6 images added</p>
+                                    <p className="mt-1 text-xs font-semibold text-slate-400">Use real client work or portfolio-ready examples.</p>
+                                </div>
+                                <label className={`relative inline-flex min-h-10 items-center justify-center overflow-hidden rounded-xl border border-bphq-chrome bg-white px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-ivory ${uploadingPortfolio || portfolioItems.length >= 6 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                    {uploadingPortfolio ? 'Uploading...' : 'Upload image'}
+                                    <input accept="image/*" className="absolute inset-0 cursor-pointer opacity-0" disabled={uploadingPortfolio || portfolioItems.length >= 6} onChange={uploadPortfolioImage} type="file" />
+                                </label>
+                            </div>
+                            {portfolioItems.length ? (
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    {portfolioItems.map((item, index) => {
+                                        const image = mediaUrl(item.media_url ?? item.image_url ?? item.image ?? item.url);
+                                        return (
+                                            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white" key={item.id ?? `${image}-${index}`}>
+                                                <div className="aspect-[4/3] bg-slate-100">
+                                                    {image ? <img alt={item.title ?? 'Portfolio image'} className="size-full object-cover" src={image} /> : null}
+                                                </div>
+                                                <div className="flex items-center justify-between gap-2 p-3">
+                                                    <p className="min-w-0 truncate text-xs font-bold text-slate-700">{item.title ?? `Portfolio image ${index + 1}`}</p>
+                                                    <button className="shrink-0 text-xs font-black text-rose-600 disabled:opacity-50" disabled={removingPortfolioId === item.id} onClick={() => removePortfolioImage(item)} type="button">{removingPortfolioId === item.id ? 'Removing...' : 'Remove'}</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm leading-6 text-slate-500">No portfolio images yet. Upload images here and they will appear on your public profile.</div>
+                            )}
                         </div>
                     )}
 
@@ -420,7 +504,7 @@ export default function ProviderProfilePage() {
                                     <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">Certification links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setCertificationUrl(event.target.value)} placeholder="https://certificate-link..." type="url" value={certificationUrl} /><Button onClick={() => addVerificationLink('certification_files', certificationUrl, setCertificationUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.certification_files} onRemove={(index) => removeVerificationLink('certification_files', index)} /></div>
                                     <div className="rounded-2xl border border-slate-100 p-4"><p className="font-bold text-slate-950">License links/files</p><div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className={inputClass} onChange={(event) => setLicenseUrl(event.target.value)} placeholder="https://license-link..." type="url" value={licenseUrl} /><Button onClick={() => addVerificationLink('license_files', licenseUrl, setLicenseUrl)} type="button" variant="secondary">Add</Button></div><LinkList items={form.license_files} onRemove={(index) => removeVerificationLink('license_files', index)} /></div>
                                 </div>
-                                <Button busy={saving} disabled={!form.portfolio_links.length || !form.professional_info.trim()} onClick={submitVerification} type="button" variant="soft">Submit for verification</Button>
+                                <Button busy={saving} disabled={!portfolioItems.length || !form.professional_info.trim()} onClick={submitVerification} type="button" variant="soft">Submit for verification</Button>
                             </>}
                         </div>
                     )}
@@ -437,7 +521,7 @@ export default function ProviderProfilePage() {
                 <aside className="hidden space-y-5 xl:sticky xl:top-24 xl:block xl:h-fit">
                     <Card>
                         <div className="flex items-center gap-4">
-                            <Avatar name={form.name} size="lg" src={form.profile_photo} />
+                            <Avatar name={form.name} size="lg" src={profilePhotoSrc} />
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2"><h2 className="truncate font-bold text-slate-950">{form.name || 'Your name'}</h2>{verified && <StatusBadge status="approved" />}</div>
                                 <p className="text-sm text-slate-500">{form.profession || 'Your profession'}</p>

@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Api\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\PortfolioItem;
 use App\Models\ProfileView;
 use App\Models\VerificationRequest;
 use App\Models\User;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
@@ -85,14 +88,20 @@ class DashboardController extends Controller
         return $this->success($request->user()->providerProfile->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]));
     }
 
-    public function updateProfile(Request $request): JsonResponse
+    public function updateProfile(Request $request, UploadService $uploads): JsonResponse
     {
+        foreach (['social_links', 'availability', 'booking_form_fields'] as $jsonField) {
+            if (is_string($request->input($jsonField))) {
+                $request->merge([$jsonField => json_decode($request->input($jsonField), true) ?: []]);
+            }
+        }
+
         $photoRules = $request->hasFile('profile_photo')
             ? ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120']
-            : ['url:http,https', 'max:1000'];
+            : ['string', 'max:1000'];
         $coverRules = $request->hasFile('cover_image')
             ? ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192']
-            : ['url:http,https', 'max:1000'];
+            : ['string', 'max:1000'];
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'provider_category_id' => ['sometimes', 'nullable', 'integer', 'exists:provider_categories,id'],
@@ -154,12 +163,12 @@ class DashboardController extends Controller
             $request->user()->update(['phone' => $validated['contact_phone']]);
         }
         if ($request->hasFile('profile_photo')) {
-            $validated['profile_photo'] = $request->file('profile_photo')->store('providers', 'public');
+            $validated['profile_photo'] = $uploads->store($request->file('profile_photo'))['path'];
         } elseif (isset($validated['profile_photo']) && ! is_string($validated['profile_photo'])) {
             unset($validated['profile_photo']);
         }
         if ($request->hasFile('cover_image')) {
-            $validated['cover_image'] = $request->file('cover_image')->store('providers/covers', 'public');
+            $validated['cover_image'] = $uploads->store($request->file('cover_image'))['path'];
         } elseif (isset($validated['cover_image']) && ! is_string($validated['cover_image'])) {
             unset($validated['cover_image']);
         }
@@ -181,7 +190,41 @@ class DashboardController extends Controller
         return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');
     }
 
-    public function completeOnboarding(Request $request): JsonResponse
+    public function uploadPortfolioImage(Request $request, UploadService $uploads): JsonResponse
+    {
+        $provider = $request->user()->providerProfile;
+        abort_unless($provider, 404, 'Provider profile not found.');
+        abort_if($provider->portfolioItems()->count() >= 6, 422, 'You can add up to 6 portfolio images.');
+
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'title' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $stored = $uploads->store($validated['image']);
+        $item = $provider->portfolioItems()->create([
+            'title' => $validated['title'] ?? 'Portfolio image '.($provider->portfolioItems()->count() + 1),
+            'media_url' => $stored['path'],
+            'media_type' => 'image',
+            'sort_order' => (int) ($provider->portfolioItems()->max('sort_order') ?? 0) + 1,
+        ]);
+
+        return $this->success($item, 'Portfolio image uploaded.', 201);
+    }
+
+    public function deletePortfolioImage(Request $request, PortfolioItem $portfolioItem): JsonResponse
+    {
+        $provider = $request->user()->providerProfile;
+        abort_unless($provider && (int) $portfolioItem->provider_id === (int) $provider->id, 404);
+
+        $path = $portfolioItem->media_url;
+        $portfolioItem->delete();
+        $this->deleteStoredUpload($path);
+
+        return $this->success($provider->fresh()->load(['portfolioItems' => fn ($query) => $query->orderBy('sort_order')]), 'Portfolio image removed.');
+    }
+
+    public function completeOnboarding(Request $request, UploadService $uploads): JsonResponse
     {
         foreach (['social_links', 'availability'] as $jsonField) {
             if (is_string($request->input($jsonField))) {
@@ -244,8 +287,8 @@ class DashboardController extends Controller
                 'provider_category_id' => $validated['provider_category_id'],
                 'profession' => $validated['profession'],
                 'bio' => $validated['bio'],
-                'profile_photo' => $request->file('profile_photo')->store('providers', 'public'),
-                'cover_image' => $request->file('cover_image')->store('providers/covers', 'public'),
+                'profile_photo' => $uploads->store($request->file('profile_photo'))['path'],
+                'cover_image' => $uploads->store($request->file('cover_image'))['path'],
                 'contact_email' => $validated['contact_email'],
                 'contact_phone' => $validated['contact_phone'] ?? null,
                 'website' => $validated['website'] ?? null,
@@ -265,9 +308,10 @@ class DashboardController extends Controller
             }
 
             foreach (array_slice($request->file('portfolio_images', []), 0, 6) as $index => $image) {
+                $stored = $uploads->store($image);
                 $provider->portfolioItems()->create([
                     'title' => 'Portfolio image '.($index + 1),
-                    'media_url' => $image->store('providers/portfolio', 'public'),
+                    'media_url' => $stored['path'],
                     'media_type' => 'image',
                     'sort_order' => $index,
                 ]);
@@ -411,5 +455,15 @@ class DashboardController extends Controller
         $checks = [$provider->profession, $provider->bio, $provider->location, $provider->profile_photo, $provider->services()->exists()];
 
         return (int) round(collect($checks)->filter()->count() / count($checks) * 100);
+    }
+
+    private function deleteStoredUpload(?string $path): void
+    {
+        $path = str_replace('\\', '/', trim((string) $path));
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, '..') || preg_match('#^https?://#i', $path)) {
+            return;
+        }
+
+        Storage::disk((string) config('filesystems.upload_disk', 'public'))->delete(preg_replace('#^storage/#', '', $path));
     }
 }

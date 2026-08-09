@@ -113,7 +113,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::prefix('provider')->middleware('role:provider')->group(function (): void {
         Route::get('/dashboard', [ProviderDashboardController::class, 'index']);
         Route::get('/profile', [ProviderDashboardController::class, 'profile']);
+        Route::post('/profile', [ProviderDashboardController::class, 'updateProfile'])->middleware('throttle:upload');
         Route::put('/profile', [ProviderDashboardController::class, 'updateProfile']);
+        Route::post('/profile/portfolio', [ProviderDashboardController::class, 'uploadPortfolioImage'])->middleware('throttle:upload');
+        Route::delete('/profile/portfolio/{portfolioItem}', [ProviderDashboardController::class, 'deletePortfolioImage']);
         Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding']);
         Route::get('/verification', [ProviderDashboardController::class, 'verification']);
         Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);

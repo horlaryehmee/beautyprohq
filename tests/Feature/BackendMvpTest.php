@@ -18,10 +18,12 @@ use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
+use App\Services\UploadService;
 use App\Services\ContentNewsletterService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
@@ -164,6 +166,41 @@ class BackendMvpTest extends TestCase
             ->assertJsonValidationErrors('bio');
 
         $this->assertNull($profile->fresh()->onboarding_completed_at);
+    }
+
+    public function test_provider_can_upload_and_remove_portfolio_images_from_dashboard(): void
+    {
+        [$provider, $providerUser] = $this->provider('Portfolio Dashboard Studio', true);
+        $this->mock(UploadService::class, function ($mock): void {
+            $mock->shouldReceive('store')->once()->andReturn([
+                'success' => true,
+                'url' => '/storage/uploads/optimized-portfolio.webp',
+                'path' => 'uploads/optimized-portfolio.webp',
+                'filename' => 'optimized-portfolio.webp',
+                'mime_type' => 'image/webp',
+                'size' => 1200,
+            ]);
+        });
+
+        Sanctum::actingAs($providerUser);
+        $itemId = $this->withHeader('Accept', 'application/json')->post('/api/provider/profile/portfolio', [
+            'image' => $this->tinyPngUpload('portfolio.png'),
+        ])->assertCreated()
+            ->assertJsonPath('data.media_url', 'uploads/optimized-portfolio.webp')
+            ->json('data.id');
+
+        $this->assertDatabaseHas('portfolio_items', [
+            'id' => $itemId,
+            'provider_id' => $provider->id,
+            'media_url' => 'uploads/optimized-portfolio.webp',
+            'media_type' => 'image',
+        ]);
+
+        $this->deleteJson("/api/provider/profile/portfolio/{$itemId}")
+            ->assertOk()
+            ->assertJsonCount(0, 'data.portfolio_items');
+
+        $this->assertDatabaseMissing('portfolio_items', ['id' => $itemId]);
     }
 
     public function test_login_me_and_role_protection_work_with_sanctum(): void
@@ -870,5 +907,13 @@ class BackendMvpTest extends TestCase
         ]);
 
         return [$profile, $user];
+    }
+
+    private function tinyPngUpload(string $name): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'bphq-png-');
+        file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l6O3GAAAAABJRU5ErkJggg=='));
+
+        return new UploadedFile($path, $name, 'image/png', null, true);
     }
 }
