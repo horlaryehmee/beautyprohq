@@ -340,7 +340,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [time, setTime] = useState('');
     const [notes, setNotes] = useState('');
     const [referralCode, setReferralCode] = useState('');
-    const [customFields, setCustomFields] = useState({});
     const [redeemLoyalty, setRedeemLoyalty] = useState(false);
     const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '' });
     const [paymentMethod, setPaymentMethod] = useState('');
@@ -366,7 +365,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             return { ...item, disabled: item.disabled || !availableWeekdays.has(weekday) };
         });
     }, [monthOffset, provider?.availability]);
-    const bookingFields = useMemo(() => (Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : []).filter((field) => field?.label).slice(0, 8), [provider]);
     const slots = useMemo(() => normalizeSlots(availabilityData, Number(selectedService?.duration_minutes) || 30, date), [availabilityData, selectedService?.duration_minutes, date]);
     const detailsComplete = customer.name.trim() && customer.email.trim() && customer.phone.trim() && (!customer.create_account || customer.password.length >= 8);
     const providerTimezone = provider?.timezone || provider?.provider_timezone || 'Africa/Lagos';
@@ -408,7 +406,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setTime('');
         setNotes('');
         setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
-        setCustomFields({});
         setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '' });
         setPaymentMethod(provider?.default_payment_gateway || paymentMethods[0]?.gateway || '');
@@ -546,7 +543,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 time,
                 notes: notes.trim(),
                 referral_code: referralRewardsAvailable ? (referralCode.trim() || undefined) : undefined,
-                custom_fields: { ...customFields, _booking_timezone: selectedTimezone },
+                custom_fields: { _booking_timezone: selectedTimezone },
                 redeem_loyalty: redeemLoyalty || undefined,
                 payment_method: selectedPaymentMethod?.gateway,
             };
@@ -576,35 +573,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         } finally {
             setSubmitting(false);
         }
-    }
-
-    function renderProviderQuestions() {
-        if (!bookingFields.length) return null;
-        return (
-            <div className="space-y-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#3A2A1F]">Provider questions</p>
-                {bookingFields.map((field, index) => {
-                    const key = `field_${index}`;
-                    const type = field.type ?? 'text';
-                    const label = `${field.label}${field.required ? ' *' : ''}`;
-
-                    if (type === 'textarea') return <FormField key={key} as="textarea" label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={1000} required={Boolean(field.required)} />;
-                    if (type === 'select') {
-                        return (
-                            <label className="block text-sm font-bold text-[#2A1D14]" key={key}>
-                                {label}
-                                <select className="mt-2 min-h-12 w-full rounded-2xl border border-stone-200 bg-white px-4 text-sm font-semibold text-[#2A1D14] outline-none focus:border-[#3A2A1F]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} required={Boolean(field.required)} value={customFields[key] ?? ''}>
-                                    <option value="">Choose an option</option>
-                                    {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
-                                </select>
-                            </label>
-                        );
-                    }
-                    if (type === 'checkbox') return <label className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#2A1D14]" key={key}><input checked={Boolean(customFields[key])} className="mt-1 size-4 accent-[#3A2A1F]" onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.checked }))} required={Boolean(field.required)} type="checkbox" />{field.label}</label>;
-                    return <FormField key={key} label={label} value={customFields[key] ?? ''} onChange={(event) => setCustomFields((current) => ({ ...current, [key]: event.target.value }))} maxLength={255} required={Boolean(field.required)} />;
-                })}
-            </div>
-        );
     }
 
     const standaloneScheduler = standalone && step <= 2 ? (
@@ -954,7 +922,6 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                         </div>
                                                     )}
                                                 </div>
-                                                {renderProviderQuestions()}
                                                 {referralRewardsAvailable && <FormField label="Referral code (optional)" value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} maxLength={60} placeholder="BPHQ-..." />}
                                                 <FormField as="textarea" label="Note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                             </div>

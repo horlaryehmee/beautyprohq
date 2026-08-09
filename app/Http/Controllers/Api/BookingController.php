@@ -394,11 +394,6 @@ class BookingController extends Controller
 
     private function validatedCustomBookingFields(ProviderProfile $provider, array $answers): array
     {
-        $fields = collect($provider->booking_form_fields ?? [])
-            ->filter(fn ($field) => filled($field['label'] ?? null))
-            ->values()
-            ->take(8);
-
         $clean = [];
         if (isset($answers['_booking_timezone']) && is_string($answers['_booking_timezone'])) {
             $timezone = trim($answers['_booking_timezone']);
@@ -409,43 +404,6 @@ class BookingController extends Controller
                     'answer' => $timezone,
                 ];
             }
-        }
-
-        foreach ($fields as $index => $field) {
-            $key = 'field_'.$index;
-            $label = trim((string) ($field['label'] ?? 'Question '.($index + 1)));
-            $type = in_array($field['type'] ?? 'text', ['text', 'textarea', 'select', 'checkbox'], true) ? $field['type'] : 'text';
-            $required = (bool) ($field['required'] ?? false);
-            $value = $answers[$key] ?? null;
-
-            if ($type === 'checkbox') {
-                $value = filter_var($value, FILTER_VALIDATE_BOOL);
-            } elseif (is_array($value)) {
-                $value = '';
-            } else {
-                $value = trim((string) $value);
-            }
-
-            if ($required && ($type === 'checkbox' ? ! $value : $value === '')) {
-                abort(422, "{$label} is required.");
-            }
-
-            if ($type === 'select') {
-                $options = collect($field['options'] ?? [])->map(fn ($option) => trim((string) $option))->filter()->values()->all();
-                if ($value !== '' && ! in_array($value, $options, true)) {
-                    abort(422, "{$label} has an invalid answer.");
-                }
-            }
-
-            if ($type !== 'checkbox') {
-                $value = Str::limit($value, $type === 'textarea' ? 1000 : 255, '');
-            }
-
-            $clean[] = [
-                'label' => $label,
-                'type' => $type,
-                'answer' => $value,
-            ];
         }
 
         return $clean;

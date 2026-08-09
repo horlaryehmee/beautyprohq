@@ -152,7 +152,12 @@ class BackendMvpTest extends TestCase
     {
         Notification::fake();
         [$provider, $providerUser] = $this->provider('Booked Beauty', true);
-        $provider->update(['loyalty_enabled' => true]);
+        $provider->update([
+            'loyalty_enabled' => true,
+            'booking_form_fields' => [
+                ['label' => 'Do you have allergies?', 'type' => 'textarea', 'required' => true],
+            ],
+        ]);
         $service = $provider->services()->create(['name' => 'Facial', 'category' => 'Skincare', 'service_type' => 'in_person', 'price' => 20000, 'duration_minutes' => 60]);
         $date = Carbon::tomorrow();
         if ($date->dayOfWeek === 0) {
@@ -171,6 +176,7 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.manual_payment.instructions', 'Use the booking reference when paying.')
             ->json('data.id');
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
+        $this->assertSame([], Booking::find($bookingId)->custom_fields ?? []);
 
         Sanctum::actingAs($providerUser);
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'confirmed'])->assertOk();
