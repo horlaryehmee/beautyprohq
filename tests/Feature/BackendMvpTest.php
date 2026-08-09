@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Availability;
+use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\CommunityPost;
 use App\Models\ContactEnquiry;
@@ -108,6 +109,27 @@ class BackendMvpTest extends TestCase
         $this->assertFalse($guest->fresh()->is_guest);
         $this->assertSame($guest->id, Booking::findOrFail($bookingId)->customer_id);
         $this->assertSame(2, User::count());
+    }
+
+    public function test_notification_email_uses_admin_configured_logo(): void
+    {
+        AppSetting::setValue('branding.email_logo_url', '/storage/uploads/email-logo.png');
+        $customer = User::factory()->create(['name' => 'Logo Customer']);
+        [$provider] = $this->provider('Logo Mail Studio', true);
+        $service = $provider->services()->create(['name' => 'Logo Facial', 'price' => 12000, 'duration_minutes' => 45]);
+        $booking = Booking::create([
+            'provider_id' => $provider->id,
+            'customer_id' => $customer->id,
+            'service_id' => $service->id,
+            'date' => now()->addDay()->toDateString(),
+            'time' => '10:00',
+            'status' => 'pending',
+        ]);
+
+        $html = (new BookingStatusNotification($booking, 'Your booking request has been created.'))->toMail($customer)->render();
+
+        $this->assertStringContainsString('/storage/uploads/email-logo.png', $html);
+        $this->assertStringContainsString('max-height: 46px', $html);
     }
 
     public function test_provider_onboarding_requires_detailed_about_description(): void

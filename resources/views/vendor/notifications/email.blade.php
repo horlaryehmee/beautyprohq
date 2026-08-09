@@ -1,6 +1,10 @@
 @php
     $appName = \App\Models\AppSetting::getValue('branding.site_name', config('app.name', 'BeautyPro HQ'));
     $frontendUrl = rtrim(config('app.frontend_url', config('app.url')), '/');
+    $emailLogo = \App\Models\AppSetting::getValue('branding.email_logo_url', \App\Models\AppSetting::getValue('branding.logo_url', '/brand/bphq-logo-transparent.svg'));
+    if ($emailLogo && str_starts_with($emailLogo, '/')) {
+        $emailLogo = $frontendUrl.$emailLogo;
+    }
     $brand = '#3A2A1F';
     $ink = '#2A1D14';
     $muted = '#5B4A3C';
@@ -23,19 +27,25 @@
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{{ $ink }};">
                                 <tr>
                                     <td style="padding:18px 26px;">
-                                        <a href="{{ $frontendUrl }}" style="display:inline-block;text-decoration:none;color:#FFFFFF;">
-                                            <table role="presentation" cellspacing="0" cellpadding="0">
-                                                <tr>
-                                                    <td style="padding:0 14px 0 0;vertical-align:middle;">
-                                                        <span style="display:inline-block;width:42px;height:42px;border:1px solid #EADFD5;border-radius:999px;text-align:center;font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:42px;font-weight:700;color:#FFFFFF;">B</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                @if($emailLogo)
+                                                    <td style="padding:0 16px 0 0;vertical-align:middle;">
+                                                        <a href="{{ $frontendUrl }}" style="display:block;text-decoration:none;">
+                                                            <span style="display:block;width:128px;max-width:128px;border-radius:10px;background:#FFFFFF;padding:8px 10px;text-align:center;">
+                                                                <img src="{{ $emailLogo }}" alt="{{ $appName }}" width="108" style="display:block;width:108px;max-width:108px;height:auto;max-height:46px;margin:0 auto;border:0;outline:none;text-decoration:none;object-fit:contain;">
+                                                            </span>
+                                                        </a>
                                                     </td>
-                                                    <td style="vertical-align:middle;">
+                                                @endif
+                                                <td style="vertical-align:middle;">
+                                                    <a href="{{ $frontendUrl }}" style="display:inline-block;text-decoration:none;color:#FFFFFF;">
                                                         <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.05;font-weight:600;letter-spacing:0;color:#FFFFFF;">{{ $appName }}</div>
                                                         <div style="margin-top:5px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#EADFD5;">Notification</div>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </a>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
