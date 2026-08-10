@@ -42,6 +42,10 @@ export function browserTimezone() {
 }
 
 export function browserCurrency(fallback = 'NGN') {
+    const timezone = browserTimezone();
+    const timezoneMatch = timezoneCurrency[timezone];
+    if (supported.has(timezoneMatch)) return timezoneMatch;
+
     const languages = Array.isArray(navigator.languages) && navigator.languages.length ? navigator.languages : [navigator.language];
     for (const language of languages) {
         const country = String(language ?? '').match(/[-_]([A-Z]{2})$/i)?.[1]?.toUpperCase();
@@ -49,10 +53,7 @@ export function browserCurrency(fallback = 'NGN') {
         if (supported.has(currency)) return currency;
     }
 
-    const timezone = browserTimezone();
-    const currency = timezoneCurrency[timezone];
-
-    return supported.has(currency) ? currency : fallback;
+    return fallback;
 }
 
 export function browserCurrencyHeaders() {

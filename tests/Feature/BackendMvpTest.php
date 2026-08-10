@@ -136,16 +136,18 @@ class BackendMvpTest extends TestCase
 
     public function test_subscription_plans_use_browser_location_currency(): void
     {
-        $this->withHeader('Accept-Language', 'en-GB,en;q=0.9')
+        $this->withHeader('Accept-Language', 'en-GB,en-US;q=0.9')
+            ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
             ->getJson('/api/currencies')
             ->assertOk()
-            ->assertJsonPath('data.detected', 'GBP');
+            ->assertJsonPath('data.detected', 'NGN');
 
-        $this->withHeader('Accept-Language', 'en-GB,en;q=0.9')
+        $this->withHeader('Accept-Language', 'en-GB,en-US;q=0.9')
+            ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
             ->getJson('/api/subscription-plans')
             ->assertOk()
-            ->assertJsonPath('data.detected_currency', 'GBP')
-            ->assertJsonPath('data.plans.1.display_currency', 'GBP');
+            ->assertJsonPath('data.detected_currency', 'NGN')
+            ->assertJsonPath('data.plans.1.display_currency', 'NGN');
     }
 
     public function test_provider_onboarding_requires_detailed_about_description(): void

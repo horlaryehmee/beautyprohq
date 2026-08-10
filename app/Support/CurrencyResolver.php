@@ -53,8 +53,8 @@ class CurrencyResolver
             ?? self::currencyFromCountry($request->header('CF-IPCountry'))
             ?? self::currencyFromCountry($request->header('X-Vercel-IP-Country'))
             ?? self::currencyFromCountry($request->header('X-Appengine-Country'))
-            ?? self::currencyFromAcceptLanguage($request->header('Accept-Language'))
             ?? self::currencyFromTimezone($request->header('X-BPHQ-Timezone'))
+            ?? self::currencyFromAcceptLanguage($request->header('Accept-Language'))
             ?? self::defaultCurrency();
     }
 
