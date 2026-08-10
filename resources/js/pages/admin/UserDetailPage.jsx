@@ -308,8 +308,8 @@ export default function AdminUserDetailPage() {
                 </div>
             </div>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <div className="space-y-5">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+                <div className="min-w-0 space-y-5">
                     <Card>
                         <h2 className="text-lg font-bold text-slate-950">Account details</h2>
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -497,7 +497,7 @@ export default function AdminUserDetailPage() {
                     )}
                 </div>
 
-                <div className="space-y-5 xl:sticky xl:top-24 xl:h-fit">
+                <div className="space-y-5 lg:sticky lg:top-24 lg:h-fit">
                     {hasProviderControls && (
                         <Card>
                             <h2 className="text-lg font-bold text-slate-950">BPHQ verification</h2>

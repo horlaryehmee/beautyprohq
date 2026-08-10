@@ -260,11 +260,12 @@ class DashboardController extends Controller
             if (isset($validated['verification_status']) && $user->providerProfile) {
                 $status = $validated['verification_status'];
                 $user->providerProfile->update(['verified' => $status === 'approved']);
-                $requestModel = $user->providerProfile->verificationRequests()->latest()->first()
+                $latestRequest = $user->providerProfile->verificationRequests()->latest()->first();
+                $requestModel = $latestRequest
                     ?? $user->providerProfile->verificationRequests()->make([
                         'portfolio_links' => $user->providerProfile->portfolio_links ?? [],
-                        'certification_files' => [],
-                        'license_files' => [],
+                        'certification_files' => $latestRequest?->certification_files ?? [],
+                        'license_files' => $latestRequest?->license_files ?? [],
                         'social_links' => $user->providerProfile->social_links ?? [],
                         'professional_info' => collect([$user->providerProfile->profession, $user->providerProfile->location, $user->providerProfile->bio])->filter()->implode("\n\n"),
                     ]);

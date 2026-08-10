@@ -152,7 +152,16 @@ export default function ProviderProfilePage() {
     }, [resource.data]);
 
     useEffect(() => {
-        apiRequest('get', '/provider/verification').then(setVerification).catch(() => {});
+        apiRequest('get', '/provider/verification').then((data) => {
+            setVerification(data);
+            if (data?.request?.certification_files?.length || data?.request?.license_files?.length) {
+                setForm((current) => ({
+                    ...current,
+                    certification_files: data.request.certification_files ?? [],
+                    license_files: data.request.license_files ?? [],
+                }));
+            }
+        }).catch(() => {});
     }, []);
 
     const verified = Boolean(profile.verified);
