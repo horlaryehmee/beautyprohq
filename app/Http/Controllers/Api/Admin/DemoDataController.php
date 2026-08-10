@@ -442,7 +442,7 @@ class DemoDataController extends Controller
 
         $communityMembers = collect([$admin])
             ->concat($customers)
-            ->concat($providers->load('user')->pluck('user')->filter())
+            ->concat($providers->each->load('user')->pluck('user')->filter())
             ->unique('id')
             ->values();
 
