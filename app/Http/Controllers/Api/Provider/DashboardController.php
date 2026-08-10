@@ -355,7 +355,11 @@ class DashboardController extends Controller
             ['provider_id' => $provider->id, 'user_id' => $request->user()->id],
         ));
 
-        return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']), 'Listing details completed.');
+        return $this->success([
+            'provider' => $provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']),
+            'redirect_to' => $request->user()->hasPaidPlan() ? '/provider' : '/provider/subscription',
+            'payment_required' => ! $request->user()->hasPaidPlan(),
+        ], 'Listing details completed.');
     }
 
     public function analytics(Request $request): JsonResponse

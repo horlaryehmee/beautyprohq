@@ -221,9 +221,11 @@ function ProviderOnboardingContent() {
             payload.set('social_links', JSON.stringify(form.social_links.filter((item) => item.url)));
             payload.set('availability', JSON.stringify(form.availability));
 
-            await dashboardApi.post('/provider/onboarding', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
-            notify('Listing details saved.');
-            navigate('/provider', { replace: true });
+            const response = await dashboardApi.post('/provider/onboarding', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const data = response?.data?.data ?? {};
+            const nextPath = data.redirect_to ?? '/provider';
+            notify(data.payment_required ? 'Listing details saved. Continue to payment to activate your paid plan.' : 'Listing details saved.');
+            navigate(nextPath, { replace: true });
             window.location.reload();
         } catch (error) {
             notify(apiErrorMessage(error), 'error');

@@ -86,6 +86,10 @@ class UploadService
 
     private function storeOptimizedImage(UploadedFile $file): array
     {
+        if (! class_exists(ImageManager::class)) {
+            return $this->storeFile($file);
+        }
+
         $useWebp = function_exists('imagewebp');
         $extension = $useWebp ? 'webp' : 'jpg';
         $filename = $this->uniqueFilename($extension);
