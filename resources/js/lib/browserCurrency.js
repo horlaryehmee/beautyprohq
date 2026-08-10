@@ -85,7 +85,14 @@ export async function detectIpCurrency() {
     const timeout = setTimeout(() => controller.abort(), 2500);
 
     try {
-        const response = await fetch('https://ipapi.co/json/', {
+        try {
+            sessionStorage.removeItem(ipCurrencyKey);
+            sessionStorage.removeItem(ipCountryKey);
+        } catch {
+            // Session storage can be disabled in private browsing.
+        }
+
+        const response = await fetch(`https://ipapi.co/json/?_=${Date.now()}`, {
             cache: 'no-store',
             credentials: 'omit',
             signal: controller.signal,
@@ -117,11 +124,9 @@ export async function detectIpCurrency() {
 
 export function browserCurrencyHeaders() {
     const country = storedCountry();
-    const currency = storedCurrency();
 
     return {
         'X-BPHQ-Timezone': browserTimezone(),
         ...(country ? { 'X-BPHQ-Country': country } : {}),
-        ...(currency ? { 'X-BPHQ-Currency': currency } : {}),
     };
 }

@@ -30,7 +30,8 @@ const metaFrom = (value, key) => value?.[key]?.meta ?? value?.meta ?? {};
 
 export default function ProviderSubscriptionPage() {
     const [paymentPage, setPaymentPage] = useState(1);
-    const resource = useApiResource('/provider/subscription', {}, { params: { payments_page: paymentPage, payments_per_page: 10 } });
+    const [currencyReady, setCurrencyReady] = useState(false);
+    const resource = useApiResource('/provider/subscription', {}, { enabled: currencyReady, params: { payments_page: paymentPage, payments_per_page: 10 } });
     const [busy, setBusy] = useState('');
     const [searchParams, setSearchParams] = useSearchParams();
     const { notify } = useDashboardToast();
@@ -70,10 +71,8 @@ export default function ProviderSubscriptionPage() {
 
     useEffect(() => {
         let cancelled = false;
-        detectIpCurrency().then((currency) => {
-            if (!cancelled && currency && currency !== data.detected_currency) {
-                resource.reload();
-            }
+        detectIpCurrency().finally(() => {
+            if (!cancelled) setCurrencyReady(true);
         });
         return () => { cancelled = true; };
     }, []);
@@ -118,7 +117,7 @@ export default function ProviderSubscriptionPage() {
             />
 
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
-            {resource.loading ? <LoadingBlock rows={5} /> : (
+            {!currencyReady || resource.loading ? <LoadingBlock rows={5} /> : (
                 <>
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
