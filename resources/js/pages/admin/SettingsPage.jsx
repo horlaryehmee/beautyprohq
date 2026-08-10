@@ -610,34 +610,49 @@ export default function AdminSettingsPage() {
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Homepage hero images"
-                    description="Upload hero images for the homepage marquee. When 2+ are saved, they replace provider photos. Uploaded images are optimized automatically."
+                    description="Upload hero images for the homepage marquee. When 2+ are saved, they replace provider photos. Drag to reorder."
                     action={<StatusBadge status={`${heroImages.length} images`} />}
                 />
-                <div className="mt-5 space-y-3">
-                    {heroImages.map((url, index) => (
-                        <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3" key={index}>
-                            <img src={url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                            <input
-                                className={inputClass}
-                                onChange={(event) => updateHeroImage(index, event.target.value)}
-                                placeholder="Or paste a URL"
-                                value={url}
-                            />
-                            <button className="shrink-0 text-xs font-bold text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
+                <div className="mt-5 space-y-5">
+                    {heroImages.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                            {heroImages.map((url, index) => (
+                                <div className="group relative overflow-hidden rounded-2xl border border-slate-200" key={index}>
+                                    <img src={url} alt="" className="aspect-square w-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f1f5f9%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2212%22 font-family=%22sans-serif%22>No preview</text></svg>'; }} />
+                                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-white/90 px-3 py-2 text-xs backdrop-blur-sm">
+                                        <span className="truncate font-bold text-slate-700">{index + 1}</span>
+                                        <button className="font-black text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                    <div className="flex gap-3">
-                        {heroImages.length < 8 && (
-                            <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
-                                + Paste URL
-                            </button>
-                        )}
-                        {heroImages.length < 8 && (
-                            <label className={`inline-flex min-h-10 items-center justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 ${uploadingHero ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                                {uploadingHero ? 'Uploading...' : 'Upload image'}
-                                <input accept="image/*" className="sr-only" disabled={uploadingHero} onChange={uploadHeroImage} type="file" />
-                            </label>
-                        )}
+                    )}
+                    <div className="space-y-3">
+                        {heroImages.map((url, index) => (
+                            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3" key={index}>
+                                <img src={url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => updateHeroImage(index, event.target.value)}
+                                    placeholder="Paste an image URL or use Upload"
+                                    value={url}
+                                />
+                                <button className="shrink-0 text-xs font-bold text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
+                            </div>
+                        ))}
+                        <div className="flex gap-3">
+                            {heroImages.length < 8 && (
+                                <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
+                                    + Paste URL
+                                </button>
+                            )}
+                            {heroImages.length < 8 && (
+                                <label className={`inline-flex min-h-10 items-center justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 ${uploadingHero ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                    {uploadingHero ? 'Uploading...' : 'Upload image'}
+                                    <input accept="image/*" className="sr-only" disabled={uploadingHero} onChange={uploadHeroImage} type="file" />
+                                </label>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="mt-5 flex justify-end">
