@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Button,
@@ -19,6 +19,11 @@ import {
 } from '../../components/dashboard';
 import { mediaUrl } from '../../lib/utils';
 
+const ContentWysiwygEditor = lazy(() => import('../../pages/admin/ContentWysiwygEditor').catch((error) => {
+    console.error('BeautyPro HQ WYSIWYG editor could not load', error);
+    return { default: ({ onChange, value }) => <textarea className={`${inputClass} min-h-56`} onChange={(e) => onChange(e.target.value)} value={value} /> };
+}));
+
 const emptyPost = { title: '', content: '', type: 'community', topic: 'General', group_name: '', mentions: '', image: '', image_file: null };
 const normalize = (value) => Array.isArray(value) ? value : value?.data ?? [];
 const plain = (value) => String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -26,7 +31,7 @@ const plain = (value) => String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/\
 function formFrom(item) {
     return {
         title: item?.title ?? '',
-        content: plain(item?.content ?? ''),
+        content: item?.content ?? '',
         type: item?.type ?? 'community',
         topic: item?.topic ?? 'General',
         group_name: item?.group_name ?? '',
@@ -52,6 +57,7 @@ export default function ProviderCommunityPostsPage() {
     };
 
     const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
+    const updateContent = (value) => setForm((current) => ({ ...current, content: value }));
 
     const save = async (event) => {
         event.preventDefault();
@@ -141,7 +147,7 @@ export default function ProviderCommunityPostsPage() {
 
             {showForm && (
                 <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setShowForm(false)}>
-                    <Card className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
+                    <Card className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
                         <h2 className="text-lg font-semibold text-slate-950">{editing ? 'Edit community post' : 'Submit community post'}</h2>
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={save}>
                             <Field className="sm:col-span-2" label="Title"><input className={inputClass} onChange={update('title')} required value={form.title} /></Field>
@@ -154,7 +160,14 @@ export default function ProviderCommunityPostsPage() {
                                 <input accept="image/*" className={inputClass} onChange={(event) => setForm((current) => ({ ...current, image_file: event.target.files?.[0] ?? null }))} type="file" />
                             </Field>
                             <Field className="sm:col-span-2" label="Mentions"><input className={inputClass} onChange={update('mentions')} placeholder="@beautyprohq, @profile-slug" value={form.mentions} /></Field>
-                            <Field className="sm:col-span-2" label="Content"><textarea className={`${inputClass} min-h-56`} onChange={update('content')} required value={form.content} /></Field>
+                            <Field className="sm:col-span-2" label="Content">
+                                <Suspense fallback={<LoadingBlock rows={4} />}>
+                                    <ContentWysiwygEditor
+                                        onChange={updateContent}
+                                        value={form.content}
+                                    />
+                                </Suspense>
+                            </Field>
                             <div className="flex justify-end gap-2 sm:col-span-2">
                                 <Button onClick={() => setShowForm(false)} type="button" variant="secondary">Cancel</Button>
                                 <Button busy={saving} type="submit">Submit for approval</Button>

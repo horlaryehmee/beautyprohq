@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\User;
 use App\Models\AppSetting;
+use App\Models\Booking;
 use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,20 @@ class BusinessController extends Controller
     public function crm(Request $request): JsonResponse
     {
         $provider = $request->user()->providerProfile;
+        
+        // Auto-create CRM entries from existing bookings
+        $bookingCustomerIds = Booking::where('provider_id', $provider->id)
+            ->whereNotNull('customer_id')
+            ->distinct()
+            ->pluck('customer_id');
+        
+        foreach ($bookingCustomerIds as $customerId) {
+            CrmCustomer::firstOrCreate(
+                ['provider_id' => $provider->id, 'customer_id' => $customerId],
+                ['stage' => 'customer', 'priority' => 'normal', 'support_status' => 'none']
+            );
+        }
+
         $customers = CrmCustomer::where('provider_id', $provider->id)
             ->with([
                 'customer:id,name,email,created_at,last_login_at',

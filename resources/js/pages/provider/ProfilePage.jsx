@@ -31,16 +31,24 @@ const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
 
 function LinkList({ items = [], onRemove }) {
-    if (!items.length) return <p className="mt-3 text-sm text-slate-400">No links added yet.</p>;
+    if (!items.length) return <p className="mt-3 text-sm text-slate-400">No files added yet.</p>;
+    const isImage = (url) => /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url);
 
     return (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {items.map((url, index) => {
                 const href = mediaUrl(url);
                 return (
                     <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3" key={`${url}-${index}`}>
-                        <a className="min-w-0 flex-1 truncate text-sm font-semibold text-fuchsia-700" href={href} rel="noreferrer" target="_blank">{url}</a>
-                        <button className="text-xs font-bold text-rose-600" onClick={() => onRemove(index)} type="button">Remove</button>
+                        {isImage(url) ? (
+                            <img src={href} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-slate-200 text-xs font-bold text-slate-500">FILE</span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <a className="block truncate text-sm font-semibold text-fuchsia-700" href={href} rel="noreferrer" target="_blank">{url.split('/').pop()}</a>
+                            <button className="mt-1 text-xs font-bold text-rose-600" onClick={() => onRemove(index)} type="button">Remove</button>
+                        </div>
                     </div>
                 );
             })}
