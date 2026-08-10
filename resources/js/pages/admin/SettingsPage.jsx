@@ -922,7 +922,11 @@ export default function AdminSettingsPage() {
                         <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
                             <p className="font-semibold text-slate-950">Paystack webhook URL</p>
                             <p className="mt-2 break-all font-mono text-xs text-slate-700">{paystackResource.data?.webhook_url ?? `${window.location.origin}/api/paystack/webhook`}</p>
-                            <p className="mt-2 text-xs leading-5">Use this in the platform Paystack account that receives provider subscription plan payments.</p>
+                            <p className="mt-4 font-semibold text-slate-950">Paystack callback URL</p>
+                            <p className="mt-2 break-all font-mono text-xs text-slate-700">{paystackResource.data?.callback_url ?? `${window.location.origin}/provider/subscription`}</p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {(paystackResource.data?.webhook_events ?? []).map((event) => <StatusBadge key={event} status={event} />)}
+                            </div>
                         </div>
                         <div className="grid gap-4 lg:grid-cols-2">
                             <div className="rounded-3xl border border-slate-100 p-4">

@@ -13,6 +13,7 @@ use App\Models\Opportunity;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
+use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
@@ -222,6 +223,111 @@ class BackendMvpTest extends TestCase
         Http::assertSent(fn ($request) => $request->url() === 'https://api.paystack.co/transaction/initialize'
             && $request['plan'] === 'PLN_bphqmonthly'
             && $request['metadata']['paystack_plan_code'] === 'PLN_bphqmonthly');
+
+        $payment = SubscriptionPayment::firstOrFail();
+        $this->assertSame('PLN_bphqmonthly', data_get($payment->raw_response, 'data.plan.plan_code'));
+        $this->assertSame('provider_subscription', data_get($payment->raw_response, 'data.metadata.type'));
+    }
+
+    public function test_paystack_subscription_create_before_charge_success_keeps_subscription_codes(): void
+    {
+        AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
+        Notification::fake();
+        $user = User::factory()->provider()->create(['email' => 'race@example.test']);
+        Sanctum::actingAs($user);
+
+        Http::fake([
+            'https://api.paystack.co/plan' => Http::response([
+                'status' => true,
+                'data' => ['plan_code' => 'PLN_raceplan'],
+            ]),
+            'https://api.paystack.co/transaction/initialize' => Http::response([
+                'status' => true,
+                'data' => [
+                    'authorization_url' => 'https://checkout.paystack.com/race',
+                    'access_code' => 'access_race',
+                ],
+            ]),
+        ]);
+
+        $this->postJson('/api/provider/subscription/checkout', [
+            'plan' => 'paid',
+            'gateway' => 'paystack',
+            'currency' => 'NGN',
+        ])->assertOk();
+
+        $payment = SubscriptionPayment::firstOrFail();
+        $this->postPaystackWebhook([
+            'event' => 'subscription.create',
+            'data' => [
+                'subscription_code' => 'SUB_race',
+                'email_token' => 'token_race',
+                'next_payment_date' => now()->addMonth()->toIso8601String(),
+                'plan' => ['plan_code' => 'PLN_raceplan'],
+                'customer' => ['email' => 'race@example.test'],
+            ],
+        ])->assertOk();
+
+        $this->postPaystackWebhook([
+            'event' => 'charge.success',
+            'data' => [
+                'reference' => $payment->reference,
+                'amount' => 1500000,
+                'currency' => 'NGN',
+                'status' => 'success',
+                'metadata' => [
+                    'type' => 'provider_subscription',
+                    'user_id' => $user->id,
+                    'subscription_payment_id' => $payment->id,
+                    'plan' => 'paid',
+                    'plan_id' => $payment->subscription_plan_id,
+                    'paystack_plan_code' => 'PLN_raceplan',
+                ],
+            ],
+        ])->assertOk();
+
+        $subscription = Subscription::where('user_id', $user->id)->where('status', 'active')->firstOrFail();
+        $this->assertSame('SUB_race', data_get($subscription->metadata, 'paystack_subscription_code'));
+        $this->assertSame('token_race', data_get($subscription->metadata, 'paystack_email_token'));
+    }
+
+    public function test_paystack_invoice_failure_marks_subscription_attention(): void
+    {
+        AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
+        $user = User::factory()->provider()->create();
+        $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => 'paid',
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now()->subMonth(),
+            'renews_at' => now()->addDay(),
+            'metadata' => [
+                'gateway' => 'paystack',
+                'paystack_subscription_code' => 'SUB_attention',
+            ],
+        ]);
+
+        $this->postPaystackWebhook([
+            'event' => 'invoice.payment_failed',
+            'data' => [
+                'invoice_code' => 'INV_failed',
+                'status' => 'failed',
+                'description' => 'Insufficient Funds',
+                'subscription' => [
+                    'subscription_code' => 'SUB_attention',
+                    'next_payment_date' => now()->addMonth()->toIso8601String(),
+                ],
+            ],
+        ])->assertOk();
+
+        $subscription->refresh();
+        $this->assertSame('attention', data_get($subscription->metadata, 'paystack_status'));
+        $this->assertSame('invoice.payment_failed', data_get($subscription->metadata, 'paystack_last_event'));
+        $this->assertSame('Insufficient Funds', data_get($subscription->metadata, 'paystack_last_invoice_description'));
     }
 
     public function test_provider_subscription_page_uses_provider_base_currency(): void
@@ -1311,5 +1417,16 @@ class BackendMvpTest extends TestCase
         file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l6O3GAAAAABJRU5ErkJggg=='));
 
         return new UploadedFile($path, $name, 'image/png', null, true);
+    }
+
+    private function postPaystackWebhook(array $payload): \Illuminate\Testing\TestResponse
+    {
+        $content = json_encode($payload);
+
+        return $this->call('POST', '/api/paystack/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_PAYSTACK_SIGNATURE' => hash_hmac('sha512', $content, 'sk_test_bphq'),
+        ], $content);
     }
 }

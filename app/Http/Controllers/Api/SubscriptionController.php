@@ -119,6 +119,16 @@ class SubscriptionController extends Controller
             ],
             'callback_url' => url('/provider/subscription'),
             'webhook_url' => url('/api/paystack/webhook'),
+            'webhook_events' => [
+                'subscription.create',
+                'charge.success',
+                'invoice.create',
+                'invoice.update',
+                'invoice.payment_failed',
+                'subscription.not_renew',
+                'subscription.disable',
+                'subscription.expiring_cards',
+            ],
         ]);
     }
 
@@ -610,6 +620,15 @@ class SubscriptionController extends Controller
             'status' => 'pending',
         ]);
 
+        $paystackMetadata = [
+            'type' => 'provider_subscription',
+            'user_id' => $user->id,
+            'subscription_payment_id' => $payment->id,
+            'plan' => $plan->key,
+            'plan_id' => $plan->id,
+            'paystack_plan_code' => $paystackPlanCode,
+        ];
+
         $response = Http::external()->withToken($secret)
             ->acceptJson()
             ->post('https://api.paystack.co/transaction/initialize', [
@@ -619,14 +638,7 @@ class SubscriptionController extends Controller
                 'plan' => $paystackPlanCode,
                 'reference' => $reference,
                 'callback_url' => url('/provider/subscription'),
-                'metadata' => [
-                    'type' => 'provider_subscription',
-                    'user_id' => $user->id,
-                    'subscription_payment_id' => $payment->id,
-                    'plan' => $plan->key,
-                    'plan_id' => $plan->id,
-                    'paystack_plan_code' => $paystackPlanCode,
-                ],
+                'metadata' => $paystackMetadata,
             ]);
 
         if (! $response->successful() || ! $response->json('status')) {
@@ -637,7 +649,12 @@ class SubscriptionController extends Controller
         $payment->update([
             'authorization_url' => $response->json('data.authorization_url'),
             'access_code' => $response->json('data.access_code'),
-            'raw_response' => $response->json(),
+            'raw_response' => array_replace_recursive($response->json(), [
+                'data' => [
+                    'metadata' => $paystackMetadata,
+                    'plan' => ['plan_code' => $paystackPlanCode],
+                ],
+            ]),
         ]);
 
         return $this->success([
@@ -757,6 +774,8 @@ class SubscriptionController extends Controller
             $this->storePaystackSubscriptionDetails($data);
         } elseif ($event === 'charge.success') {
             $this->recordPaystackCharge($data, $request->all());
+        } elseif (in_array($event, ['invoice.create', 'invoice.update', 'invoice.payment_failed', 'subscription.expiring_cards'], true)) {
+            $this->recordPaystackInvoiceEvent($event, $data);
         } elseif ($event === 'subscription.not_renew') {
             $this->markPaystackSubscriptionNotRenewing($data);
         } elseif ($event === 'subscription.disable') {
@@ -800,13 +819,13 @@ class SubscriptionController extends Controller
     {
         $amountInSubunit = (int) round($amount * 100);
         $currency = strtoupper($currency);
-        $settingKey = "paystack.plan_code.{$this->paystackMode()}.{$plan->key}.{$currency}.{$amountInSubunit}";
+        $interval = $plan->billing_period === 'yearly' ? 'annually' : 'monthly';
+        $settingKey = "paystack.plan_code.{$this->paystackMode()}.{$plan->key}.{$currency}.{$interval}.{$amountInSubunit}";
         $saved = AppSetting::getValue($settingKey);
         if (filled($saved)) {
             return (string) $saved;
         }
 
-        $interval = $plan->billing_period === 'yearly' ? 'annually' : 'monthly';
         $response = Http::external()->withToken($secret)
             ->acceptJson()
             ->post('https://api.paystack.co/plan', [
@@ -814,6 +833,7 @@ class SubscriptionController extends Controller
                 'amount' => $amountInSubunit,
                 'interval' => $interval,
                 'currency' => $currency,
+                'invoice_limit' => 0,
             ]);
 
         abort_unless($response->successful() && $response->json('status') && filled($response->json('data.plan_code')), 422, $response->json('message') ?: 'Paystack subscription plan could not be created.');
@@ -863,6 +883,24 @@ class SubscriptionController extends Controller
             return;
         }
 
+        $payment = SubscriptionPayment::where('gateway', 'paystack')
+            ->where('status', 'pending')
+            ->where('raw_response->data->metadata->paystack_plan_code', $planCode)
+            ->where('raw_response->data->metadata->type', 'provider_subscription')
+            ->whereHas('user', fn ($query) => $query->where('email', $email))
+            ->latest()
+            ->first();
+
+        if ($payment) {
+            $rawResponse = $payment->raw_response ?? [];
+            data_set($rawResponse, 'data.subscription_code', $code);
+            data_set($rawResponse, 'data.email_token', $token);
+            data_set($rawResponse, 'data.plan.plan_code', $planCode);
+            data_set($rawResponse, 'data.next_payment_date', data_get($data, 'next_payment_date'));
+
+            $payment->update(['raw_response' => $rawResponse]);
+        }
+
         $subscription = Subscription::where('status', 'active')
             ->where('plan', 'paid')
             ->whereHas('user', fn ($query) => $query->where('email', $email))
@@ -897,7 +935,7 @@ class SubscriptionController extends Controller
         if (($metadata['type'] ?? null) === 'provider_subscription' && $reference) {
             $payment = SubscriptionPayment::where('reference', $reference)->with('plan')->first();
             if ($payment && $payment->status !== 'paid' && $this->paystackResponseMatchesPayment($data, $payment)) {
-                $this->activatePaidSubscription($payment, $rawPayload);
+                $this->activatePaidSubscription($payment, $this->mergePaystackSubscriptionPayload($payment, $rawPayload));
             }
 
             return;
@@ -940,6 +978,53 @@ class SubscriptionController extends Controller
                 'gateway' => 'paystack',
                 'paystack_email_token' => data_get($data, 'subscription.email_token') ?: data_get($subscription->metadata, 'paystack_email_token'),
             ]),
+        ]);
+    }
+
+    private function recordPaystackInvoiceEvent(string $event, array $data): void
+    {
+        if ($event === 'subscription.expiring_cards' && array_is_list($data)) {
+            foreach ($data as $item) {
+                $this->recordPaystackInvoiceEvent($event, (array) $item);
+            }
+
+            return;
+        }
+
+        $code = data_get($data, 'subscription.subscription_code');
+        if (! $code) {
+            return;
+        }
+
+        $subscription = Subscription::where('metadata->paystack_subscription_code', $code)->latest()->first();
+        if (! $subscription) {
+            return;
+        }
+
+        $metadata = array_merge($subscription->metadata ?? [], [
+            'gateway' => 'paystack',
+            'paystack_last_event' => $event,
+            'paystack_last_invoice_code' => data_get($data, 'invoice_code'),
+            'paystack_last_invoice_status' => data_get($data, 'status'),
+            'paystack_last_invoice_description' => data_get($data, 'description'),
+        ]);
+
+        if ($event === 'invoice.payment_failed') {
+            $metadata['paystack_status'] = 'attention';
+        }
+
+        if ($event === 'subscription.expiring_cards') {
+            $metadata['paystack_status'] = 'attention';
+            $metadata['paystack_expiring_card'] = [
+                'expiry_date' => data_get($data, 'expiry_date'),
+                'description' => data_get($data, 'description'),
+                'brand' => data_get($data, 'brand'),
+            ];
+        }
+
+        $subscription->update([
+            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $subscription->renews_at,
+            'metadata' => $metadata,
         ]);
     }
 
@@ -1089,8 +1174,8 @@ class SubscriptionController extends Controller
                 'metadata' => array_filter([
                     'gateway' => $locked->gateway,
                     'paystack_plan_code' => data_get($rawResponse, 'data.plan.plan_code') ?: data_get($rawResponse, 'data.plan') ?: data_get($locked->raw_response, 'data.metadata.paystack_plan_code'),
-                    'paystack_subscription_code' => data_get($rawResponse, 'data.subscription.subscription_code') ?: data_get($rawResponse, 'data.subscription_code'),
-                    'paystack_email_token' => data_get($rawResponse, 'data.subscription.email_token') ?: data_get($rawResponse, 'data.email_token'),
+                    'paystack_subscription_code' => data_get($rawResponse, 'data.subscription.subscription_code') ?: data_get($rawResponse, 'data.subscription_code') ?: data_get($locked->raw_response, 'data.subscription_code') ?: data_get($locked->raw_response, 'data.subscription.subscription_code'),
+                    'paystack_email_token' => data_get($rawResponse, 'data.subscription.email_token') ?: data_get($rawResponse, 'data.email_token') ?: data_get($locked->raw_response, 'data.email_token') ?: data_get($locked->raw_response, 'data.subscription.email_token'),
                 ]),
             ]);
 
@@ -1123,6 +1208,28 @@ class SubscriptionController extends Controller
             rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/subscriptions',
             ['subscription_id' => $subscription->id, 'user_id' => $subscription->user_id],
         ));
+    }
+
+    private function mergePaystackSubscriptionPayload(SubscriptionPayment $payment, array $rawPayload): array
+    {
+        $paymentPayload = $payment->raw_response ?? [];
+        foreach ([
+            'subscription_code',
+            'email_token',
+            'next_payment_date',
+        ] as $key) {
+            $value = data_get($paymentPayload, 'data.'.$key);
+            if (filled($value) && blank(data_get($rawPayload, 'data.'.$key))) {
+                data_set($rawPayload, 'data.'.$key, $value);
+            }
+        }
+
+        $planCode = data_get($paymentPayload, 'data.plan.plan_code') ?: data_get($paymentPayload, 'data.metadata.paystack_plan_code');
+        if (filled($planCode) && blank(data_get($rawPayload, 'data.plan.plan_code'))) {
+            data_set($rawPayload, 'data.plan.plan_code', $planCode);
+        }
+
+        return $rawPayload;
     }
 
     private function assertSmtpConfigured(): void
