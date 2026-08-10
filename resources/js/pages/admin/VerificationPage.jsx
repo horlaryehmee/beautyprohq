@@ -16,6 +16,7 @@ const filterClass = (status, active) => {
 
 function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
     const color = tone === 'sky' ? 'bg-sky-50 text-sky-700' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-700' : 'bg-fuchsia-50 text-fuchsia-700';
+    const isImage = (url) => /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url);
 
     return (
         <div>
@@ -23,7 +24,14 @@ function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
             <div className="mt-2 space-y-2">
                 {items.length ? items.map((url) => (
                     <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={mediaUrl(url)} key={url} rel="noreferrer" target="_blank">
-                        Open link â†—
+                        {isImage(url) ? (
+                            <>
+                                <img src={mediaUrl(url)} alt="" className="mb-2 h-36 w-full rounded-lg object-cover" />
+                                View image ↗
+                            </>
+                        ) : (
+                            'Open link ↗'
+                        )}
                     </a>
                 )) : <p className="text-sm text-slate-400">No links provided.</p>}
             </div>
