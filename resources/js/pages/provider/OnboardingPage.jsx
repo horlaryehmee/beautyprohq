@@ -139,7 +139,8 @@ function ProviderOnboardingContent() {
     const categoriesResource = useApiResource('/provider-categories', []);
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState({
+
+    const defaultForm = {
         name: user?.name ?? '',
         provider_category_id: '',
         profession: '',
@@ -164,7 +165,37 @@ function ProviderOnboardingContent() {
         ],
         portfolio_images: [],
         terms_accepted: false,
+    };
+
+    const [form, setForm] = useState(() => {
+        try {
+            const saved = sessionStorage.getItem('bphq_onboarding_draft');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return {
+                    ...defaultForm,
+                    ...parsed,
+                    profile_photo: null,
+                    cover_image: null,
+                    portfolio_images: [],
+                };
+            }
+        } catch {}
+        return defaultForm;
     });
+
+    const hasRestoredDraft = Boolean(sessionStorage.getItem('bphq_onboarding_draft'));
+
+    // Save form to sessionStorage on changes (debounced)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            try {
+                const { profile_photo, cover_image, portfolio_images, ...serializable } = form;
+                sessionStorage.setItem('bphq_onboarding_draft', JSON.stringify(serializable));
+            } catch {}
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [form]);
 
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
     const bioWords = wordCount(form.bio);
@@ -224,6 +255,7 @@ function ProviderOnboardingContent() {
             const response = await dashboardApi.post('/provider/onboarding', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
             const data = response?.data?.data ?? {};
             const nextPath = data.redirect_to ?? '/provider';
+            sessionStorage.removeItem('bphq_onboarding_draft');
             notify(data.payment_required ? 'Listing details saved. Continue to payment to activate your paid plan.' : 'Listing details saved.');
             window.location.href = nextPath;
         } catch (error) {
@@ -242,6 +274,12 @@ function ProviderOnboardingContent() {
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-700">Provider setup</p>
                     <h1 className="mt-2 font-display text-4xl font-normal text-slate-950">Your listing details</h1>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Let’s help you set up your page.</p>
+                    {hasRestoredDraft && (
+                        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                            <span className="font-bold">Your progress was restored.</span> Text fields have been saved. Please re-select any images (profile, cover, portfolio) that were previously uploaded.
+                            <button className="ml-3 font-bold underline" type="button" onClick={() => { sessionStorage.removeItem('bphq_onboarding_draft'); window.location.reload(); }}>Clear draft</button>
+                        </div>
+                    )}
                 </div>
 
                 <form className="grid gap-6 lg:grid-cols-[260px_1fr]" onSubmit={submit}>
