@@ -203,6 +203,8 @@ class DashboardController extends Controller
             
             if ($changedVerificationField && $provider->verified) {
                 $provider->update(['verified' => false]);
+                Cache::forget('public.home.payload.v6');
+                Cache::forget('public.home.payload.v5');
             }
         });
 

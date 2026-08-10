@@ -275,6 +275,8 @@ class DashboardController extends Controller
                     'reviewed_by' => $request->user()->id,
                     'reviewed_at' => now(),
                 ])->save();
+                Cache::forget('public.home.payload.v6');
+                Cache::forget('public.home.payload.v5');
             }
 
             if (isset($validated['is_active']) && ! $validated['is_active']) {

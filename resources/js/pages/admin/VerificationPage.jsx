@@ -131,7 +131,7 @@ export default function AdminVerificationPage() {
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-950">Review {selected.provider?.user?.name ?? selected.user?.name}</h2>
-                                <p className="mt-1 text-sm text-slate-500">Approve only when the providerâ€™s identity and professional proof are acceptable.</p>
+                                <p className="mt-1 text-sm text-slate-500">Approve only when the provider's identity and professional proof are acceptable.</p>
                             </div>
                             <StatusBadge status={selected.status} />
                         </div>
