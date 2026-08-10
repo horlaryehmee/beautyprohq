@@ -99,7 +99,7 @@ const AdminDocumentationPage = lazyWithReload(() => import('./pages/admin/Docume
 
 function RouteLoader() {
     return (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-cream-50" role="status">
+        <div className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-cream-50" role="status">
             <div className="text-center">
                 <LumaSpin className="mx-auto" />
                 <p className="mt-4 text-sm font-bold text-plum-800">Loading BeautyPro HQ...</p>

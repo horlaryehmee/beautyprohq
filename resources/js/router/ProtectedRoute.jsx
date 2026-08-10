@@ -8,7 +8,7 @@ export default function ProtectedRoute({ roles = [] }) {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 z-50 grid place-items-center bg-cream-50" role="status">
+            <div className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-cream-50" role="status">
                 <div className="text-center">
                     <LumaSpin className="mx-auto" />
                     <p className="mt-4 text-sm font-semibold text-plum-800">Preparing your workspace...</p>
