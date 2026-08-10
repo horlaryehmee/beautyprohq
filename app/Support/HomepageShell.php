@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AppSetting;
 use App\Models\ProviderProfile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -47,6 +48,23 @@ class HomepageShell
         ];
     }
 
+    public static function adminHeroImages(): array
+    {
+        if (! Schema::hasTable('app_settings')) {
+            return [];
+        }
+
+        $raw = AppSetting::getValue('homepage.hero_images', '[]');
+        $images = json_decode($raw, true);
+
+        return is_array($images) ? array_values(array_filter($images, 'is_string')) : [];
+    }
+
+    public static function setAdminHeroImages(array $urls): void
+    {
+        AppSetting::setValue('homepage.hero_images', json_encode(array_values($urls)));
+    }
+
     public static function heroImages(): array
     {
         $fallbacks = [
@@ -57,6 +75,12 @@ class HomepageShell
             'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=560&q=70',
             'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=560&q=70',
         ];
+
+        // Admin-controlled images take priority
+        $admin = self::adminHeroImages();
+        if (count($admin) >= 2) {
+            return array_slice($admin, 0, 8);
+        }
 
         $photos = [];
 
@@ -73,6 +97,6 @@ class HomepageShell
                 ->all());
         }
 
-        return collect($photos)->merge($fallbacks)->filter()->unique()->take(8)->values()->all();
+        return collect($admin)->merge($photos)->merge($fallbacks)->filter()->unique()->take(8)->values()->all();
     }
 }

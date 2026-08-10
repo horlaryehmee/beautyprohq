@@ -205,6 +205,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/settings/currencies', [SubscriptionController::class, 'updateAdminCurrencySettings']);
         Route::get('/settings/features', [SubscriptionController::class, 'adminFeatureSettings']);
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
+        Route::get('/settings/hero-images', [SubscriptionController::class, 'adminHeroImages']);
+        Route::put('/settings/hero-images', [SubscriptionController::class, 'updateAdminHeroImages']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
         Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware('throttle:sensitive');

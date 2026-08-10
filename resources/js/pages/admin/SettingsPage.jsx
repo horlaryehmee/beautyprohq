@@ -70,6 +70,8 @@ export default function AdminSettingsPage() {
     const [syncingMailchimp, setSyncingMailchimp] = useState(false);
     const [populatingDemo, setPopulatingDemo] = useState(false);
     const [clearingDemo, setClearingDemo] = useState(false);
+    const [heroImages, setHeroImages] = useState([]);
+    const [savingHero, setSavingHero] = useState(false);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -169,6 +171,29 @@ export default function AdminSettingsPage() {
             webhook_secret: '',
         });
     }, [mailchimpResource.data]);
+
+    useEffect(() => {
+        apiRequest('get', '/admin/settings/hero-images').then((data) => {
+            setHeroImages(data?.images ?? []);
+        }).catch(() => {});
+    }, []);
+
+    const updateHeroImage = (index, value) => setHeroImages((current) => current.map((url, i) => i === index ? value : url));
+    const removeHeroImage = (index) => setHeroImages((current) => current.filter((_, i) => i !== index));
+    const addHeroImage = () => setHeroImages((current) => [...current, '']);
+    const saveHeroImages = async () => {
+        setSavingHero(true);
+        try {
+            const filtered = heroImages.filter((url) => url.trim());
+            const saved = await apiRequest('put', '/admin/settings/hero-images', { images: filtered });
+            setHeroImages(saved?.images ?? []);
+            notify('Homepage hero images saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingHero(false);
+        }
+    };
 
     const saveGateway = async (event) => {
         event.preventDefault();
@@ -561,6 +586,36 @@ export default function AdminSettingsPage() {
                         </div>
                     </div>
                 )}
+            </Card>
+
+            <Card className={sectionTab === 'general' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Homepage hero images"
+                    description="Set custom images for the homepage hero marquee. When 2 or more images are set, they replace provider photos. Use direct image URLs."
+                    action={<StatusBadge status={`${heroImages.length} images`} />}
+                />
+                <div className="mt-5 space-y-3">
+                    {heroImages.map((url, index) => (
+                        <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3" key={index}>
+                            <img src={url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                            <input
+                                className={inputClass}
+                                onChange={(event) => updateHeroImage(index, event.target.value)}
+                                placeholder="https://images.unsplash.com/photo-..."
+                                value={url}
+                            />
+                            <button className="shrink-0 text-xs font-bold text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
+                        </div>
+                    ))}
+                    {heroImages.length < 8 && (
+                        <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
+                            + Add image URL
+                        </button>
+                    )}
+                </div>
+                <div className="mt-5 flex justify-end">
+                    <Button busy={savingHero} onClick={saveHeroImages} type="button">Save homepage images</Button>
+                </div>
             </Card>
 
             <Card className={sectionTab === 'communications' ? '' : 'hidden'}>

@@ -22,6 +22,7 @@ use App\Notifications\TwoFactorCodeNotification;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
+use App\Support\HomepageShell;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
 use Illuminate\Http\JsonResponse;
@@ -520,6 +521,28 @@ class SubscriptionController extends Controller
         AppSetting::setValue('currency.rates', json_encode($rates));
 
         return $this->success($this->currencyPayload(), 'Currency settings saved.');
+    }
+
+    public function adminHeroImages(): JsonResponse
+    {
+        return $this->success([
+            'images' => HomepageShell::adminHeroImages(),
+        ]);
+    }
+
+    public function updateAdminHeroImages(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'images' => ['required', 'array', 'max:8'],
+            'images.*' => ['required', 'string', 'max:1000'],
+        ]);
+
+        HomepageShell::setAdminHeroImages($validated['images']);
+        Cache::forget('home.hero.photos');
+
+        return $this->success([
+            'images' => HomepageShell::adminHeroImages(),
+        ], 'Hero images updated.');
     }
 
     public function checkout(Request $request): JsonResponse
