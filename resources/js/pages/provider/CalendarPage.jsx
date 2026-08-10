@@ -45,7 +45,7 @@ export default function ProviderCalendarPage() {
     const saveAvailability = async () => {
         setSaving(true);
         try {
-            await apiRequest('put', '/provider/availability', { slots: slots.filter((slot) => slot.enabled).map(({ day_of_week, start_time, end_time }) => ({ day_of_week, start_time, end_time })) });
+            await apiRequest('put', '/provider/availability', { slots: slots.filter((slot) => slot.enabled).map(({ day_of_week, start_time, end_time }) => ({ day_of_week, start_time: String(start_time).slice(0, 5), end_time: String(end_time).slice(0, 5) })) });
             notify('Weekly availability updated.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');

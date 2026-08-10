@@ -43,8 +43,8 @@ class DashboardController extends Controller
             ->values();
         $marketLocation = [
             'location' => $provider->location ?: 'Not set',
-            'city' => $locationParts->first() ?: 'Not set',
-            'country' => $locationParts->count() > 1 ? $locationParts->last() : 'Not set',
+            'city' => $provider->city ?: ($locationParts->first() ?: 'Not set'),
+            'country' => $provider->country ?: ($locationParts->count() > 1 ? $locationParts->last() : 'Not set'),
         ];
 
         return $this->success([
