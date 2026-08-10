@@ -4,9 +4,11 @@ import { cn } from '../../lib/utils';
 
 export function PageLoader({ label = 'Loading' }) {
     return (
-        <div className="flex min-h-72 flex-col items-center justify-center gap-4" role="status">
-            <LumaSpin />
-            <p className="text-sm font-semibold text-stone-500">{label}</p>
+        <div className="fixed inset-0 z-50 flex min-h-[100svh] w-screen items-center justify-center bg-cream-50 px-4" role="status">
+            <div className="flex flex-col items-center justify-center gap-4 text-center">
+                <LumaSpin />
+                <p className="text-sm font-semibold text-stone-500">{label}</p>
+            </div>
         </div>
     );
 }
