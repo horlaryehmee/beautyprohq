@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\PortfolioItem;
 use App\Models\ProfileView;
+use App\Models\Subscription;
 use App\Models\VerificationRequest;
 use App\Models\User;
 use App\Notifications\PlatformUpdateNotification;
@@ -355,11 +356,28 @@ class DashboardController extends Controller
             ['provider_id' => $provider->id, 'user_id' => $request->user()->id],
         ));
 
+        $checkoutRequired = $this->hasPendingPaidPlanSelection($request->user());
+
         return $this->success([
             'provider' => $provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']),
-            'redirect_to' => $request->user()->hasPaidPlan() ? '/provider' : '/provider/subscription',
+            'redirect_to' => $request->user()->hasPaidPlan() ? '/provider' : ($checkoutRequired ? null : '/provider/subscription'),
             'payment_required' => ! $request->user()->hasPaidPlan(),
+            'checkout_required' => $checkoutRequired,
         ], 'Listing details completed.');
+    }
+
+    private function hasPendingPaidPlanSelection(User $user): bool
+    {
+        if ($user->hasPaidPlan()) {
+            return false;
+        }
+
+        return $user->subscriptions()
+            ->whereIn('plan', ['paid', 'pro'])
+            ->whereIn('status', ['expired', 'pending'])
+            ->latest()
+            ->get()
+            ->contains(fn (Subscription $subscription): bool => (bool) ($subscription->metadata['selected_at_registration'] ?? false));
     }
 
     public function analytics(Request $request): JsonResponse

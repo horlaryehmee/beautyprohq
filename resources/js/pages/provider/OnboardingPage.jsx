@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, apiRequest, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
 import { defaultCountries } from 'react-international-phone';
 
@@ -256,6 +256,16 @@ function ProviderOnboardingContent() {
             const data = response?.data?.data ?? {};
             const nextPath = data.redirect_to ?? '/provider';
             sessionStorage.removeItem('bphq_onboarding_draft');
+            if (data.checkout_required) {
+                notify('Listing details saved. Opening payment checkout...');
+                const checkout = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid' });
+                if (checkout.authorization_url) {
+                    window.location.href = checkout.authorization_url;
+                    return;
+                }
+                notify('Payment checkout could not be opened.', 'error');
+                return;
+            }
             notify(data.payment_required ? 'Listing details saved. Continue to payment to activate your paid plan.' : 'Listing details saved.');
             window.location.href = nextPath;
         } catch (error) {
