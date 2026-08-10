@@ -347,12 +347,6 @@ export default function HomePage({ onVerifiedProviders }) {
             setData((current) => ({
                 ...(current ?? {}),
                 ...nextData,
-                verified_professionals: list(nextData.verified_professionals).length
-                    ? nextData.verified_professionals
-                    : current?.verified_professionals,
-                featured_providers: list(nextData.featured_providers).length
-                    ? nextData.featured_providers
-                    : current?.featured_providers,
             }));
         } catch (requestError) {
             setError(requestError?.message || 'We could not load BeautyPro HQ right now.');
