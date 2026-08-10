@@ -225,8 +225,7 @@ function ProviderOnboardingContent() {
             const data = response?.data?.data ?? {};
             const nextPath = data.redirect_to ?? '/provider';
             notify(data.payment_required ? 'Listing details saved. Continue to payment to activate your paid plan.' : 'Listing details saved.');
-            navigate(nextPath, { replace: true });
-            window.location.reload();
+            window.location.href = nextPath;
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
