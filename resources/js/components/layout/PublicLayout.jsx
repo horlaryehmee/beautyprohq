@@ -263,7 +263,7 @@ export default function PublicLayout() {
                 </div>
                 <div className="border-t border-white/10">
                     <div className="page-container flex flex-col gap-2 py-5 text-xs text-plum-200 sm:flex-row sm:items-center sm:justify-between">
-                        <p>© {new Date().getFullYear()} BeautyPro HQ. All rights reserved.</p>
+                        <p>© {new Date().getFullYear()} BeautyPro HQ®. All rights reserved.</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
                             <Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
                             <Link to="/terms-and-conditions" className="hover:text-white">Terms & Conditions</Link>
