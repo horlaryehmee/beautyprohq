@@ -61,8 +61,10 @@ export default class ErrorBoundary extends Component {
     render() {
         if (!this.state.error) return this.props.children;
 
+        const isAssetError = isRecoverableAssetError(this.state.error);
+
         // If we already tried reloading, show recovery UI instead of looping
-        if (wasRecentlyReloaded()) {
+        if (isAssetError && wasRecentlyReloaded()) {
             return (
                 <main className="min-h-screen bg-bphq-ivory px-4 py-6 sm:px-6">
                     <div className="mx-auto max-w-5xl rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
@@ -82,6 +84,25 @@ export default class ErrorBoundary extends Component {
         }
 
         // Auto-reloading — show spinner briefly
+        if (!isAssetError) {
+            return (
+                <main className="min-h-screen bg-bphq-ivory px-4 py-6 sm:px-6">
+                    <div className="mx-auto max-w-5xl rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-[.18em] text-rose-700">View unavailable</p>
+                        <h1 className="mt-2 font-display text-2xl font-semibold text-bphq-espresso">This page could not render.</h1>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-bphq-coffee">
+                            Reload the page to try again. If this keeps happening, the latest deployment needs to be checked.
+                        </p>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                            <button className="rounded-xl bg-bphq-coffee px-4 py-2.5 text-sm font-bold text-white" type="button" onClick={() => window.location.reload()}>
+                                Reload view
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
         return (
             <div className="fixed inset-0 z-[999] flex h-screen w-screen items-center justify-center bg-bphq-ivory" role="status">
                 <div className="text-center">

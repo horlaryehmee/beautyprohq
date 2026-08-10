@@ -69,6 +69,39 @@ validate_staged_release() {
   done
 }
 
+validate_built_assets() {
+  local manifest="$STAGE_ROOT/public/build/manifest.json"
+
+  if [ ! -s "$manifest" ]; then
+    echo "Deployment failed: public/build/manifest.json is missing. Run npm run build locally and commit public/build." >&2
+    return 1
+  fi
+
+  php -r '
+    $root = $argv[1];
+    $manifestPath = $root . "/public/build/manifest.json";
+    $manifest = json_decode(file_get_contents($manifestPath), true);
+    if (!is_array($manifest)) {
+        fwrite(STDERR, "Deployment failed: public/build/manifest.json is invalid JSON.\n");
+        exit(1);
+    }
+    foreach ($manifest as $entry) {
+        foreach (["file", "css"] as $key) {
+            if (!isset($entry[$key])) {
+                continue;
+            }
+            $files = is_array($entry[$key]) ? $entry[$key] : [$entry[$key]];
+            foreach ($files as $file) {
+                if (!is_file($root . "/public/build/" . $file)) {
+                    fwrite(STDERR, "Deployment failed: missing built asset public/build/$file.\n");
+                    exit(1);
+                }
+            }
+        }
+    }
+  ' "$STAGE_ROOT"
+}
+
 remove_deleted_paths() {
   git diff --diff-filter=D --name-only "$PREVIOUS_REF" "$RELEASE_REF" | while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -112,6 +145,7 @@ echo "Staging release ${RELEASE_REF:0:12}."
 # Stage the release
 git archive "$RELEASE_REF" | tar -x -C "$STAGE_ROOT"
 validate_staged_release
+validate_built_assets
 
 composer validate --working-dir="$STAGE_ROOT" --no-check-publish --no-interaction
 
