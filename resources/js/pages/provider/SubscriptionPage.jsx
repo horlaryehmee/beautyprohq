@@ -16,7 +16,6 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
-import { browserCurrency, detectIpCurrency } from '../../lib/browserCurrency';
 
 const normalize = (value, key) => {
     if (Array.isArray(value)) return value;
@@ -30,8 +29,7 @@ const metaFrom = (value, key) => value?.[key]?.meta ?? value?.meta ?? {};
 
 export default function ProviderSubscriptionPage() {
     const [paymentPage, setPaymentPage] = useState(1);
-    const [currencyReady, setCurrencyReady] = useState(false);
-    const resource = useApiResource('/provider/subscription', {}, { enabled: currencyReady, params: { payments_page: paymentPage, payments_per_page: 10 } });
+    const resource = useApiResource('/provider/subscription', {}, { params: { payments_page: paymentPage, payments_per_page: 10 } });
     const [busy, setBusy] = useState('');
     const [searchParams, setSearchParams] = useSearchParams();
     const { notify } = useDashboardToast();
@@ -69,19 +67,10 @@ export default function ProviderSubscriptionPage() {
         return () => { cancelled = true; };
     }, [notify, resource, searchParams, setSearchParams]);
 
-    useEffect(() => {
-        let cancelled = false;
-        detectIpCurrency().finally(() => {
-            if (!cancelled) setCurrencyReady(true);
-        });
-        return () => { cancelled = true; };
-    }, []);
-
     const checkout = async () => {
         setBusy('checkout');
         try {
-            const detectedCurrency = await detectIpCurrency();
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: detectedCurrency || data.detected_currency || browserCurrency() });
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: data.account_currency || data.detected_currency });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -117,7 +106,7 @@ export default function ProviderSubscriptionPage() {
             />
 
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
-            {!currencyReady || resource.loading ? <LoadingBlock rows={5} /> : (
+            {resource.loading ? <LoadingBlock rows={5} /> : (
                 <>
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

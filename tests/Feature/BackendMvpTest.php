@@ -224,6 +224,22 @@ class BackendMvpTest extends TestCase
             && $request['metadata']['paystack_plan_code'] === 'PLN_bphqmonthly');
     }
 
+    public function test_provider_subscription_page_uses_provider_base_currency(): void
+    {
+        [$provider, $user] = $this->provider('Base Currency Studio', true);
+        $provider->update(['default_currency' => 'USD']);
+
+        Sanctum::actingAs($user);
+
+        $this->withHeader('X-BPHQ-Country', 'NG')
+            ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
+            ->getJson('/api/provider/subscription')
+            ->assertOk()
+            ->assertJsonPath('data.detected_currency', 'NGN')
+            ->assertJsonPath('data.account_currency', 'USD')
+            ->assertJsonPath('data.plans.1.display_currency', 'USD');
+    }
+
     public function test_paid_provider_downgrade_keeps_access_until_period_end(): void
     {
         Notification::fake();

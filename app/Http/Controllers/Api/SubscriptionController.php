@@ -79,10 +79,13 @@ class SubscriptionController extends Controller
             ->latest()
             ->paginate($this->perPage($request, 10, 50, 'payments_per_page'), ['*'], 'payments_page', max(1, $request->integer('payments_page', 1)));
 
+        $accountCurrency = $this->accountCurrencyForRequest($request);
+
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
             'detected_currency' => CurrencyResolver::currencyForRequest($request),
-            'plans' => $this->subscriptionPlansForRequest($request),
+            'account_currency' => $accountCurrency,
+            'plans' => $this->subscriptionPlansForRequest($request, $accountCurrency),
             'payments' => [
                 'data' => $payments->items(),
                 'meta' => $this->paginationMeta($payments),
@@ -585,7 +588,7 @@ class SubscriptionController extends Controller
         $plan = SubscriptionPlan::where('key', $validated['plan'])->where('is_active', true)->firstOrFail();
         abort_if((float) $plan->price <= 0, 422, 'This plan does not require payment.');
         $gateway = $validated['gateway'] ?? $this->subscriptionGateway();
-        $checkoutCurrency = strtoupper($validated['currency'] ?? CurrencyResolver::currencyForRequest($request));
+        $checkoutCurrency = strtoupper($validated['currency'] ?? $this->accountCurrencyForRequest($request));
         $checkoutAmount = CurrencyResolver::convert((float) $plan->price, $plan->currency, $checkoutCurrency);
 
         if ($gateway === 'stripe') {
@@ -763,15 +766,29 @@ class SubscriptionController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    private function subscriptionPlansForRequest(Request $request): array
+    private function subscriptionPlansForRequest(Request $request, ?string $displayCurrency = null): array
     {
-        $displayCurrency = CurrencyResolver::currencyForRequest($request);
+        $displayCurrency ??= CurrencyResolver::currencyForRequest($request);
 
         return SubscriptionPlan::where('is_active', true)
             ->orderBy('sort_order')
             ->get()
             ->map(fn (SubscriptionPlan $plan): array => CurrencyResolver::planPayload($plan, $displayCurrency))
             ->all();
+    }
+
+    private function accountCurrencyForRequest(Request $request): string
+    {
+        $supported = array_keys(config('currencies.supported', []));
+        $currency = strtoupper((string) (
+            $request->user()?->providerProfile?->default_currency
+            ?: $request->user()?->preferred_currency
+            ?: ''
+        ));
+
+        return in_array($currency, $supported, true)
+            ? $currency
+            : CurrencyResolver::currencyForRequest($request);
     }
 
     private function paystackConfigured(): bool
