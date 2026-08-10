@@ -593,6 +593,7 @@ class SubscriptionController extends Controller
 
         $secret = $this->paystackSecretKey();
         abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
+        $paystackPlanCode = $this->paystackPlanCode($plan, $checkoutAmount, $checkoutCurrency, $secret);
 
         $reference = 'BPHQ-SUB-'.$user->id.'-'.Str::upper(Str::random(12));
         $payment = SubscriptionPayment::create([
@@ -611,6 +612,7 @@ class SubscriptionController extends Controller
                 'email' => $user->email,
                 'amount' => (int) round($checkoutAmount * 100),
                 'currency' => $checkoutCurrency,
+                'plan' => $paystackPlanCode,
                 'reference' => $reference,
                 'callback_url' => url('/provider/subscription'),
                 'metadata' => [
@@ -619,6 +621,7 @@ class SubscriptionController extends Controller
                     'subscription_payment_id' => $payment->id,
                     'plan' => $plan->key,
                     'plan_id' => $plan->id,
+                    'paystack_plan_code' => $paystackPlanCode,
                 ],
             ]);
 
@@ -696,35 +699,67 @@ class SubscriptionController extends Controller
     {
         $user = $request->user();
         abort_unless($user->isProvider(), 403);
+        $active = $user->activeSubscription()->first();
+        if ($active?->isPaid()) {
+            $this->disablePaystackSubscriptionIfPossible($active);
+        }
 
-        $free = SubscriptionPlan::where('key', 'free')->firstOrFail();
+        $subscription = DB::transaction(function () use ($user): Subscription {
+            $active = $user->activeSubscription()->lockForUpdate()->first();
+            abort_unless($active, 422, 'No active subscription was found.');
 
-        $subscription = DB::transaction(function () use ($user, $free): Subscription {
-            Subscription::where('user_id', $user->id)->where('status', 'active')->update([
-                'status' => 'cancelled',
+            if (! $active->isPaid()) {
+                return $active;
+            }
+
+            $endsAt = $active->renews_at && $active->renews_at->isFuture()
+                ? $active->renews_at
+                : now()->addMonth();
+            $metadata = $active->metadata ?? [];
+            $metadata['cancel_at_period_end'] = true;
+            $metadata['cancel_requested_at'] = now()->toIso8601String();
+
+            $active->update([
+                'ends_at' => $endsAt,
                 'cancelled_at' => now(),
-                'ends_at' => now(),
+                'metadata' => $metadata,
             ]);
 
-            return Subscription::create([
-                'user_id' => $user->id,
-                'subscription_plan_id' => $free->id,
-                'plan' => 'free',
-                'status' => 'active',
-                'amount' => 0,
-                'currency' => $free->currency,
-                'starts_at' => now(),
-            ]);
+            return $active->fresh();
         });
         $user->notify(new PlatformUpdateNotification(
-            'Subscription changed',
-            'Your account has been moved to the free plan.',
+            'Subscription cancellation scheduled',
+            'Your paid plan stays active until the current billing period ends.',
             'View subscription',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
             ['subscription_id' => $subscription->id],
         ));
 
-        return $this->success($subscription->load('planDefinition'), 'Your account has been moved to the free plan.');
+        return $this->success($subscription->load('planDefinition'), 'Your paid plan will remain active until the current billing period ends.');
+    }
+
+    public function paystackWebhook(Request $request): JsonResponse
+    {
+        $secret = $this->paystackSecretKey();
+        abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
+
+        $signature = (string) $request->header('X-Paystack-Signature');
+        abort_unless(hash_equals(hash_hmac('sha512', $request->getContent(), $secret), $signature), 401, 'Invalid Paystack signature.');
+
+        $event = (string) $request->input('event');
+        $data = (array) $request->input('data', []);
+
+        if ($event === 'subscription.create') {
+            $this->storePaystackSubscriptionDetails($data);
+        } elseif ($event === 'charge.success') {
+            $this->recordPaystackCharge($data, $request->all());
+        } elseif ($event === 'subscription.not_renew') {
+            $this->markPaystackSubscriptionNotRenewing($data);
+        } elseif ($event === 'subscription.disable') {
+            $this->markPaystackSubscriptionDisabled($data);
+        }
+
+        return response()->json(['ok' => true]);
     }
 
     private function subscriptionPlansForRequest(Request $request): array
@@ -741,6 +776,189 @@ class SubscriptionController extends Controller
     private function paystackConfigured(): bool
     {
         return filled($this->paystackSecretKey());
+    }
+
+    private function paystackPlanCode(SubscriptionPlan $plan, float $amount, string $currency, string $secret): string
+    {
+        $amountInSubunit = (int) round($amount * 100);
+        $currency = strtoupper($currency);
+        $settingKey = "paystack.plan_code.{$this->paystackMode()}.{$plan->key}.{$currency}.{$amountInSubunit}";
+        $saved = AppSetting::getValue($settingKey);
+        if (filled($saved)) {
+            return (string) $saved;
+        }
+
+        $interval = $plan->billing_period === 'yearly' ? 'annually' : 'monthly';
+        $response = Http::external()->withToken($secret)
+            ->acceptJson()
+            ->post('https://api.paystack.co/plan', [
+                'name' => "{$plan->name} ({$currency})",
+                'amount' => $amountInSubunit,
+                'interval' => $interval,
+                'currency' => $currency,
+            ]);
+
+        abort_unless($response->successful() && $response->json('status') && filled($response->json('data.plan_code')), 422, $response->json('message') ?: 'Paystack subscription plan could not be created.');
+
+        $planCode = (string) $response->json('data.plan_code');
+        AppSetting::setValue($settingKey, $planCode);
+
+        return $planCode;
+    }
+
+    private function disablePaystackSubscriptionIfPossible(Subscription $subscription): void
+    {
+        $metadata = $subscription->metadata ?? [];
+        if (($metadata['gateway'] ?? null) !== 'paystack') {
+            return;
+        }
+
+        $code = $metadata['paystack_subscription_code'] ?? null;
+        $token = $metadata['paystack_email_token'] ?? null;
+        if (! $code && ! $token) {
+            return;
+        }
+
+        abort_if(blank($code) || blank($token), 422, 'Paystack subscription details are incomplete. Wait for Paystack to finish creating the subscription, then try again.');
+
+        $secret = $this->paystackSecretKey();
+        abort_if(blank($secret), 422, 'Paystack secret key is not configured.');
+
+        $response = Http::external()->withToken($secret)
+            ->acceptJson()
+            ->post('https://api.paystack.co/subscription/disable', [
+                'code' => $code,
+                'token' => $token,
+            ]);
+
+        abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack subscription could not be disabled.');
+    }
+
+    private function storePaystackSubscriptionDetails(array $data): void
+    {
+        $planCode = data_get($data, 'plan.plan_code') ?: data_get($data, 'plan');
+        $email = data_get($data, 'customer.email');
+        $code = data_get($data, 'subscription_code');
+        $token = data_get($data, 'email_token');
+
+        if (! $planCode || ! $email || ! $code || ! $token) {
+            return;
+        }
+
+        $subscription = Subscription::where('status', 'active')
+            ->where('plan', 'paid')
+            ->whereHas('user', fn ($query) => $query->where('email', $email))
+            ->latest()
+            ->first();
+
+        if (! $subscription) {
+            return;
+        }
+
+        $metadata = $subscription->metadata ?? [];
+        if (($metadata['paystack_plan_code'] ?? null) && $metadata['paystack_plan_code'] !== $planCode) {
+            return;
+        }
+
+        $metadata['gateway'] = 'paystack';
+        $metadata['paystack_plan_code'] = $planCode;
+        $metadata['paystack_subscription_code'] = $code;
+        $metadata['paystack_email_token'] = $token;
+
+        $subscription->update([
+            'renews_at' => data_get($data, 'next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'next_payment_date')) : $subscription->renews_at,
+            'metadata' => $metadata,
+        ]);
+    }
+
+    private function recordPaystackCharge(array $data, array $rawPayload): void
+    {
+        $metadata = (array) ($data['metadata'] ?? []);
+        $reference = (string) ($data['reference'] ?? '');
+
+        if (($metadata['type'] ?? null) === 'provider_subscription' && $reference) {
+            $payment = SubscriptionPayment::where('reference', $reference)->with('plan')->first();
+            if ($payment && $payment->status !== 'paid' && $this->paystackResponseMatchesPayment($data, $payment)) {
+                $this->activatePaidSubscription($payment, $rawPayload);
+            }
+
+            return;
+        }
+
+        $code = data_get($data, 'subscription.subscription_code');
+        if (! $code || ! $reference || SubscriptionPayment::where('reference', $reference)->exists()) {
+            return;
+        }
+
+        $subscription = Subscription::where('status', 'active')
+            ->where('plan', 'paid')
+            ->where('metadata->paystack_subscription_code', $code)
+            ->first();
+
+        if (! $subscription) {
+            return;
+        }
+
+        $payment = SubscriptionPayment::create([
+            'user_id' => $subscription->user_id,
+            'subscription_id' => $subscription->id,
+            'subscription_plan_id' => $subscription->subscription_plan_id,
+            'gateway' => 'paystack',
+            'reference' => $reference,
+            'amount' => ((float) ($data['amount'] ?? 0)) / 100,
+            'currency' => strtoupper((string) ($data['currency'] ?? $subscription->currency)),
+            'status' => 'paid',
+            'paid_at' => now(),
+            'raw_response' => $rawPayload,
+        ]);
+
+        $subscription->update([
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : now()->addMonth(),
+            'ends_at' => null,
+            'cancelled_at' => null,
+            'metadata' => array_merge($subscription->metadata ?? [], [
+                'gateway' => 'paystack',
+                'paystack_email_token' => data_get($data, 'subscription.email_token') ?: data_get($subscription->metadata, 'paystack_email_token'),
+            ]),
+        ]);
+    }
+
+    private function markPaystackSubscriptionNotRenewing(array $data): void
+    {
+        $this->updatePaystackSubscriptionState($data, [
+            'cancel_at_period_end' => true,
+            'paystack_status' => 'non-renewing',
+        ], false);
+    }
+
+    private function markPaystackSubscriptionDisabled(array $data): void
+    {
+        $this->updatePaystackSubscriptionState($data, [
+            'cancel_at_period_end' => true,
+            'paystack_status' => 'cancelled',
+        ], true);
+    }
+
+    private function updatePaystackSubscriptionState(array $data, array $metadata, bool $ended): void
+    {
+        $code = data_get($data, 'subscription_code') ?: data_get($data, 'subscription.subscription_code');
+        if (! $code) {
+            return;
+        }
+
+        $subscription = Subscription::where('metadata->paystack_subscription_code', $code)->latest()->first();
+        if (! $subscription) {
+            return;
+        }
+
+        $subscription->update([
+            'status' => $ended ? 'cancelled' : $subscription->status,
+            'ends_at' => $ended ? now() : ($subscription->ends_at ?: ($subscription->renews_at ?: now()->addMonth())),
+            'cancelled_at' => $subscription->cancelled_at ?: now(),
+            'metadata' => array_merge($subscription->metadata ?? [], $metadata),
+        ]);
     }
 
     private function stripeCheckout($user, SubscriptionPlan $plan, float $checkoutAmount, string $checkoutCurrency): JsonResponse
@@ -850,7 +1068,12 @@ class SubscriptionController extends Controller
                 'currency' => $locked->currency,
                 'starts_at' => now(),
                 'renews_at' => now()->addMonth(),
-                'metadata' => ['gateway' => $locked->gateway],
+                'metadata' => array_filter([
+                    'gateway' => $locked->gateway,
+                    'paystack_plan_code' => data_get($rawResponse, 'data.plan.plan_code') ?: data_get($rawResponse, 'data.plan') ?: data_get($locked->raw_response, 'data.metadata.paystack_plan_code'),
+                    'paystack_subscription_code' => data_get($rawResponse, 'data.subscription.subscription_code') ?: data_get($rawResponse, 'data.subscription_code'),
+                    'paystack_email_token' => data_get($rawResponse, 'data.subscription.email_token') ?: data_get($rawResponse, 'data.email_token'),
+                ]),
             ]);
 
             $locked->update([

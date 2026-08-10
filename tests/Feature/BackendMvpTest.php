@@ -24,6 +24,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
@@ -136,18 +137,90 @@ class BackendMvpTest extends TestCase
 
     public function test_subscription_plans_use_browser_location_currency(): void
     {
+        $this->withHeader('X-BPHQ-Country', 'US')
+            ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
+            ->getJson('/api/currencies')
+            ->assertOk()
+            ->assertJsonPath('data.detected', 'USD');
+
         $this->withHeader('Accept-Language', 'en-GB,en-US;q=0.9')
+            ->withHeader('X-BPHQ-Country', '')
             ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
             ->getJson('/api/currencies')
             ->assertOk()
             ->assertJsonPath('data.detected', 'NGN');
 
         $this->withHeader('Accept-Language', 'en-GB,en-US;q=0.9')
+            ->withHeader('X-BPHQ-Country', '')
             ->withHeader('X-BPHQ-Timezone', 'Africa/Lagos')
             ->getJson('/api/subscription-plans')
             ->assertOk()
             ->assertJsonPath('data.detected_currency', 'NGN')
             ->assertJsonPath('data.plans.1.display_currency', 'NGN');
+    }
+
+    public function test_paystack_subscription_checkout_uses_recurring_plan(): void
+    {
+        AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
+        Notification::fake();
+        $user = User::factory()->provider()->create(['email' => 'provider@example.test']);
+        Sanctum::actingAs($user);
+
+        Http::fake([
+            'https://api.paystack.co/plan' => Http::response([
+                'status' => true,
+                'data' => ['plan_code' => 'PLN_bphqmonthly'],
+            ]),
+            'https://api.paystack.co/transaction/initialize' => Http::response([
+                'status' => true,
+                'data' => [
+                    'authorization_url' => 'https://checkout.paystack.com/bphq',
+                    'access_code' => 'access_bphq',
+                ],
+            ]),
+        ]);
+
+        $this->postJson('/api/provider/subscription/checkout', [
+            'plan' => 'paid',
+            'gateway' => 'paystack',
+            'currency' => 'NGN',
+        ])->assertOk()
+            ->assertJsonPath('data.authorization_url', 'https://checkout.paystack.com/bphq');
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.paystack.co/transaction/initialize'
+            && $request['plan'] === 'PLN_bphqmonthly'
+            && $request['metadata']['paystack_plan_code'] === 'PLN_bphqmonthly');
+    }
+
+    public function test_paid_provider_downgrade_keeps_access_until_period_end(): void
+    {
+        Notification::fake();
+        $user = User::factory()->provider()->create();
+        $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
+        $renewsAt = now()->addDays(12)->startOfSecond();
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => 'paid',
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now()->subDays(18),
+            'renews_at' => $renewsAt,
+            'metadata' => ['gateway' => 'paystack'],
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/provider/subscription/downgrade')
+            ->assertOk()
+            ->assertJsonPath('data.plan', 'paid')
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.metadata.cancel_at_period_end', true);
+
+        $subscription->refresh();
+        $this->assertTrue($user->fresh()->hasPaidPlan());
+        $this->assertTrue($renewsAt->equalTo($subscription->ends_at));
     }
 
     public function test_provider_onboarding_requires_detailed_about_description(): void

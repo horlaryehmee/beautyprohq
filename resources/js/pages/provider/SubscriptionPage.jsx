@@ -16,7 +16,7 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
-import { browserCurrency } from '../../lib/browserCurrency';
+import { browserCurrency, detectIpCurrency } from '../../lib/browserCurrency';
 
 const normalize = (value, key) => {
     if (Array.isArray(value)) return value;
@@ -43,6 +43,7 @@ export default function ProviderSubscriptionPage() {
     const subscription = data.subscription;
     const activePlan = subscription?.plan ?? 'free';
     const paidActive = activePlan === 'paid' && subscription?.status === 'active';
+    const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
     const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
     const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
@@ -67,10 +68,21 @@ export default function ProviderSubscriptionPage() {
         return () => { cancelled = true; };
     }, [notify, resource, searchParams, setSearchParams]);
 
+    useEffect(() => {
+        let cancelled = false;
+        detectIpCurrency().then((currency) => {
+            if (!cancelled && currency && currency !== data.detected_currency) {
+                resource.reload();
+            }
+        });
+        return () => { cancelled = true; };
+    }, []);
+
     const checkout = async () => {
         setBusy('checkout');
         try {
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: data.detected_currency ?? browserCurrency() });
+            const detectedCurrency = await detectIpCurrency();
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: detectedCurrency || data.detected_currency || browserCurrency() });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -84,11 +96,11 @@ export default function ProviderSubscriptionPage() {
     };
 
     const downgrade = async () => {
-        if (!window.confirm('Move this account back to the free plan? Paid tools will no longer be available.')) return;
+        if (!window.confirm('Cancel renewal? Paid tools will stay available until the current billing period ends.')) return;
         setBusy('downgrade');
         try {
             await apiRequest('post', '/provider/subscription/downgrade');
-            notify('You are now on the free plan.');
+            notify('Renewal cancelled. Your paid tools stay active until the current billing period ends.');
             resource.reload();
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -113,7 +125,7 @@ export default function ProviderSubscriptionPage() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
                                 <h2 className="mt-1 text-2xl font-semibold capitalize text-slate-950">{activePlan} plan</h2>
-                                <p className="mt-1 text-sm text-slate-500">{paidActive ? 'Advanced business tools are active.' : 'Basic listing, reviews, and email notifications are active.'}</p>
+                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Paid tools remain active until this billing period ends.' : 'Advanced business tools are active.') : 'Basic listing, reviews, and email notifications are active.'}</p>
                             </div>
                             <StatusBadge status={subscription?.status ?? 'active'} />
                         </div>
@@ -144,7 +156,7 @@ export default function ProviderSubscriptionPage() {
                                     </ul>
                                     <div className="mt-6">
                                         {isPaid ? (
-                                            paidActive ? <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="secondary">Downgrade to free</Button>
+                                            paidActive ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Renewal cancelled' : 'Downgrade to free'}</Button>
                                                 : <Button busy={busy === 'checkout'} disabled={!gatewayConfigured} onClick={checkout} type="button">Upgrade with {gatewayLabel}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>

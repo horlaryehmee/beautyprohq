@@ -50,6 +50,7 @@ class CurrencyResolver
     {
         return self::validCurrency($request->header('X-BPHQ-Currency'))
             ?? self::validCurrency($request->query('currency'))
+            ?? self::currencyFromCountry($request->header('X-BPHQ-Country'))
             ?? self::currencyFromCountry($request->header('CF-IPCountry'))
             ?? self::currencyFromCountry($request->header('X-Vercel-IP-Country'))
             ?? self::currencyFromCountry($request->header('X-Appengine-Country'))

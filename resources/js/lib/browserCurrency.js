@@ -32,6 +32,25 @@ const timezoneCurrency = {
 };
 
 const supported = new Set(['NGN', 'USD', 'EUR', 'GBP']);
+const ipCurrencyKey = 'bphq_ip_currency';
+const ipCountryKey = 'bphq_ip_country';
+
+function storedCurrency() {
+    try {
+        const currency = sessionStorage.getItem(ipCurrencyKey);
+        return supported.has(currency) ? currency : '';
+    } catch {
+        return '';
+    }
+}
+
+function storedCountry() {
+    try {
+        return String(sessionStorage.getItem(ipCountryKey) || '').toUpperCase();
+    } catch {
+        return '';
+    }
+}
 
 export function browserTimezone() {
     try {
@@ -42,6 +61,9 @@ export function browserTimezone() {
 }
 
 export function browserCurrency(fallback = 'NGN') {
+    const ipCurrency = storedCurrency();
+    if (ipCurrency) return ipCurrency;
+
     const timezone = browserTimezone();
     const timezoneMatch = timezoneCurrency[timezone];
     if (supported.has(timezoneMatch)) return timezoneMatch;
@@ -56,9 +78,50 @@ export function browserCurrency(fallback = 'NGN') {
     return fallback;
 }
 
+export async function detectIpCurrency() {
+    if (typeof fetch !== 'function') return '';
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+
+    try {
+        const response = await fetch('https://ipapi.co/json/', {
+            cache: 'no-store',
+            credentials: 'omit',
+            signal: controller.signal,
+        });
+        if (!response.ok) return '';
+
+        const data = await response.json();
+        const country = String(data?.country_code || data?.country || '').toUpperCase();
+        const currency = supported.has(String(data?.currency || '').toUpperCase())
+            ? String(data.currency).toUpperCase()
+            : countryCurrency[country];
+
+        if (!supported.has(currency)) return '';
+
+        try {
+            sessionStorage.setItem(ipCurrencyKey, currency);
+            if (country) sessionStorage.setItem(ipCountryKey, country);
+        } catch {
+            // Session storage can be disabled in private browsing; the current request can still use the fallback.
+        }
+
+        return currency;
+    } catch {
+        return '';
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 export function browserCurrencyHeaders() {
+    const country = storedCountry();
+    const currency = storedCurrency();
+
     return {
-        'X-BPHQ-Currency': browserCurrency(),
         'X-BPHQ-Timezone': browserTimezone(),
+        ...(country ? { 'X-BPHQ-Country': country } : {}),
+        ...(currency ? { 'X-BPHQ-Currency': currency } : {}),
     };
 }

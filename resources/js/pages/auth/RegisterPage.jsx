@@ -7,7 +7,7 @@ import Icon from '../../components/ui/Icon';
 import { InlineAlert } from '../../components/ui/Feedback';
 import { useAuth } from '../../context/AuthContext';
 import api, { apiError, unwrap } from '../../lib/api';
-import { browserCurrency } from '../../lib/browserCurrency';
+import { browserCurrency, detectIpCurrency } from '../../lib/browserCurrency';
 
 const fallbackPlans = [
     { key: 'free', name: 'Free Plan', price: 0, currency: 'NGN', billing_period: 'monthly', features: ['Basic listing', 'Reviews', 'Email notifications'] },
@@ -125,17 +125,24 @@ export default function RegisterPage() {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        api.get('/subscription-plans').then((response) => {
-            const payload = unwrap(response);
-            setPlans(Array.isArray(payload?.plans) ? payload.plans : []);
-            if (payload?.detected_currency) setDisplayCurrency(payload.detected_currency);
-        }).catch(() => setPlans([]));
-        api.get('/currencies').then((response) => {
-            const supported = response?.data?.data?.supported ?? response?.data?.supported ?? [];
-            const detected = response?.data?.data?.detected ?? response?.data?.detected;
-            if (supported.length) setCurrencies(supported);
-            if (detected) setDisplayCurrency(detected);
-        }).catch(() => {});
+        let cancelled = false;
+        detectIpCurrency().then((currency) => {
+            if (!cancelled && currency) setDisplayCurrency(currency);
+        }).finally(() => {
+            if (cancelled) return;
+            api.get('/subscription-plans').then((response) => {
+                const payload = unwrap(response);
+                setPlans(Array.isArray(payload?.plans) ? payload.plans : []);
+                if (payload?.detected_currency) setDisplayCurrency(payload.detected_currency);
+            }).catch(() => setPlans([]));
+            api.get('/currencies').then((response) => {
+                const supported = response?.data?.data?.supported ?? response?.data?.supported ?? [];
+                const detected = response?.data?.data?.detected ?? response?.data?.detected;
+                if (supported.length) setCurrencies(supported);
+                if (detected) setDisplayCurrency(detected);
+            }).catch(() => {});
+        });
+        return () => { cancelled = true; };
     }, []);
 
     const visiblePlans = plans.length ? plans : fallbackPlans;
