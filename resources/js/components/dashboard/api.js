@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { browserCurrencyHeaders } from '../../lib/browserCurrency';
 
 export const dashboardApi = axios.create({
     baseURL: '/api',
@@ -10,6 +11,14 @@ export const dashboardApi = axios.create({
         'X-Requested-With': 'XMLHttpRequest',
     },
 });
+
+dashboardApi.interceptors.request.use((config) => ({
+    ...config,
+    headers: {
+        ...browserCurrencyHeaders(),
+        ...(config.headers ?? {}),
+    },
+}));
 
 dashboardApi.interceptors.response.use(
     (response) => response,

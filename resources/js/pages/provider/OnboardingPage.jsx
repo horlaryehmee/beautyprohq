@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, apiRequest, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
 import { defaultCountries } from 'react-international-phone';
+import { browserCurrency } from '../../lib/browserCurrency';
 
 const days = [
     ['1', 'Monday'],
@@ -154,7 +155,7 @@ function ProviderOnboardingContent() {
         location: '',
         country: '',
         city: '',
-        default_currency: 'NGN',
+        default_currency: browserCurrency(),
         base_price: '',
         availability: [
             { day_of_week: 1, start_time: '09:00', end_time: '18:00' },
@@ -258,7 +259,7 @@ function ProviderOnboardingContent() {
             sessionStorage.removeItem('bphq_onboarding_draft');
             if (data.checkout_required) {
                 notify('Listing details saved. Opening payment checkout...');
-                const checkout = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid' });
+                const checkout = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', currency: browserCurrency() });
                 if (checkout.authorization_url) {
                     window.location.href = checkout.authorization_url;
                     return;

@@ -134,6 +134,20 @@ class BackendMvpTest extends TestCase
         $this->assertStringContainsString('max-height: 46px', $html);
     }
 
+    public function test_subscription_plans_use_browser_location_currency(): void
+    {
+        $this->withHeader('Accept-Language', 'en-GB,en;q=0.9')
+            ->getJson('/api/currencies')
+            ->assertOk()
+            ->assertJsonPath('data.detected', 'GBP');
+
+        $this->withHeader('Accept-Language', 'en-GB,en;q=0.9')
+            ->getJson('/api/subscription-plans')
+            ->assertOk()
+            ->assertJsonPath('data.detected_currency', 'GBP')
+            ->assertJsonPath('data.plans.1.display_currency', 'GBP');
+    }
+
     public function test_provider_onboarding_requires_detailed_about_description(): void
     {
         Notification::fake();

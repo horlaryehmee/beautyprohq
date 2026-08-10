@@ -16,6 +16,7 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
+import { browserCurrency } from '../../lib/browserCurrency';
 
 const normalize = (value, key) => {
     if (Array.isArray(value)) return value;
@@ -69,7 +70,7 @@ export default function ProviderSubscriptionPage() {
     const checkout = async () => {
         setBusy('checkout');
         try {
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway });
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: data.detected_currency ?? browserCurrency() });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -130,7 +131,7 @@ export default function ProviderSubscriptionPage() {
                                         action={isCurrent ? <StatusBadge status="active" /> : null}
                                     />
                                     <p className="text-3xl font-semibold text-slate-950">
-                                        <Currency currency={plan.currency} value={plan.price} />
+                                        <Currency currency={plan.display_currency ?? plan.currency} value={plan.display_price ?? plan.price} />
                                         <span className="ml-1 text-sm font-bold text-slate-400">/{plan.billing_period}</span>
                                     </p>
                                     <ul className="mt-5 space-y-3">

@@ -9,6 +9,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Notifications\TwoFactorCodeNotification;
 use App\Notifications\PlatformUpdateNotification;
+use App\Support\CurrencyResolver;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
@@ -37,6 +38,7 @@ class AuthController extends Controller
         ]);
         $validated['email'] = Str::lower(trim($validated['email']));
         $validated['plan'] = $validated['plan'] ?? 'free';
+        $detectedCurrency = CurrencyResolver::currencyForRequest($request);
 
         $existingUser = User::where('email', $validated['email'])->first();
         if ($existingUser && (! $existingUser->is_guest || ! $existingUser->isCustomer() || $validated['role'] !== 'customer')) {
@@ -52,7 +54,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = DB::transaction(function () use ($validated, $existingUser): User {
+        $user = DB::transaction(function () use ($validated, $existingUser, $detectedCurrency): User {
             $selectedPlan = $validated['plan'];
             unset($validated['plan']);
 
@@ -62,14 +64,14 @@ class AuthController extends Controller
                     'password' => $validated['password'],
                     'is_guest' => false,
                     'is_active' => true,
-                    'preferred_currency' => $existingUser->preferred_currency ?: config('currencies.default', 'NGN'),
+                    'preferred_currency' => $existingUser->preferred_currency ?: $detectedCurrency,
                 ]);
 
                 return $existingUser;
             }
 
             $user = User::create($validated + [
-                'preferred_currency' => config('currencies.default', 'NGN'),
+                'preferred_currency' => $detectedCurrency,
                 'is_active' => true,
                 'is_guest' => false,
             ]);
@@ -79,7 +81,7 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                     'slug' => $this->uniqueSlug($user->name),
                     'profession' => 'Beauty Professional',
-                    'default_currency' => config('currencies.default', 'NGN'),
+                    'default_currency' => $detectedCurrency,
                 ]);
 
                 $plan = SubscriptionPlan::where('key', $selectedPlan)->first()
@@ -91,8 +93,8 @@ class AuthController extends Controller
                         'subscription_plan_id' => $plan->id,
                         'plan' => $plan->key,
                         'status' => $plan->key === 'paid' ? 'expired' : 'active',
-                        'amount' => $plan->key === 'paid' ? $plan->price : 0,
-                        'currency' => $plan->currency,
+                        'amount' => $plan->key === 'paid' ? CurrencyResolver::convert((float) $plan->price, $plan->currency, $detectedCurrency) : 0,
+                        'currency' => $plan->key === 'paid' ? $detectedCurrency : $plan->currency,
                         'starts_at' => $plan->key === 'paid' ? null : now(),
                         'metadata' => $plan->key === 'paid' ? ['selected_at_registration' => true] : null,
                     ]);

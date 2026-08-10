@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { browserCurrencyHeaders } from './browserCurrency';
 
 const api = axios.create({
     baseURL: '/api',
@@ -9,6 +10,14 @@ const api = axios.create({
         'X-Requested-With': 'XMLHttpRequest',
     },
 });
+
+api.interceptors.request.use((config) => ({
+    ...config,
+    headers: {
+        ...browserCurrencyHeaders(),
+        ...(config.headers ?? {}),
+    },
+}));
 
 export async function ensureCsrfCookie() {
     await axios.get('/sanctum/csrf-cookie', {

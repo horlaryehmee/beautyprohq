@@ -6,7 +6,8 @@ import FormField from '../../components/ui/FormField';
 import Icon from '../../components/ui/Icon';
 import { InlineAlert } from '../../components/ui/Feedback';
 import { useAuth } from '../../context/AuthContext';
-import api, { apiError, collectionFrom } from '../../lib/api';
+import api, { apiError, unwrap } from '../../lib/api';
+import { browserCurrency } from '../../lib/browserCurrency';
 
 const fallbackPlans = [
     { key: 'free', name: 'Free Plan', price: 0, currency: 'NGN', billing_period: 'monthly', features: ['Basic listing', 'Reviews', 'Email notifications'] },
@@ -57,7 +58,9 @@ function PlanSelector({ plans, selectedPlan, displayCurrency, currencies, onSele
             <div className="grid gap-3">
                 {plans.map((plan) => {
                     const isSelected = selectedPlan === plan.key;
-                    const price = convertedPrice(plan.price, plan.currency ?? 'NGN', displayCurrency, currencies);
+                    const price = plan.display_currency === displayCurrency && plan.display_price != null
+                        ? Number(plan.display_price)
+                        : convertedPrice(plan.price, plan.currency ?? 'NGN', displayCurrency, currencies);
                     const description = plan.key === 'free' ? 'directory presence' : 'booking and business tools';
 
                     return (
@@ -111,7 +114,7 @@ export default function RegisterPage() {
     const requestedRole = searchParams.get('role') === 'customer' ? 'customer' : 'provider';
     const requestedEmail = searchParams.get('email') ?? '';
     const [step, setStep] = useState(1);
-    const [displayCurrency, setDisplayCurrency] = useState('NGN');
+    const [displayCurrency, setDisplayCurrency] = useState(() => browserCurrency());
     const [currencyOpen, setCurrencyOpen] = useState(false);
     const [form, setForm] = useState({ name: '', email: requestedEmail, role: requestedRole, plan: requestedRole === 'customer' ? 'free' : 'paid', password: '', password_confirmation: '' });
     const [plans, setPlans] = useState([]);
@@ -122,10 +125,16 @@ export default function RegisterPage() {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        api.get('/subscription-plans').then((response) => setPlans(collectionFrom(response))).catch(() => setPlans([]));
+        api.get('/subscription-plans').then((response) => {
+            const payload = unwrap(response);
+            setPlans(Array.isArray(payload?.plans) ? payload.plans : []);
+            if (payload?.detected_currency) setDisplayCurrency(payload.detected_currency);
+        }).catch(() => setPlans([]));
         api.get('/currencies').then((response) => {
             const supported = response?.data?.data?.supported ?? response?.data?.supported ?? [];
+            const detected = response?.data?.data?.detected ?? response?.data?.detected;
             if (supported.length) setCurrencies(supported);
+            if (detected) setDisplayCurrency(detected);
         }).catch(() => {});
     }, []);
 

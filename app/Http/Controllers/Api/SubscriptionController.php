@@ -22,6 +22,7 @@ use App\Notifications\TwoFactorCodeNotification;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
+use App\Support\CurrencyResolver;
 use App\Support\HomepageShell;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
@@ -36,9 +37,12 @@ use Illuminate\Validation\Rule;
 
 class SubscriptionController extends Controller
 {
-    public function plans(): JsonResponse
+    public function plans(Request $request): JsonResponse
     {
-        return $this->success(SubscriptionPlan::where('is_active', true)->orderBy('sort_order')->get());
+        return $this->success([
+            'detected_currency' => CurrencyResolver::currencyForRequest($request),
+            'plans' => $this->subscriptionPlansForRequest($request),
+        ]);
     }
 
     public function adminPlans(): JsonResponse
@@ -77,7 +81,8 @@ class SubscriptionController extends Controller
 
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
-            'plans' => SubscriptionPlan::where('is_active', true)->orderBy('sort_order')->get(),
+            'detected_currency' => CurrencyResolver::currencyForRequest($request),
+            'plans' => $this->subscriptionPlansForRequest($request),
             'payments' => [
                 'data' => $payments->items(),
                 'meta' => $this->paginationMeta($payments),
@@ -573,14 +578,17 @@ class SubscriptionController extends Controller
         $validated = $request->validate([
             'plan' => ['required', 'in:paid'],
             'gateway' => ['nullable', Rule::in(['paystack', 'stripe'])],
+            'currency' => ['nullable', Rule::in(array_keys(config('currencies.supported', [])))],
         ]);
 
         $plan = SubscriptionPlan::where('key', $validated['plan'])->where('is_active', true)->firstOrFail();
         abort_if((float) $plan->price <= 0, 422, 'This plan does not require payment.');
         $gateway = $validated['gateway'] ?? $this->subscriptionGateway();
+        $checkoutCurrency = strtoupper($validated['currency'] ?? CurrencyResolver::currencyForRequest($request));
+        $checkoutAmount = CurrencyResolver::convert((float) $plan->price, $plan->currency, $checkoutCurrency);
 
         if ($gateway === 'stripe') {
-            return $this->stripeCheckout($user, $plan);
+            return $this->stripeCheckout($user, $plan, $checkoutAmount, $checkoutCurrency);
         }
 
         $secret = $this->paystackSecretKey();
@@ -592,8 +600,8 @@ class SubscriptionController extends Controller
             'subscription_plan_id' => $plan->id,
             'gateway' => 'paystack',
             'reference' => $reference,
-            'amount' => $plan->price,
-            'currency' => $plan->currency,
+            'amount' => $checkoutAmount,
+            'currency' => $checkoutCurrency,
             'status' => 'pending',
         ]);
 
@@ -601,8 +609,8 @@ class SubscriptionController extends Controller
             ->acceptJson()
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $user->email,
-                'amount' => (int) round(((float) $plan->price) * 100),
-                'currency' => $plan->currency,
+                'amount' => (int) round($checkoutAmount * 100),
+                'currency' => $checkoutCurrency,
                 'reference' => $reference,
                 'callback_url' => url('/provider/subscription'),
                 'metadata' => [
@@ -719,12 +727,23 @@ class SubscriptionController extends Controller
         return $this->success($subscription->load('planDefinition'), 'Your account has been moved to the free plan.');
     }
 
+    private function subscriptionPlansForRequest(Request $request): array
+    {
+        $displayCurrency = CurrencyResolver::currencyForRequest($request);
+
+        return SubscriptionPlan::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (SubscriptionPlan $plan): array => CurrencyResolver::planPayload($plan, $displayCurrency))
+            ->all();
+    }
+
     private function paystackConfigured(): bool
     {
         return filled($this->paystackSecretKey());
     }
 
-    private function stripeCheckout($user, SubscriptionPlan $plan): JsonResponse
+    private function stripeCheckout($user, SubscriptionPlan $plan, float $checkoutAmount, string $checkoutCurrency): JsonResponse
     {
         $secret = $this->stripeSecretKey();
         abort_if(blank($secret), 422, 'Stripe secret key is not configured.');
@@ -735,8 +754,8 @@ class SubscriptionController extends Controller
             'subscription_plan_id' => $plan->id,
             'gateway' => 'stripe',
             'reference' => $reference,
-            'amount' => $plan->price,
-            'currency' => strtoupper($plan->currency),
+            'amount' => $checkoutAmount,
+            'currency' => strtoupper($checkoutCurrency),
             'status' => 'pending',
         ]);
 
@@ -750,8 +769,8 @@ class SubscriptionController extends Controller
                 'success_url' => url('/provider/subscription').'?reference='.$reference.'&session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => url('/provider/subscription'),
                 'line_items[0][quantity]' => 1,
-                'line_items[0][price_data][currency]' => strtolower($plan->currency),
-                'line_items[0][price_data][unit_amount]' => (int) round(((float) $plan->price) * 100),
+                'line_items[0][price_data][currency]' => strtolower($checkoutCurrency),
+                'line_items[0][price_data][unit_amount]' => (int) round($checkoutAmount * 100),
                 'line_items[0][price_data][product_data][name]' => $plan->name,
                 'metadata[type]' => 'provider_subscription',
                 'metadata[user_id]' => $user->id,
