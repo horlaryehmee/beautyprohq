@@ -175,7 +175,13 @@ export default function AdminSettingsPage() {
 
     useEffect(() => {
         apiRequest('get', '/admin/settings/hero-images').then((data) => {
-            setHeroImages(data?.images ?? []);
+            const urls = (data?.images ?? []).map((url) => {
+                if (url && !/^https?:\/\//.test(url) && !url.startsWith('/')) {
+                    return '/storage/' + url.replace(/^storage\//, '');
+                }
+                return url;
+            });
+            setHeroImages(urls);
         }).catch(() => {});
     }, []);
 

@@ -537,8 +537,17 @@ class SubscriptionController extends Controller
         ]);
 
         $stored = $uploads->store($validated['image']);
+        $url = $stored['url'] ?? '';
+        // Ensure the URL is absolute for the browser to load it
+        if ($url && !preg_match('#^(https?:)?//#', $url)) {
+            $url = rtrim(config('app.url'), '/') . '/' . ltrim($url, '/');
+        }
 
-        return $this->success($stored, 'Hero image uploaded.', 201);
+        return $this->success([
+            'url' => $url,
+            'path' => $stored['path'] ?? '',
+            'filename' => $stored['filename'] ?? '',
+        ], 'Hero image uploaded.', 201);
     }
 
     public function updateAdminHeroImages(Request $request): JsonResponse
