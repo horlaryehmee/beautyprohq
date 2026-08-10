@@ -530,7 +530,9 @@ export default function ProviderProfilePage() {
                     {currentSection === 'Verification' && (
                         <div className="space-y-5">
                             <CardHeader description="This is what admin reviews before awarding the BPHQ verified badge." title="Verification submission" />
-                            {verified ? <div className="rounded-2xl bg-[#ECFDF3] p-4 text-sm text-[#027A48] ring-1 ring-[#12B76A]/20"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-[#039855]">Your BPHQ verified badge is displayed across the platform.</p></div> : (verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-[#FFFAEB] p-4 text-sm text-[#B54708] ring-1 ring-[#F79009]/24"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review.</p></div> : <>
+                            {verified ? <div className="rounded-2xl bg-[#ECFDF3] p-4 text-sm text-[#027A48] ring-1 ring-[#12B76A]/20"><p className="font-bold">Your profile is verified</p><p className="mt-1 text-[#039855]">Your BPHQ verified badge is displayed across the platform. Editing key profile fields will reset your verification status.</p></div> : null}
+                            {(verification?.request?.status ?? verification?.status) === 'pending' ? <div className="rounded-2xl bg-[#FFFAEB] p-4 text-sm text-[#B54708] ring-1 ring-[#F79009]/24"><p className="font-bold">Review in progress</p><p className="mt-1">The admin team will notify you after review. Resubmitting will cancel the pending request.</p></div> : null}
+                            <>
                                 <Field label="Professional information" hint="Include experience, training, specialties, licenses held, and any business registration detail."><textarea className={`${inputClass} min-h-36 resize-y`} onChange={change('professional_info')} value={form.professional_info} /></Field>
                                 <div className="grid gap-4 lg:grid-cols-2">
                                     <div className="rounded-2xl border border-slate-100 p-4">
@@ -553,7 +555,7 @@ export default function ProviderProfilePage() {
                                     </div>
                                 </div>
                                 <Button busy={saving} disabled={!portfolioItems.length || !form.professional_info.trim()} onClick={submitVerification} type="button" variant="soft">Submit for verification</Button>
-                            </>}
+                            </>
                         </div>
                     )}
 

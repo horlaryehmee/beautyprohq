@@ -194,6 +194,16 @@ class DashboardController extends Controller
                     $provider->availability()->create($slot + ['is_active' => true]);
                 }
             }
+
+            // Auto-unverify when key profile fields change
+            $verificationFields = ['profession', 'bio', 'location', 'country', 'city', 
+                'contact_email', 'contact_phone', 'website', 'profile_photo', 'cover_image'];
+            $changedVerificationField = collect($verificationFields)
+                ->contains(fn ($field) => array_key_exists($field, $validated));
+            
+            if ($changedVerificationField && $provider->verified) {
+                $provider->update(['verified' => false]);
+            }
         });
 
         return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');
@@ -439,7 +449,6 @@ class DashboardController extends Controller
     public function submitVerification(Request $request): JsonResponse
     {
         $provider = $request->user()->providerProfile;
-        abort_if($provider->verified, 422, 'This provider is already verified.');
         abort_if($provider->verificationRequests()->where('status', 'pending')->exists(), 422, 'A verification request is already under review.');
 
         $validated = $request->validate([

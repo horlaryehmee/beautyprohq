@@ -440,7 +440,7 @@ export default function AdminUserDetailPage() {
                             </div>
                             {providerBookings.length ? (
                                 <>
-                                <div className="mt-5 overflow-x-auto">
+                                <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
                                     <table className="w-full min-w-[920px] text-left text-sm">
                                         <thead>
                                             <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
@@ -524,6 +524,28 @@ export default function AdminUserDetailPage() {
                                     <p>Social links: {Object.values(latest.social_links ?? {}).filter(Boolean).length}</p>
                                     <p>Certificates: {(latest.certification_files ?? []).length}</p>
                                     <p>Licenses: {(latest.license_files ?? []).length}</p>
+                                    {Boolean((latest.certification_files ?? []).length || (latest.license_files ?? []).length) && (
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                            {(latest.certification_files ?? []).map((url) => (
+                                                <a key={url} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 truncate rounded-lg bg-white p-2 text-xs font-semibold text-fuchsia-700">
+                                                    {/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(url)
+                                                        ? <img src={url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                                                        : <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-slate-200 text-xs font-bold">FILE</span>
+                                                    }
+                                                    <span className="truncate">{url.split('/').pop()}</span>
+                                                </a>
+                                            ))}
+                                            {(latest.license_files ?? []).map((url) => (
+                                                <a key={url} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 truncate rounded-lg bg-white p-2 text-xs font-semibold text-sky-700">
+                                                    {/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(url)
+                                                        ? <img src={url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                                                        : <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-slate-200 text-xs font-bold">FILE</span>
+                                                    }
+                                                    <span className="truncate">{url.split('/').pop()}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
                                     {latest.professional_info && <p className="mt-2 line-clamp-4 whitespace-pre-line text-xs leading-5">{latest.professional_info}</p>}
                                 </div>
                             )}
