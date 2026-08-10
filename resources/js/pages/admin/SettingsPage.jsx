@@ -307,6 +307,18 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const copyComingSoonBypassUrl = async () => {
+        const url = featuresResource.data?.coming_soon_bypass_url;
+        if (!url) return;
+
+        try {
+            await navigator.clipboard.writeText(url);
+            notify('Coming soon bypass link copied.');
+        } catch {
+            window.prompt('Copy coming soon bypass link', url);
+        }
+    };
+
     const saveTwilio = async (event) => {
         event.preventDefault();
         setSavingTwilio(true);
@@ -564,6 +576,20 @@ export default function AdminSettingsPage() {
                                 {featuresResource.data?.coming_soon_defaulted && <span className="mt-1 block text-xs font-bold text-amber-600">No saved preference yet. Production will auto-enable this until you save a setting.</span>}
                             </span>
                         </label>
+                        {featuresResource.data?.coming_soon && featuresResource.data?.coming_soon_bypass_url && (
+                            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-slate-950">Temporary website access link</p>
+                                        <p className="mt-2 break-all font-mono text-xs text-slate-700">{featuresResource.data.coming_soon_bypass_url}</p>
+                                    </div>
+                                    <div className="flex shrink-0 gap-2">
+                                        <Button onClick={copyComingSoonBypassUrl} type="button" variant="secondary"><Icon name="copy" size={16} /> Copy</Button>
+                                        <a className="inline-flex min-h-10 items-center justify-center rounded-xl bg-plum-900 px-4 text-sm font-semibold text-white transition hover:bg-plum-800" href={featuresResource.data.coming_soon_bypass_url} target="_blank" rel="noreferrer">Open</a>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
                             <input
                                 checked={featuresForm.provider_whatsapp_notifications}

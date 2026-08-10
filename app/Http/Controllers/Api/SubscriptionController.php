@@ -497,6 +497,9 @@ class SubscriptionController extends Controller
 
         AppSetting::setValue('features.provider_whatsapp_notifications', $validated['provider_whatsapp_notifications'] ? '1' : '0');
         AppSetting::setValue('features.coming_soon', $validated['coming_soon'] ? '1' : '0');
+        if ($validated['coming_soon'] && blank(AppSetting::getValue('features.coming_soon_bypass_token'))) {
+            AppSetting::setValue('features.coming_soon_bypass_token', Str::random(48), true);
+        }
 
         return $this->success($this->featurePayload(), 'Feature settings saved.');
     }
@@ -1356,11 +1359,24 @@ class SubscriptionController extends Controller
     private function featurePayload(): array
     {
         $comingSoon = AppSetting::getValue('features.coming_soon');
+        $enabled = $comingSoon === null ? app()->environment('production') : $comingSoon === '1';
+        $bypassUrl = null;
+
+        if ($enabled) {
+            $token = AppSetting::getValue('features.coming_soon_bypass_token');
+            if (blank($token)) {
+                $token = Str::random(48);
+                AppSetting::setValue('features.coming_soon_bypass_token', $token, true);
+            }
+
+            $bypassUrl = route('coming-soon.bypass', ['token' => $token]);
+        }
 
         return [
             'provider_whatsapp_notifications' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
-            'coming_soon' => $comingSoon === null ? app()->environment('production') : $comingSoon === '1',
+            'coming_soon' => $enabled,
             'coming_soon_defaulted' => $comingSoon === null,
+            'coming_soon_bypass_url' => $bypassUrl,
         ];
     }
 

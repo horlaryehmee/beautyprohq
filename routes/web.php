@@ -5,32 +5,61 @@ use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
 use App\Support\HomepageShell;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+
+$comingSoonEnabled = static function (): bool {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+        return app()->environment('production');
+    }
+
+    $value = \App\Models\AppSetting::getValue('features.coming_soon');
+
+    return $value === null
+        ? app()->environment('production')
+        : $value === '1';
+};
+
+$comingSoonBypassToken = static function (): ?string {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+        return null;
+    }
+
+    return \App\Models\AppSetting::getValue('features.coming_soon_bypass_token');
+};
+
+$requestHasComingSoonBypass = static function (Request $request) use ($comingSoonBypassToken): bool {
+    $token = $comingSoonBypassToken();
+
+    return filled($token) && hash_equals((string) $token, (string) $request->cookie('bphq_coming_soon_bypass'));
+};
 
 Route::get('/coming-soon', fn () => response()
     ->view('coming-soon')
     ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
 
+Route::get('/coming-soon/bypass/{token}', function (Request $request, string $token) use ($comingSoonBypassToken) {
+    $savedToken = $comingSoonBypassToken();
+    abort_unless(filled($savedToken) && hash_equals((string) $savedToken, $token), 404);
+
+    $redirect = '/'.ltrim((string) $request->query('redirect', '/'), '/');
+    if (str_starts_with($redirect, '//') || str_starts_with($redirect, '/api') || str_starts_with($redirect, '/sanctum')) {
+        $redirect = '/';
+    }
+
+    return redirect($redirect)
+        ->withCookie(cookie('bphq_coming_soon_bypass', $token, 60 * 24 * 7, '/', null, $request->isSecure(), true, false, 'Lax'))
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+})->name('coming-soon.bypass');
+
 Route::get('/robots.txt', [SeoController::class, 'robots']);
 Route::get('/llms.txt', [SeoController::class, 'llms']);
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
-Route::get('/', function () {
-    $comingSoonEnabled = static function (): bool {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
-            return app()->environment('production');
-        }
-
-        $value = \App\Models\AppSetting::getValue('features.coming_soon');
-
-        return $value === null
-            ? app()->environment('production')
-            : $value === '1';
-    };
-
-    if ($comingSoonEnabled()) {
+Route::get('/', function (Request $request) use ($comingSoonEnabled, $requestHasComingSoonBypass) {
+    if ($comingSoonEnabled() && ! $requestHasComingSoonBypass($request)) {
         return response()
             ->view('coming-soon')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -124,7 +153,7 @@ Route::get('/newsletter/unsubscribe/{subscriber}', function (NewsletterSubscribe
     );
 })->middleware('signed')->name('newsletter.unsubscribe');
 
-Route::get('/{path?}', function (?string $path = null) {
+Route::get('/{path?}', function (Request $request, ?string $path = null) use ($comingSoonEnabled, $requestHasComingSoonBypass) {
     $path = trim((string) $path, '/');
     $firstSegment = strtok($path, '/') ?: '';
     $comingSoonBypass = in_array($firstSegment, [
@@ -139,19 +168,7 @@ Route::get('/{path?}', function (?string $path = null) {
         'coming-soon',
     ], true);
 
-    $comingSoonEnabled = static function (): bool {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
-            return app()->environment('production');
-        }
-
-        $value = \App\Models\AppSetting::getValue('features.coming_soon');
-
-        return $value === null
-            ? app()->environment('production')
-            : $value === '1';
-    };
-
-    if (! $comingSoonBypass && $comingSoonEnabled()) {
+    if (! $comingSoonBypass && $comingSoonEnabled() && ! $requestHasComingSoonBypass($request)) {
         return response()
             ->view('coming-soon')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');

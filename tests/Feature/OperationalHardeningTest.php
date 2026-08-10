@@ -146,6 +146,43 @@ class OperationalHardeningTest extends TestCase
         $this->assertStringNotContainsString("'unsafe-inline'", $scriptDirective[1] ?? '');
     }
 
+    public function test_coming_soon_bypass_link_allows_temporary_access_to_public_site(): void
+    {
+        AppSetting::setValue('features.coming_soon', '1');
+        AppSetting::setValue('features.coming_soon_bypass_token', 'preview-token', true);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Your beauty service ecosystem is almost here.', false);
+
+        $this->get('/coming-soon/bypass/preview-token')
+            ->assertRedirect('/')
+            ->assertCookie('bphq_coming_soon_bypass');
+
+        $this->withCookie('bphq_coming_soon_bypass', 'preview-token')
+            ->get('/')
+            ->assertOk()
+            ->assertSee('<div id="root">', false);
+
+        $this->withCookie('bphq_coming_soon_bypass', 'preview-token')
+            ->get('/directory')
+            ->assertOk()
+            ->assertSee('<div id="root">', false);
+    }
+
+    public function test_invalid_coming_soon_bypass_link_does_not_unlock_public_site(): void
+    {
+        AppSetting::setValue('features.coming_soon', '1');
+        AppSetting::setValue('features.coming_soon_bypass_token', 'preview-token', true);
+
+        $this->get('/coming-soon/bypass/wrong-token')->assertNotFound();
+
+        $this->withCookie('bphq_coming_soon_bypass', 'wrong-token')
+            ->get('/')
+            ->assertOk()
+            ->assertSee('Your beauty service ecosystem is almost here.', false);
+    }
+
     public function test_public_waitlist_submission_does_not_require_a_session_csrf_token(): void
     {
         $this->withHeader('Origin', rtrim(config('app.url'), '/'))
