@@ -115,6 +115,7 @@ class SubscriptionController extends Controller
                 'live_secret_key' => filled(AppSetting::getValue('paystack.live_secret_key')) ? 'admin_settings' : null,
             ],
             'callback_url' => url('/provider/subscription'),
+            'webhook_url' => url('/api/paystack/webhook'),
         ]);
     }
 

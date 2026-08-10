@@ -798,11 +798,50 @@ class BackendMvpTest extends TestCase
             ['day_of_week' => 2, 'start_time' => '10:00', 'end_time' => '18:00'],
         ]])->assertOk()->assertJsonCount(2, 'data');
 
-        $this->putJson('/api/provider/payment-accounts', [
+        $paymentAccountResponse = $this->putJson('/api/provider/payment-accounts', [
             'gateway' => 'paystack', 'account_name' => 'Studio Owner Ltd',
             'account_identifier' => 'ACCT_demo', 'public_key' => 'pk_test_demo', 'enabled' => true,
-        ])->assertOk()->assertJsonPath('data.enabled', true);
+        ])->assertOk()
+            ->assertJsonPath('data.enabled', true);
+        $this->assertStringContainsString('/api/paystack/provider-webhook/', $paymentAccountResponse->json('data.webhook_url'));
         $this->assertDatabaseHas('payment_accounts', ['provider_id' => $provider->id, 'gateway' => 'paystack', 'account_identifier' => 'ACCT_demo']);
+    }
+
+    public function test_paystack_webhook_urls_are_exposed_for_admin_and_each_provider(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/payment-settings/paystack')
+            ->assertOk()
+            ->assertJsonPath('data.webhook_url', url('/api/paystack/webhook'));
+
+        [$firstProvider, $firstUser] = $this->provider('First Webhook Studio', true);
+        [$secondProvider, $secondUser] = $this->provider('Second Webhook Studio', true);
+
+        Sanctum::actingAs($firstUser);
+        $firstUrl = $this->putJson('/api/provider/payment-accounts', [
+            'gateway' => 'paystack',
+            'account_name' => 'First Webhook Studio',
+            'account_identifier' => 'first-paystack',
+            'public_key' => 'pk_test_first',
+            'settings' => ['secret_key' => 'sk_test_first'],
+            'enabled' => true,
+        ])->assertOk()->json('data.webhook_url');
+
+        Sanctum::actingAs($secondUser);
+        $secondUrl = $this->putJson('/api/provider/payment-accounts', [
+            'gateway' => 'paystack',
+            'account_name' => 'Second Webhook Studio',
+            'account_identifier' => 'second-paystack',
+            'public_key' => 'pk_test_second',
+            'settings' => ['secret_key' => 'sk_test_second'],
+            'enabled' => true,
+        ])->assertOk()->json('data.webhook_url');
+
+        $this->assertNotSame($firstUrl, $secondUrl);
+        $this->assertStringContainsString('/api/paystack/provider-webhook/'.$firstProvider->paymentAccounts()->where('gateway', 'paystack')->value('id').'/', $firstUrl);
+        $this->assertStringContainsString('/api/paystack/provider-webhook/'.$secondProvider->paymentAccounts()->where('gateway', 'paystack')->value('id').'/', $secondUrl);
     }
 
     public function test_provider_analytics_reports_customer_retention(): void

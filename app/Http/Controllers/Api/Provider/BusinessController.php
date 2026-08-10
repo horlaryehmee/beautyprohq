@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BusinessController extends Controller
@@ -243,10 +244,13 @@ class BusinessController extends Controller
     public function paymentAccounts(Request $request): JsonResponse
     {
         $accounts = $request->user()->providerProfile->paymentAccounts()->get()
-            ->map(function ($account) {
+            ->map(function (PaymentAccount $account) {
                 $settings = $account->settings ?? [];
                 $account->has_secret_key = filled($settings['secret_key'] ?? null);
                 $account->mode = $settings['mode'] ?? null;
+                if ($account->gateway === 'paystack') {
+                    $account->webhook_url = $this->paystackWebhookUrl($account);
+                }
 
                 return $account;
             });
@@ -296,8 +300,25 @@ class BusinessController extends Controller
             $validated
         );
         $account->has_secret_key = filled(($account->settings ?? [])['secret_key'] ?? null);
+        if ($account->gateway === 'paystack') {
+            $account->webhook_url = $this->paystackWebhookUrl($account);
+        }
 
         return $this->success($account, 'Payment account updated.');
+    }
+
+    private function paystackWebhookUrl(PaymentAccount $account): string
+    {
+        $settings = $account->settings ?? [];
+        if (blank($settings['webhook_token'] ?? null)) {
+            $settings['webhook_token'] = Str::random(48);
+            PaymentAccount::query()->findOrFail($account->id)
+                ->forceFill(['settings' => $settings])
+                ->save();
+            $account->setAttribute('settings', $settings);
+        }
+
+        return url('/api/paystack/provider-webhook/'.$account->id.'/'.$settings['webhook_token']);
     }
 
     public function products(Request $request): JsonResponse

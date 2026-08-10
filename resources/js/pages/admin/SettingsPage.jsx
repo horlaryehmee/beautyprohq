@@ -919,6 +919,11 @@ export default function AdminSettingsPage() {
                                 <option value="live">Live mode</option>
                             </select>
                         </Field>
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                            <p className="font-semibold text-slate-950">Paystack webhook URL</p>
+                            <p className="mt-2 break-all font-mono text-xs text-slate-700">{paystackResource.data?.webhook_url ?? `${window.location.origin}/api/paystack/webhook`}</p>
+                            <p className="mt-2 text-xs leading-5">Use this in the platform Paystack account that receives provider subscription plan payments.</p>
+                        </div>
                         <div className="grid gap-4 lg:grid-cols-2">
                             <div className="rounded-3xl border border-slate-100 p-4">
                                 <div className="mb-4 flex items-center justify-between gap-3">

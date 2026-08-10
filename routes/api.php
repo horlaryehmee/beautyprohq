@@ -64,6 +64,7 @@ Route::post('/community-posts/{communityPost}/reports', [PublicContentController
 Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:public-form');
 Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:public-form');
 Route::post('/paystack/webhook', [SubscriptionController::class, 'paystackWebhook'])->middleware('throttle:payment');
+Route::post('/paystack/provider-webhook/{paymentAccount}/{token}', [BookingController::class, 'providerPaystackWebhook'])->middleware('throttle:payment');
 Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:public-form');
 Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:public-form');
 Route::post('/guest-bookings', [BookingController::class, 'guestStore'])->middleware('throttle:public-form');

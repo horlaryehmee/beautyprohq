@@ -101,6 +101,7 @@ export default function ProviderPaymentsPage() {
             setSaving(false);
         }
     };
+    const activeSavedAccount = activeGateway ? savedAccount(accounts, activeGateway.id) : null;
 
     return (
         <div className="space-y-6">
@@ -200,6 +201,13 @@ export default function ProviderPaymentsPage() {
                                 </>
                             ) : (
                                 <>
+                                    {activeGateway.id === 'paystack' && (
+                                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                                            <p className="font-semibold text-slate-950">Paystack webhook URL</p>
+                                            <p className="mt-2 break-all font-mono text-xs text-slate-700">{activeSavedAccount?.webhook_url ?? 'Save this Paystack account to generate its unique webhook URL.'}</p>
+                                            <p className="mt-2 text-xs leading-5">Use this in the Paystack dashboard for this provider account so booking payments can be confirmed automatically.</p>
+                                        </div>
+                                    )}
                                     <Field label={activeGateway.id === 'paypal' ? 'PayPal client ID' : `${activeGateway.name} public key`}>
                                         <input
                                             autoComplete="off"
@@ -219,7 +227,7 @@ export default function ProviderPaymentsPage() {
                                             className={inputClass}
                                             name={`${activeGateway.id}_secret_credential`}
                                             onChange={(event) => setAccount((current) => ({ ...current, secret_key: event.target.value }))}
-                                            placeholder={savedAccount(accounts, activeGateway.id)?.has_secret_key ? 'Saved - leave blank to keep current key' : activeGateway.id === 'paypal' ? 'Paste PayPal REST app secret' : 'Paste secret key'}
+                                            placeholder={activeSavedAccount?.has_secret_key ? 'Saved - leave blank to keep current key' : activeGateway.id === 'paypal' ? 'Paste PayPal REST app secret' : 'Paste secret key'}
                                             type="password"
                                             value={account.secret_key}
                                         />

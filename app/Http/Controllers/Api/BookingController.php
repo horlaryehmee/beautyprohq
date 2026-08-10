@@ -7,6 +7,7 @@ use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\LiveChatConversation;
 use App\Models\Payment;
+use App\Models\PaymentAccount;
 use App\Models\ProviderProfile;
 use App\Models\Review;
 use App\Models\Service;
@@ -25,6 +26,45 @@ use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
+    public function providerPaystackWebhook(Request $request, PaymentAccount $paymentAccount, string $token): JsonResponse
+    {
+        abort_unless($paymentAccount->gateway === 'paystack', 404);
+        $settings = $paymentAccount->settings ?? [];
+        abort_unless(hash_equals((string) ($settings['webhook_token'] ?? ''), $token), 404);
+
+        $secret = $this->providerPaystackSecretKey($paymentAccount);
+        abort_unless($secret, 422, 'Provider Paystack secret key is not configured.');
+
+        $signature = (string) $request->header('X-Paystack-Signature');
+        abort_unless(hash_equals(hash_hmac('sha512', $request->getContent(), $secret), $signature), 401, 'Invalid Paystack signature.');
+
+        if ($request->input('event') !== 'charge.success') {
+            return response()->json(['ok' => true]);
+        }
+
+        $data = (array) $request->input('data', []);
+        $metadata = (array) ($data['metadata'] ?? []);
+        if (($metadata['type'] ?? null) !== 'booking_payment') {
+            return response()->json(['ok' => true]);
+        }
+
+        $payment = Payment::with(['booking.customer', 'booking.service', 'provider.paymentAccounts'])
+            ->where('reference', (string) ($data['reference'] ?? ''))
+            ->first();
+
+        if (! $payment || (int) ($metadata['provider_payment_account_id'] ?? 0) !== (int) $paymentAccount->id) {
+            return response()->json(['ok' => true]);
+        }
+
+        $this->assertVerifiedPaymentPayload($payment, $metadata, (int) ($data['amount'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
+
+        if (($data['status'] ?? null) === 'success' && $this->markBookingPaymentPaid($payment, $data)) {
+            $this->notifyBookingPaymentPaid($payment);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $bookings = Booking::where('customer_id', $request->user()->id)
