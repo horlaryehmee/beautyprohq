@@ -530,6 +530,17 @@ class SubscriptionController extends Controller
         ]);
     }
 
+    public function uploadAdminHeroImage(Request $request, UploadService $uploads): JsonResponse
+    {
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+        ]);
+
+        $stored = $uploads->store($validated['image']);
+
+        return $this->success($stored, 'Hero image uploaded.', 201);
+    }
+
     public function updateAdminHeroImages(Request $request): JsonResponse
     {
         $validated = $request->validate([

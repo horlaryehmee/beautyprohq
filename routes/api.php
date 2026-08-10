@@ -206,6 +206,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/settings/features', [SubscriptionController::class, 'adminFeatureSettings']);
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
         Route::get('/settings/hero-images', [SubscriptionController::class, 'adminHeroImages']);
+        Route::post('/settings/hero-images/upload', [SubscriptionController::class, 'uploadAdminHeroImage']);
         Route::put('/settings/hero-images', [SubscriptionController::class, 'updateAdminHeroImages']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);

@@ -72,6 +72,7 @@ export default function AdminSettingsPage() {
     const [clearingDemo, setClearingDemo] = useState(false);
     const [heroImages, setHeroImages] = useState([]);
     const [savingHero, setSavingHero] = useState(false);
+    const [uploadingHero, setUploadingHero] = useState(false);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -181,6 +182,24 @@ export default function AdminSettingsPage() {
     const updateHeroImage = (index, value) => setHeroImages((current) => current.map((url, i) => i === index ? value : url));
     const removeHeroImage = (index) => setHeroImages((current) => current.filter((_, i) => i !== index));
     const addHeroImage = () => setHeroImages((current) => [...current, '']);
+    const uploadHeroImage = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        setUploadingHero(true);
+        try {
+            const payload = new FormData();
+            payload.append('image', file);
+            const stored = await apiRequest('post', '/admin/settings/hero-images/upload', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const url = stored?.url ?? stored?.path ?? '';
+            setHeroImages((current) => [...current, url].slice(0, 8));
+            notify('Hero image uploaded.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setUploadingHero(false);
+        }
+    };
     const saveHeroImages = async () => {
         setSavingHero(true);
         try {
@@ -591,7 +610,7 @@ export default function AdminSettingsPage() {
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Homepage hero images"
-                    description="Set custom images for the homepage hero marquee. When 2 or more images are set, they replace provider photos. Use direct image URLs."
+                    description="Upload hero images for the homepage marquee. When 2+ are saved, they replace provider photos. Uploaded images are optimized automatically."
                     action={<StatusBadge status={`${heroImages.length} images`} />}
                 />
                 <div className="mt-5 space-y-3">
@@ -601,17 +620,25 @@ export default function AdminSettingsPage() {
                             <input
                                 className={inputClass}
                                 onChange={(event) => updateHeroImage(index, event.target.value)}
-                                placeholder="https://images.unsplash.com/photo-..."
+                                placeholder="Or paste a URL"
                                 value={url}
                             />
                             <button className="shrink-0 text-xs font-bold text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
                         </div>
                     ))}
-                    {heroImages.length < 8 && (
-                        <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
-                            + Add image URL
-                        </button>
-                    )}
+                    <div className="flex gap-3">
+                        {heroImages.length < 8 && (
+                            <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
+                                + Paste URL
+                            </button>
+                        )}
+                        {heroImages.length < 8 && (
+                            <label className={`inline-flex min-h-10 items-center justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 ${uploadingHero ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                {uploadingHero ? 'Uploading...' : 'Upload image'}
+                                <input accept="image/*" className="sr-only" disabled={uploadingHero} onChange={uploadHeroImage} type="file" />
+                            </label>
+                        )}
+                    </div>
                 </div>
                 <div className="mt-5 flex justify-end">
                     <Button busy={savingHero} onClick={saveHeroImages} type="button">Save homepage images</Button>
