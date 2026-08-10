@@ -17,6 +17,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\BeautyProVerifyEmailNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
 use App\Services\UploadService;
 use App\Services\ContentNewsletterService;
@@ -157,6 +158,37 @@ class BackendMvpTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.detected_currency', 'NGN')
             ->assertJsonPath('data.plans.1.display_currency', 'NGN');
+    }
+
+    public function test_email_verification_resend_is_available_every_thirty_seconds(): void
+    {
+        Notification::fake();
+        $user = User::factory()->unverified()->create();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/email/verification-notification')->assertOk();
+        Notification::assertSentTo($user, BeautyProVerifyEmailNotification::class);
+
+        $this->postJson('/api/email/verification-notification')->assertTooManyRequests();
+
+        $this->travel(31)->seconds();
+        $this->postJson('/api/email/verification-notification')->assertOk();
+    }
+
+    public function test_unverified_provider_cannot_submit_onboarding(): void
+    {
+        Notification::fake();
+        $user = User::factory()->provider()->unverified()->create(['name' => 'Unverified Artist']);
+        ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'unverified-artist',
+            'profession' => 'Beauty Professional',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/provider/onboarding', [])
+            ->assertForbidden();
     }
 
     public function test_paystack_subscription_checkout_uses_recurring_plan(): void

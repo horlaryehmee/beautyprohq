@@ -76,7 +76,7 @@ Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatControl
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
-    Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:sensitive');
+    Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:email-verification');
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:sensitive');
     Route::post('/auth/two-factor/confirm', [AuthController::class, 'confirmTwoFactor'])->middleware('throttle:sensitive');
@@ -118,7 +118,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/profile', [ProviderDashboardController::class, 'updateProfile']);
         Route::post('/profile/portfolio', [ProviderDashboardController::class, 'uploadPortfolioImage'])->middleware('throttle:upload');
         Route::delete('/profile/portfolio/{portfolioItem}', [ProviderDashboardController::class, 'deletePortfolioImage']);
-        Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding']);
+        Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding'])->middleware('verified');
         Route::get('/verification', [ProviderDashboardController::class, 'verification']);
         Route::post('/verification/files', [ProviderDashboardController::class, 'uploadVerificationFile'])->middleware('throttle:upload');
         Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);

@@ -25,6 +25,7 @@ export default function VerifyEmailPage() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [resending, setResending] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
 
     useEffect(() => {
         if (!id || !hash || attempted.current) return;
@@ -42,13 +43,25 @@ export default function VerifyEmailPage() {
             });
     }, [id, hash, searchParams, refreshUser]);
 
+    useEffect(() => {
+        if (cooldown <= 0) return undefined;
+
+        const timer = window.setInterval(() => {
+            setCooldown((seconds) => Math.max(0, seconds - 1));
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [cooldown]);
+
     async function resend() {
+        if (cooldown > 0) return;
         setResending(true);
         setError('');
         try {
             await ensureCsrfCookie();
             const response = await api.post('/email/verification-notification');
             setMessage(response?.data?.message || 'A new verification link has been sent.');
+            setCooldown(30);
         } catch (requestError) {
             setError(apiError(requestError, 'We could not send a new verification link.').message);
         } finally {
@@ -57,7 +70,7 @@ export default function VerifyEmailPage() {
     }
 
     return (
-        <AuthShell eyebrow="Email verification" title={status === 'verified' ? 'You’re verified' : status === 'verifying' ? 'Verifying your email…' : 'Check your inbox'} description={status === 'waiting' ? `We sent a verification link${user?.email ? ` to ${user.email}` : ''}. Open it to activate every part of your account.` : undefined}>
+        <AuthShell eyebrow="Email verification" title={status === 'verified' ? 'You are verified' : status === 'verifying' ? 'Verifying your email...' : 'Check your inbox'} description={status === 'waiting' ? `We sent a verification link${user?.email ? ` to ${user.email}` : ''}. Open it to activate every part of your account.` : undefined}>
             <div className="text-center">
                 <span className={`mx-auto grid size-16 place-items-center rounded-3xl ${status === 'verified' ? 'bg-emerald-100 text-emerald-700' : status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-rose-100 text-rose-700'}`}>
                     {status === 'verifying' ? <span className="loading-ring" /> : <Icon name={status === 'verified' ? 'check' : status === 'failed' ? 'alert' : 'mail'} size={28} />}
@@ -69,8 +82,8 @@ export default function VerifyEmailPage() {
                     <button type="button" className={`${buttonClass({ size: 'lg' })} mt-7 w-full`} onClick={() => navigate(dashboardFor(user?.role), { replace: true })}>Continue to dashboard <Icon name="arrow" size={17} /></button>
                 ) : status !== 'verifying' && (
                     <div className="mt-7 space-y-3">
-                        {user ? <Button size="lg" className="w-full" onClick={resend} disabled={resending}>{resending ? 'Sending…' : 'Send a new verification link'}</Button> : <Link to="/login" className={`${buttonClass({ size: 'lg' })} w-full`}>Log in to resend</Link>}
-                        <Link to="/" className={`${buttonClass({ variant: 'ghost' })} w-full`}>I’ll do this later</Link>
+                        {user ? <Button size="lg" className="w-full" onClick={resend} disabled={resending || cooldown > 0}>{resending ? 'Sending...' : cooldown > 0 ? `Send again in ${cooldown}s` : 'Send a new verification link'}</Button> : <Link to="/login" className={`${buttonClass({ size: 'lg' })} w-full`}>Log in to resend</Link>}
+                        <Link to="/" className={`${buttonClass({ variant: 'ghost' })} w-full`}>I will do this later</Link>
                     </div>
                 )}
             </div>

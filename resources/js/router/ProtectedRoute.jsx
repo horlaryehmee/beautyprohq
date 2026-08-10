@@ -26,6 +26,10 @@ export default function ProtectedRoute({ roles = [] }) {
         return <Navigate to={home} replace />;
     }
 
+    if (user.role === 'provider' && !user.email_verified_at) {
+        return <Navigate to="/verify-email" replace />;
+    }
+
     const providerProfile = user.provider_profile ?? user.providerProfile;
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
     if (user.role === 'provider' && !onboardingComplete && location.pathname !== '/provider/onboarding') {

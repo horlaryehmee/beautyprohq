@@ -93,6 +93,10 @@ class AppServiceProvider extends ServiceProvider
             $this->withRateLimitResponse(Limit::perHour(12)->by('password-ip:'.$request->ip())),
         ]);
 
+        RateLimiter::for('email-verification', fn (Request $request): Limit => $this->withRateLimitResponse(
+            Limit::perSecond(1, 30)->by('email-verification:'.$this->actorKey($request))
+        ));
+
         RateLimiter::for('public-form', fn (Request $request): array => [
             $this->withRateLimitResponse(Limit::perMinute(6)->by('public-form:'.$request->ip())),
             $this->withRateLimitResponse(Limit::perHour(30)->by('public-form-hour:'.$request->ip())),
