@@ -205,6 +205,7 @@ class DashboardController extends Controller
                 $provider->update(['verified' => false]);
                 Cache::forget('public.home.payload.v6');
                 Cache::forget('public.home.payload.v5');
+                \Illuminate\Support\Facades\Artisan::call('cache:clear');
             }
         });
 

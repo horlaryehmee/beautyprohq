@@ -277,6 +277,7 @@ class DashboardController extends Controller
                 ])->save();
                 Cache::forget('public.home.payload.v6');
                 Cache::forget('public.home.payload.v5');
+                \Illuminate\Support\Facades\Artisan::call('cache:clear');
             }
 
             if (isset($validated['is_active']) && ! $validated['is_active']) {
