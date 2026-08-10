@@ -168,6 +168,65 @@ class BackendMvpTest extends TestCase
         $this->assertNull($profile->fresh()->onboarding_completed_at);
     }
 
+    public function test_provider_can_complete_onboarding_with_uploaded_images(): void
+    {
+        Notification::fake();
+        [$profile, $user] = $this->provider('Complete Bio Artist');
+        $category = ProviderCategory::firstOrFail();
+        $this->mock(UploadService::class, function ($mock): void {
+            $mock->shouldReceive('store')->twice()->andReturn(
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/profile.webp',
+                    'path' => 'uploads/profile.webp',
+                    'filename' => 'profile.webp',
+                    'mime_type' => 'image/webp',
+                    'size' => 1200,
+                ],
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/cover.webp',
+                    'path' => 'uploads/cover.webp',
+                    'filename' => 'cover.webp',
+                    'mime_type' => 'image/webp',
+                    'size' => 2400,
+                ],
+            );
+        });
+
+        Sanctum::actingAs($user);
+        $this->post('/api/provider/onboarding', [
+            'name' => 'Complete Bio Artist',
+            'provider_category_id' => $category->id,
+            'profession' => 'Makeup Artist',
+            'bio' => 'I am a certified beauty professional with years of practical experience serving bridal clients, editorial teams, private events, and everyday customers who need reliable makeup, skincare guidance, and polished service. My work focuses on clean preparation, thoughtful consultation, durable products, punctual appointments, and friendly communication from booking through aftercare.',
+            'profile_photo' => $this->tinyPngUpload('profile.png'),
+            'cover_image' => $this->tinyPngUpload('cover.png'),
+            'contact_email' => 'complete@example.test',
+            'contact_phone' => '+2348012345678',
+            'location' => '12 Test Street',
+            'country' => 'Nigeria',
+            'city' => 'Lagos',
+            'default_currency' => 'NGN',
+            'base_price' => 20000,
+            'availability' => [
+                ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
+            ],
+            'terms_accepted' => true,
+        ], ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('data.provider.profile_photo', 'uploads/profile.webp')
+            ->assertJsonPath('data.provider.cover_image', 'uploads/cover.webp')
+            ->assertJsonPath('data.redirect_to', '/provider');
+
+        $this->assertNotNull($profile->fresh()->onboarding_completed_at);
+        $this->assertDatabaseHas('availability', [
+            'provider_id' => $profile->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '17:00',
+        ]);
+    }
+
     public function test_provider_can_upload_and_remove_portfolio_images_from_dashboard(): void
     {
         [$provider, $providerUser] = $this->provider('Portfolio Dashboard Studio', true);

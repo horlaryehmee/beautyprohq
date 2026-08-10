@@ -294,7 +294,7 @@ class DashboardController extends Controller
 
         $provider = $request->user()->providerProfile;
 
-        DB::transaction(function () use ($request, $provider, $validated): void {
+        DB::transaction(function () use ($request, $provider, $validated, $uploads): void {
             $request->user()->update([
                 'name' => $validated['name'],
                 'phone' => $validated['contact_phone'] ?? $request->user()->phone,
