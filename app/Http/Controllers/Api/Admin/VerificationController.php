@@ -7,6 +7,7 @@ use App\Models\VerificationRequest;
 use App\Notifications\VerificationDecisionNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -31,8 +32,15 @@ class VerificationController extends Controller
             $verification->provider()->update(['verified' => $validated['status'] === 'approved']);
         });
 
+        // Clear homepage cache so badges update immediately
+        Cache::forget('public.home.payload.v6');
+        Cache::forget('public.home.payload.v5');
+
+        // Notify provider safely
         $verification->load('provider.user');
-        $verification->provider->user->notify(new VerificationDecisionNotification($verification));
+        if ($verification->provider?->user) {
+            $verification->provider->user->notify(new VerificationDecisionNotification($verification));
+        }
 
         return $this->success($verification, "Verification {$verification->status}.");
     }
