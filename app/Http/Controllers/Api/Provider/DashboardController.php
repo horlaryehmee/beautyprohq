@@ -296,7 +296,7 @@ class DashboardController extends Controller
             'portfolio_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'verification_years' => [$paidVerificationRequired ? 'required' : 'nullable', 'integer', 'min:0', 'max:80'],
             'verification_experience' => [$paidVerificationRequired ? 'required' : 'nullable', 'string', 'max:2000'],
-            'verification_credentials' => [$paidVerificationRequired ? 'required' : 'nullable', 'string', 'max:2000'],
+            'verification_credentials' => ['nullable', 'string', 'max:2000'],
             'verification_license_details' => ['nullable', 'string', 'max:2000'],
             'certification_documents' => [$paidVerificationRequired ? 'required_without:license_documents' : 'nullable', 'array', 'max:5'],
             'certification_documents.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],

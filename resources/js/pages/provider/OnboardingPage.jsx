@@ -501,15 +501,13 @@ function ProviderOnboardingContent() {
                                     />
                                 </Field>
                                 <Field
-                                    hint="List training, certificates, awards, apprenticeships, brand courses, or other proof of skill."
-                                    label="Training or credentials"
-                                    required
+                                    hint="Optional. List training, certificates, awards, apprenticeships, brand courses, or other proof of skill if you have them."
+                                    label="Training or credentials (optional)"
                                 >
                                     <textarea
                                         className={`${inputClass} min-h-28`}
                                         onChange={(event) => update('verification_credentials', event.target.value)}
                                         placeholder="Example: Certified makeup artist, completed sanitation training, trained with..."
-                                        required
                                         value={form.verification_credentials}
                                     />
                                 </Field>

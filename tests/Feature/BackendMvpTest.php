@@ -617,7 +617,6 @@ class BackendMvpTest extends TestCase
             ],
             'verification_years' => 5,
             'verification_experience' => 'Five years of bridal, editorial, and event beauty work with repeat private clients.',
-            'verification_credentials' => 'Certified makeup artist with sanitation training and portfolio references.',
             'verification_license_details' => 'Registered studio verification details available on request.',
             'certification_documents' => [UploadedFile::fake()->create('certificate.pdf', 20, 'application/pdf')],
             'license_documents' => [UploadedFile::fake()->create('license.pdf', 20, 'application/pdf')],
