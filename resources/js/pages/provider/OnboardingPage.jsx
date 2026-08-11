@@ -290,19 +290,31 @@ function ProviderOnboardingContent() {
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
     const providerApproved = Boolean(providerProfile?.verified);
     const currentSection = sections[step]?.[0] ?? 'General';
+    const reviewCopy = selectedPaidPlan
+        ? {
+            eyebrow: 'Paid provider review',
+            title: 'Your application is under review',
+            description: 'We have received your listing details and verification documents. An admin will review them before your provider account is approved.',
+            note: 'You will receive an email notification once your account is approved. After approval, sign in to your dashboard to complete payment and activate paid tools.',
+        }
+        : {
+            eyebrow: 'Provider listing review',
+            title: 'Your listing has been submitted',
+            description: 'We have received your provider details. An admin will review your listing before your account is approved for dashboard access.',
+            note: 'You will receive an email notification once your account is approved.',
+        };
     if ((onboardingComplete && !providerApproved) || submitted) {
         return (
             <div className="min-h-screen bg-slate-50 px-4 py-8 lg:px-8">
                 <div className="mx-auto max-w-3xl">
                     <Card className="p-8">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-700">Provider review</p>
-                        <h1 className="mt-3 font-display text-4xl font-normal text-slate-950">Your details have been received</h1>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-700">{reviewCopy.eyebrow}</p>
+                        <h1 className="mt-3 font-display text-4xl font-normal text-slate-950">{reviewCopy.title}</h1>
                         <p className="mt-3 text-sm leading-6 text-slate-500">
-                            Your provider account is waiting for admin approval. You will receive an email once the review is complete.
-                            Paid plan providers will be able to continue payment from the dashboard after approval.
+                            {reviewCopy.description}
                         </p>
                         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
-                            Dashboard access is locked until your account is approved.
+                            {reviewCopy.note}
                         </div>
                     </Card>
                 </div>
