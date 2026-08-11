@@ -32,11 +32,16 @@ export default function ProtectedRoute({ roles = [] }) {
 
     const providerProfile = user.provider_profile ?? user.providerProfile;
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
+    const providerApproved = Boolean(providerProfile?.verified);
     if (user.role === 'provider' && !onboardingComplete && location.pathname !== '/provider/onboarding') {
         return <Navigate to="/provider/onboarding" replace />;
     }
 
-    if (user.role === 'provider' && onboardingComplete && location.pathname === '/provider/onboarding') {
+    if (user.role === 'provider' && onboardingComplete && !providerApproved && location.pathname !== '/provider/onboarding') {
+        return <Navigate to="/provider/onboarding" replace />;
+    }
+
+    if (user.role === 'provider' && onboardingComplete && providerApproved && location.pathname === '/provider/onboarding') {
         return <Navigate to="/provider" replace />;
     }
 

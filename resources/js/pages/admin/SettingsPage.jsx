@@ -48,7 +48,7 @@ export default function AdminSettingsPage() {
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
-    const [smtpForm, setSmtpForm] = useState({ enabled: false, host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
+    const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [mailchimpForm, setMailchimpForm] = useState({ enabled: false, api_key: '', server_prefix: '', list_id: '', webhook_secret: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
     const [twilioTestPhone, setTwilioTestPhone] = useState('');
@@ -150,6 +150,7 @@ export default function AdminSettingsPage() {
         if (!data || !Object.keys(data).length) return;
         setSmtpForm({
             enabled: Boolean(data.enabled),
+            mailer: data.mailer ?? 'smtp',
             host: data.host ?? '',
             port: data.port ?? 587,
             username: data.username ?? '',
@@ -762,9 +763,9 @@ export default function AdminSettingsPage() {
 
             <Card className={sectionTab === 'email' ? '' : 'hidden'}>
                 <CardHeader
-                    title="SMTP email connection"
-                    description="Connect the mail server used for all platform email notifications."
-                    action={smtpResource.data?.configured ? <StatusBadge status="SMTP connected" /> : <StatusBadge status="SMTP not connected" />}
+                    title="Email connection"
+                    description="Connect Bluehost SMTP or use cPanel/PHP mail for platform email notifications."
+                    action={smtpResource.data?.configured ? <StatusBadge status={smtpForm.mailer === 'php_mail' ? 'PHP mail enabled' : 'SMTP connected'} /> : <StatusBadge status="Email not connected" />}
                 />
                 {smtpResource.loading ? <LoadingBlock rows={5} /> : (
                     <form className="mt-5 space-y-5" onSubmit={saveSmtp}>
@@ -776,40 +777,55 @@ export default function AdminSettingsPage() {
                                 type="checkbox"
                             />
                             <span>
-                                <span className="block text-sm font-bold text-slate-900">Use SMTP for website emails</span>
-                                <span className="block text-sm text-slate-500">When enabled, login, booking, onboarding, customer and admin notifications will use this SMTP connection.</span>
+                                <span className="block text-sm font-bold text-slate-900">Enable website emails</span>
+                                <span className="block text-sm text-slate-500">When enabled, login, booking, onboarding, customer and admin notifications use the selected email method.</span>
                             </span>
                         </label>
 
                         <div className="grid gap-4 lg:grid-cols-2">
-                            <Field label="SMTP host">
-                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, host: event.target.value }))} placeholder="smtp.example.com" value={smtpForm.host} />
-                            </Field>
-                            <Field label="SMTP port">
-                                <input className={inputClass} min="1" max="65535" onChange={(event) => setSmtpForm((current) => ({ ...current, port: event.target.value }))} placeholder="587" type="number" value={smtpForm.port} />
-                            </Field>
-                            <Field label="SMTP username">
-                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, username: event.target.value }))} placeholder="SMTP username or email" value={smtpForm.username} />
-                            </Field>
-                            <Field hint="Leave blank to keep the saved password." label="SMTP password">
-                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, password: event.target.value }))} placeholder="SMTP password" type="password" value={smtpForm.password} />
-                            </Field>
-                            <Field label="Encryption">
-                                <select className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, encryption: event.target.value }))} value={smtpForm.encryption}>
-                                    <option value="tls">TLS</option>
-                                    <option value="ssl">SSL</option>
-                                    <option value="">None</option>
+                            <Field label="Delivery method">
+                                <select className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, mailer: event.target.value }))} value={smtpForm.mailer}>
+                                    <option value="smtp">SMTP server</option>
+                                    <option value="php_mail">cPanel / PHP mail</option>
                                 </select>
                             </Field>
-                            <div className="flex items-end">
-                                {smtpResource.data?.password_configured && <StatusBadge status={`password ends ${smtpResource.data.password_last4}`} />}
-                            </div>
                             <Field label="From email address">
                                 <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_address: event.target.value }))} placeholder="hello@beautyprohq.com" type="email" value={smtpForm.from_address} />
                             </Field>
                             <Field label="From name">
                                 <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_name: event.target.value }))} placeholder="BeautyPro HQ" value={smtpForm.from_name} />
                             </Field>
+                            {smtpForm.mailer === 'smtp' && (
+                                <>
+                                    <Field label="SMTP host">
+                                        <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, host: event.target.value }))} placeholder="mail.yourdomain.com" value={smtpForm.host} />
+                                    </Field>
+                                    <Field label="SMTP port">
+                                        <input className={inputClass} min="1" max="65535" onChange={(event) => setSmtpForm((current) => ({ ...current, port: event.target.value }))} placeholder="465, 587 or 25" type="number" value={smtpForm.port} />
+                                    </Field>
+                                    <Field label="SMTP username">
+                                        <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, username: event.target.value }))} placeholder="Full email address" value={smtpForm.username} />
+                                    </Field>
+                                    <Field hint="Leave blank to keep the saved password." label="SMTP password">
+                                        <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, password: event.target.value }))} placeholder="Email account password" type="password" value={smtpForm.password} />
+                                    </Field>
+                                    <Field label="Encryption">
+                                        <select className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, encryption: event.target.value }))} value={smtpForm.encryption}>
+                                            <option value="ssl">SSL, usually port 465</option>
+                                            <option value="tls">TLS, usually port 587</option>
+                                            <option value="">None, usually port 25 or 26</option>
+                                        </select>
+                                    </Field>
+                                    <div className="flex items-end">
+                                        {smtpResource.data?.password_configured && <StatusBadge status={`password ends ${smtpResource.data.password_last4}`} />}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                            {smtpForm.mailer === 'smtp'
+                                ? 'For Bluehost, try mail.yourdomain.com with SSL/465 first. If that fails, try TLS/587. Use the full mailbox address as the username.'
+                                : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
                         </div>
                         <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
                             <Field hint="Save SMTP settings before sending a test email." label="Test recipient email">

@@ -43,6 +43,7 @@ export default function ProviderSubscriptionPage() {
     const activePlan = subscription?.plan ?? 'free';
     const paidActive = activePlan === 'paid' && subscription?.status === 'active';
     const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
+    const pendingPaidSelection = Boolean(data.pending_paid_plan_selection);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
     const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
     const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
@@ -84,11 +85,11 @@ export default function ProviderSubscriptionPage() {
     };
 
     const downgrade = async () => {
-        if (!window.confirm('Cancel renewal? Paid tools will stay available until the current billing period ends.')) return;
+        if (!window.confirm('Downgrade to free? Your provider verification will be declined and dashboard access will require admin approval again.')) return;
         setBusy('downgrade');
         try {
             await apiRequest('post', '/provider/subscription/downgrade');
-            notify('Renewal cancelled. Your paid tools stay active until the current billing period ends.');
+            notify('Downgrade requested. Provider verification was declined.');
             resource.reload();
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -113,7 +114,7 @@ export default function ProviderSubscriptionPage() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
                                 <h2 className="mt-1 text-2xl font-semibold capitalize text-slate-950">{activePlan} plan</h2>
-                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Paid tools remain active until this billing period ends.' : 'Advanced business tools are active.') : 'Basic listing, reviews, and email notifications are active.'}</p>
+                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Paid tools remain active until this billing period ends, but verification will need admin approval again for continued access.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
                             </div>
                             <StatusBadge status={subscription?.status ?? 'active'} />
                         </div>
@@ -145,7 +146,7 @@ export default function ProviderSubscriptionPage() {
                                     <div className="mt-6">
                                         {isPaid ? (
                                             paidActive ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Renewal cancelled' : 'Downgrade to free'}</Button>
-                                                : <Button busy={busy === 'checkout'} disabled={!gatewayConfigured} onClick={checkout} type="button">Upgrade with {gatewayLabel}</Button>
+                                                : <Button busy={busy === 'checkout'} disabled={!gatewayConfigured} onClick={checkout} type="button">{pendingPaidSelection ? `Continue payment with ${gatewayLabel}` : `Upgrade with ${gatewayLabel}`}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>
                                         )}

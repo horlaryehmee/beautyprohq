@@ -60,7 +60,7 @@ export default function VerifyEmailPage() {
         try {
             await ensureCsrfCookie();
             const response = await api.post('/email/verification-notification');
-            setMessage(response?.data?.message || 'A new verification link has been sent.');
+            setMessage(response?.data?.message || 'A new verification link has been sent. Check your inbox and spam folder.');
             setCooldown(30);
         } catch (requestError) {
             setError(apiError(requestError, 'We could not send a new verification link.').message);

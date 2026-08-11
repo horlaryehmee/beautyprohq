@@ -28,6 +28,7 @@ use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -83,6 +84,7 @@ class SubscriptionController extends Controller
 
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
+            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($request->user()),
             'detected_currency' => CurrencyResolver::currencyForRequest($request),
             'account_currency' => $accountCurrency,
             'plans' => $this->subscriptionPlansForRequest($request, $accountCurrency),
@@ -94,6 +96,20 @@ class SubscriptionController extends Controller
             'stripe_configured' => $this->stripeConfigured(),
             'subscription_gateway' => $this->subscriptionGateway(),
         ]);
+    }
+
+    private function hasPendingPaidPlanSelection(User $user): bool
+    {
+        if ($user->hasPaidPlan()) {
+            return false;
+        }
+
+        return $user->subscriptions()
+            ->whereIn('plan', ['paid', 'pro'])
+            ->whereIn('status', ['expired', 'pending'])
+            ->latest()
+            ->get()
+            ->contains(fn (Subscription $subscription): bool => (bool) ($subscription->metadata['selected_at_registration'] ?? false));
     }
 
     public function adminPaystackSettings(): JsonResponse
@@ -293,25 +309,32 @@ class SubscriptionController extends Controller
 
     public function adminSmtpSettings(): JsonResponse
     {
+        $mailer = AppSetting::getValue('smtp.mailer', 'smtp');
         $password = AppSetting::getValue('smtp.password');
         $configuredEncryption = config('mail.mailers.smtp.scheme') === 'smtps'
             ? 'ssl'
             : ((bool) config('mail.mailers.smtp.require_tls') ? 'tls' : null);
+        $enabled = AppSetting::getValue('smtp.enabled', '0') === '1';
+        $fromAddress = AppSetting::getValue('smtp.from_address') ?: config('mail.from.address');
 
         return $this->success([
-            'enabled' => AppSetting::getValue('smtp.enabled', '0') === '1',
+            'enabled' => $enabled,
+            'mailer' => $mailer,
             'host' => AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'),
             'port' => AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port', 587),
             'username' => AppSetting::getValue('smtp.username') ?: config('mail.mailers.smtp.username'),
             'encryption' => AppSetting::getValue('smtp.encryption') ?: $configuredEncryption,
-            'from_address' => AppSetting::getValue('smtp.from_address') ?: config('mail.from.address'),
+            'from_address' => $fromAddress,
             'from_name' => AppSetting::getValue('smtp.from_name') ?: config('mail.from.name', config('app.name')),
+            'sendmail_path' => config('mail.mailers.php_mail.path'),
             'password_configured' => filled($password ?: config('mail.mailers.smtp.password')),
             'password_last4' => filled($password ?: config('mail.mailers.smtp.password')) ? substr((string) ($password ?: config('mail.mailers.smtp.password')), -4) : null,
-            'configured' => AppSetting::getValue('smtp.enabled', '0') === '1'
-                && filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
-                && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
-                && filled(AppSetting::getValue('smtp.from_address') ?: config('mail.from.address')),
+            'configured' => $enabled
+                && filled($fromAddress)
+                && ($mailer === 'php_mail' || (
+                    filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
+                    && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
+                )),
         ]);
     }
 
@@ -319,6 +342,7 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
+            'mailer' => ['nullable', Rule::in(['smtp', 'php_mail'])],
             'host' => ['nullable', 'string', 'max:255'],
             'port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'username' => ['nullable', 'string', 'max:255'],
@@ -329,6 +353,7 @@ class SubscriptionController extends Controller
         ]);
 
         AppSetting::setValue('smtp.enabled', $validated['enabled'] ? '1' : '0');
+        AppSetting::setValue('smtp.mailer', $validated['mailer'] ?? 'smtp');
         AppSetting::setValue('smtp.host', $validated['host'] ?? null);
         AppSetting::setValue('smtp.port', $validated['port'] ?? null);
         AppSetting::setValue('smtp.username', $validated['username'] ?? null);
@@ -750,17 +775,44 @@ class SubscriptionController extends Controller
                 'metadata' => $metadata,
             ]);
 
+            $provider = $user->providerProfile()->lockForUpdate()->first();
+            if ($provider) {
+                $provider->update(['verified' => false]);
+
+                $latestVerification = $provider->verificationRequests()->latest()->first();
+                if ($latestVerification && $latestVerification->status === 'pending') {
+                    $latestVerification->update([
+                        'status' => 'rejected',
+                        'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
+                        'reviewed_at' => now(),
+                    ]);
+                } else {
+                    $provider->verificationRequests()->create([
+                        'portfolio_links' => $latestVerification?->portfolio_links ?? [],
+                        'social_links' => $latestVerification?->social_links ?? ($provider->social_links ?? []),
+                        'professional_info' => $latestVerification?->professional_info ?? 'Verification declined because the provider downgraded to the free plan.',
+                        'certification_files' => $latestVerification?->certification_files ?? [],
+                        'license_files' => $latestVerification?->license_files ?? [],
+                        'status' => 'rejected',
+                        'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
+                        'reviewed_at' => now(),
+                    ]);
+                }
+            }
+
             return $active->fresh();
         });
         $user->notify(new PlatformUpdateNotification(
             'Subscription cancellation scheduled',
-            'Your paid plan stays active until the current billing period ends.',
+            'Your paid plan cancellation has been scheduled and your provider verification was declined because you downgraded to the free plan.',
             'View subscription',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
             ['subscription_id' => $subscription->id],
         ));
+        Cache::forget('public.home.payload.v6');
+        Cache::forget('public.home.payload.v5');
 
-        return $this->success($subscription->load('planDefinition'), 'Your paid plan will remain active until the current billing period ends.');
+        return $this->success($subscription->load('planDefinition'), 'Your paid plan cancellation has been scheduled and provider verification was declined.');
     }
 
     public function paystackWebhook(Request $request): JsonResponse
@@ -1238,10 +1290,13 @@ class SubscriptionController extends Controller
 
     private function assertSmtpConfigured(): void
     {
-        abort_unless(AppSetting::getValue('smtp.enabled', '0') === '1', 422, 'SMTP is not enabled.');
-        abort_if(blank(AppSetting::getValue('smtp.host')), 422, 'SMTP host is not configured.');
-        abort_if(blank(AppSetting::getValue('smtp.port')), 422, 'SMTP port is not configured.');
-        abort_if(blank(AppSetting::getValue('smtp.from_address')), 422, 'SMTP from address is not configured.');
+        abort_unless(AppSetting::getValue('smtp.enabled', '0') === '1', 422, 'Email sending is not enabled.');
+        abort_if(blank(AppSetting::getValue('smtp.from_address')), 422, 'From address is not configured.');
+
+        if (AppSetting::getValue('smtp.mailer', 'smtp') === 'smtp') {
+            abort_if(blank(AppSetting::getValue('smtp.host')), 422, 'SMTP host is not configured.');
+            abort_if(blank(AppSetting::getValue('smtp.port')), 422, 'SMTP port is not configured.');
+        }
     }
 
     private function sampleEmailNotifications(string $type, string $email, User $admin): array

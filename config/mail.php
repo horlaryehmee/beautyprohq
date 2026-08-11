@@ -71,6 +71,11 @@ return [
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
         ],
 
+        'php_mail' => [
+            'transport' => 'sendmail',
+            'path' => env('MAIL_PHP_MAIL_PATH', '/usr/sbin/sendmail -t -i'),
+        ],
+
         'log' => [
             'transport' => 'log',
             'channel' => env('MAIL_LOG_CHANNEL'),

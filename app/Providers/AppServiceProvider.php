@@ -64,7 +64,8 @@ class AppServiceProvider extends ServiceProvider
             $apiUrl = URL::temporarySignedRoute(
                 'verification.verify',
                 now()->addMinutes((int) config('auth.verification.expire', 60)),
-                ['id' => $notifiable->getKey(), 'hash' => $hash]
+                ['id' => $notifiable->getKey(), 'hash' => $hash],
+                false
             );
             $query = parse_url($apiUrl, PHP_URL_QUERY);
 
@@ -166,27 +167,40 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $host = AppSetting::getValue('smtp.host');
-            $port = AppSetting::getValue('smtp.port');
+            $mailer = AppSetting::getValue('smtp.mailer', 'smtp');
             $fromAddress = AppSetting::getValue('smtp.from_address');
-            $encryption = AppSetting::getValue('smtp.encryption');
 
-            if (blank($host) || blank($port) || blank($fromAddress)) {
+            if (! in_array($mailer, ['smtp', 'php_mail'], true) || blank($fromAddress)) {
                 return;
             }
 
-            config([
-                'mail.default' => 'smtp',
-                'mail.mailers.smtp.host' => $host,
-                'mail.mailers.smtp.port' => (int) $port,
-                'mail.mailers.smtp.username' => AppSetting::getValue('smtp.username'),
-                'mail.mailers.smtp.password' => AppSetting::getValue('smtp.password'),
-                'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
-                'mail.mailers.smtp.require_tls' => $encryption === 'tls',
-                'mail.mailers.smtp.url' => null,
+            $mailConfig = [
+                'mail.default' => $mailer,
                 'mail.from.address' => $fromAddress,
                 'mail.from.name' => AppSetting::getValue('smtp.from_name') ?: config('app.name'),
-            ]);
+            ];
+
+            if ($mailer === 'smtp') {
+                $host = AppSetting::getValue('smtp.host');
+                $port = AppSetting::getValue('smtp.port');
+                $encryption = AppSetting::getValue('smtp.encryption');
+
+                if (blank($host) || blank($port)) {
+                    return;
+                }
+
+                $mailConfig = array_merge($mailConfig, [
+                    'mail.mailers.smtp.host' => $host,
+                    'mail.mailers.smtp.port' => (int) $port,
+                    'mail.mailers.smtp.username' => AppSetting::getValue('smtp.username'),
+                    'mail.mailers.smtp.password' => AppSetting::getValue('smtp.password'),
+                    'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
+                    'mail.mailers.smtp.require_tls' => $encryption === 'tls',
+                    'mail.mailers.smtp.url' => null,
+                ]);
+            }
+
+            config($mailConfig);
         } catch (\Throwable) {
             return;
         }

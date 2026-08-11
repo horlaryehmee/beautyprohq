@@ -20,16 +20,29 @@ class VerificationDecisionNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)->subject('BeautyPro HQ verification update')->line("Your verification request was {$this->verification->status}.");
+        $approved = $this->verification->status === 'approved';
+        $mail = (new MailMessage)
+            ->subject($approved ? 'Your BeautyPro HQ provider account has been approved' : 'BeautyPro HQ verification update')
+            ->line($approved
+                ? 'Your provider account has been approved. Open your dashboard to continue.'
+                : "Your verification request was {$this->verification->status}.");
+
         if ($this->verification->admin_notes) {
             $mail->line($this->verification->admin_notes);
         }
 
-        return $mail->action('View verification', rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/profile');
+        return $mail->action($approved ? 'Open dashboard' : 'View verification', rtrim(config('app.frontend_url', config('app.url')), '/').($approved ? '/provider' : '/provider/profile'));
     }
 
     public function toArray(object $notifiable): array
     {
-        return ['title' => 'Verification update', 'message' => "Your verification request was {$this->verification->status}.", 'verification_id' => $this->verification->id, 'status' => $this->verification->status];
+        return [
+            'title' => $this->verification->status === 'approved' ? 'Provider account approved' : 'Verification update',
+            'message' => $this->verification->status === 'approved'
+                ? 'Your provider account has been approved. Open your dashboard to continue.'
+                : "Your verification request was {$this->verification->status}.",
+            'verification_id' => $this->verification->id,
+            'status' => $this->verification->status,
+        ];
     }
 }

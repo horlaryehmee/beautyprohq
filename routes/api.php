@@ -38,7 +38,7 @@ Route::prefix('auth')->group(function (): void {
 });
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed', 'throttle:sensitive'])->name('verification.verify');
+    ->middleware(['signed:relative', 'throttle:sensitive'])->name('verification.verify');
 
 Route::get('/home', HomeController::class);
 Route::get('/currencies', [CurrencyController::class, 'index']);
@@ -113,22 +113,25 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     });
 
     Route::prefix('provider')->middleware('role:provider')->group(function (): void {
-        Route::get('/dashboard', [ProviderDashboardController::class, 'index']);
-        Route::get('/profile', [ProviderDashboardController::class, 'profile']);
-        Route::post('/profile', [ProviderDashboardController::class, 'updateProfile'])->middleware('throttle:upload');
-        Route::put('/profile', [ProviderDashboardController::class, 'updateProfile']);
-        Route::post('/profile/portfolio', [ProviderDashboardController::class, 'uploadPortfolioImage'])->middleware('throttle:upload');
-        Route::delete('/profile/portfolio/{portfolioItem}', [ProviderDashboardController::class, 'deletePortfolioImage']);
         Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding'])->middleware('verified');
-        Route::get('/verification', [ProviderDashboardController::class, 'verification']);
-        Route::post('/verification/files', [ProviderDashboardController::class, 'uploadVerificationFile'])->middleware('throttle:upload');
-        Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);
-        Route::get('/subscription', [SubscriptionController::class, 'current']);
-        Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:payment');
-        Route::post('/subscription/verify', [SubscriptionController::class, 'verify'])->middleware('throttle:payment');
-        Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade'])->middleware('throttle:sensitive');
 
-        Route::middleware(['paid.provider', 'verified'])->group(function (): void {
+        Route::middleware(['verified', 'verified.provider'])->group(function (): void {
+            Route::get('/dashboard', [ProviderDashboardController::class, 'index']);
+            Route::get('/profile', [ProviderDashboardController::class, 'profile']);
+            Route::post('/profile', [ProviderDashboardController::class, 'updateProfile'])->middleware('throttle:upload');
+            Route::put('/profile', [ProviderDashboardController::class, 'updateProfile']);
+            Route::post('/profile/portfolio', [ProviderDashboardController::class, 'uploadPortfolioImage'])->middleware('throttle:upload');
+            Route::delete('/profile/portfolio/{portfolioItem}', [ProviderDashboardController::class, 'deletePortfolioImage']);
+            Route::get('/verification', [ProviderDashboardController::class, 'verification']);
+            Route::post('/verification/files', [ProviderDashboardController::class, 'uploadVerificationFile'])->middleware('throttle:upload');
+            Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);
+            Route::get('/subscription', [SubscriptionController::class, 'current']);
+            Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:payment');
+            Route::post('/subscription/verify', [SubscriptionController::class, 'verify'])->middleware('throttle:payment');
+            Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade'])->middleware('throttle:sensitive');
+        });
+
+        Route::middleware(['paid.provider', 'verified', 'verified.provider'])->group(function (): void {
             Route::get('/analytics', [ProviderDashboardController::class, 'analytics']);
             Route::get('/services', [ProviderServiceController::class, 'index']);
             Route::post('/services', [ProviderServiceController::class, 'store']);

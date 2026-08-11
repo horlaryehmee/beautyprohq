@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -201,6 +202,13 @@ class BackendMvpTest extends TestCase
         AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
         Notification::fake();
         $user = User::factory()->provider()->create(['email' => 'provider@example.test']);
+        ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'provider-checkout',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+        ]);
         Sanctum::actingAs($user);
 
         Http::fake([
@@ -239,6 +247,13 @@ class BackendMvpTest extends TestCase
         AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
         Notification::fake();
         $user = User::factory()->provider()->create(['email' => 'race@example.test']);
+        ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'race-checkout',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+        ]);
         Sanctum::actingAs($user);
 
         Http::fake([
@@ -355,6 +370,13 @@ class BackendMvpTest extends TestCase
     {
         Notification::fake();
         $user = User::factory()->provider()->create();
+        $profile = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'downgrade-studio',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+        ]);
         $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
         $renewsAt = now()->addDays(12)->startOfSecond();
         $subscription = Subscription::create([
@@ -380,6 +402,12 @@ class BackendMvpTest extends TestCase
         $subscription->refresh();
         $this->assertTrue($user->fresh()->hasPaidPlan());
         $this->assertTrue($renewsAt->equalTo($subscription->ends_at));
+        $this->assertFalse($profile->fresh()->verified);
+        $this->assertDatabaseHas('verification_requests', [
+            'provider_id' => $profile->id,
+            'status' => 'rejected',
+            'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
+        ]);
     }
 
     public function test_provider_onboarding_requires_detailed_about_description(): void
@@ -460,14 +488,24 @@ class BackendMvpTest extends TestCase
             'availability' => [
                 ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
             ],
+            'verification_experience' => 'Five years of bridal, editorial, and event beauty work with repeat private clients.',
+            'verification_credentials' => 'Certified makeup artist with sanitation training and portfolio references.',
+            'verification_license_details' => 'Registered studio verification details available on request.',
+            'verification_portfolio_url' => 'https://example.test/complete-portfolio',
             'terms_accepted' => true,
         ], ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('data.provider.profile_photo', 'uploads/profile.webp')
             ->assertJsonPath('data.provider.cover_image', 'uploads/cover.webp')
-            ->assertJsonPath('data.redirect_to', '/provider')
+            ->assertJsonPath('data.redirect_to', '/provider/onboarding')
+            ->assertJsonPath('data.approval_required', true)
             ->assertJsonPath('data.checkout_required', false);
 
         $this->assertNotNull($profile->fresh()->onboarding_completed_at);
+        $this->assertFalse($profile->fresh()->verified);
+        $this->assertDatabaseHas('verification_requests', [
+            'provider_id' => $profile->id,
+            'status' => 'pending',
+        ]);
         $this->assertDatabaseHas('availability', [
             'provider_id' => $profile->id,
             'day_of_week' => 1,
@@ -476,7 +514,7 @@ class BackendMvpTest extends TestCase
         ]);
     }
 
-    public function test_provider_onboarding_requests_checkout_for_paid_plan_selected_at_registration(): void
+    public function test_provider_onboarding_requests_admin_approval_before_paid_checkout(): void
     {
         Notification::fake();
         $user = User::factory()->provider()->create(['name' => 'Pending Paid Artist']);
@@ -535,13 +573,35 @@ class BackendMvpTest extends TestCase
             'availability' => [
                 ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
             ],
+            'verification_experience' => 'Five years of bridal, editorial, and event beauty work with repeat private clients.',
+            'verification_credentials' => 'Certified makeup artist with sanitation training and portfolio references.',
+            'verification_license_details' => 'Registered studio verification details available on request.',
+            'verification_portfolio_url' => 'https://example.test/pending-paid-portfolio',
             'terms_accepted' => true,
         ], ['Accept' => 'application/json'])->assertOk()
-            ->assertJsonPath('data.payment_required', true)
-            ->assertJsonPath('data.checkout_required', true)
-            ->assertJsonPath('data.redirect_to', null);
+            ->assertJsonPath('data.approval_required', true)
+            ->assertJsonPath('data.payment_required', false)
+            ->assertJsonPath('data.checkout_required', false)
+            ->assertJsonPath('data.redirect_to', '/provider/onboarding');
 
         $this->assertNotNull($profile->fresh()->onboarding_completed_at);
+        $this->assertFalse($profile->fresh()->verified);
+        $this->getJson('/api/provider/dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'This feature is available to approved providers.');
+
+        $verification = $profile->verificationRequests()->latest()->firstOrFail();
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin);
+        $this->patchJson("/api/admin/verifications/{$verification->id}", [
+            'status' => 'approved',
+        ])->assertOk();
+
+        Sanctum::actingAs($user->fresh());
+        $this->getJson('/api/provider/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.pending_paid_plan_selection', true)
+            ->assertJsonPath('data.payment_required', true);
     }
 
     public function test_provider_can_upload_and_remove_portfolio_images_from_dashboard(): void
@@ -587,6 +647,8 @@ class BackendMvpTest extends TestCase
             'slug' => 'free-booking-profile-'.$user->id,
             'profession' => 'Beauty Professional',
             'location' => 'Lagos',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
         ]);
 
         Sanctum::actingAs($user);
@@ -636,7 +698,7 @@ class BackendMvpTest extends TestCase
 
     public function test_provider_verification_accepts_uploaded_file_paths(): void
     {
-        [$provider, $providerUser] = $this->provider('Verification Upload Studio', false);
+        [$provider, $providerUser] = $this->provider('Verification Upload Studio', true);
         $this->mock(UploadService::class, function ($mock): void {
             $mock->shouldReceive('store')->once()->andReturn([
                 'success' => true,
@@ -700,6 +762,22 @@ class BackendMvpTest extends TestCase
         $this->assertStringContainsString("/verify-email/{$user->id}/", $mail->actionUrl);
         $query = parse_url($mail->actionUrl, PHP_URL_QUERY);
         $apiUrl = url("/api/email/verify/{$user->id}/".sha1($user->email)).'?'.$query;
+        $this->getJson($apiUrl)->assertOk()->assertJsonPath('data.id', $user->id);
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_email_verification_link_can_verify_current_user_when_original_id_is_missing(): void
+    {
+        $user = User::factory()->unverified()->create(['email' => 'current-link@example.test']);
+        $missingId = $user->id + 1000;
+        $hash = sha1($user->email);
+        $apiUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            ['id' => $missingId, 'hash' => $hash],
+            false
+        );
+
         $this->getJson($apiUrl)->assertOk()->assertJsonPath('data.id', $user->id);
         $this->assertNotNull($user->fresh()->email_verified_at);
     }
@@ -1352,6 +1430,24 @@ class BackendMvpTest extends TestCase
         ] as $endpoint) {
             $this->getJson($endpoint)->assertOk($endpoint);
         }
+    }
+
+    public function test_admin_can_use_cpanel_php_mail_for_platform_email(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $this->putJson('/api/admin/settings/smtp', [
+            'enabled' => true,
+            'mailer' => 'php_mail',
+            'from_address' => 'hello@beautyprohq.com',
+            'from_name' => 'BeautyPro HQ',
+        ])->assertOk()
+            ->assertJsonPath('data.enabled', true)
+            ->assertJsonPath('data.mailer', 'php_mail')
+            ->assertJsonPath('data.configured', true);
+
+        $this->assertSame('1', AppSetting::getValue('smtp.enabled'));
+        $this->assertSame('php_mail', AppSetting::getValue('smtp.mailer'));
     }
 
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void

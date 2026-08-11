@@ -88,18 +88,28 @@ export default function ProviderOverviewPage() {
     const upcoming = list(dashboard.upcoming_bookings ?? dashboard.bookings);
     const notifications = list(dashboard.notifications);
     const isPaidPlan = Boolean(dashboard.is_paid_plan);
+    const paymentRequired = Boolean(dashboard.payment_required || dashboard.pending_paid_plan_selection);
 
     if (!isPaidPlan) {
         return (
             <div className="space-y-7">
                 <PageHeader
-                    description="Your free plan includes directory visibility, client reviews, and email notifications."
-                    eyebrow="Free provider plan"
-                    title="Your listing dashboard"
-                    actions={<Link to="/provider/subscription"><Button>Upgrade plan</Button></Link>}
+                    description={paymentRequired ? 'Your account has been approved. Complete payment to activate the paid provider workspace.' : 'Your free plan includes directory visibility, client reviews, and email notifications.'}
+                    eyebrow={paymentRequired ? 'Payment required' : 'Free provider plan'}
+                    title={paymentRequired ? 'Complete your paid plan payment' : 'Your listing dashboard'}
+                    actions={<Link to="/provider/subscription"><Button>{paymentRequired ? 'Continue payment' : 'Upgrade plan'}</Button></Link>}
                 />
 
                 {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+
+                {paymentRequired && (
+                    <Card className="border-fuchsia-200 bg-fuchsia-50">
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-fuchsia-700">Approved account</p>
+                        <h2 className="mt-2 text-2xl font-semibold text-slate-950">Payment is needed before paid tools open</h2>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Your verification has been approved. Continue to subscription payment to activate services, bookings, calendar, CRM, payments, and analytics.</p>
+                        <Link to="/provider/subscription"><Button className="mt-5" type="button">Continue payment</Button></Link>
+                    </Card>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-3">
                     <StatCard icon="profile" label="Directory listing" note="Basic public profile" tone="plum" value={profileCompletion >= 80 ? 'Ready' : 'Setup'} />

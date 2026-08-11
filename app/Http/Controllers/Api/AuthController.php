@@ -388,16 +388,24 @@ class AuthController extends Controller
             return $this->success(null, 'Email address is already verified.');
         }
 
-        $this->sendEmailVerificationAfterResponse($request->user());
+        try {
+            $request->user()->sendEmailVerificationNotification();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Verification email could not be sent. Check the email connection settings and try again.',
+            ], 422);
+        }
 
         return $this->success(null, 'Verification link sent.');
     }
 
     public function verifyEmail(Request $request, int $id, string $hash): JsonResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::find($id) ?? $this->userForVerificationHash($hash);
 
-        if (! hash_equals($hash, sha1($user->getEmailForVerification()))) {
+        if (! $user || ! hash_equals($hash, sha1($user->getEmailForVerification()))) {
             return response()->json(['message' => 'Invalid verification link.'], 403);
         }
 
@@ -407,6 +415,14 @@ class AuthController extends Controller
         }
 
         return $this->success($user, 'Email address verified.');
+    }
+
+    private function userForVerificationHash(string $hash): ?User
+    {
+        return User::query()
+            ->select(['id', 'email', 'email_verified_at'])
+            ->cursor()
+            ->first(fn (User $user): bool => hash_equals($hash, sha1($user->getEmailForVerification())));
     }
 
     private function uniqueSlug(string $name): string

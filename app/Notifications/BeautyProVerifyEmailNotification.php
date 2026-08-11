@@ -22,7 +22,8 @@ class BeautyProVerifyEmailNotification extends Notification
         $apiUrl = URL::temporarySignedRoute(
             'verification.verify',
             now()->addMinutes((int) config('auth.verification.expire', 60)),
-            ['id' => $notifiable->getKey(), 'hash' => $hash]
+            ['id' => $notifiable->getKey(), 'hash' => $hash],
+            false
         );
         $query = parse_url($apiUrl, PHP_URL_QUERY);
         $url = rtrim(config('app.frontend_url', config('app.url')), '/')."/verify-email/{$notifiable->getKey()}/{$hash}?{$query}";

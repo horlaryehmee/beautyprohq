@@ -14,6 +14,7 @@ use App\Notifications\PlatformUpdateNotification;
 use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -72,6 +73,8 @@ class DashboardController extends Controller
             'notifications' => $request->user()->unreadNotifications()->latest()->limit(8)->get(),
             'profile_completion' => $this->completion($provider),
             'verification_status' => $provider->verified ? 'approved' : ($provider->verificationRequests()->latest()->value('status') ?? 'not_submitted'),
+            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($request->user()),
+            'payment_required' => $this->hasPendingPaidPlanSelection($request->user()) && ! $isPaid,
             'subscription' => $subscription,
             'is_paid_plan' => $isPaid,
             'analytics' => [
@@ -290,12 +293,16 @@ class DashboardController extends Controller
             'availability.*.end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'portfolio_images' => ['sometimes', 'array', 'max:6'],
             'portfolio_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'verification_experience' => ['required', 'string', 'max:2000'],
+            'verification_credentials' => ['required', 'string', 'max:2000'],
+            'verification_license_details' => ['nullable', 'string', 'max:2000'],
+            'verification_portfolio_url' => ['nullable', 'url:http,https', 'max:500'],
             'terms_accepted' => ['accepted'],
         ]);
 
         $provider = $request->user()->providerProfile;
 
-        DB::transaction(function () use ($request, $provider, $validated, $uploads): void {
+        $verification = DB::transaction(function () use ($request, $provider, $validated, $uploads): VerificationRequest {
             $request->user()->update([
                 'name' => $validated['name'],
                 'phone' => $validated['contact_phone'] ?? $request->user()->phone,
@@ -323,6 +330,7 @@ class DashboardController extends Controller
                 'base_price' => $validated['base_price'],
                 'terms_accepted_at' => now(),
                 'onboarding_completed_at' => now(),
+                'verified' => false,
             ]);
 
             $provider->availability()->delete();
@@ -339,31 +347,62 @@ class DashboardController extends Controller
                     'sort_order' => $index,
                 ]);
             }
+
+            $portfolioLinks = $provider->portfolioItems()
+                ->latest()
+                ->limit(6)
+                ->pluck('media_url')
+                ->filter()
+                ->values()
+                ->all();
+            if (filled($validated['verification_portfolio_url'] ?? null)) {
+                $portfolioLinks[] = $validated['verification_portfolio_url'];
+            }
+
+            $professionalInfo = implode("\n\n", array_filter([
+                "Professional title: {$validated['profession']}",
+                "Location: {$validated['city']}, {$validated['country']}",
+                "Starting price: {$validated['default_currency']} {$validated['base_price']}",
+                "Experience:\n{$validated['verification_experience']}",
+                "Training, certification, or credentials:\n{$validated['verification_credentials']}",
+                filled($validated['verification_license_details'] ?? null) ? "License or registration details:\n{$validated['verification_license_details']}" : null,
+                "Business description:\n{$validated['bio']}",
+                'Provider confirmed that the submitted listing and verification details are accurate.',
+            ]));
+
+            return $provider->verificationRequests()->create([
+                'portfolio_links' => $portfolioLinks,
+                'social_links' => $socialLinks,
+                'professional_info' => $professionalInfo,
+                'certification_files' => [],
+                'license_files' => [],
+                'status' => 'pending',
+            ]);
         });
 
         $request->user()->notify(new PlatformUpdateNotification(
-            'Provider onboarding completed',
-            'Your provider listing setup is complete. You can now continue refining your profile and services.',
-            'Open dashboard',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
+            'Provider details received',
+            'Your provider details have been received and are waiting for admin approval. You will be notified once the review is complete.',
+            'View status',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/onboarding',
             ['provider_id' => $provider->id],
         ));
         User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-            'Provider onboarding completed',
-            "{$request->user()->name} completed provider onboarding.",
-            'View user',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users/'.$request->user()->id,
-            ['provider_id' => $provider->id, 'user_id' => $request->user()->id],
+            'Provider approval required',
+            "{$request->user()->name} submitted provider details for approval.",
+            'Review verification',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/verification',
+            ['provider_id' => $provider->id, 'user_id' => $request->user()->id, 'verification_id' => $verification->id],
         ));
-
-        $checkoutRequired = $this->hasPendingPaidPlanSelection($request->user());
 
         return $this->success([
             'provider' => $provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']),
-            'redirect_to' => $request->user()->hasPaidPlan() ? '/provider' : ($checkoutRequired ? null : '/provider/subscription'),
-            'payment_required' => ! $request->user()->hasPaidPlan(),
-            'checkout_required' => $checkoutRequired,
-        ], 'Listing details completed.');
+            'verification' => $verification->fresh(),
+            'redirect_to' => '/provider/onboarding',
+            'approval_required' => true,
+            'payment_required' => false,
+            'checkout_required' => false,
+        ], 'Your provider details have been received. You will be notified once an admin approves your account.');
     }
 
     private function hasPendingPaidPlanSelection(User $user): bool

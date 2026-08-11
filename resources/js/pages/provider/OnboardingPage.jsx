@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, apiRequest, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
 import { defaultCountries } from 'react-international-phone';
-import { browserCurrency, detectIpCurrency } from '../../lib/browserCurrency';
+import { browserCurrency } from '../../lib/browserCurrency';
 
 const days = [
     ['1', 'Monday'],
@@ -135,11 +135,12 @@ function CountrySelectField({ value, onChange }) {
 
 function ProviderOnboardingContent() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const { notify } = useDashboardToast();
     const categoriesResource = useApiResource('/provider-categories', []);
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
 
     const defaultForm = {
         name: user?.name ?? '',
@@ -165,6 +166,10 @@ function ProviderOnboardingContent() {
             { day_of_week: 5, start_time: '09:00', end_time: '18:00' },
         ],
         portfolio_images: [],
+        verification_experience: '',
+        verification_credentials: '',
+        verification_license_details: '',
+        verification_portfolio_url: '',
         terms_accepted: false,
     };
 
@@ -210,6 +215,7 @@ function ProviderOnboardingContent() {
         ['Pricing', 'Base price and currency'],
         ['Work hours', 'Availability'],
         ['Portfolio', 'Up to 6 images'],
+        ['Verification', 'Review details'],
         ['Terms', 'Review and accept'],
     ], []);
 
@@ -255,21 +261,11 @@ function ProviderOnboardingContent() {
 
             const response = await dashboardApi.post('/provider/onboarding', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
             const data = response?.data?.data ?? {};
-            const nextPath = data.redirect_to ?? '/provider';
             sessionStorage.removeItem('bphq_onboarding_draft');
-            if (data.checkout_required) {
-                notify('Listing details saved. Opening payment checkout...');
-                const detectedCurrency = await detectIpCurrency();
-                const checkout = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', currency: detectedCurrency || browserCurrency() });
-                if (checkout.authorization_url) {
-                    window.location.href = checkout.authorization_url;
-                    return;
-                }
-                notify('Payment checkout could not be opened.', 'error');
-                return;
-            }
-            notify(data.payment_required ? 'Listing details saved. Continue to payment to activate your paid plan.' : 'Listing details saved.');
-            window.location.href = nextPath;
+            notify(data.approval_required ? 'Details received. Admin approval is required before dashboard access.' : 'Listing details saved.');
+            setSubmitted(true);
+            await refreshUser?.();
+            navigate(data.redirect_to ?? '/provider/onboarding', { replace: true });
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -278,6 +274,29 @@ function ProviderOnboardingContent() {
     };
 
     if (categoriesResource.loading) return <LoadingBlock rows={6} />;
+
+    const providerProfile = user?.provider_profile ?? user?.providerProfile;
+    const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
+    const providerApproved = Boolean(providerProfile?.verified);
+    if ((onboardingComplete && !providerApproved) || submitted) {
+        return (
+            <div className="min-h-screen bg-slate-50 px-4 py-8 lg:px-8">
+                <div className="mx-auto max-w-3xl">
+                    <Card className="p-8">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-fuchsia-700">Provider review</p>
+                        <h1 className="mt-3 font-display text-4xl font-normal text-slate-950">Your details have been received</h1>
+                        <p className="mt-3 text-sm leading-6 text-slate-500">
+                            Your provider account is waiting for admin approval. You will receive an email once the review is complete.
+                            Paid plan providers will be able to continue payment from the dashboard after approval.
+                        </p>
+                        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900">
+                            Dashboard access is locked until your account is approved.
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-8 lg:px-8">
@@ -431,6 +450,54 @@ function ProviderOnboardingContent() {
                         )}
 
                         {step === 8 && (
+                            <div className="grid gap-4">
+                                <Field
+                                    hint="Include years of experience, client types, specialist services, and where your work can be checked."
+                                    label="Professional experience"
+                                    required
+                                >
+                                    <textarea
+                                        className={`${inputClass} min-h-32`}
+                                        onChange={(event) => update('verification_experience', event.target.value)}
+                                        placeholder="Example: I have worked with bridal, editorial, and private beauty clients for five years..."
+                                        required
+                                        value={form.verification_experience}
+                                    />
+                                </Field>
+                                <Field
+                                    hint="List training, certificates, awards, apprenticeships, brand courses, or other proof of skill."
+                                    label="Training or credentials"
+                                    required
+                                >
+                                    <textarea
+                                        className={`${inputClass} min-h-28`}
+                                        onChange={(event) => update('verification_credentials', event.target.value)}
+                                        placeholder="Example: Certified makeup artist, completed sanitation training, trained with..."
+                                        required
+                                        value={form.verification_credentials}
+                                    />
+                                </Field>
+                                <Field label="License or business registration details (optional)">
+                                    <textarea
+                                        className={`${inputClass} min-h-24`}
+                                        onChange={(event) => update('verification_license_details', event.target.value)}
+                                        placeholder="License number, registered business name, studio registration, or N/A if not applicable."
+                                        value={form.verification_license_details}
+                                    />
+                                </Field>
+                                <Field label="Portfolio or proof link (optional)">
+                                    <input
+                                        className={inputClass}
+                                        onChange={(event) => update('verification_portfolio_url', event.target.value)}
+                                        placeholder="https://..."
+                                        type="url"
+                                        value={form.verification_portfolio_url}
+                                    />
+                                </Field>
+                            </div>
+                        )}
+
+                        {step === 9 && (
                             <div className="space-y-5">
                                 <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
                                     <h2 className="font-semibold text-slate-950">BeautyPro HQ provider terms</h2>
