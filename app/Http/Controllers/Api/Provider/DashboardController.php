@@ -258,6 +258,7 @@ class DashboardController extends Controller
             }
         }
 
+        $paidVerificationRequired = $this->hasPendingPaidPlanSelection($request->user());
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'provider_category_id' => ['required', 'integer', 'exists:provider_categories,id'],
@@ -293,10 +294,14 @@ class DashboardController extends Controller
             'availability.*.end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'portfolio_images' => ['sometimes', 'array', 'max:6'],
             'portfolio_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'verification_experience' => ['required', 'string', 'max:2000'],
-            'verification_credentials' => ['required', 'string', 'max:2000'],
+            'verification_years' => [$paidVerificationRequired ? 'required' : 'nullable', 'integer', 'min:0', 'max:80'],
+            'verification_experience' => [$paidVerificationRequired ? 'required' : 'nullable', 'string', 'max:2000'],
+            'verification_credentials' => [$paidVerificationRequired ? 'required' : 'nullable', 'string', 'max:2000'],
             'verification_license_details' => ['nullable', 'string', 'max:2000'],
-            'verification_portfolio_url' => ['nullable', 'url:http,https', 'max:500'],
+            'certification_documents' => [$paidVerificationRequired ? 'required_without:license_documents' : 'nullable', 'array', 'max:5'],
+            'certification_documents.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
+            'license_documents' => [$paidVerificationRequired ? 'required_without:certification_documents' : 'nullable', 'array', 'max:5'],
+            'license_documents.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
             'terms_accepted' => ['accepted'],
         ]);
 
@@ -355,16 +360,23 @@ class DashboardController extends Controller
                 ->filter()
                 ->values()
                 ->all();
-            if (filled($validated['verification_portfolio_url'] ?? null)) {
-                $portfolioLinks[] = $validated['verification_portfolio_url'];
+            $certificationFiles = [];
+            foreach (array_slice($request->file('certification_documents', []), 0, 5) as $document) {
+                $certificationFiles[] = $uploads->store($document)['path'];
+            }
+
+            $licenseFiles = [];
+            foreach (array_slice($request->file('license_documents', []), 0, 5) as $document) {
+                $licenseFiles[] = $uploads->store($document)['path'];
             }
 
             $professionalInfo = implode("\n\n", array_filter([
                 "Professional title: {$validated['profession']}",
                 "Location: {$validated['city']}, {$validated['country']}",
                 "Starting price: {$validated['default_currency']} {$validated['base_price']}",
-                "Experience:\n{$validated['verification_experience']}",
-                "Training, certification, or credentials:\n{$validated['verification_credentials']}",
+                array_key_exists('verification_years', $validated) && $validated['verification_years'] !== null ? "Years of experience: {$validated['verification_years']}" : null,
+                filled($validated['verification_experience'] ?? null) ? "Experience:\n{$validated['verification_experience']}" : null,
+                filled($validated['verification_credentials'] ?? null) ? "Training, certification, or credentials:\n{$validated['verification_credentials']}" : null,
                 filled($validated['verification_license_details'] ?? null) ? "License or registration details:\n{$validated['verification_license_details']}" : null,
                 "Business description:\n{$validated['bio']}",
                 'Provider confirmed that the submitted listing and verification details are accurate.',
@@ -374,8 +386,8 @@ class DashboardController extends Controller
                 'portfolio_links' => $portfolioLinks,
                 'social_links' => $socialLinks,
                 'professional_info' => $professionalInfo,
-                'certification_files' => [],
-                'license_files' => [],
+                'certification_files' => $certificationFiles,
+                'license_files' => $licenseFiles,
                 'status' => 'pending',
             ]);
         });

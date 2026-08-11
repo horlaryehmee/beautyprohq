@@ -56,7 +56,8 @@ class BackendMvpTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.user.role', 'provider')
-            ->assertJsonPath('data.user.provider_profile.profession', 'Beauty Professional');
+            ->assertJsonPath('data.user.provider_profile.profession', 'Beauty Professional')
+            ->assertJsonPath('data.user.pending_paid_plan_selection', false);
         $this->assertNull($response->json('data.token'));
         $this->assertDatabaseHas('provider_profiles', ['slug' => 'demo-artist']);
         $this->assertDatabaseCount('personal_access_tokens', 0);
@@ -64,6 +65,32 @@ class BackendMvpTest extends TestCase
         Notification::assertSentTo($user, BeautyProVerifyEmailNotification::class);
         Notification::assertNotSentTo($user, PlatformUpdateNotification::class);
         $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.email', 'artist@example.test');
+    }
+
+    public function test_paid_provider_registration_marks_pending_paid_selection_for_onboarding(): void
+    {
+        Notification::fake();
+        $this->withSession(['_token' => 'paid-registration-csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'paid-registration-csrf-token')
+            ->withHeader('Referer', rtrim(config('app.url'), '/').'/');
+
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'Paid Pending Artist',
+            'email' => 'paid-pending@example.test',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'role' => 'provider',
+            'plan' => 'paid',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.user.role', 'provider')
+            ->assertJsonPath('data.user.pending_paid_plan_selection', true)
+            ->assertJsonPath('data.user.active_subscription', null);
+
+        $this->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.pending_paid_plan_selection', true);
     }
 
     public function test_guest_customer_can_create_account_later_with_booking_email(): void
@@ -488,10 +515,6 @@ class BackendMvpTest extends TestCase
             'availability' => [
                 ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
             ],
-            'verification_experience' => 'Five years of bridal, editorial, and event beauty work with repeat private clients.',
-            'verification_credentials' => 'Certified makeup artist with sanitation training and portfolio references.',
-            'verification_license_details' => 'Registered studio verification details available on request.',
-            'verification_portfolio_url' => 'https://example.test/complete-portfolio',
             'terms_accepted' => true,
         ], ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('data.provider.profile_photo', 'uploads/profile.webp')
@@ -535,7 +558,7 @@ class BackendMvpTest extends TestCase
         ]);
         $category = ProviderCategory::firstOrFail();
         $this->mock(UploadService::class, function ($mock): void {
-            $mock->shouldReceive('store')->twice()->andReturn(
+            $mock->shouldReceive('store')->times(4)->andReturn(
                 [
                     'success' => true,
                     'url' => '/storage/uploads/profile.webp',
@@ -551,6 +574,22 @@ class BackendMvpTest extends TestCase
                     'filename' => 'cover.webp',
                     'mime_type' => 'image/webp',
                     'size' => 2400,
+                ],
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/certificate.pdf',
+                    'path' => 'uploads/certificate.pdf',
+                    'filename' => 'certificate.pdf',
+                    'mime_type' => 'application/pdf',
+                    'size' => 8000,
+                ],
+                [
+                    'success' => true,
+                    'url' => '/storage/uploads/license.pdf',
+                    'path' => 'uploads/license.pdf',
+                    'filename' => 'license.pdf',
+                    'mime_type' => 'application/pdf',
+                    'size' => 7000,
                 ],
             );
         });
@@ -573,10 +612,12 @@ class BackendMvpTest extends TestCase
             'availability' => [
                 ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
             ],
+            'verification_years' => 5,
             'verification_experience' => 'Five years of bridal, editorial, and event beauty work with repeat private clients.',
             'verification_credentials' => 'Certified makeup artist with sanitation training and portfolio references.',
             'verification_license_details' => 'Registered studio verification details available on request.',
-            'verification_portfolio_url' => 'https://example.test/pending-paid-portfolio',
+            'certification_documents' => [UploadedFile::fake()->create('certificate.pdf', 20, 'application/pdf')],
+            'license_documents' => [UploadedFile::fake()->create('license.pdf', 20, 'application/pdf')],
             'terms_accepted' => true,
         ], ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('data.approval_required', true)
@@ -591,6 +632,9 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('message', 'This feature is available to approved providers.');
 
         $verification = $profile->verificationRequests()->latest()->firstOrFail();
+        $this->assertSame(['uploads/certificate.pdf'], $verification->certification_files);
+        $this->assertSame(['uploads/license.pdf'], $verification->license_files);
+        $this->assertStringContainsString('Years of experience: 5', $verification->professional_info);
         $admin = User::factory()->admin()->create();
         Sanctum::actingAs($admin);
         $this->patchJson("/api/admin/verifications/{$verification->id}", [
@@ -779,6 +823,22 @@ class BackendMvpTest extends TestCase
         );
 
         $this->getJson($apiUrl)->assertOk()->assertJsonPath('data.id', $user->id);
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_email_verification_accepts_frontend_signed_path(): void
+    {
+        $user = User::factory()->unverified()->create(['email' => 'frontend-link@example.test']);
+        $hash = sha1($user->email);
+        $query = http_build_query([
+            'expires' => now()->addMinutes(60)->timestamp,
+        ]);
+        $signature = hash_hmac('sha256', "/verify-email/{$user->id}/{$hash}?{$query}", config('app.key'));
+
+        $this->getJson("/api/email/verify/{$user->id}/{$hash}?{$query}&signature={$signature}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id);
+
         $this->assertNotNull($user->fresh()->email_verified_at);
     }
 

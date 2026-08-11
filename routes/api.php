@@ -38,7 +38,7 @@ Route::prefix('auth')->group(function (): void {
 });
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed:relative', 'throttle:sensitive'])->name('verification.verify');
+    ->middleware(['throttle:sensitive'])->name('verification.verify');
 
 Route::get('/home', HomeController::class);
 Route::get('/currencies', [CurrencyController::class, 'index']);

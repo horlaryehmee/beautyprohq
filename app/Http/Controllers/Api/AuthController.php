@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -117,7 +118,7 @@ class AuthController extends Controller
         }
 
         return $this->success([
-            'user' => $user->load(['providerProfile', 'activeSubscription.planDefinition']),
+            'user' => $this->authUserPayload($user),
         ], 'Account created. Please verify your email address.', 201);
     }
 
@@ -203,13 +204,35 @@ class AuthController extends Controller
         ]);
 
         return $this->success([
-            'user' => $user->load(['providerProfile', 'activeSubscription.planDefinition']),
+            'user' => $this->authUserPayload($user),
         ], 'Welcome back.');
     }
 
     public function me(Request $request): JsonResponse
     {
-        return $this->success($request->user()->load(['providerProfile', 'activeSubscription.planDefinition']));
+        return $this->success($this->authUserPayload($request->user()));
+    }
+
+    private function authUserPayload(User $user): User
+    {
+        $user->load(['providerProfile', 'activeSubscription.planDefinition']);
+        $user->setAttribute('pending_paid_plan_selection', $this->hasPendingPaidPlanSelection($user));
+
+        return $user;
+    }
+
+    private function hasPendingPaidPlanSelection(User $user): bool
+    {
+        if (! $user->isProvider() || $user->hasPaidPlan()) {
+            return false;
+        }
+
+        return $user->subscriptions()
+            ->whereIn('plan', ['paid', 'pro'])
+            ->whereIn('status', ['expired', 'pending'])
+            ->latest()
+            ->get()
+            ->contains(fn (Subscription $subscription): bool => (bool) ($subscription->metadata['selected_at_registration'] ?? false));
     }
 
     public function twoFactorStatus(Request $request): JsonResponse
@@ -403,6 +426,10 @@ class AuthController extends Controller
 
     public function verifyEmail(Request $request, int $id, string $hash): JsonResponse
     {
+        if (! $this->hasValidEmailVerificationSignature($request, $id, $hash)) {
+            return response()->json(['message' => 'This verification link is invalid or has expired. Please request a new verification email.'], 403);
+        }
+
         $user = User::find($id) ?? $this->userForVerificationHash($hash);
 
         if (! $user || ! hash_equals($hash, sha1($user->getEmailForVerification()))) {
@@ -415,6 +442,29 @@ class AuthController extends Controller
         }
 
         return $this->success($user, 'Email address verified.');
+    }
+
+    private function hasValidEmailVerificationSignature(Request $request, int $id, string $hash): bool
+    {
+        if (URL::hasValidRelativeSignature($request)) {
+            return true;
+        }
+
+        $queryString = (string) $request->server->get('QUERY_STRING');
+        $paths = [
+            "/api/email/verify/{$id}/{$hash}",
+            "/email/verify/{$id}/{$hash}",
+            "/verify-email/{$id}/{$hash}",
+        ];
+
+        foreach ($paths as $path) {
+            $candidate = Request::create($path.($queryString !== '' ? "?{$queryString}" : ''), 'GET');
+            if (URL::hasValidRelativeSignature($candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function userForVerificationHash(string $hash): ?User

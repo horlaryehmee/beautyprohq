@@ -166,10 +166,12 @@ function ProviderOnboardingContent() {
             { day_of_week: 5, start_time: '09:00', end_time: '18:00' },
         ],
         portfolio_images: [],
+        verification_years: '',
         verification_experience: '',
         verification_credentials: '',
         verification_license_details: '',
-        verification_portfolio_url: '',
+        certification_documents: [],
+        license_documents: [],
         terms_accepted: false,
     };
 
@@ -184,6 +186,8 @@ function ProviderOnboardingContent() {
                     profile_photo: null,
                     cover_image: null,
                     portfolio_images: [],
+                    certification_documents: [],
+                    license_documents: [],
                 };
             }
         } catch {}
@@ -196,7 +200,7 @@ function ProviderOnboardingContent() {
     useEffect(() => {
         const timer = setTimeout(() => {
             try {
-                const { profile_photo, cover_image, portfolio_images, ...serializable } = form;
+                const { profile_photo, cover_image, portfolio_images, certification_documents, license_documents, ...serializable } = form;
                 sessionStorage.setItem('bphq_onboarding_draft', JSON.stringify(serializable));
             } catch {}
         }, 500);
@@ -205,6 +209,9 @@ function ProviderOnboardingContent() {
 
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
     const bioWords = wordCount(form.bio);
+    const activeSubscription = user?.active_subscription ?? user?.activeSubscription;
+    const selectedPaidPlan = Boolean(user?.pending_paid_plan_selection)
+        || ['paid', 'pro'].includes(activeSubscription?.plan);
 
     const sections = useMemo(() => [
         ['General', 'Business details'],
@@ -215,9 +222,9 @@ function ProviderOnboardingContent() {
         ['Pricing', 'Base price and currency'],
         ['Work hours', 'Availability'],
         ['Portfolio', 'Up to 6 images'],
-        ['Verification', 'Review details'],
+        ...(selectedPaidPlan ? [['Verification', 'Paid plan review']] : []),
         ['Terms', 'Review and accept'],
-    ], []);
+    ], [selectedPaidPlan]);
 
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
@@ -249,6 +256,10 @@ function ProviderOnboardingContent() {
                     payload.append(key, JSON.stringify(value));
                 } else if (key === 'portfolio_images') {
                     value.forEach((file) => payload.append('portfolio_images[]', file));
+                } else if (key === 'certification_documents') {
+                    value.forEach((file) => payload.append('certification_documents[]', file));
+                } else if (key === 'license_documents') {
+                    value.forEach((file) => payload.append('license_documents[]', file));
                 } else if (value instanceof File) {
                     payload.append(key, value);
                 } else {
@@ -278,6 +289,7 @@ function ProviderOnboardingContent() {
     const providerProfile = user?.provider_profile ?? user?.providerProfile;
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
     const providerApproved = Boolean(providerProfile?.verified);
+    const currentSection = sections[step]?.[0] ?? 'General';
     if ((onboardingComplete && !providerApproved) || submitted) {
         return (
             <div className="min-h-screen bg-slate-50 px-4 py-8 lg:px-8">
@@ -449,10 +461,22 @@ function ProviderOnboardingContent() {
                             </div>
                         )}
 
-                        {step === 8 && (
+                        {currentSection === 'Verification' && (
                             <div className="grid gap-4">
+                                <Field label="Years of professional experience" required>
+                                    <input
+                                        className={inputClass}
+                                        min="0"
+                                        max="80"
+                                        onChange={(event) => update('verification_years', event.target.value)}
+                                        placeholder="5"
+                                        required
+                                        type="number"
+                                        value={form.verification_years}
+                                    />
+                                </Field>
                                 <Field
-                                    hint="Include years of experience, client types, specialist services, and where your work can be checked."
+                                    hint="Include client types, specialist services, studio or mobile work, and the kind of paid beauty work you handle."
                                     label="Professional experience"
                                     required
                                 >
@@ -485,19 +509,50 @@ function ProviderOnboardingContent() {
                                         value={form.verification_license_details}
                                     />
                                 </Field>
-                                <Field label="Portfolio or proof link (optional)">
+                                <Field label="Certification documents">
                                     <input
+                                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                                         className={inputClass}
-                                        onChange={(event) => update('verification_portfolio_url', event.target.value)}
-                                        placeholder="https://..."
-                                        type="url"
-                                        value={form.verification_portfolio_url}
+                                        multiple
+                                        onChange={(event) => update('certification_documents', Array.from(event.target.files ?? []).slice(0, 5))}
+                                        type="file"
                                     />
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload certificates, training proof, permits, or equivalent documents. PDF, image, Word files.</p>
+                                    {form.certification_documents.length > 0 && (
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                            {form.certification_documents.map((file, index) => (
+                                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
+                                                    <span className="block truncate">{file.name}</span>
+                                                    <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </Field>
+                                <Field label="License or business documents">
+                                    <input
+                                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                                        className={inputClass}
+                                        multiple
+                                        onChange={(event) => update('license_documents', Array.from(event.target.files ?? []).slice(0, 5))}
+                                        type="file"
+                                    />
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload license, business registration, studio permit, insurance, or other professional documents if available.</p>
+                                    {form.license_documents.length > 0 && (
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                            {form.license_documents.map((file, index) => (
+                                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
+                                                    <span className="block truncate">{file.name}</span>
+                                                    <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </Field>
                             </div>
                         )}
 
-                        {step === 9 && (
+                        {currentSection === 'Terms' && (
                             <div className="space-y-5">
                                 <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
                                     <h2 className="font-semibold text-slate-950">BeautyPro HQ provider terms</h2>
