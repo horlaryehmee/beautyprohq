@@ -235,6 +235,7 @@ class BackendMvpTest extends TestCase
             'profession' => 'Beauty Professional',
             'verified' => true,
             'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
         ]);
         Sanctum::actingAs($user);
 
@@ -280,6 +281,7 @@ class BackendMvpTest extends TestCase
             'profession' => 'Beauty Professional',
             'verified' => true,
             'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
         ]);
         Sanctum::actingAs($user);
 
@@ -403,6 +405,7 @@ class BackendMvpTest extends TestCase
             'profession' => 'Beauty Professional',
             'verified' => true,
             'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
         ]);
         $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
         $renewsAt = now()->addDays(12)->startOfSecond();
@@ -627,6 +630,7 @@ class BackendMvpTest extends TestCase
 
         $this->assertNotNull($profile->fresh()->onboarding_completed_at);
         $this->assertFalse($profile->fresh()->verified);
+        $this->assertNull($profile->fresh()->account_approved_at);
         $this->getJson('/api/provider/dashboard')
             ->assertForbidden()
             ->assertJsonPath('message', 'This feature is available to approved providers.');
@@ -639,6 +643,19 @@ class BackendMvpTest extends TestCase
         Sanctum::actingAs($admin);
         $this->patchJson("/api/admin/verifications/{$verification->id}", [
             'status' => 'approved',
+        ])->assertOk();
+
+        $this->assertTrue($profile->fresh()->verified);
+        $this->assertNull($profile->fresh()->account_approved_at);
+
+        Sanctum::actingAs($user->fresh());
+        $this->getJson('/api/provider/dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'This feature is available to approved providers.');
+
+        Sanctum::actingAs($admin);
+        $this->patchJson("/api/admin/providers/{$profile->id}", [
+            'account_approved' => true,
         ])->assertOk();
 
         Sanctum::actingAs($user->fresh());
@@ -693,6 +710,7 @@ class BackendMvpTest extends TestCase
             'location' => 'Lagos',
             'verified' => true,
             'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
         ]);
 
         Sanctum::actingAs($user);
@@ -1035,7 +1053,7 @@ class BackendMvpTest extends TestCase
         $this->postJson('/api/bookings', ['provider_id' => $provider->id, 'service_id' => $service->id, 'date' => $date->toDateString(), 'time' => '10:30'])->assertConflict();
     }
 
-    public function test_admin_can_approve_verification_and_provider_access_is_scoped(): void
+    public function test_admin_verification_approval_only_controls_blue_tick_badge(): void
     {
         Notification::fake();
         [$provider] = $this->provider('Verify Me', false);
@@ -1046,6 +1064,39 @@ class BackendMvpTest extends TestCase
         $this->patchJson('/api/admin/verifications/'.$verification->id, ['status' => 'approved', 'admin_notes' => 'Portfolio confirmed.'])
             ->assertOk()->assertJsonPath('data.status', 'approved');
         $this->assertTrue($provider->fresh()->verified);
+        $this->assertNotNull($provider->fresh()->account_approved_at);
+    }
+
+    public function test_admin_can_approve_provider_account_access_without_blue_tick(): void
+    {
+        Notification::fake();
+        $user = User::factory()->provider()->create(['name' => 'Access Pending Artist']);
+        $provider = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'access-pending-artist-'.$user->id,
+            'profession' => 'Beauty Professional',
+            'location' => 'Lagos',
+            'verified' => false,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => null,
+        ]);
+
+        Sanctum::actingAs($user);
+        $this->getJson('/api/provider/dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'This feature is available to approved providers.');
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->patchJson("/api/admin/providers/{$provider->id}", ['account_approved' => true])
+            ->assertOk()
+            ->assertJsonPath('data.account_approved', true)
+            ->assertJsonPath('data.verified', false);
+
+        $this->assertNotNull($provider->fresh()->account_approved_at);
+        $this->assertFalse($provider->fresh()->verified);
+
+        Sanctum::actingAs($user->fresh());
+        $this->getJson('/api/provider/dashboard')->assertOk();
     }
 
     public function test_provider_can_manage_services_schedule_and_payment_account(): void
@@ -1546,6 +1597,7 @@ class BackendMvpTest extends TestCase
             'profession' => 'Beauty Professional',
             'location' => $location,
             'verified' => $verified,
+            'account_approved_at' => now(),
         ]);
 
         $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();

@@ -34,14 +34,20 @@ class ProviderProfile extends Model
             'base_price' => 'decimal:2',
             'terms_accepted_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',
+            'account_approved_at' => 'datetime',
         ];
     }
 
-    protected $appends = ['onboarding_complete'];
+    protected $appends = ['onboarding_complete', 'account_approved'];
 
     public function getOnboardingCompleteAttribute(): bool
     {
         return filled($this->onboarding_completed_at);
+    }
+
+    public function getAccountApprovedAttribute(): bool
+    {
+        return filled($this->account_approved_at);
     }
 
     public function resolveRouteBindingQuery($query, $value, $field = null)

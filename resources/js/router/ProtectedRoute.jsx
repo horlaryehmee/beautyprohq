@@ -32,7 +32,7 @@ export default function ProtectedRoute({ roles = [] }) {
 
     const providerProfile = user.provider_profile ?? user.providerProfile;
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
-    const providerApproved = Boolean(providerProfile?.verified);
+    const providerApproved = Boolean(providerProfile?.account_approved ?? providerProfile?.account_approved_at);
     if (user.role === 'provider' && !onboardingComplete && location.pathname !== '/provider/onboarding') {
         return <Navigate to="/provider/onboarding" replace />;
     }

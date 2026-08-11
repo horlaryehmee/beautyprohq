@@ -288,7 +288,7 @@ function ProviderOnboardingContent() {
 
     const providerProfile = user?.provider_profile ?? user?.providerProfile;
     const onboardingComplete = Boolean(providerProfile?.onboarding_complete ?? providerProfile?.onboarding_completed_at);
-    const providerApproved = Boolean(providerProfile?.verified);
+    const providerApproved = Boolean(providerProfile?.account_approved ?? providerProfile?.account_approved_at);
     const currentSection = sections[step]?.[0] ?? 'General';
     const reviewCopy = selectedPaidPlan
         ? {

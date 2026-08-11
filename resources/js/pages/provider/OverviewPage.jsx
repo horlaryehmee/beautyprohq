@@ -106,7 +106,7 @@ export default function ProviderOverviewPage() {
                     <Card className="border-fuchsia-200 bg-fuchsia-50">
                         <p className="text-xs font-bold uppercase tracking-[0.16em] text-fuchsia-700">Approved account</p>
                         <h2 className="mt-2 text-2xl font-semibold text-slate-950">Payment is needed before paid tools open</h2>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Your verification has been approved. Continue to subscription payment to activate services, bookings, calendar, CRM, payments, and analytics.</p>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Your account has been approved. Continue to subscription payment to activate services, bookings, calendar, CRM, payments, and analytics.</p>
                         <Link to="/provider/subscription"><Button className="mt-5" type="button">Continue payment</Button></Link>
                     </Card>
                 )}

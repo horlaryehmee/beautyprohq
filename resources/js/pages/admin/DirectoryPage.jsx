@@ -15,7 +15,7 @@ export default function AdminDirectoryPage() {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [page, setPage] = useState(1);
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, verified: false, is_pro_of_week: false });
+    const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, account_approved: false, verified: false, is_pro_of_week: false });
     const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', cover_image: '', sort_order: 0, is_active: true });
     const [saving, setSaving] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
@@ -61,6 +61,16 @@ export default function AdminDirectoryPage() {
         }
     });
 
+    const approveAccess = (provider) => run(`approve-access-${provider.id}`, async () => {
+        try {
+            await apiRequest('patch', `/admin/providers/${provider.id}`, { account_approved: true });
+            resource.reload(true);
+            notify(`${provider.user?.name ?? provider.name ?? 'Provider'} can now access their account.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    });
+
     const startEdit = (provider) => {
         setEditing(provider);
         setForm({
@@ -69,6 +79,7 @@ export default function AdminDirectoryPage() {
             location: provider.location ?? '',
             bio: provider.bio ?? '',
             is_listed: Boolean(provider.is_listed ?? provider.listed ?? true),
+            account_approved: Boolean(provider.account_approved ?? provider.account_approved_at),
             verified: Boolean(provider.verified),
             is_pro_of_week: Boolean(provider.is_pro_of_week),
         });
@@ -289,6 +300,7 @@ export default function AdminDirectoryPage() {
                                     {providers.map((provider) => {
                                         const user = provider.user ?? provider;
                                         const listed = provider.is_listed ?? provider.listed ?? true;
+                                        const accountApproved = Boolean(provider.account_approved ?? provider.account_approved_at);
                                         return (
                                             <tr className="border-b border-slate-50 last:border-0" key={provider.id}>
                                                 <td className="py-3">
@@ -307,8 +319,8 @@ export default function AdminDirectoryPage() {
                                                 <td className="py-3 text-slate-600">{provider.category?.name ?? 'No category'}</td>
                                                 <td className="py-3 text-slate-600">{provider.location ?? 'No location'}</td>
                                                 <td className="py-3 text-slate-600">{Number(provider.rating ?? 0).toFixed(1)}</td>
-                                                <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status={listed ? 'active' : 'suspended'} /><StatusBadge status={provider.verified ? 'verified' : 'pending'} /></div></td>
-                                                <td className="py-3"><div className="flex justify-end gap-2"><Button busy={isBusy(provider.id)} onClick={() => toggle(provider)} type="button" variant={listed ? 'danger' : 'soft'}>{listed ? 'Remove' : 'List'}</Button><Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button><Link to={`/admin/users/${user.id ?? provider.user_id}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Manage</Link></div></td>
+                                                <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status={accountApproved ? 'approved' : 'pending'} /><StatusBadge status={provider.verified ? 'verified' : 'unverified'} /><StatusBadge status={listed ? 'active' : 'suspended'} /></div></td>
+                                                <td className="py-3"><div className="flex justify-end gap-2">{!accountApproved && <Button busy={isBusy(`approve-access-${provider.id}`)} onClick={() => approveAccess(provider)} type="button" variant="soft">Approve access</Button>}<Button busy={isBusy(provider.id)} onClick={() => toggle(provider)} type="button" variant={listed ? 'danger' : 'soft'}>{listed ? 'Remove' : 'List'}</Button><Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button><Link to={`/admin/users/${user.id ?? provider.user_id}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Manage</Link></div></td>
                                             </tr>
                                         );
                                     })}
@@ -339,7 +351,8 @@ export default function AdminDirectoryPage() {
                             <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
                                 {[
                                     ['is_listed', 'Listed in directory'],
-                                    ['verified', 'BPHQ verified'],
+                                    ['account_approved', 'Account access approved'],
+                                    ['verified', 'BPHQ verified badge'],
                                     ['is_pro_of_week', 'Pro of the week'],
                                 ].map(([key, label]) => (
                                     <label className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 text-sm font-bold text-slate-700" key={key}>

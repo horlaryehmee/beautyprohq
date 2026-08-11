@@ -28,6 +28,7 @@ use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\VerificationRequest;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -436,6 +437,7 @@ class DashboardController extends Controller
             'provider_category_id' => ['sometimes', 'nullable', 'integer', 'exists:provider_categories,id'],
             'is_listed' => ['sometimes', 'boolean'],
             'is_pro_of_week' => ['sometimes', 'boolean'],
+            'account_approved' => ['sometimes', 'boolean'],
             'verified' => ['sometimes', 'boolean'],
             'profession' => ['sometimes', 'nullable', 'string', 'max:120'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:5000'],
@@ -448,7 +450,23 @@ class DashboardController extends Controller
         if (($validated['is_pro_of_week'] ?? false) === true) {
             ProviderProfile::where('id', '!=', $provider->id)->update(['is_pro_of_week' => false]);
         }
+        $wasAccountApproved = filled($provider->account_approved_at);
+        if (array_key_exists('account_approved', $validated)) {
+            $validated['account_approved_at'] = $validated['account_approved'] ? ($provider->account_approved_at ?? now()) : null;
+            unset($validated['account_approved']);
+        }
         $provider->update($validated);
+        $provider->load('user');
+
+        if (! $wasAccountApproved && filled($provider->account_approved_at) && $provider->user) {
+            $provider->user->notify(new PlatformUpdateNotification(
+                'Provider account approved',
+                'Your provider account has been approved. You can now access your dashboard.',
+                'Open dashboard',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
+                ['provider_id' => $provider->id],
+            ));
+        }
 
         return $this->success($provider->fresh()->load(['user:id,name,email,is_active', 'category:id,name,slug']), 'Directory listing updated.');
     }

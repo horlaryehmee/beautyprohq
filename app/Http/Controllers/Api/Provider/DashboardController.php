@@ -335,7 +335,7 @@ class DashboardController extends Controller
                 'base_price' => $validated['base_price'],
                 'terms_accepted_at' => now(),
                 'onboarding_completed_at' => now(),
-                'verified' => false,
+                'account_approved_at' => null,
             ]);
 
             $provider->availability()->delete();

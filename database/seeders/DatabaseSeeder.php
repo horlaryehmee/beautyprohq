@@ -97,6 +97,7 @@ class DatabaseSeeder extends Seeder
                 'base_price' => 15000 + ($index * 2500),
                 'terms_accepted_at' => now(),
                 'onboarding_completed_at' => now(),
+                'account_approved_at' => now(),
                 'social_links' => ['instagram' => 'https://instagram.com/beautyprohq', 'website' => 'https://example.com'],
                 'portfolio_links' => ['https://instagram.com/beautyprohq'],
             ]);

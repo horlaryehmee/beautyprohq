@@ -11,7 +11,7 @@ class EnsureVerifiedProvider
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->user()?->providerProfile?->verified) {
+        if (! $request->user()?->providerProfile?->account_approved_at) {
             return new JsonResponse(['message' => 'This feature is available to approved providers.'], 403);
         }
 

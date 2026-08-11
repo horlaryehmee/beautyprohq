@@ -157,6 +157,7 @@ class LiveChatTest extends TestCase
             'profession' => 'Makeup Artist',
             'location' => 'Lagos',
             'verified' => true,
+            'account_approved_at' => now(),
             'is_listed' => true,
         ]);
         Subscription::create([
