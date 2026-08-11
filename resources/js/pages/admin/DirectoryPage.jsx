@@ -22,9 +22,9 @@ export default function AdminDirectoryPage() {
     const [categorySaving, setCategorySaving] = useState(false);
     const search = useDebouncedValue(query);
     const proOfWeekSearch = useDebouncedValue(proOfWeekQuery);
-    const resource = useApiResource('/admin/directory', [], { params: { page, per_page: 12, search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
+    const resource = useApiResource('/admin/directory', [], { params: { page, per_page: 12, account_approval: 'approved', search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
     const approvalResource = useApiResource('/admin/directory', [], { params: { page: approvalPage, per_page: 12, account_approval: 'pending' } });
-    const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, is_listed: 1, per_page: 8 } });
+    const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, account_approval: 'approved', is_listed: 1, per_page: 8 } });
     const categoriesResource = useApiResource('/admin/provider-categories', []);
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();

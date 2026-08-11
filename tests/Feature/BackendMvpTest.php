@@ -1134,6 +1134,29 @@ class BackendMvpTest extends TestCase
         $this->assertFalse($pendingIds->contains($provider->id));
     }
 
+    public function test_admin_directory_approved_filter_excludes_pending_accounts(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        [$approvedProvider] = $this->provider('Approved Directory Artist', false);
+        $pendingUser = User::factory()->provider()->create(['name' => 'Pending Directory Artist']);
+        $pendingProvider = ProviderProfile::create([
+            'user_id' => $pendingUser->id,
+            'slug' => 'pending-directory-artist-'.$pendingUser->id,
+            'profession' => 'Beauty Professional',
+            'location' => 'Lagos',
+            'is_listed' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => null,
+        ]);
+
+        $ids = collect($this->getJson('/api/admin/directory?account_approval=approved')
+            ->assertOk()
+            ->json('data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($approvedProvider->id));
+        $this->assertFalse($ids->contains($pendingProvider->id));
+    }
+
     public function test_admin_can_decline_provider_account_access_without_changing_blue_tick(): void
     {
         Notification::fake();
