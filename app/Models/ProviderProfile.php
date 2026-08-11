@@ -35,10 +35,11 @@ class ProviderProfile extends Model
             'terms_accepted_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',
             'account_approved_at' => 'datetime',
+            'account_declined_at' => 'datetime',
         ];
     }
 
-    protected $appends = ['onboarding_complete', 'account_approved'];
+    protected $appends = ['onboarding_complete', 'account_approved', 'account_approval_status'];
 
     public function getOnboardingCompleteAttribute(): bool
     {
@@ -48,6 +49,19 @@ class ProviderProfile extends Model
     public function getAccountApprovedAttribute(): bool
     {
         return filled($this->account_approved_at);
+    }
+
+    public function getAccountApprovalStatusAttribute(): string
+    {
+        if (filled($this->account_approved_at)) {
+            return 'approved';
+        }
+
+        if (filled($this->account_declined_at)) {
+            return 'declined';
+        }
+
+        return 'pending';
     }
 
     public function resolveRouteBindingQuery($query, $value, $field = null)

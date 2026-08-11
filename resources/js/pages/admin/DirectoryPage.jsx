@@ -14,6 +14,7 @@ export default function AdminDirectoryPage() {
     const [filter, setFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [page, setPage] = useState(1);
+    const [approvalPage, setApprovalPage] = useState(1);
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState({ provider_category_id: '', profession: '', location: '', bio: '', is_listed: true, account_approved: false, verified: false, is_pro_of_week: false });
     const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', cover_image: '', sort_order: 0, is_active: true });
@@ -22,15 +23,20 @@ export default function AdminDirectoryPage() {
     const search = useDebouncedValue(query);
     const proOfWeekSearch = useDebouncedValue(proOfWeekQuery);
     const resource = useApiResource('/admin/directory', [], { params: { page, per_page: 12, search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
+    const approvalResource = useApiResource('/admin/directory', [], { params: { page: approvalPage, per_page: 12, account_approval: 'pending' } });
     const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, is_listed: 1, per_page: 8 } });
     const categoriesResource = useApiResource('/admin/provider-categories', []);
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();
 
     const providers = useMemo(() => normalize(resource.data), [resource.data]);
+    const approvalProviders = useMemo(() => normalize(approvalResource.data), [approvalResource.data]);
     const meta = metaFrom(resource.data);
+    const approvalMeta = metaFrom(approvalResource.data);
     const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
     const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
+    const approvalPageCount = Number(approvalMeta.last_page ?? approvalMeta.lastPage ?? 1);
+    const currentApprovalPage = Number(approvalMeta.current_page ?? approvalMeta.currentPage ?? approvalPage);
     const proOfWeekProviders = useMemo(() => normalize(proOfWeekResource.data), [proOfWeekResource.data]);
     const categories = useMemo(() => normalize(categoriesResource.data), [categoriesResource.data]);
     const currentProOfWeek = useMemo(() => proOfWeekProviders.find((provider) => provider.is_pro_of_week) ?? providers.find((provider) => provider.is_pro_of_week), [proOfWeekProviders, providers]);
@@ -39,11 +45,17 @@ export default function AdminDirectoryPage() {
         setPage(1);
     }, [search, filter, categoryFilter]);
 
+    const reloadProviderLists = () => {
+        resource.reload(true);
+        approvalResource.reload(true);
+        proOfWeekResource.reload(true);
+    };
+
     const toggle = (provider) => run(provider.id, async () => {
         const current = provider.is_listed ?? provider.listed ?? true;
         try {
             await apiRequest('patch', `/admin/providers/${provider.id}`, { is_listed: !current });
-            resource.reload(true);
+            reloadProviderLists();
             notify(!current ? 'Provider added to directory.' : 'Provider removed from directory.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -53,8 +65,7 @@ export default function AdminDirectoryPage() {
     const selectProOfWeek = (provider) => run(`pro-week-${provider.id}`, async () => {
         try {
             await apiRequest('patch', `/admin/providers/${provider.id}`, { is_pro_of_week: true });
-            resource.reload(true);
-            proOfWeekResource.reload(true);
+            reloadProviderLists();
             notify(`${provider.user?.name ?? provider.name ?? 'Provider'} is now Pro of the week.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -64,8 +75,18 @@ export default function AdminDirectoryPage() {
     const approveAccess = (provider) => run(`approve-access-${provider.id}`, async () => {
         try {
             await apiRequest('patch', `/admin/providers/${provider.id}`, { account_approved: true });
-            resource.reload(true);
+            reloadProviderLists();
             notify(`${provider.user?.name ?? provider.name ?? 'Provider'} can now access their account.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        }
+    });
+
+    const declineAccess = (provider) => run(`decline-access-${provider.id}`, async () => {
+        try {
+            await apiRequest('patch', `/admin/providers/${provider.id}`, { account_declined: true });
+            reloadProviderLists();
+            notify(`${provider.user?.name ?? provider.name ?? 'Provider'} was declined for account access.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         }
@@ -140,7 +161,7 @@ export default function AdminDirectoryPage() {
         setSaving(true);
         try {
             await apiRequest('patch', `/admin/providers/${editing.id}`, { ...form, provider_category_id: form.provider_category_id || null });
-            resource.reload(true);
+            reloadProviderLists();
             categoriesResource.reload(true);
             setEditing(null);
             notify('Listing updated.');
@@ -155,10 +176,12 @@ export default function AdminDirectoryPage() {
         <div className="space-y-6">
             <PageHeader description="Approve listings, manage provider categories, and track the total providers in each category." eyebrow="Marketplace" title="Directory listings" />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+            {approvalResource.error && <ErrorState message={approvalResource.error} onRetry={approvalResource.reload} />}
             {categoriesResource.error && <ErrorState message={categoriesResource.error} onRetry={categoriesResource.reload} />}
             <Card className="p-2">
                 <div className="flex gap-2 overflow-x-auto">
                     {[
+                        ['approvals', `Account approvals (${Number(approvalMeta.total ?? approvalProviders.length)})`],
                         ['list', 'Directory list'],
                         ['categories', 'Provider categories'],
                         ['pro_of_week', 'Pro of the week'],
@@ -174,6 +197,63 @@ export default function AdminDirectoryPage() {
                     ))}
                 </div>
             </Card>
+            {activeTab === 'approvals' && <Card>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-semibold text-slate-950">Users needing approval</h2>
+                        <p className="mt-1 text-sm text-slate-500">Providers listed here completed onboarding and are waiting for account access approval.</p>
+                    </div>
+                    <StatusBadge status={`${Number(approvalMeta.total ?? approvalProviders.length)} pending`} />
+                </div>
+                {approvalResource.loading ? (
+                    <div className="mt-5"><LoadingBlock rows={5} /></div>
+                ) : approvalProviders.length ? (
+                    <>
+                        <div className="mt-5 overflow-x-auto">
+                            <table className="w-full min-w-[920px] text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                                        <th className="pb-3 font-bold">Provider</th>
+                                        <th className="pb-3 font-bold">Category</th>
+                                        <th className="pb-3 font-bold">Location</th>
+                                        <th className="pb-3 font-bold">Status</th>
+                                        <th className="pb-3 text-right font-bold">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {approvalProviders.map((provider) => {
+                                        const user = provider.user ?? provider;
+                                        return (
+                                            <tr className="border-b border-slate-50 last:border-0" key={provider.id}>
+                                                <td className="py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar name={user.name} size="sm" src={provider.profile_photo} />
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="truncate font-bold text-slate-950">{user.name}</p>
+                                                                <VerifiedBadge show={Boolean(provider.verified)} size="sm" />
+                                                            </div>
+                                                            <p className="truncate text-xs text-slate-400">{user.email}</p>
+                                                            <p className="truncate text-xs font-semibold text-slate-500">{provider.profession}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 text-slate-600">{provider.category?.name ?? 'No category'}</td>
+                                                <td className="py-3 text-slate-600">{provider.location ?? 'No location'}</td>
+                                                <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status="pending" /><StatusBadge status={provider.verified ? 'verified' : 'unverified'} /></div></td>
+                                                <td className="py-3"><div className="flex justify-end gap-2"><Button busy={isBusy(`approve-access-${provider.id}`)} onClick={() => approveAccess(provider)} type="button">Approve</Button><Button busy={isBusy(`decline-access-${provider.id}`)} onClick={() => declineAccess(provider)} type="button" variant="danger">Decline</Button>{provider.slug && <Link to={`/providers/${provider.slug}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">View</Link>}<Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button></div></td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <Pagination page={currentApprovalPage} pageCount={approvalPageCount} onPageChange={setApprovalPage} />
+                    </>
+                ) : (
+                    <EmptyState description="New completed onboarding submissions will appear here." icon="profile" title="No users need approval" />
+                )}
+            </Card>}
             {activeTab === 'categories' && <Card>
                 <div className="grid gap-5 xl:grid-cols-[1fr_0.85fr]">
                     <div>

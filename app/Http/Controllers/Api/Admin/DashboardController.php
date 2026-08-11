@@ -417,6 +417,12 @@ class DashboardController extends Controller
     {
         $providers = ProviderProfile::with(['user:id,name,email,is_active', 'category:id,name,slug', 'services'])
             ->when($request->filled('verified'), fn ($q) => $q->where('verified', $request->boolean('verified')))
+            ->when($request->account_approval === 'pending', fn ($q) => $q
+                ->whereNotNull('onboarding_completed_at')
+                ->whereNull('account_approved_at')
+                ->whereNull('account_declined_at'))
+            ->when($request->account_approval === 'approved', fn ($q) => $q->whereNotNull('account_approved_at'))
+            ->when($request->account_approval === 'declined', fn ($q) => $q->whereNotNull('account_declined_at')->whereNull('account_approved_at'))
             ->when($request->filled('is_listed'), fn ($q) => $q->where('is_listed', $request->boolean('is_listed')))
             ->when($request->filled('category_id'), fn ($q) => $q->where('provider_category_id', $request->integer('category_id')))
             ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x
@@ -438,6 +444,8 @@ class DashboardController extends Controller
             'is_listed' => ['sometimes', 'boolean'],
             'is_pro_of_week' => ['sometimes', 'boolean'],
             'account_approved' => ['sometimes', 'boolean'],
+            'account_declined' => ['sometimes', 'boolean'],
+            'account_review_notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'verified' => ['sometimes', 'boolean'],
             'profession' => ['sometimes', 'nullable', 'string', 'max:120'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:5000'],
@@ -451,9 +459,21 @@ class DashboardController extends Controller
             ProviderProfile::where('id', '!=', $provider->id)->update(['is_pro_of_week' => false]);
         }
         $wasAccountApproved = filled($provider->account_approved_at);
+        $wasAccountDeclined = filled($provider->account_declined_at);
         if (array_key_exists('account_approved', $validated)) {
             $validated['account_approved_at'] = $validated['account_approved'] ? ($provider->account_approved_at ?? now()) : null;
+            if ($validated['account_approved']) {
+                $validated['account_declined_at'] = null;
+            }
             unset($validated['account_approved']);
+        }
+        if (array_key_exists('account_declined', $validated)) {
+            $validated['account_declined_at'] = $validated['account_declined'] ? now() : null;
+            if ($validated['account_declined']) {
+                $validated['account_approved_at'] = null;
+                $validated['is_listed'] = false;
+            }
+            unset($validated['account_declined']);
         }
         $provider->update($validated);
         $provider->load('user');
@@ -465,6 +485,15 @@ class DashboardController extends Controller
                 'Open dashboard',
                 rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
                 ['provider_id' => $provider->id],
+            ));
+        }
+        if (! $wasAccountDeclined && blank($provider->account_approved_at) && filled($provider->account_declined_at) && $provider->user) {
+            $provider->user->notify(new PlatformUpdateNotification(
+                'Provider account review update',
+                'Your provider account approval was declined. You can update your details and submit again.',
+                'Update details',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/onboarding',
+                ['provider_id' => $provider->id, 'details' => ['Admin note' => $provider->account_review_notes]],
             ));
         }
 

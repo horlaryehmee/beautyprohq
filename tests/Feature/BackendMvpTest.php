@@ -1087,6 +1087,11 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('message', 'This feature is available to approved providers.');
 
         Sanctum::actingAs(User::factory()->admin()->create());
+        $pendingIds = collect($this->getJson('/api/admin/directory?account_approval=pending')
+            ->assertOk()
+            ->json('data'))->pluck('id');
+        $this->assertTrue($pendingIds->contains($provider->id));
+
         $this->patchJson("/api/admin/providers/{$provider->id}", ['account_approved' => true])
             ->assertOk()
             ->assertJsonPath('data.account_approved', true)
@@ -1097,6 +1102,52 @@ class BackendMvpTest extends TestCase
 
         Sanctum::actingAs($user->fresh());
         $this->getJson('/api/provider/dashboard')->assertOk();
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $pendingIds = collect($this->getJson('/api/admin/directory?account_approval=pending')
+            ->assertOk()
+            ->json('data'))->pluck('id');
+        $this->assertFalse($pendingIds->contains($provider->id));
+    }
+
+    public function test_admin_can_decline_provider_account_access_without_changing_blue_tick(): void
+    {
+        Notification::fake();
+        $user = User::factory()->provider()->create(['name' => 'Decline Pending Artist']);
+        $provider = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'decline-pending-artist-'.$user->id,
+            'profession' => 'Beauty Professional',
+            'location' => 'Lagos',
+            'verified' => true,
+            'is_listed' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => null,
+        ]);
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->patchJson("/api/admin/providers/{$provider->id}", [
+            'account_declined' => true,
+            'account_review_notes' => 'More business details are needed.',
+        ])->assertOk()
+            ->assertJsonPath('data.account_approval_status', 'declined')
+            ->assertJsonPath('data.verified', true)
+            ->assertJsonPath('data.is_listed', false);
+
+        $provider->refresh();
+        $this->assertNull($provider->account_approved_at);
+        $this->assertNotNull($provider->account_declined_at);
+        $this->assertTrue($provider->verified);
+
+        $pendingIds = collect($this->getJson('/api/admin/directory?account_approval=pending')
+            ->assertOk()
+            ->json('data'))->pluck('id');
+        $this->assertFalse($pendingIds->contains($provider->id));
+
+        Sanctum::actingAs($user->fresh());
+        $this->getJson('/api/provider/dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'This feature is available to approved providers.');
     }
 
     public function test_provider_can_manage_services_schedule_and_payment_account(): void

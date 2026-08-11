@@ -336,6 +336,8 @@ class DashboardController extends Controller
                 'terms_accepted_at' => now(),
                 'onboarding_completed_at' => now(),
                 'account_approved_at' => null,
+                'account_declined_at' => null,
+                'account_review_notes' => null,
             ]);
 
             $provider->availability()->delete();
