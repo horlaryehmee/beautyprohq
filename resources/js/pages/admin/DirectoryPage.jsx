@@ -363,12 +363,11 @@ export default function AdminDirectoryPage() {
                 ) : providers.length ? (
                     <>
                         <div className="mt-5 overflow-x-auto">
-                            <table className="w-full min-w-[980px] text-left text-sm">
+                            <table className="w-full min-w-[900px] text-left text-sm">
                                 <thead>
                                     <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                                         <th className="pb-3 font-bold">Provider</th>
                                         <th className="pb-3 font-bold">Category</th>
-                                        <th className="pb-3 font-bold">Location</th>
                                         <th className="pb-3 font-bold">Rating</th>
                                         <th className="pb-3 font-bold">Status</th>
                                         <th className="pb-3 text-right font-bold">Actions</th>
@@ -395,7 +394,6 @@ export default function AdminDirectoryPage() {
                                                     </div>
                                                 </td>
                                                 <td className="py-3 text-slate-600">{provider.category?.name ?? 'No category'}</td>
-                                                <td className="py-3 text-slate-600">{provider.location ?? 'No location'}</td>
                                                 <td className="py-3 text-slate-600">{Number(provider.rating ?? 0).toFixed(1)}</td>
                                                 <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status={accountApproved ? 'approved' : 'pending'} /><StatusBadge status={provider.verified ? 'verified' : 'unverified'} /><StatusBadge status={listed ? 'active' : 'suspended'} /></div></td>
                                                 <td className="py-3"><div className="flex justify-end gap-2">{!accountApproved && <Button busy={isBusy(`approve-access-${provider.id}`)} onClick={() => approveAccess(provider)} type="button" variant="soft">Approve access</Button>}<Button busy={isBusy(provider.id)} onClick={() => toggle(provider)} type="button" variant={listed ? 'danger' : 'soft'}>{listed ? 'Remove' : 'List'}</Button><Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button><Link to={`/admin/users/${user.id ?? provider.user_id}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Manage</Link></div></td>
