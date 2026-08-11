@@ -215,7 +215,6 @@ export default function AdminDirectoryPage() {
                                     <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                                         <th className="pb-3 font-bold">Provider</th>
                                         <th className="pb-3 font-bold">Category</th>
-                                        <th className="pb-3 font-bold">Location</th>
                                         <th className="pb-3 font-bold">Status</th>
                                         <th className="pb-3 text-right font-bold">Actions</th>
                                     </tr>
@@ -239,7 +238,6 @@ export default function AdminDirectoryPage() {
                                                     </div>
                                                 </td>
                                                 <td className="py-3 text-slate-600">{provider.category?.name ?? 'No category'}</td>
-                                                <td className="py-3 text-slate-600">{provider.location ?? 'No location'}</td>
                                                 <td className="py-3"><div className="flex flex-wrap gap-2"><StatusBadge status="pending" /><StatusBadge status={provider.verified ? 'verified' : 'unverified'} /></div></td>
                                                 <td className="py-3"><div className="flex justify-end gap-2"><Button busy={isBusy(`approve-access-${provider.id}`)} onClick={() => approveAccess(provider)} type="button">Approve</Button><Button busy={isBusy(`decline-access-${provider.id}`)} onClick={() => declineAccess(provider)} type="button" variant="danger">Decline</Button>{provider.slug && <Link to={`/providers/${provider.slug}`} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">View</Link>}<Button onClick={() => startEdit(provider)} type="button" variant="secondary">Edit</Button></div></td>
                                             </tr>
