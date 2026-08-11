@@ -130,7 +130,7 @@ class SeoController extends Controller
 
     public function providerMarkdown(ProviderProfile $provider): Response
     {
-        abort_unless($provider->is_listed && $provider->user?->is_active, 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user?->is_active, 404);
         $provider->load(['user:id,name,is_active', 'category:id,name', 'services' => fn ($query) => $query->where('is_active', true)->orderBy('price')]);
 
         return $this->markdownResponse($this->providerMarkdownBody($provider));

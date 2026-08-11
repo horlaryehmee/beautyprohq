@@ -73,7 +73,7 @@ class ProviderDirectoryController extends Controller
 
     public function show(Request $request, ProviderProfile $provider): JsonResponse
     {
-        abort_unless($provider->is_listed && $provider->user->is_active, 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user->is_active, 404);
 
         $this->recordProfileView($request, $provider);
 
@@ -158,7 +158,7 @@ class ProviderDirectoryController extends Controller
 
     public function contact(Request $request, ProviderProfile $provider): JsonResponse
     {
-        abort_unless($provider->is_listed && $provider->user->is_active, 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user->is_active, 404);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],

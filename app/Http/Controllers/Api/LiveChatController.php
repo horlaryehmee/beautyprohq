@@ -79,7 +79,7 @@ class LiveChatController extends Controller
 
     public function start(Request $request, ProviderProfile $provider): JsonResponse
     {
-        abort_unless($provider->is_listed && $provider->user?->is_active && $provider->user->hasPaidPlan(), 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user?->is_active && $provider->user->hasPaidPlan(), 404);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],

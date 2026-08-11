@@ -10,7 +10,7 @@ class ProviderSeoController extends Controller
 {
     public function show(ProviderProfile $provider): View
     {
-        abort_unless($provider->is_listed && $provider->user?->is_active, 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user?->is_active, 404);
 
         $provider->load([
             'user:id,name,is_active',

@@ -71,7 +71,10 @@ class ProviderProfile extends Model
 
     public function scopeDirectory(Builder $query): Builder
     {
-        return $query->where('is_listed', true)->whereHas('user', fn (Builder $q) => $q->where('is_active', true));
+        return $query
+            ->where('is_listed', true)
+            ->whereNotNull('account_approved_at')
+            ->whereHas('user', fn (Builder $q) => $q->where('is_active', true));
     }
 
     public function user(): BelongsTo

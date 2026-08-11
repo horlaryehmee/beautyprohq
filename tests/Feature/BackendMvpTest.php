@@ -886,6 +886,26 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.referral_rewards_available', true);
     }
 
+    public function test_unapproved_provider_is_hidden_from_public_directory_even_when_listed(): void
+    {
+        $user = User::factory()->provider()->create(['name' => 'Hidden Pending Artist']);
+        $provider = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'hidden-pending-artist-'.$user->id,
+            'profession' => 'Beauty Professional',
+            'location' => 'Lagos',
+            'is_listed' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => null,
+        ]);
+
+        $this->getJson('/api/providers?search=Hidden')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        $this->getJson('/api/providers/'.$provider->slug)->assertNotFound();
+    }
+
     public function test_public_provider_contact_sends_spam_protected_email(): void
     {
         Notification::fake();
@@ -1095,10 +1115,14 @@ class BackendMvpTest extends TestCase
         $this->patchJson("/api/admin/providers/{$provider->id}", ['account_approved' => true])
             ->assertOk()
             ->assertJsonPath('data.account_approved', true)
-            ->assertJsonPath('data.verified', false);
+            ->assertJsonPath('data.verified', false)
+            ->assertJsonPath('data.is_listed', true);
 
         $this->assertNotNull($provider->fresh()->account_approved_at);
         $this->assertFalse($provider->fresh()->verified);
+        $this->getJson('/api/providers?search=Access Pending')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
 
         Sanctum::actingAs($user->fresh());
         $this->getJson('/api/provider/dashboard')->assertOk();

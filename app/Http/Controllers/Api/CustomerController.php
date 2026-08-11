@@ -22,7 +22,10 @@ class CustomerController extends Controller
                 'upcoming_bookings' => (clone $base)->upcoming()->count(),
                 'completed_bookings' => (clone $base)->where('status', 'completed')->count(),
                 'loyalty_points' => Loyalty::where('customer_id', $user->id)->sum('points'),
-                'saved_providers' => $user->savedProviders()->count(),
+                'saved_providers' => $user->savedProviders()
+                    ->where('is_listed', true)
+                    ->whereNotNull('account_approved_at')
+                    ->count(),
             ],
             'upcoming_bookings' => (clone $base)->upcoming()->with(['provider.user:id,name', 'service'])->orderBy('date')->orderBy('time')->limit(6)->get(),
             'rewards' => Loyalty::where('customer_id', $user->id)->where('points', '>', 0)->with('provider.user:id,name')->orderByDesc('points')->limit(6)->get(),
@@ -58,12 +61,17 @@ class CustomerController extends Controller
 
     public function saved(Request $request): JsonResponse
     {
-        return $this->success($request->user()->savedProviders()->with(['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)])->orderByDesc('saved_providers.created_at')->get());
+        return $this->success($request->user()->savedProviders()
+            ->where('is_listed', true)
+            ->whereNotNull('account_approved_at')
+            ->with(['user:id,name', 'services' => fn ($q) => $q->where('is_active', true)->limit(3)])
+            ->orderByDesc('saved_providers.created_at')
+            ->get());
     }
 
     public function save(Request $request, ProviderProfile $provider): JsonResponse
     {
-        abort_unless($provider->is_listed, 404);
+        abort_unless($provider->is_listed && $provider->account_approved_at, 404);
         SavedProvider::firstOrCreate(['customer_id' => $request->user()->id, 'provider_id' => $provider->id]);
 
         return $this->success($provider->load('user:id,name'), 'Provider saved.', 201);

@@ -464,6 +464,9 @@ class DashboardController extends Controller
             $validated['account_approved_at'] = $validated['account_approved'] ? ($provider->account_approved_at ?? now()) : null;
             if ($validated['account_approved']) {
                 $validated['account_declined_at'] = null;
+                $validated['is_listed'] = true;
+            } else {
+                $validated['is_listed'] = false;
             }
             unset($validated['account_approved']);
         }
