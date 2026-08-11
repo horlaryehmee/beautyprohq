@@ -639,6 +639,7 @@ class SubscriptionController extends Controller
                 'amount' => (int) round($checkoutAmount * 100),
                 'currency' => $checkoutCurrency,
                 'plan' => $paystackPlanCode,
+                'channels' => ['card'],
                 'reference' => $reference,
                 'callback_url' => url('/provider/subscription'),
                 'metadata' => $paystackMetadata,

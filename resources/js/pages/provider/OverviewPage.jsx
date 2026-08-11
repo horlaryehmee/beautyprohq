@@ -129,7 +129,7 @@ export default function ProviderOverviewPage() {
                     <Card className="bg-slate-950 text-white">
                         <p className="text-xs font-bold uppercase tracking-[0.15em] text-fuchsia-200">Paid plan</p>
                         <h2 className="mt-2 text-2xl font-semibold">Unlock business tools</h2>
-                        <p className="mt-2 text-sm leading-6 text-white/65">Upgrade to use services, direct bookings, calendar, CRM, loyalty, payments, digital products, content calendar, and analytics.</p>
+                        <p className="mt-2 text-sm leading-6 text-white/65">Upgrade to use services, direct bookings, calendar, CRM, loyalty, payments, digital products, and analytics.</p>
                         <Link to="/provider/subscription"><Button className="mt-5 bg-white text-slate-950 hover:bg-fuchsia-50" variant="secondary">View paid plan</Button></Link>
                     </Card>
                 </div>

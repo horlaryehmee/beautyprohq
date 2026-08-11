@@ -11,7 +11,6 @@ use App\Notifications\TwoFactorCodeNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Support\CurrencyResolver;
 use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,25 +103,8 @@ class AuthController extends Controller
             return $user;
         });
 
-        try {
-            event(new Registered($user));
-            $user->notify(new PlatformUpdateNotification(
-                'Welcome to BeautyPro HQ',
-                'Your BeautyPro HQ account has been created. Complete your setup to start using your workspace.',
-                'Open dashboard',
-                rtrim(config('app.frontend_url', config('app.url')), '/').($user->isProvider() ? '/provider' : '/customer'),
-                ['user_id' => $user->id, 'role' => $user->role],
-            ));
-            User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-                'New user registration',
-                "{$user->name} registered as a {$user->role}.",
-                'View users',
-                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users',
-                ['user_id' => $user->id, 'role' => $user->role],
-            ));
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
+        $this->sendEmailVerificationAfterResponse($user);
+        $this->sendAdminRegistrationNoticeAfterResponse($user);
 
         Log::channel('security')->notice('Account registered.', [
             'user_id' => $user->id,
@@ -406,7 +388,7 @@ class AuthController extends Controller
             return $this->success(null, 'Email address is already verified.');
         }
 
-        $request->user()->sendEmailVerificationNotification();
+        $this->sendEmailVerificationAfterResponse($request->user());
 
         return $this->success(null, 'Verification link sent.');
     }
@@ -438,6 +420,38 @@ class AuthController extends Controller
         }
 
         return $slug;
+    }
+
+    private function sendEmailVerificationAfterResponse(User $user): void
+    {
+        if ($user->hasVerifiedEmail()) {
+            return;
+        }
+
+        dispatch(function () use ($user): void {
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        })->afterResponse();
+    }
+
+    private function sendAdminRegistrationNoticeAfterResponse(User $user): void
+    {
+        dispatch(function () use ($user): void {
+            try {
+                User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+                    'New user registration',
+                    "{$user->name} registered as a {$user->role}.",
+                    'View users',
+                    rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/users',
+                    ['user_id' => $user->id, 'role' => $user->role],
+                ));
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        })->afterResponse();
     }
 
     private function sendTwoFactorCode(User $user, string $purpose): void

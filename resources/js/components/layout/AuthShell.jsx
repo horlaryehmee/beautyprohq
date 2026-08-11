@@ -1,6 +1,64 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../ui/Icon';
 import Logo from './Logo';
+import api, { collectionFrom } from '../../lib/api';
+import { initials, providerIdentity } from '../../lib/utils';
+
+const fallbackProviders = ['AM', 'TO', 'NK'].map((name) => ({ id: name, name }));
+
+function ProviderProfileStack() {
+    const [providers, setProviders] = useState(fallbackProviders);
+
+    useEffect(() => {
+        let mounted = true;
+
+        api.get('/providers', { params: { per_page: 3, sort: 'rating' } })
+            .then((response) => {
+                if (!mounted) return;
+
+                const profiles = collectionFrom(response)
+                    .map(providerIdentity)
+                    .filter((provider) => provider.photo)
+                    .slice(0, 3);
+
+                if (profiles.length) {
+                    setProviders([
+                        ...profiles,
+                        ...fallbackProviders.slice(profiles.length),
+                    ].slice(0, 3));
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    return (
+        <div className="flex -space-x-3">
+            {providers.map((provider) => (
+                provider.photo ? (
+                    <img
+                        alt=""
+                        className="size-10 rounded-full border-2 border-plum-950 bg-rose-100 object-cover"
+                        key={provider.id ?? provider.slug ?? provider.name}
+                        loading="lazy"
+                        src={provider.photo}
+                    />
+                ) : (
+                    <span
+                        className="grid size-10 place-items-center rounded-full border-2 border-plum-950 bg-rose-100 text-[10px] font-semibold text-plum-800"
+                        key={provider.id ?? provider.name}
+                    >
+                        {initials(provider.name)}
+                    </span>
+                )
+            ))}
+        </div>
+    );
+}
 
 export default function AuthShell({ eyebrow = 'Welcome to BeautyPro HQ', title, description, children, footer }) {
     return (
@@ -14,9 +72,7 @@ export default function AuthShell({ eyebrow = 'Welcome to BeautyPro HQ', title, 
                     <blockquote className="font-display text-4xl font-semibold leading-[1.14] xl:text-5xl">Your craft deserves a platform built to help it thrive.</blockquote>
                     <p className="mt-6 max-w-lg text-base leading-8 text-plum-100">Showcase your work, manage every booking, and create customer relationships that last.</p>
                     <div className="mt-9 flex items-center gap-3">
-                        <div className="flex -space-x-3">
-                            {['AM', 'TO', 'NK'].map((item) => <span key={item} className="grid size-10 place-items-center rounded-full border-2 border-plum-950 bg-rose-100 text-[10px] font-semibold text-plum-800">{item}</span>)}
-                        </div>
+                        <ProviderProfileStack />
                         <p className="text-xs font-bold text-plum-200">A growing community of beauty professionals</p>
                     </div>
                 </div>

@@ -2,7 +2,7 @@ import { Card, PageHeader } from '../../components/dashboard';
 
 const sections = [
     ['Provider dashboard overview', [
-        'The provider dashboard manages public profile data, subscription state, services, bookings, availability, payments, CRM, loyalty rewards, digital products, content planning, analytics and settings.',
+        'The provider dashboard manages public profile data, subscription state, services, bookings, availability, payments, CRM, loyalty rewards, digital products, analytics and settings.',
         'Customers discover providers from the public directory, homepage sections, search, categories and provider profile detail pages.',
         'A complete provider profile requires profile media, profession, country, services, availability, payment setup and accurate contact/profile information.',
     ]],
@@ -71,11 +71,6 @@ const sections = [
         'Only products added by the provider should show on that provider public profile.',
         'Add name, description, price, URL, image and active state.',
         'Use digital products for guides, templates, e-books, courses, presets, consultation products or external shop products.',
-    ]],
-    ['Content calendar', [
-        'Use Content calendar to plan posts, campaigns, reminders and marketing activities.',
-        'Create content ideas ahead of launches, holidays, promotions and events.',
-        'The calendar is a planning tool for content activity; it does not publish directly to social platforms.',
     ]],
     ['Analytics', [
         'Analytics shows profile views, bookings, revenue and customer activity.',

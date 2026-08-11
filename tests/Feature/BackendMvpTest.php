@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\BeautyProVerifyEmailNotification;
+use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
 use App\Services\UploadService;
 use App\Services\ContentNewsletterService;
@@ -58,6 +59,9 @@ class BackendMvpTest extends TestCase
         $this->assertNull($response->json('data.token'));
         $this->assertDatabaseHas('provider_profiles', ['slug' => 'demo-artist']);
         $this->assertDatabaseCount('personal_access_tokens', 0);
+        $user = User::where('email', 'artist@example.test')->firstOrFail();
+        Notification::assertSentTo($user, BeautyProVerifyEmailNotification::class);
+        Notification::assertNotSentTo($user, PlatformUpdateNotification::class);
         $this->getJson('/api/auth/me')->assertOk()->assertJsonPath('data.email', 'artist@example.test');
     }
 
@@ -222,6 +226,7 @@ class BackendMvpTest extends TestCase
 
         Http::assertSent(fn ($request) => $request->url() === 'https://api.paystack.co/transaction/initialize'
             && $request['plan'] === 'PLN_bphqmonthly'
+            && $request['channels'] === ['card']
             && $request['metadata']['paystack_plan_code'] === 'PLN_bphqmonthly');
 
         $payment = SubscriptionPayment::firstOrFail();
