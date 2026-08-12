@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import PublicLayout from './components/layout/PublicLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import CookieConsentBanner from './components/CookieConsentBanner';
 import LumaSpin from './components/ui/LumaSpin';
 import ProtectedRoute from './router/ProtectedRoute';
 import ScrollToTop from './router/ScrollToTop';
@@ -227,6 +228,7 @@ export default function App() {
                     <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </Suspense>
+            <CookieConsentBanner />
         </ErrorBoundary>
     );
 }
