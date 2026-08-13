@@ -927,8 +927,17 @@ class SubscriptionController extends Controller
 
         $code = $metadata['paystack_subscription_code'] ?? null;
         $token = $metadata['paystack_email_token'] ?? null;
-        if (! $code && ! $token) {
-            return;
+        if (blank($code) || blank($token)) {
+            $payment = SubscriptionPayment::where('subscription_id', $subscription->id)
+                ->where('gateway', 'paystack')
+                ->where('status', 'paid')
+                ->latest()
+                ->first();
+
+            $code ??= data_get($payment?->raw_response, 'data.subscription.subscription_code')
+                ?: data_get($payment?->raw_response, 'data.subscription_code');
+            $token ??= data_get($payment?->raw_response, 'data.subscription.email_token')
+                ?: data_get($payment?->raw_response, 'data.email_token');
         }
 
         abort_if(blank($code) || blank($token), 422, 'Paystack subscription details are incomplete. Wait for Paystack to finish creating the subscription, then try again.');
@@ -944,6 +953,16 @@ class SubscriptionController extends Controller
             ]);
 
         abort_unless($response->successful() && $response->json('status'), 422, $response->json('message') ?: 'Paystack subscription could not be disabled.');
+
+        $subscription->update([
+            'metadata' => array_merge($metadata, [
+                'gateway' => 'paystack',
+                'paystack_subscription_code' => $code,
+                'paystack_email_token' => $token,
+                'paystack_status' => 'non-renewing',
+                'paystack_cancel_requested_at' => now()->toIso8601String(),
+            ]),
+        ]);
     }
 
     private function storePaystackSubscriptionDetails(array $data): void

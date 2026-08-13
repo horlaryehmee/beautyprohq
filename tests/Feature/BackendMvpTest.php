@@ -398,6 +398,13 @@ class BackendMvpTest extends TestCase
     public function test_paid_provider_downgrade_keeps_access_until_period_end(): void
     {
         Notification::fake();
+        Http::fake([
+            'https://api.paystack.co/subscription/disable' => Http::response([
+                'status' => true,
+                'message' => 'Subscription disabled',
+            ]),
+        ]);
+        AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
         $user = User::factory()->provider()->create();
         $profile = ProviderProfile::create([
             'user_id' => $user->id,
@@ -418,7 +425,11 @@ class BackendMvpTest extends TestCase
             'currency' => $plan->currency,
             'starts_at' => now()->subDays(18),
             'renews_at' => $renewsAt,
-            'metadata' => ['gateway' => 'paystack'],
+            'metadata' => [
+                'gateway' => 'paystack',
+                'paystack_subscription_code' => 'SUB_downgrade',
+                'paystack_email_token' => 'token_downgrade',
+            ],
         ]);
 
         Sanctum::actingAs($user);
@@ -432,6 +443,10 @@ class BackendMvpTest extends TestCase
         $subscription->refresh();
         $this->assertTrue($user->fresh()->hasPaidPlan());
         $this->assertTrue($renewsAt->equalTo($subscription->ends_at));
+        $this->assertSame('non-renewing', data_get($subscription->metadata, 'paystack_status'));
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.paystack.co/subscription/disable'
+            && $request['code'] === 'SUB_downgrade'
+            && $request['token'] === 'token_downgrade');
         $this->assertFalse($profile->fresh()->verified);
         $this->assertDatabaseHas('verification_requests', [
             'provider_id' => $profile->id,
