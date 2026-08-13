@@ -57,7 +57,7 @@ class SubscriptionController extends Controller
             'name' => ['sometimes', 'string', 'max:120'],
             'price' => ['sometimes', 'numeric', 'min:0', 'max:999999999'],
             'currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
-            'billing_period' => ['sometimes', Rule::in(['monthly', 'yearly'])],
+            'billing_period' => ['sometimes', Rule::in(['daily', 'monthly', 'yearly'])],
             'features' => ['sometimes', 'array'],
             'features.*' => ['string', 'max:180'],
             'is_active' => ['sometimes', 'boolean'],
@@ -618,7 +618,7 @@ class SubscriptionController extends Controller
         abort_unless($user->isProvider(), 403);
 
         $validated = $request->validate([
-            'plan' => ['required', 'in:paid'],
+            'plan' => ['required', 'string', 'max:50'],
             'gateway' => ['nullable', Rule::in(['paystack', 'stripe'])],
             'currency' => ['nullable', Rule::in(array_keys(config('currencies.supported', [])))],
         ]);
@@ -764,7 +764,7 @@ class SubscriptionController extends Controller
 
             $endsAt = $active->renews_at && $active->renews_at->isFuture()
                 ? $active->renews_at
-                : now()->addMonth();
+                : $this->nextRenewalDate($active->planDefinition);
             $metadata = $active->metadata ?? [];
             $metadata['cancel_at_period_end'] = true;
             $metadata['cancel_requested_at'] = now()->toIso8601String();
@@ -875,7 +875,7 @@ class SubscriptionController extends Controller
     {
         $amountInSubunit = (int) round($amount * 100);
         $currency = strtoupper($currency);
-        $interval = $plan->billing_period === 'yearly' ? 'annually' : 'monthly';
+        $interval = $this->paystackIntervalForPlan($plan);
         $settingKey = "paystack.plan_code.{$this->paystackMode()}.{$plan->key}.{$currency}.{$interval}.{$amountInSubunit}";
         $saved = AppSetting::getValue($settingKey);
         if (filled($saved)) {
@@ -898,6 +898,24 @@ class SubscriptionController extends Controller
         AppSetting::setValue($settingKey, $planCode);
 
         return $planCode;
+    }
+
+    private function paystackIntervalForPlan(SubscriptionPlan $plan): string
+    {
+        return match ($plan->billing_period) {
+            'daily' => 'daily',
+            'yearly' => 'annually',
+            default => 'monthly',
+        };
+    }
+
+    private function nextRenewalDate(?SubscriptionPlan $plan): \Carbon\Carbon
+    {
+        return match ($plan?->billing_period) {
+            'daily' => now()->addDay(),
+            'yearly' => now()->addYear(),
+            default => now()->addMonth(),
+        };
     }
 
     private function disablePaystackSubscriptionIfPossible(Subscription $subscription): void
@@ -1027,7 +1045,7 @@ class SubscriptionController extends Controller
         $subscription->update([
             'amount' => $payment->amount,
             'currency' => $payment->currency,
-            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : now()->addMonth(),
+            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $this->nextRenewalDate($subscription->planDefinition),
             'ends_at' => null,
             'cancelled_at' => null,
             'metadata' => array_merge($subscription->metadata ?? [], [
@@ -1114,7 +1132,7 @@ class SubscriptionController extends Controller
 
         $subscription->update([
             'status' => $ended ? 'cancelled' : $subscription->status,
-            'ends_at' => $ended ? now() : ($subscription->ends_at ?: ($subscription->renews_at ?: now()->addMonth())),
+            'ends_at' => $ended ? now() : ($subscription->ends_at ?: ($subscription->renews_at ?: $this->nextRenewalDate($subscription->planDefinition))),
             'cancelled_at' => $subscription->cancelled_at ?: now(),
             'metadata' => array_merge($subscription->metadata ?? [], $metadata),
         ]);
@@ -1226,7 +1244,7 @@ class SubscriptionController extends Controller
                 'amount' => $locked->amount,
                 'currency' => $locked->currency,
                 'starts_at' => now(),
-                'renews_at' => now()->addMonth(),
+                'renews_at' => $this->nextRenewalDate($locked->plan),
                 'metadata' => array_filter([
                     'gateway' => $locked->gateway,
                     'paystack_plan_code' => data_get($rawResponse, 'data.plan.plan_code') ?: data_get($rawResponse, 'data.plan') ?: data_get($locked->raw_response, 'data.metadata.paystack_plan_code'),

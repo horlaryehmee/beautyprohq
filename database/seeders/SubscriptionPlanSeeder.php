@@ -46,5 +46,22 @@ class SubscriptionPlanSeeder extends Seeder
                 ],
             ],
         );
+
+        SubscriptionPlan::updateOrCreate(
+            ['key' => 'daily_test'],
+            [
+                'name' => 'Daily Test Plan',
+                'price' => 100,
+                'currency' => 'NGN',
+                'billing_period' => 'daily',
+                'sort_order' => 3,
+                'is_active' => true,
+                'features' => [
+                    'Daily recurring subscription for payment testing',
+                    'Access to the same paid provider tools as Pro Plan',
+                    'Useful for validating renewal and cancellation flows',
+                ],
+            ],
+        );
     }
 }

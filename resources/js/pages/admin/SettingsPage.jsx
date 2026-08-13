@@ -18,6 +18,8 @@ const emailNotifications = [
     { key: 'announcement', recipient: 'Selected audience', title: 'Announcements', description: 'Admin-created announcements sent to all users, customers or providers.' },
 ];
 
+const normalizePlans = (value) => Array.isArray(value) ? value : value?.plans ?? value?.data ?? [];
+
 const platformSettingTabs = [
     { key: 'general', label: 'General', icon: 'settings', description: 'Launch mode, provider features and demo data.' },
     { key: 'security', label: 'Security', icon: 'shield', description: 'Password, sessions and two-factor authentication.' },
@@ -30,6 +32,7 @@ const platformSettingTabs = [
 
 export default function AdminSettingsPage() {
     const gatewayResource = useApiResource('/admin/payment-settings/gateway', {});
+    const plansResource = useApiResource('/admin/subscription-plans', []);
     const paystackResource = useApiResource('/admin/payment-settings/paystack', {});
     const stripeResource = useApiResource('/admin/payment-settings/stripe', {});
     const brandingResource = useApiResource('/admin/settings/branding', {});
@@ -55,6 +58,7 @@ export default function AdminSettingsPage() {
     const [twilioTestMessage, setTwilioTestMessage] = useState('BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.');
     const [emailNotificationTestType, setEmailNotificationTestType] = useState('all');
     const [savingGateway, setSavingGateway] = useState(false);
+    const [savingTestPlan, setSavingTestPlan] = useState(false);
     const [savingPaystack, setSavingPaystack] = useState(false);
     const [savingStripe, setSavingStripe] = useState(false);
     const [savingBranding, setSavingBranding] = useState(false);
@@ -451,13 +455,33 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const toggleDailyTestPlan = async (enabled) => {
+        const plan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
+        if (!plan) {
+            notify('Daily test plan was not found.', 'error');
+            return;
+        }
+
+        setSavingTestPlan(true);
+        try {
+            const saved = await apiRequest('put', `/admin/subscription-plans/${plan.id}`, { is_active: enabled });
+            plansResource.setData((current) => normalizePlans(current).map((item) => item.id === saved.id ? saved : item));
+            notify(enabled ? 'Daily test card enabled.' : 'Daily test card disabled.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingTestPlan(false);
+        }
+    };
+
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
-    const error = gatewayResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error;
+    const dailyTestPlan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
+    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -944,6 +968,32 @@ export default function AdminSettingsPage() {
                         </Field>
                         <Button busy={savingGateway} type="submit">Save gateway</Button>
                     </form>
+                )}
+            </Card>
+
+            <Card className={sectionTab === 'payments' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Daily test subscription card"
+                    description="Show or hide the N100 daily test plan from the provider subscription page."
+                    action={<StatusBadge status={dailyTestPlan?.is_active ? 'enabled' : 'disabled'} />}
+                />
+                {plansResource.loading ? <LoadingBlock rows={2} /> : (
+                    <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-slate-950">{dailyTestPlan?.name ?? 'Daily Test Plan'}</p>
+                            <p className="mt-1 text-sm text-slate-500">When enabled, providers can choose the N100 daily subscription for payment testing.</p>
+                        </div>
+                        <label className="inline-flex items-center gap-3">
+                            <input
+                                checked={Boolean(dailyTestPlan?.is_active)}
+                                className="h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                disabled={!dailyTestPlan || savingTestPlan}
+                                onChange={(event) => toggleDailyTestPlan(event.target.checked)}
+                                type="checkbox"
+                            />
+                            <span className="text-sm font-bold text-slate-700">{dailyTestPlan?.is_active ? 'Enabled' : 'Disabled'}</span>
+                        </label>
+                    </div>
                 )}
             </Card>
 

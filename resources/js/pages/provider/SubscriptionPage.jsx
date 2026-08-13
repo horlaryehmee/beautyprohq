@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Button,
@@ -41,14 +41,15 @@ export default function ProviderSubscriptionPage() {
     const currentPaymentPage = Number(paymentsMeta.current_page ?? paymentsMeta.currentPage ?? paymentPage);
     const subscription = data.subscription;
     const activePlan = subscription?.plan ?? 'free';
-    const paidActive = activePlan === 'paid' && subscription?.status === 'active';
+    const activePlanDefinition = subscription?.plan_definition ?? subscription?.planDefinition;
+    const activePlanKey = activePlanDefinition?.key ?? activePlan;
+    const activePlanLabel = activePlanDefinition?.name ?? `${activePlan} plan`;
+    const paidActive = (activePlan === 'paid' || Number(activePlanDefinition?.price ?? 0) > 0) && subscription?.status === 'active';
     const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
     const pendingPaidSelection = Boolean(data.pending_paid_plan_selection);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
     const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
     const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
-
-    const paidPlan = useMemo(() => plans.find((plan) => plan.key === 'paid'), [plans]);
 
     useEffect(() => {
         const reference = searchParams.get('reference') || searchParams.get('trxref');
@@ -68,10 +69,10 @@ export default function ProviderSubscriptionPage() {
         return () => { cancelled = true; };
     }, [notify, resource, searchParams, setSearchParams]);
 
-    const checkout = async () => {
-        setBusy('checkout');
+    const checkout = async (planKey) => {
+        setBusy(`checkout:${planKey}`);
         try {
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: 'paid', gateway: subscriptionGateway, currency: data.account_currency || data.detected_currency });
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: planKey, gateway: subscriptionGateway, currency: data.account_currency || data.detected_currency });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -113,7 +114,7 @@ export default function ProviderSubscriptionPage() {
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
-                                <h2 className="mt-1 text-2xl font-semibold capitalize text-slate-950">{activePlan} plan</h2>
+                                <h2 className="mt-1 text-2xl font-semibold text-slate-950">{activePlanLabel}</h2>
                                 <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Paid tools remain active until this billing period ends, but verification will need admin approval again for continued access.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
                             </div>
                             <StatusBadge status={subscription?.status ?? 'active'} />
@@ -122,8 +123,8 @@ export default function ProviderSubscriptionPage() {
 
                     <div className="grid gap-5 lg:grid-cols-2">
                         {plans.map((plan) => {
-                            const isPaid = plan.key === 'paid';
-                            const isCurrent = activePlan === plan.key && subscription?.status === 'active';
+                            const isPaid = Number(plan.price ?? 0) > 0;
+                            const isCurrent = (activePlanKey === plan.key || (!activePlanDefinition && activePlan === plan.key)) && subscription?.status === 'active';
                             return (
                                 <Card className={isPaid ? 'border-fuchsia-200 shadow-fuchsia-100/70' : ''} key={plan.key}>
                                     <CardHeader
@@ -145,8 +146,8 @@ export default function ProviderSubscriptionPage() {
                                     </ul>
                                     <div className="mt-6">
                                         {isPaid ? (
-                                            paidActive ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Renewal cancelled' : 'Downgrade to free'}</Button>
-                                                : <Button busy={busy === 'checkout'} disabled={!gatewayConfigured} onClick={checkout} type="button">{pendingPaidSelection ? `Continue payment with ${gatewayLabel}` : `Upgrade with ${gatewayLabel}`}</Button>
+                                            paidActive ? (isCurrent ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Renewal cancelled' : 'Downgrade to free'}</Button> : <Button disabled type="button" variant="secondary">Paid plan active</Button>)
+                                                : <Button busy={busy === `checkout:${plan.key}`} disabled={!gatewayConfigured} onClick={() => checkout(plan.key)} type="button">{pendingPaidSelection ? `Continue payment with ${gatewayLabel}` : `Choose ${plan.name}`}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>
                                         )}

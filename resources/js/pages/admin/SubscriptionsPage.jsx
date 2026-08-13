@@ -51,7 +51,7 @@ export default function AdminSubscriptionsPage() {
     const subscriptions = normalize(subscriptionsResource.data);
     const plans = normalize(plansResource.data);
     const meta = metaFrom(subscriptionsResource.data);
-    const planOptions = meta.filters?.plans?.length ? meta.filters.plans : ['free', 'pro'];
+    const planOptions = meta.filters?.plans?.length ? meta.filters.plans : ['free', 'paid', 'pro'];
     const statusOptions = meta.filters?.statuses?.length ? meta.filters.statuses : ['active', 'expired', 'cancelled', 'pending'];
     const pageCount = Number(meta.last_page ?? meta.lastPage ?? 1);
     const currentPage = Number(meta.current_page ?? meta.currentPage ?? page);
@@ -127,9 +127,9 @@ export default function AdminSubscriptionsPage() {
             </div>
 
             <Card>
-                <CardHeader description="Free remains free. Edit the paid price here before opening subscriptions." title="Provider plans" />
+                <CardHeader description="Free remains free. Edit paid plan pricing here before opening subscriptions." title="Provider plans" />
                 {plansResource.loading ? <LoadingBlock rows={2} /> : (
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-3">
                         {plans.map((plan) => (
                             <article className="rounded-3xl border border-slate-100 p-5" key={plan.id}>
                                 <div className="flex items-start justify-between gap-4">
@@ -192,7 +192,7 @@ export default function AdminSubscriptionsPage() {
                             <Field label="Plan name"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required value={form.name} /></Field>
                             <Field label="Price"><input className={inputClass} disabled={editingPlan.key === 'free'} min="0" onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} required type="number" value={form.price} /></Field>
                             <Field label="Currency"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} required value={form.currency}>{supported.map((item) => <option key={item.code} value={item.code}>{item.code} · {item.name}</option>)}</select></Field>
-                            <Field label="Billing period"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, billing_period: event.target.value }))} value={form.billing_period}><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></Field>
+                            <Field label="Billing period"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, billing_period: event.target.value }))} value={form.billing_period}><option value="daily">Daily</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></Field>
                             <Field className="sm:col-span-2" label="Features" hint="One feature per line."><textarea className={`${inputClass} min-h-44`} onChange={(event) => setForm((current) => ({ ...current, features: event.target.value }))} value={form.features} /></Field>
                             <div className="flex justify-end gap-2 sm:col-span-2"><Button onClick={() => setEditingPlan(null)} type="button" variant="secondary">Cancel</Button><Button busy={saving} type="submit">Save plan</Button></div>
                         </form>
