@@ -106,7 +106,9 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const user = suppliedUser ?? userResource.data ?? {};
     const verified = Boolean(user.provider_profile?.verified ?? user.providerProfile?.verified ?? user.verified);
     const activeSubscription = user.active_subscription ?? user.activeSubscription;
-    const paid = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
+    const activePlanDefinition = activeSubscription?.plan_definition ?? activeSubscription?.planDefinition;
+    const paid = activeSubscription?.status === 'active'
+        && (['paid', 'pro'].includes(activeSubscription?.plan) || Number(activePlanDefinition?.price ?? 0) > 0);
 
     useEffect(() => setMobileOpen(false), [location.pathname]);
 

@@ -14,8 +14,8 @@ import {
     apiErrorMessage,
     apiRequest,
     useApiResource,
-    useDashboardToast,
 } from '../../components/dashboard';
+import { useAuth } from '../../context/AuthContext';
 
 const normalize = (value, key) => {
     if (Array.isArray(value)) return value;
@@ -31,8 +31,9 @@ export default function ProviderSubscriptionPage() {
     const [paymentPage, setPaymentPage] = useState(1);
     const resource = useApiResource('/provider/subscription', {}, { params: { payments_page: paymentPage, payments_per_page: 10 } });
     const [busy, setBusy] = useState('');
+    const [paymentResult, setPaymentResult] = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
-    const { notify } = useDashboardToast();
+    const { refreshUser } = useAuth();
     const data = resource.data ?? {};
     const plans = normalize(data, 'plans');
     const payments = normalize(data, 'payments');
@@ -58,16 +59,35 @@ export default function ProviderSubscriptionPage() {
         let cancelled = false;
         setBusy('verify');
         apiRequest('post', '/provider/subscription/verify', { reference, session_id: sessionId || undefined })
-            .then(() => {
+            .then(async (subscriptionResponse) => {
                 if (cancelled) return;
-                notify('Paid plan activated.');
-                resource.reload();
+                await refreshUser();
+                await resource.reload();
+                if (cancelled) return;
+                setPaymentResult({
+                    status: 'success',
+                    title: 'Payment successful',
+                    message: 'Your paid provider tools are active. Go to the dashboard to load the Pro workspace.',
+                    subscription: subscriptionResponse,
+                });
                 setSearchParams({}, { replace: true });
             })
-            .catch((error) => !cancelled && notify(apiErrorMessage(error), 'error'))
+            .catch((error) => {
+                if (cancelled) return;
+                setPaymentResult({
+                    status: 'failed',
+                    title: 'Payment not completed',
+                    message: apiErrorMessage(error) || 'The payment was declined or could not be verified. You can try again from the subscription page.',
+                });
+                setSearchParams({}, { replace: true });
+            })
             .finally(() => !cancelled && setBusy(''));
         return () => { cancelled = true; };
-    }, [notify, resource, searchParams, setSearchParams]);
+    }, [refreshUser, resource, searchParams, setSearchParams]);
+
+    const goToDashboard = () => {
+        window.location.assign('/provider');
+    };
 
     const checkout = async (planKey) => {
         setBusy(`checkout:${planKey}`);
@@ -108,6 +128,21 @@ export default function ProviderSubscriptionPage() {
             />
 
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+            {paymentResult && (
+                <div className="fixed inset-0 z-[80] grid place-items-end bg-slate-950/40 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-result-title">
+                    <Card className="w-full max-w-lg rounded-b-none sm:rounded-3xl">
+                        <div className={`grid size-12 place-items-center rounded-2xl ${paymentResult.status === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                            {paymentResult.status === 'success' ? 'OK' : '!'}
+                        </div>
+                        <h2 id="subscription-payment-result-title" className="mt-4 text-2xl font-semibold text-slate-950">{paymentResult.title}</h2>
+                        <p className="mt-2 text-sm leading-6 text-slate-500">{paymentResult.message}</p>
+                        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                            {paymentResult.status !== 'success' && <Button onClick={() => setPaymentResult(null)} type="button" variant="secondary">Try again</Button>}
+                            <Button onClick={goToDashboard} type="button">Go to dashboard</Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
             {resource.loading ? <LoadingBlock rows={5} /> : (
                 <>
                     <Card>
