@@ -106,11 +106,12 @@ export default function ProviderSubscriptionPage() {
     };
 
     const downgrade = async () => {
-        if (!window.confirm('Downgrade to free? Your provider verification will be declined and dashboard access will require admin approval again.')) return;
+        if (!window.confirm('Downgrade to free? Your current subscription will be cancelled immediately and your provider verification badge will be removed.')) return;
         setBusy('downgrade');
         try {
             await apiRequest('post', '/provider/subscription/downgrade');
-            notify('Downgrade requested. Provider verification was declined.');
+            notify('Downgraded to the free plan. Provider verification was declined.');
+            await refreshUser();
             resource.reload();
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
@@ -150,7 +151,7 @@ export default function ProviderSubscriptionPage() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
                                 <h2 className="mt-1 text-2xl font-semibold text-slate-950">{activePlanLabel}</h2>
-                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Paid tools remain active until this billing period ends, but verification will need admin approval again for continued access.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
+                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Renewal is cancelled. Downgrade again if you want to switch to free immediately.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
                             </div>
                             <StatusBadge status={subscription?.status ?? 'active'} />
                         </div>
@@ -181,7 +182,7 @@ export default function ProviderSubscriptionPage() {
                                     </ul>
                                     <div className="mt-6">
                                         {isPaid ? (
-                                            paidActive ? (isCurrent ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Renewal cancelled' : 'Downgrade to free'}</Button> : <Button disabled type="button" variant="secondary">Paid plan active</Button>)
+                                            paidActive ? (isCurrent ? <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="secondary">Downgrade to free</Button> : <Button disabled type="button" variant="secondary">Paid plan active</Button>)
                                                 : <Button busy={busy === `checkout:${plan.key}`} disabled={!gatewayConfigured} onClick={() => checkout(plan.key)} type="button">{pendingPaidSelection ? `Continue payment with ${gatewayLabel}` : `Choose ${plan.name}`}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>

@@ -395,7 +395,56 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.plans.1.display_currency', 'USD');
     }
 
-    public function test_paid_provider_downgrade_keeps_access_until_period_end(): void
+    public function test_recurring_paystack_subscription_charge_is_recorded_and_receipt_is_sent(): void
+    {
+        AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
+        Notification::fake();
+        $user = User::factory()->provider()->create();
+        $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => 'paid',
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now()->subMonth(),
+            'renews_at' => now(),
+            'metadata' => [
+                'gateway' => 'paystack',
+                'paystack_subscription_code' => 'SUB_recurring',
+                'paystack_email_token' => 'token_recurring',
+            ],
+        ]);
+
+        $this->postPaystackWebhook([
+            'event' => 'charge.success',
+            'data' => [
+                'reference' => 'BPHQ-RECURRING-001',
+                'amount' => 1500000,
+                'currency' => 'NGN',
+                'status' => 'success',
+                'subscription' => [
+                    'subscription_code' => 'SUB_recurring',
+                    'email_token' => 'token_recurring',
+                    'next_payment_date' => now()->addMonth()->toIso8601String(),
+                ],
+            ],
+        ])->assertOk();
+
+        $payment = SubscriptionPayment::where('reference', 'BPHQ-RECURRING-001')->firstOrFail();
+        $this->assertSame($user->id, $payment->user_id);
+        $this->assertSame($subscription->id, $payment->subscription_id);
+        $this->assertSame('paid', $payment->status);
+        $this->assertNotNull($payment->paid_at);
+
+        Notification::assertSentTo($user, PlatformUpdateNotification::class, fn (PlatformUpdateNotification $notification): bool =>
+            $notification->title === 'Subscription payment receipt'
+            && ($notification->data['subscription_payment_id'] ?? null) === $payment->id
+        );
+    }
+
+    public function test_paid_provider_downgrade_switches_to_free_immediately(): void
     {
         Notification::fake();
         Http::fake([
@@ -436,14 +485,22 @@ class BackendMvpTest extends TestCase
 
         $this->postJson('/api/provider/subscription/downgrade')
             ->assertOk()
-            ->assertJsonPath('data.plan', 'paid')
+            ->assertJsonPath('data.plan', 'free')
             ->assertJsonPath('data.status', 'active')
-            ->assertJsonPath('data.metadata.cancel_at_period_end', true);
+            ->assertJsonPath('data.amount', '0.00');
 
         $subscription->refresh();
-        $this->assertTrue($user->fresh()->hasPaidPlan());
-        $this->assertTrue($renewsAt->equalTo($subscription->ends_at));
+        $this->assertFalse($user->fresh()->hasPaidPlan());
+        $this->assertSame('cancelled', $subscription->status);
+        $this->assertTrue($subscription->ends_at->lessThanOrEqualTo(now()));
+        $this->assertFalse((bool) data_get($subscription->metadata, 'cancel_at_period_end'));
         $this->assertSame('non-renewing', data_get($subscription->metadata, 'paystack_status'));
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $user->id,
+            'plan' => 'free',
+            'status' => 'active',
+            'amount' => 0,
+        ]);
         Http::assertSent(fn ($request): bool => $request->url() === 'https://api.paystack.co/subscription/disable'
             && $request['code'] === 'SUB_downgrade'
             && $request['token'] === 'token_downgrade');

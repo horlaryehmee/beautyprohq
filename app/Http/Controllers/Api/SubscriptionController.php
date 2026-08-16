@@ -740,6 +740,7 @@ class SubscriptionController extends Controller
         [$subscription, $activated] = $this->activatePaidSubscription($payment, $response->json());
         if ($activated) {
             $this->notifySubscriptionActivated($subscription);
+            $this->notifySubscriptionPaymentReceipt($payment->fresh(['user', 'plan', 'subscription']));
         }
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
@@ -762,15 +763,14 @@ class SubscriptionController extends Controller
                 return $active;
             }
 
-            $endsAt = $active->renews_at && $active->renews_at->isFuture()
-                ? $active->renews_at
-                : $this->nextRenewalDate($active->planDefinition);
             $metadata = $active->metadata ?? [];
-            $metadata['cancel_at_period_end'] = true;
+            $metadata['cancel_at_period_end'] = false;
             $metadata['cancel_requested_at'] = now()->toIso8601String();
+            $metadata['cancelled_to_free_at'] = now()->toIso8601String();
 
             $active->update([
-                'ends_at' => $endsAt,
+                'status' => 'cancelled',
+                'ends_at' => now(),
                 'cancelled_at' => now(),
                 'metadata' => $metadata,
             ]);
@@ -800,11 +800,25 @@ class SubscriptionController extends Controller
                 }
             }
 
-            return $active->fresh();
+            $freePlan = SubscriptionPlan::where('key', 'free')->firstOrFail();
+
+            return Subscription::create([
+                'user_id' => $user->id,
+                'subscription_plan_id' => $freePlan->id,
+                'plan' => 'free',
+                'status' => 'active',
+                'amount' => 0,
+                'currency' => $freePlan->currency,
+                'starts_at' => now(),
+                'metadata' => [
+                    'downgraded_from_subscription_id' => $active->id,
+                    'downgraded_at' => now()->toIso8601String(),
+                ],
+            ]);
         });
         $user->notify(new PlatformUpdateNotification(
-            'Subscription cancellation scheduled',
-            'Your paid plan cancellation has been scheduled and your provider verification was declined because you downgraded to the free plan.',
+            'Subscription downgraded to free',
+            'Your paid plan has been cancelled, your account is now on the free plan, and your provider verification badge was removed.',
             'View subscription',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
             ['subscription_id' => $subscription->id],
@@ -812,7 +826,7 @@ class SubscriptionController extends Controller
         Cache::forget('public.home.payload.v6');
         Cache::forget('public.home.payload.v5');
 
-        return $this->success($subscription->load('planDefinition'), 'Your paid plan cancellation has been scheduled and provider verification was declined.');
+        return $this->success($subscription->load('planDefinition'), 'Your account has been downgraded to the free plan and provider verification was declined.');
     }
 
     public function paystackWebhook(Request $request): JsonResponse
@@ -1028,7 +1042,11 @@ class SubscriptionController extends Controller
         if (($metadata['type'] ?? null) === 'provider_subscription' && $reference) {
             $payment = SubscriptionPayment::where('reference', $reference)->with('plan')->first();
             if ($payment && $payment->status !== 'paid' && $this->paystackResponseMatchesPayment($data, $payment)) {
-                $this->activatePaidSubscription($payment, $this->mergePaystackSubscriptionPayload($payment, $rawPayload));
+                [$subscription, $activated] = $this->activatePaidSubscription($payment, $this->mergePaystackSubscriptionPayload($payment, $rawPayload));
+                if ($activated) {
+                    $this->notifySubscriptionActivated($subscription);
+                    $this->notifySubscriptionPaymentReceipt($payment->fresh(['user', 'plan', 'subscription']));
+                }
             }
 
             return;
@@ -1072,6 +1090,8 @@ class SubscriptionController extends Controller
                 'paystack_email_token' => data_get($data, 'subscription.email_token') ?: data_get($subscription->metadata, 'paystack_email_token'),
             ]),
         ]);
+
+        $this->notifySubscriptionPaymentReceipt($payment->load(['user', 'plan', 'subscription']));
     }
 
     private function recordPaystackInvoiceEvent(string $event, array $data): void
@@ -1236,6 +1256,7 @@ class SubscriptionController extends Controller
         [$subscription, $activated] = $this->activatePaidSubscription($payment, $response->json());
         if ($activated) {
             $this->notifySubscriptionActivated($subscription);
+            $this->notifySubscriptionPaymentReceipt($payment->fresh(['user', 'plan', 'subscription']));
         }
 
         return $this->success($subscription->load('planDefinition'), 'Paid plan activated.');
@@ -1300,6 +1321,37 @@ class SubscriptionController extends Controller
             'View subscriptions',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/subscriptions',
             ['subscription_id' => $subscription->id, 'user_id' => $subscription->user_id],
+        ));
+    }
+
+    private function notifySubscriptionPaymentReceipt(?SubscriptionPayment $payment): void
+    {
+        if (! $payment || $payment->status !== 'paid') {
+            return;
+        }
+
+        $payment->loadMissing(['user', 'plan', 'subscription']);
+        $user = $payment->user;
+        if (! $user) {
+            return;
+        }
+
+        $user->notify(new PlatformUpdateNotification(
+            'Subscription payment receipt',
+            'Your BeautyPro HQ subscription payment was received successfully.',
+            'View subscription',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
+            [
+                'subscription_id' => $payment->subscription_id,
+                'subscription_payment_id' => $payment->id,
+                'details' => [
+                    'Plan' => $payment->plan?->name ?? 'Subscription plan',
+                    'Amount' => strtoupper((string) $payment->currency).' '.number_format((float) $payment->amount, 2),
+                    'Payment method' => ucfirst((string) $payment->gateway),
+                    'Payment reference' => $payment->reference,
+                    'Paid at' => optional($payment->paid_at)->format('M j, Y g:i A'),
+                ],
+            ],
         ));
     }
 
