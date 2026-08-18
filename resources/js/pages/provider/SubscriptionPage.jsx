@@ -14,6 +14,7 @@ import {
     apiErrorMessage,
     apiRequest,
     useApiResource,
+    useDashboardToast,
 } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
 
@@ -34,6 +35,7 @@ export default function ProviderSubscriptionPage() {
     const [paymentResult, setPaymentResult] = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const { refreshUser } = useAuth();
+    const { notify } = useDashboardToast();
     const data = resource.data ?? {};
     const plans = normalize(data, 'plans');
     const payments = normalize(data, 'payments');
