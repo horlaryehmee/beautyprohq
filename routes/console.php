@@ -150,6 +150,56 @@ Artisan::command('newsletter:send-due-content', function (ContentNewsletterServi
 
 Schedule::command('newsletter:send-due-content')->everyFiveMinutes()->withoutOverlapping(10);
 
+Artisan::command('subscriptions:record-periods', function (): int {
+    $due = DB::table('subscriptions')
+        ->where('status', 'active')
+        ->whereIn('plan', ['paid', 'pro', 'daily_test'])
+        ->whereNotNull('renews_at')
+        ->where('renews_at', '<=', now())
+        ->get();
+
+    $recorded = 0;
+    foreach ($due as $row) {
+        DB::transaction(function () use ($row, &$recorded): void {
+            $plan = DB::table('subscription_plans')->where('id', $row->subscription_plan_id)->first();
+
+            // Close the current period
+            DB::table('subscriptions')->where('id', $row->id)->update([
+                'status' => 'expired',
+                'ends_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Open the next period so every monthly/daily cycle is recorded
+            $metadata = json_decode((string) ($row->metadata ?? '[]'), true) ?: [];
+            $metadata['renewed_from_subscription_id'] = $row->id;
+            $metadata['renewed_at'] = now()->toIso8601String();
+
+            DB::table('subscriptions')->insert([
+                'user_id' => $row->user_id,
+                'subscription_plan_id' => $row->subscription_plan_id,
+                'plan' => $row->plan,
+                'status' => 'active',
+                'amount' => $row->amount,
+                'currency' => $row->currency,
+                'starts_at' => now(),
+                'renews_at' => ($plan?->billing_period ?? 'monthly') === 'daily' ? now()->addDay() : now()->addMonth(),
+                'metadata' => json_encode($metadata),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $recorded++;
+        });
+    }
+
+    $this->info("Subscription periods recorded: {$recorded}");
+
+    return 0;
+})->purpose('Record monthly/daily subscription renewals as new period rows');
+
+Schedule::command('subscriptions:record-periods')->hourly()->withoutOverlapping(10);
+
 Schedule::call(function (): void {
     if (Schema::hasTable('sessions')) {
         DB::table('sessions')

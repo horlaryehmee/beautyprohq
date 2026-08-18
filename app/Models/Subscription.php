@@ -38,6 +38,6 @@ class Subscription extends Model
 
     public function isPaid(): bool
     {
-        return $this->isActive() && in_array($this->plan, ['paid', 'pro'], true);
+        return $this->isActive() && in_array($this->plan, ['paid', 'pro', 'daily_test'], true);
     }
 }

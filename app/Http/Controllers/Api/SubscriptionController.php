@@ -84,6 +84,12 @@ class SubscriptionController extends Controller
 
         return $this->success([
             'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
+            'subscription_history' => $request->user()
+                ->subscriptions()
+                ->with('planDefinition')
+                ->latest()
+                ->limit(50)
+                ->get(),
             'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($request->user()),
             'detected_currency' => CurrencyResolver::currencyForRequest($request),
             'account_currency' => $accountCurrency,
@@ -752,7 +758,12 @@ class SubscriptionController extends Controller
         abort_unless($user->isProvider(), 403);
         $active = $user->activeSubscription()->first();
         if ($active?->isPaid()) {
-            $this->disablePaystackSubscriptionIfPossible($active);
+            try {
+                $this->disablePaystackSubscriptionIfPossible($active);
+            } catch (\Throwable $exception) {
+                report($exception);
+                // Best-effort: local cancellation always proceeds even if the gateway call fails.
+            }
         }
 
         $subscription = DB::transaction(function () use ($user): Subscription {

@@ -41,11 +41,12 @@ export default function ProviderSubscriptionPage() {
     const paymentPageCount = Number(paymentsMeta.last_page ?? paymentsMeta.lastPage ?? 1);
     const currentPaymentPage = Number(paymentsMeta.current_page ?? paymentsMeta.currentPage ?? paymentPage);
     const subscription = data.subscription;
+    const history = normalize(data, 'subscription_history');
     const activePlan = subscription?.plan ?? 'free';
     const activePlanDefinition = subscription?.plan_definition ?? subscription?.planDefinition;
     const activePlanKey = activePlanDefinition?.key ?? activePlan;
     const activePlanLabel = activePlanDefinition?.name ?? `${activePlan} plan`;
-    const paidActive = (activePlan === 'paid' || Number(activePlanDefinition?.price ?? 0) > 0) && subscription?.status === 'active';
+    const paidActive = ['paid', 'pro', 'daily_test'].includes(activePlan) && subscription?.status === 'active';
     const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
     const pendingPaidSelection = Boolean(data.pending_paid_plan_selection);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
@@ -153,7 +154,12 @@ export default function ProviderSubscriptionPage() {
                                 <h2 className="mt-1 text-2xl font-semibold text-slate-950">{activePlanLabel}</h2>
                                 <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Renewal is cancelled. Downgrade again if you want to switch to free immediately.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
                             </div>
-                            <StatusBadge status={subscription?.status ?? 'active'} />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <StatusBadge status={subscription?.status ?? 'active'} />
+                                {paidActive && (
+                                    <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="danger">Cancel subscription</Button>
+                                )}
+                            </div>
                         </div>
                     </Card>
 
@@ -212,6 +218,25 @@ export default function ProviderSubscriptionPage() {
                                 <Pagination page={currentPaymentPage} pageCount={paymentPageCount} onPageChange={setPaymentPage} />
                             </div>
                         ) : <EmptyState description="Paid plan transactions will appear here." icon="subscription" title="No subscription payments yet" />}
+                    </Card>
+                    <Card>
+                        <CardHeader title="Subscription history" description="Every monthly and daily subscription period is recorded here." />
+                        {history.length ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[620px] text-left text-sm">
+                                    <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3">Plan</th><th className="pb-3">Started</th><th className="pb-3">Renews / Ended</th><th className="pb-3">Amount</th><th className="pb-3 text-right">Status</th></tr></thead>
+                                    <tbody>{history.map((period) => (
+                                        <tr className="border-b border-slate-50 last:border-0" key={period.id}>
+                                            <td className="py-3 font-semibold text-slate-800">{period.plan_definition?.name ?? period.planDefinition?.name ?? `${period.plan} plan`}</td>
+                                            <td className="py-3 text-slate-500">{period.starts_at ? new Date(period.starts_at).toLocaleDateString() : '—'}</td>
+                                            <td className="py-3 text-slate-500">{period.status === 'active' && period.renews_at ? new Date(period.renews_at).toLocaleDateString() : (period.ends_at ? new Date(period.ends_at).toLocaleDateString() : '—')}</td>
+                                            <td className="py-3 font-bold text-slate-950"><Currency currency={period.currency} value={period.amount} /></td>
+                                            <td className="py-3 text-right"><StatusBadge status={period.status} /></td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            </div>
+                        ) : <EmptyState description="Your subscription periods will appear here." icon="subscription" title="No subscription history yet" />}
                     </Card>
                 </>
             )}
