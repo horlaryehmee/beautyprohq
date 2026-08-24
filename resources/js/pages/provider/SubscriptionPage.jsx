@@ -27,6 +27,9 @@ const normalize = (value, key) => {
     return [];
 };
 const metaFrom = (value, key) => value?.[key]?.meta ?? value?.meta ?? {};
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : '—');
+const paidPlans = ['paid', 'pro', 'daily_test'];
+const isPaidActiveSubscription = (subscription) => paidPlans.includes(subscription?.plan) && subscription?.status === 'active';
 
 export default function ProviderSubscriptionPage() {
     const [paymentPage, setPaymentPage] = useState(1);
@@ -48,7 +51,7 @@ export default function ProviderSubscriptionPage() {
     const activePlanDefinition = subscription?.plan_definition ?? subscription?.planDefinition;
     const activePlanKey = activePlanDefinition?.key ?? activePlan;
     const activePlanLabel = activePlanDefinition?.name ?? `${activePlan} plan`;
-    const paidActive = ['paid', 'pro', 'daily_test'].includes(activePlan) && subscription?.status === 'active';
+    const paidActive = isPaidActiveSubscription(subscription);
     const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
     const pendingPaidSelection = Boolean(data.pending_paid_plan_selection);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
@@ -75,8 +78,24 @@ export default function ProviderSubscriptionPage() {
                 });
                 setSearchParams({}, { replace: true });
             })
-            .catch((error) => {
+            .catch(async (error) => {
                 if (cancelled) return;
+                const latest = await apiRequest('get', '/provider/subscription').catch(() => null);
+                if (cancelled) return;
+                if (isPaidActiveSubscription(latest?.subscription)) {
+                    resource.setData(latest);
+                    await refreshUser();
+                    if (cancelled) return;
+                    setPaymentResult({
+                        status: 'success',
+                        title: 'Payment successful',
+                        message: 'Your paid provider tools are active. Go to the dashboard to load the Pro workspace.',
+                        subscription: latest.subscription,
+                    });
+                    setSearchParams({}, { replace: true });
+                    return;
+                }
+
                 setPaymentResult({
                     status: 'failed',
                     title: 'Payment not completed',
@@ -109,11 +128,11 @@ export default function ProviderSubscriptionPage() {
     };
 
     const downgrade = async () => {
-        if (!window.confirm('Downgrade to free? Your current subscription will be cancelled immediately and your provider verification badge will be removed.')) return;
+        if (!window.confirm('Cancel subscription renewal? You will keep paid provider tools until your current paid period ends.')) return;
         setBusy('downgrade');
         try {
             await apiRequest('post', '/provider/subscription/downgrade');
-            notify('Downgraded to the free plan. Provider verification was declined.');
+            notify('Subscription renewal cancelled. Paid tools remain active until the period ends.');
             await refreshUser();
             resource.reload();
         } catch (error) {
@@ -154,12 +173,19 @@ export default function ProviderSubscriptionPage() {
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Current plan</p>
                                 <h2 className="mt-1 text-2xl font-semibold text-slate-950">{activePlanLabel}</h2>
-                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Renewal is cancelled. Downgrade again if you want to switch to free immediately.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
+                                <p className="mt-1 text-sm text-slate-500">{paidActive ? (cancelAtPeriodEnd ? 'Renewal is cancelled. Paid tools remain active until the current period ends.' : 'Advanced business tools are active.') : (pendingPaidSelection ? 'Your account is approved. Complete payment to activate paid tools.' : 'Basic listing, reviews, and email notifications are active.')}</p>
+                                {subscription && (
+                                    <p className="mt-2 text-xs font-medium text-slate-500">
+                                        Started: {formatDateTime(subscription.starts_at)}
+                                        <span className="mx-2 text-slate-300">|</span>
+                                        {cancelAtPeriodEnd ? 'Access ends' : 'Renews'}: {formatDateTime(subscription.renews_at ?? subscription.ends_at)}
+                                    </p>
+                                )}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <StatusBadge status={subscription?.status ?? 'active'} />
                                 {paidActive && (
-                                    <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="danger">Cancel subscription</Button>
+                                    <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant={cancelAtPeriodEnd ? 'secondary' : 'danger'}>{cancelAtPeriodEnd ? 'Cancellation scheduled' : 'Cancel subscription'}</Button>
                                 )}
                             </div>
                         </div>
@@ -190,7 +216,7 @@ export default function ProviderSubscriptionPage() {
                                     </ul>
                                     <div className="mt-6">
                                         {isPaid ? (
-                                            paidActive ? (isCurrent ? <Button busy={busy === 'downgrade'} onClick={downgrade} type="button" variant="secondary">Downgrade to free</Button> : <Button disabled type="button" variant="secondary">Paid plan active</Button>)
+                                            paidActive ? (isCurrent ? <Button busy={busy === 'downgrade'} disabled={cancelAtPeriodEnd} onClick={downgrade} type="button" variant="secondary">{cancelAtPeriodEnd ? 'Cancellation scheduled' : 'Cancel renewal'}</Button> : <Button disabled type="button" variant="secondary">Paid plan active</Button>)
                                                 : <Button busy={busy === `checkout:${plan.key}`} disabled={!gatewayConfigured} onClick={() => checkout(plan.key)} type="button">{pendingPaidSelection ? `Continue payment with ${gatewayLabel}` : `Choose ${plan.name}`}</Button>
                                         ) : (
                                             paidActive ? null : <Button disabled type="button" variant="secondary">Current plan</Button>
@@ -230,8 +256,8 @@ export default function ProviderSubscriptionPage() {
                                     <tbody>{history.map((period) => (
                                         <tr className="border-b border-slate-50 last:border-0" key={period.id}>
                                             <td className="py-3 font-semibold text-slate-800">{period.plan_definition?.name ?? period.planDefinition?.name ?? `${period.plan} plan`}</td>
-                                            <td className="py-3 text-slate-500">{period.starts_at ? new Date(period.starts_at).toLocaleDateString() : '—'}</td>
-                                            <td className="py-3 text-slate-500">{period.status === 'active' && period.renews_at ? new Date(period.renews_at).toLocaleDateString() : (period.ends_at ? new Date(period.ends_at).toLocaleDateString() : '—')}</td>
+                                            <td className="py-3 text-slate-500">{formatDateTime(period.starts_at)}</td>
+                                            <td className="py-3 text-slate-500">{period.status === 'active' && period.renews_at ? formatDateTime(period.renews_at) : formatDateTime(period.ends_at)}</td>
                                             <td className="py-3 font-bold text-slate-950"><Currency currency={period.currency} value={period.amount} /></td>
                                             <td className="py-3 text-right"><StatusBadge status={period.status} /></td>
                                         </tr>

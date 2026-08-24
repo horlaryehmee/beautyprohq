@@ -63,7 +63,7 @@ Route::post('/community-posts/{communityPost}/shares', [PublicContentController:
 Route::post('/community-posts/{communityPost}/reports', [PublicContentController::class, 'reportCommunity'])->middleware('throttle:public-form');
 Route::post('/newsletter/subscribe', [PublicContentController::class, 'subscribe'])->middleware('throttle:public-form');
 Route::post('/mailchimp/webhook', [SubscriptionController::class, 'mailchimpWebhook'])->middleware('throttle:public-form');
-Route::post('/paystack/webhook', [SubscriptionController::class, 'paystackWebhook'])->middleware('throttle:payment');
+Route::post('/paystack/webhook', [SubscriptionController::class, 'paystackWebhook']);
 Route::post('/paystack/provider-webhook/{paymentAccount}/{token}', [BookingController::class, 'providerPaystackWebhook'])->middleware('throttle:payment');
 Route::post('/contact-enquiries', [PublicContentController::class, 'contact'])->middleware('throttle:public-form');
 Route::post('/opportunities/{opportunity}/enquiries', [PublicContentController::class, 'enquire'])->middleware('throttle:public-form');
@@ -126,9 +126,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::post('/verification/files', [ProviderDashboardController::class, 'uploadVerificationFile'])->middleware('throttle:upload');
             Route::post('/verification', [ProviderDashboardController::class, 'submitVerification']);
             Route::get('/subscription', [SubscriptionController::class, 'current']);
-            Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout'])->middleware('throttle:payment');
-            Route::post('/subscription/verify', [SubscriptionController::class, 'verify'])->middleware('throttle:payment');
-            Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade'])->middleware('throttle:sensitive');
+            Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout']);
+            Route::post('/subscription/verify', [SubscriptionController::class, 'verify']);
+            Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade']);
         });
 
         Route::middleware(['paid.provider', 'verified', 'verified.provider'])->group(function (): void {

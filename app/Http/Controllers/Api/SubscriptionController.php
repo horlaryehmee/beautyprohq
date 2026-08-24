@@ -774,62 +774,24 @@ class SubscriptionController extends Controller
                 return $active;
             }
 
+            $endsAt = $active->renews_at ?: $this->nextRenewalDate($active->planDefinition);
             $metadata = $active->metadata ?? [];
-            $metadata['cancel_at_period_end'] = false;
+            $metadata['cancel_at_period_end'] = true;
             $metadata['cancel_requested_at'] = now()->toIso8601String();
-            $metadata['cancelled_to_free_at'] = now()->toIso8601String();
+            $metadata['access_ends_at'] = $endsAt->toIso8601String();
 
             $active->update([
-                'status' => 'cancelled',
-                'ends_at' => now(),
+                'status' => 'active',
+                'ends_at' => $endsAt,
                 'cancelled_at' => now(),
                 'metadata' => $metadata,
             ]);
 
-            $provider = $user->providerProfile()->lockForUpdate()->first();
-            if ($provider) {
-                $provider->update(['verified' => false]);
-
-                $latestVerification = $provider->verificationRequests()->latest()->first();
-                if ($latestVerification && $latestVerification->status === 'pending') {
-                    $latestVerification->update([
-                        'status' => 'rejected',
-                        'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
-                        'reviewed_at' => now(),
-                    ]);
-                } else {
-                    $provider->verificationRequests()->create([
-                        'portfolio_links' => $latestVerification?->portfolio_links ?? [],
-                        'social_links' => $latestVerification?->social_links ?? ($provider->social_links ?? []),
-                        'professional_info' => $latestVerification?->professional_info ?? 'Verification declined because the provider downgraded to the free plan.',
-                        'certification_files' => $latestVerification?->certification_files ?? [],
-                        'license_files' => $latestVerification?->license_files ?? [],
-                        'status' => 'rejected',
-                        'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
-                        'reviewed_at' => now(),
-                    ]);
-                }
-            }
-
-            $freePlan = SubscriptionPlan::where('key', 'free')->firstOrFail();
-
-            return Subscription::create([
-                'user_id' => $user->id,
-                'subscription_plan_id' => $freePlan->id,
-                'plan' => 'free',
-                'status' => 'active',
-                'amount' => 0,
-                'currency' => $freePlan->currency,
-                'starts_at' => now(),
-                'metadata' => [
-                    'downgraded_from_subscription_id' => $active->id,
-                    'downgraded_at' => now()->toIso8601String(),
-                ],
-            ]);
+            return $active->fresh();
         });
         $user->notify(new PlatformUpdateNotification(
-            'Subscription downgraded to free',
-            'Your paid plan has been cancelled, your account is now on the free plan, and your provider verification badge was removed.',
+            'Subscription cancellation scheduled',
+            'Your paid plan renewal has been cancelled. You will keep paid provider tools until the current subscription period ends.',
             'View subscription',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/subscription',
             ['subscription_id' => $subscription->id],
@@ -837,7 +799,7 @@ class SubscriptionController extends Controller
         Cache::forget('public.home.payload.v6');
         Cache::forget('public.home.payload.v5');
 
-        return $this->success($subscription->load('planDefinition'), 'Your account has been downgraded to the free plan and provider verification was declined.');
+        return $this->success($subscription->load('planDefinition'), 'Your subscription will remain active until the current paid period ends.');
     }
 
     public function paystackWebhook(Request $request): JsonResponse
@@ -1165,7 +1127,7 @@ class SubscriptionController extends Controller
         $this->updatePaystackSubscriptionState($data, [
             'cancel_at_period_end' => true,
             'paystack_status' => 'cancelled',
-        ], true);
+        ], false);
     }
 
     private function updatePaystackSubscriptionState(array $data, array $metadata, bool $ended): void

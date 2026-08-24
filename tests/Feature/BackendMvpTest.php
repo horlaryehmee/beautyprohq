@@ -27,6 +27,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -395,6 +396,25 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.plans.1.display_currency', 'USD');
     }
 
+    public function test_provider_subscription_payment_routes_are_not_rate_limited(): void
+    {
+        foreach ([
+            'api/provider/subscription/checkout',
+            'api/provider/subscription/verify',
+            'api/provider/subscription/downgrade',
+            'api/paystack/webhook',
+        ] as $uri) {
+            $route = collect(\Illuminate\Support\Facades\Route::getRoutes())
+                ->first(fn ($route): bool => $route->uri() === $uri);
+
+            $this->assertNotNull($route, "Route [{$uri}] was not registered.");
+            $this->assertFalse(
+                collect($route->gatherMiddleware())->contains(fn (string $middleware): bool => str_starts_with($middleware, 'throttle:')),
+                "Route [{$uri}] should not be rate limited.",
+            );
+        }
+    }
+
     public function test_recurring_paystack_subscription_charge_is_recorded_and_receipt_is_sent(): void
     {
         AppSetting::setValue('paystack.test_secret_key', 'sk_test_bphq', true);
@@ -444,7 +464,7 @@ class BackendMvpTest extends TestCase
         );
     }
 
-    public function test_paid_provider_downgrade_switches_to_free_immediately(): void
+    public function test_paid_provider_cancellation_keeps_paid_access_until_period_end(): void
     {
         Notification::fake();
         Http::fake([
@@ -485,31 +505,42 @@ class BackendMvpTest extends TestCase
 
         $this->postJson('/api/provider/subscription/downgrade')
             ->assertOk()
-            ->assertJsonPath('data.plan', 'free')
+            ->assertJsonPath('data.plan', 'paid')
             ->assertJsonPath('data.status', 'active')
-            ->assertJsonPath('data.amount', '0.00');
+            ->assertJsonPath('data.amount', '15000.00');
+
+        $subscription->refresh();
+        $this->assertTrue($user->fresh()->hasPaidPlan());
+        $this->assertSame('active', $subscription->status);
+        $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
+        $this->assertTrue((bool) data_get($subscription->metadata, 'cancel_at_period_end'));
+        $this->assertSame($renewsAt->toIso8601String(), data_get($subscription->metadata, 'access_ends_at'));
+        $this->assertSame('non-renewing', data_get($subscription->metadata, 'paystack_status'));
+        $this->assertDatabaseMissing('subscriptions', [
+            'user_id' => $user->id,
+            'plan' => 'free',
+            'status' => 'active',
+        ]);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.paystack.co/subscription/disable'
+            && $request['code'] === 'SUB_downgrade'
+            && $request['token'] === 'token_downgrade');
+        $this->assertTrue($profile->fresh()->verified);
+
+        Carbon::setTestNow($renewsAt->copy()->addMinute());
+        Artisan::call('subscriptions:record-periods');
 
         $subscription->refresh();
         $this->assertFalse($user->fresh()->hasPaidPlan());
         $this->assertSame('cancelled', $subscription->status);
-        $this->assertTrue($subscription->ends_at->lessThanOrEqualTo(now()));
-        $this->assertFalse((bool) data_get($subscription->metadata, 'cancel_at_period_end'));
-        $this->assertSame('non-renewing', data_get($subscription->metadata, 'paystack_status'));
+        $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
+        $this->assertFalse($profile->fresh()->verified);
         $this->assertDatabaseHas('subscriptions', [
             'user_id' => $user->id,
             'plan' => 'free',
             'status' => 'active',
             'amount' => 0,
         ]);
-        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.paystack.co/subscription/disable'
-            && $request['code'] === 'SUB_downgrade'
-            && $request['token'] === 'token_downgrade');
-        $this->assertFalse($profile->fresh()->verified);
-        $this->assertDatabaseHas('verification_requests', [
-            'provider_id' => $profile->id,
-            'status' => 'rejected',
-            'admin_notes' => 'Verification was declined because the provider downgraded to the free plan.',
-        ]);
+        Carbon::setTestNow();
     }
 
     public function test_provider_onboarding_requires_detailed_about_description(): void

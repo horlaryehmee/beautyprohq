@@ -162,16 +162,47 @@ Artisan::command('subscriptions:record-periods', function (): int {
     foreach ($due as $row) {
         DB::transaction(function () use ($row, &$recorded): void {
             $plan = DB::table('subscription_plans')->where('id', $row->subscription_plan_id)->first();
+            $metadata = json_decode((string) ($row->metadata ?? '[]'), true) ?: [];
+            $cancelAtPeriodEnd = (bool) ($metadata['cancel_at_period_end'] ?? false);
 
             // Close the current period
             DB::table('subscriptions')->where('id', $row->id)->update([
-                'status' => 'expired',
-                'ends_at' => now(),
+                'status' => $cancelAtPeriodEnd ? 'cancelled' : 'expired',
+                'ends_at' => $row->renews_at,
                 'updated_at' => now(),
             ]);
 
+            if ($cancelAtPeriodEnd) {
+                $freePlan = DB::table('subscription_plans')->where('key', 'free')->first();
+                if ($freePlan) {
+                    DB::table('subscriptions')->insert([
+                        'user_id' => $row->user_id,
+                        'subscription_plan_id' => $freePlan->id,
+                        'plan' => 'free',
+                        'status' => 'active',
+                        'amount' => 0,
+                        'currency' => $freePlan->currency,
+                        'starts_at' => now(),
+                        'metadata' => json_encode([
+                            'downgraded_from_subscription_id' => $row->id,
+                            'downgraded_at' => now()->toIso8601String(),
+                            'paid_access_ended_at' => now()->toIso8601String(),
+                        ]),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                DB::table('provider_profiles')
+                    ->where('user_id', $row->user_id)
+                    ->update(['verified' => false, 'updated_at' => now()]);
+
+                $recorded++;
+
+                return;
+            }
+
             // Open the next period so every monthly/daily cycle is recorded
-            $metadata = json_decode((string) ($row->metadata ?? '[]'), true) ?: [];
             $metadata['renewed_from_subscription_id'] = $row->id;
             $metadata['renewed_at'] = now()->toIso8601String();
 
