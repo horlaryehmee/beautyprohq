@@ -543,6 +543,69 @@ class BackendMvpTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_premature_free_downgrade_is_restored_until_paid_period_end(): void
+    {
+        $user = User::factory()->provider()->create();
+        ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'legacy-cancelled-daily',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
+        ]);
+        $paidPlan = SubscriptionPlan::where('key', 'daily_test')->firstOrFail();
+        $freePlan = SubscriptionPlan::where('key', 'free')->firstOrFail();
+        $renewsAt = now()->addDay()->startOfSecond();
+        $paidSubscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $paidPlan->id,
+            'plan' => 'paid',
+            'status' => 'cancelled',
+            'amount' => $paidPlan->price,
+            'currency' => $paidPlan->currency,
+            'starts_at' => now()->subMinutes(30),
+            'renews_at' => $renewsAt,
+            'ends_at' => now(),
+            'cancelled_at' => now(),
+            'metadata' => [
+                'cancel_at_period_end' => false,
+                'cancelled_to_free_at' => now()->toIso8601String(),
+            ],
+        ]);
+        $freeSubscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $freePlan->id,
+            'plan' => 'free',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => $freePlan->currency,
+            'starts_at' => now(),
+            'metadata' => [
+                'downgraded_from_subscription_id' => $paidSubscription->id,
+                'downgraded_at' => now()->toIso8601String(),
+            ],
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/provider/subscription')
+            ->assertOk()
+            ->assertJsonPath('data.subscription.id', $paidSubscription->id)
+            ->assertJsonPath('data.subscription.status', 'active')
+            ->assertJsonPath('data.subscription.plan', 'paid');
+
+        $paidSubscription->refresh();
+        $freeSubscription->refresh();
+
+        $this->assertTrue($user->fresh()->hasPaidPlan());
+        $this->assertSame('active', $paidSubscription->status);
+        $this->assertTrue($paidSubscription->ends_at->equalTo($renewsAt));
+        $this->assertTrue((bool) data_get($paidSubscription->metadata, 'cancel_at_period_end'));
+        $this->assertSame($renewsAt->toIso8601String(), data_get($paidSubscription->metadata, 'access_ends_at'));
+        $this->assertSame('cancelled', $freeSubscription->status);
+    }
+
     public function test_provider_onboarding_requires_detailed_about_description(): void
     {
         Notification::fake();

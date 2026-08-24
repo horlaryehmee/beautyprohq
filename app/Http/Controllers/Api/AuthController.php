@@ -215,6 +215,7 @@ class AuthController extends Controller
 
     private function authUserPayload(User $user): User
     {
+        $user->restorePrematurelyCancelledPaidAccess();
         $user->load(['providerProfile', 'activeSubscription.planDefinition']);
         $user->setAttribute('pending_paid_plan_selection', $this->hasPendingPaidPlanSelection($user));
 

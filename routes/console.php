@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ContentNewsletterService;
+use App\Models\User;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -149,6 +150,27 @@ Artisan::command('newsletter:send-due-content', function (ContentNewsletterServi
 })->purpose('Queue requested subscriber emails for content that is now published');
 
 Schedule::command('newsletter:send-due-content')->everyFiveMinutes()->withoutOverlapping(10);
+
+Artisan::command('subscriptions:repair-cancelled-access', function (): int {
+    $userIds = DB::table('subscriptions')
+        ->whereIn('plan', ['paid', 'pro', 'daily_test'])
+        ->where('status', 'cancelled')
+        ->whereNotNull('renews_at')
+        ->where('renews_at', '>', now())
+        ->distinct()
+        ->pluck('user_id');
+
+    $repaired = 0;
+    User::whereIn('id', $userIds)->cursor()->each(function (User $user) use (&$repaired): void {
+        if ($user->restorePrematurelyCancelledPaidAccess()) {
+            $repaired++;
+        }
+    });
+
+    $this->info("Premature subscription cancellations repaired: {$repaired}");
+
+    return 0;
+})->purpose('Restore paid access for subscriptions that were cancelled before the paid period ended');
 
 Artisan::command('subscriptions:record-periods', function (): int {
     $due = DB::table('subscriptions')

@@ -74,7 +74,10 @@ class SubscriptionController extends Controller
 
     public function current(Request $request): JsonResponse
     {
-        $payments = $request->user()
+        $user = $request->user();
+        $user->restorePrematurelyCancelledPaidAccess();
+
+        $payments = $user
             ->subscriptionPayments()
             ->with('plan')
             ->latest()
@@ -83,14 +86,14 @@ class SubscriptionController extends Controller
         $accountCurrency = $this->accountCurrencyForRequest($request);
 
         return $this->success([
-            'subscription' => $request->user()->activeSubscription()->with('planDefinition')->first(),
-            'subscription_history' => $request->user()
+            'subscription' => $user->activeSubscription()->with('planDefinition')->first(),
+            'subscription_history' => $user
                 ->subscriptions()
                 ->with('planDefinition')
                 ->latest()
                 ->limit(50)
                 ->get(),
-            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($request->user()),
+            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($user),
             'detected_currency' => CurrencyResolver::currencyForRequest($request),
             'account_currency' => $accountCurrency,
             'plans' => $this->subscriptionPlansForRequest($request, $accountCurrency),

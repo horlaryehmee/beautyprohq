@@ -23,9 +23,11 @@ class DashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $provider = $request->user()->providerProfile;
-        $subscription = $request->user()->activeSubscription()->with('planDefinition')->first();
-        $isPaid = $request->user()->hasPaidPlan();
+        $user = $request->user();
+        $user->restorePrematurelyCancelledPaidAccess();
+        $provider = $user->providerProfile;
+        $subscription = $user->activeSubscription()->with('planDefinition')->first();
+        $isPaid = $user->hasPaidPlan();
         $base = Booking::where('provider_id', $provider->id);
         $from = now()->subDays(29)->startOfDay();
         $views = ProfileView::where('provider_id', $provider->id)
@@ -70,11 +72,11 @@ class DashboardController extends Controller
                 'service_count' => $provider->services()->count(),
             ],
             'upcoming_bookings' => (clone $base)->upcoming()->with(['customer:id,name', 'service'])->orderBy('date')->orderBy('time')->limit(8)->get(),
-            'notifications' => $request->user()->unreadNotifications()->latest()->limit(8)->get(),
+            'notifications' => $user->unreadNotifications()->latest()->limit(8)->get(),
             'profile_completion' => $this->completion($provider),
             'verification_status' => $provider->verified ? 'approved' : ($provider->verificationRequests()->latest()->value('status') ?? 'not_submitted'),
-            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($request->user()),
-            'payment_required' => $this->hasPendingPaidPlanSelection($request->user()) && ! $isPaid,
+            'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($user),
+            'payment_required' => $this->hasPendingPaidPlanSelection($user) && ! $isPaid,
             'subscription' => $subscription,
             'is_paid_plan' => $isPaid,
             'analytics' => [

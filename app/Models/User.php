@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -82,16 +83,93 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function activeSubscription(): HasOne
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active')->latestOfMany();
+        return $this->hasOne(Subscription::class)
+            ->ofMany(['id' => 'max'], fn ($query) => $query->where('status', 'active'))
+            ->where('status', 'active');
     }
 
     public function hasPaidPlan(): bool
     {
+        $this->restorePrematurelyCancelledPaidAccess();
+
         $subscription = $this->relationLoaded('activeSubscription')
             ? $this->activeSubscription
             : $this->activeSubscription()->first();
 
         return $subscription?->isPaid() ?? false;
+    }
+
+    public function restorePrematurelyCancelledPaidAccess(): bool
+    {
+        if (! $this->isProvider()) {
+            return false;
+        }
+
+        $subscription = $this->subscriptions()
+            ->whereIn('plan', ['paid', 'pro', 'daily_test'])
+            ->where('status', 'cancelled')
+            ->whereNotNull('renews_at')
+            ->where('renews_at', '>', now())
+            ->latest('renews_at')
+            ->first();
+
+        if (! $subscription) {
+            return false;
+        }
+
+        $linkedFreeSubscriptions = $this->subscriptions()
+            ->where('plan', 'free')
+            ->where('status', 'active')
+            ->get()
+            ->filter(fn (Subscription $free): bool => (int) data_get($free->metadata, 'downgraded_from_subscription_id') === (int) $subscription->id);
+        $wasLegacyImmediateDowngrade = data_get($subscription->metadata, 'cancelled_to_free_at') !== null
+            || data_get($subscription->metadata, 'cancel_at_period_end') === false
+            || $linkedFreeSubscriptions->isNotEmpty();
+
+        if (! $wasLegacyImmediateDowngrade) {
+            return false;
+        }
+
+        DB::transaction(function () use ($subscription): void {
+            $paid = $this->subscriptions()
+                ->whereKey($subscription->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $paid || ! $paid->renews_at || ! $paid->renews_at->isFuture()) {
+                return;
+            }
+
+            $metadata = $paid->metadata ?? [];
+            $metadata['cancel_at_period_end'] = true;
+            $metadata['access_ends_at'] = $paid->renews_at->toIso8601String();
+            $metadata['restored_after_premature_free_at'] = now()->toIso8601String();
+
+            $paid->update([
+                'status' => 'active',
+                'ends_at' => $paid->renews_at,
+                'metadata' => $metadata,
+            ]);
+
+            $this->subscriptions()
+                ->where('plan', 'free')
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->get()
+                ->filter(fn (Subscription $free): bool => (int) data_get($free->metadata, 'downgraded_from_subscription_id') === (int) $paid->id)
+                ->each(fn (Subscription $free): bool => $free->update([
+                    'status' => 'cancelled',
+                    'ends_at' => now(),
+                    'cancelled_at' => now(),
+                    'metadata' => array_merge($free->metadata ?? [], [
+                        'cancelled_because_paid_access_was_restored_at' => now()->toIso8601String(),
+                    ]),
+                ]));
+        });
+
+        $this->unsetRelation('activeSubscription');
+
+        return true;
     }
 
     public function isProvider(): bool
