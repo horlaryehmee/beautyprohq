@@ -68,8 +68,33 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         return $process->getExitCode() ?? 1;
     };
 
+    $commandExists = function (string $command): bool {
+        $lookup = PHP_OS_FAMILY === 'Windows' ? 'where' : 'command';
+        $arguments = PHP_OS_FAMILY === 'Windows' ? [$lookup, $command] : ['sh', '-lc', 'command -v '.escapeshellarg($command)];
+        $process = new Process($arguments, base_path(), null, null, 30);
+        $process->run();
+
+        return $process->isSuccessful();
+    };
+
+    $composerCommand = function () use ($commandExists): ?array {
+        if ($commandExists('composer')) {
+            return ['composer', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
+        }
+
+        if (is_file(base_path('composer.phar'))) {
+            return [PHP_BINARY, 'composer.phar', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
+        }
+
+        return null;
+    };
+
     try {
         $writeStatus('running');
+
+        $beforeRefProcess = new Process(['git', 'rev-parse', 'HEAD'], base_path(), null, null, 60);
+        $beforeRefProcess->run();
+        $beforeRef = $beforeRefProcess->isSuccessful() ? trim($beforeRefProcess->getOutput()) : null;
 
         $dirtyCheck = new Process(['git', 'status', '--porcelain'], base_path(), null, null, 60);
         $dirtyCheck->run();
@@ -92,15 +117,63 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         $commands = [
             ["git fetch {$remote} {$branch} --no-tags", ['git', 'fetch', $remote, $branch, '--no-tags'], 120, false],
             ["git pull --ff-only {$remote} {$branch}", ['git', 'pull', '--ff-only', $remote, $branch], 180, false],
-            ['composer install --no-dev --optimize-autoloader', ['composer', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'], 300, false],
+        ];
+
+        foreach ($commands as [$label, $command, $timeout, $optional]) {
+            $exitCode = $run($label, $command, $timeout);
+            if ($exitCode !== 0) {
+                if ($optional) {
+                    $lines[] = "Optional step failed with exit code {$exitCode}; continuing.";
+                    $this->warn("Optional step failed with exit code {$exitCode}; continuing.");
+
+                    continue;
+                }
+
+                $writeStatus('failed', $exitCode);
+
+                return $exitCode;
+            }
+        }
+
+        $afterRefProcess = new Process(['git', 'rev-parse', 'HEAD'], base_path(), null, null, 60);
+        $afterRefProcess->run();
+        $afterRef = $afterRefProcess->isSuccessful() ? trim($afterRefProcess->getOutput()) : null;
+        $dependencyFilesChanged = true;
+
+        if ($beforeRef && $afterRef && $beforeRef !== $afterRef) {
+            $diffProcess = new Process(['git', 'diff', '--name-only', $beforeRef, $afterRef, '--', 'composer.json', 'composer.lock'], base_path(), null, null, 60);
+            $diffProcess->run();
+            $dependencyFilesChanged = trim($diffProcess->getOutput()) !== '';
+        } elseif ($beforeRef && $afterRef) {
+            $dependencyFilesChanged = false;
+        }
+
+        $resolvedComposerCommand = $composerCommand();
+        if ($resolvedComposerCommand) {
+            $exitCode = $run('composer install --no-dev --optimize-autoloader', $resolvedComposerCommand, 300);
+            if ($exitCode !== 0) {
+                $writeStatus('failed', $exitCode);
+
+                return $exitCode;
+            }
+        } elseif ($dependencyFilesChanged || ! is_file(base_path('vendor/autoload.php'))) {
+            $lines[] = 'Deployment failed: Composer is unavailable and dependencies may need installation.';
+            $writeStatus('failed', 1);
+            $this->error('Deployment failed: Composer is unavailable and dependencies may need installation.');
+
+            return 1;
+        } else {
+            $lines[] = 'Composer is unavailable; dependency files did not change and vendor/autoload.php exists, so continuing.';
+            $this->warn('Composer is unavailable; dependency files did not change and vendor/autoload.php exists, so continuing.');
+        }
+
+        foreach ([
             ['php artisan migrate --force', [PHP_BINARY, 'artisan', 'migrate', '--force'], 300, false],
             ['php artisan storage:link', [PHP_BINARY, 'artisan', 'storage:link'], 120, true],
             ['php artisan optimize:clear', [PHP_BINARY, 'artisan', 'optimize:clear'], 120, false],
             ['php artisan optimize', [PHP_BINARY, 'artisan', 'optimize'], 120, false],
             ['php artisan queue:restart', [PHP_BINARY, 'artisan', 'queue:restart'], 120, true],
-        ];
-
-        foreach ($commands as [$label, $command, $timeout, $optional]) {
+        ] as [$label, $command, $timeout, $optional]) {
             $exitCode = $run($label, $command, $timeout);
             if ($exitCode !== 0) {
                 if ($optional) {

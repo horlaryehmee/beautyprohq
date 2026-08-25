@@ -1885,6 +1885,8 @@ class BackendMvpTest extends TestCase
 
     public function test_admin_deployment_status_is_admin_only(): void
     {
+        Storage::fake('local');
+
         Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
         $this->getJson('/api/admin/settings/deployment')->assertForbidden();
 
