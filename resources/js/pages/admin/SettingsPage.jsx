@@ -691,7 +691,7 @@ export default function AdminSettingsPage() {
 
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
-                    title="Git deployment"
+                    title="Deployment"
                     description="Pull the latest committed main branch and run the fixed production update steps."
                     action={<StatusBadge status={deploymentStatus.replaceAll('_', ' ')} />}
                 />
