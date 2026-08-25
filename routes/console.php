@@ -104,7 +104,7 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         $beforeRefProcess->run();
         $beforeRef = $beforeRefProcess->isSuccessful() ? trim($beforeRefProcess->getOutput()) : null;
 
-        $dirtyCheck = new Process(['git', 'status', '--porcelain'], base_path(), null, null, 60);
+        $dirtyCheck = new Process(['git', 'status', '--porcelain', '--untracked-files=no'], base_path(), null, null, 60);
         $dirtyCheck->run();
         if (! $dirtyCheck->isSuccessful()) {
             $lines[] = trim($dirtyCheck->getErrorOutput() ?: $dirtyCheck->getOutput());
@@ -115,10 +115,10 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         }
 
         if (trim($dirtyCheck->getOutput()) !== '') {
-            $lines[] = 'Deployment stopped: the server working tree has uncommitted changes.';
+            $lines[] = 'Deployment stopped: the server working tree has tracked uncommitted changes.';
             $lines[] = trim($dirtyCheck->getOutput());
             $writeStatus('failed', 1);
-            $this->error('Deployment stopped: the server working tree has uncommitted changes.');
+            $this->error('Deployment stopped: the server working tree has tracked uncommitted changes.');
 
             return 1;
         }
@@ -203,6 +203,13 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         $writeStatus('succeeded', 0);
 
         return 0;
+    } catch (\Throwable $exception) {
+        report($exception);
+        $lines[] = 'Deployment failed: '.$exception->getMessage();
+        $writeStatus('failed', 1);
+        $this->error('Deployment failed: '.$exception->getMessage());
+
+        return 1;
     } finally {
         optional($lock)->release();
     }

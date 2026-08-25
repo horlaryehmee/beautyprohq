@@ -712,7 +712,7 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                            This temporary action is fixed to Git, Composer, migrations, Laravel cache rebuild, and queue restart. It stops if the server working tree has uncommitted changes.
+                            This temporary action pulls committed files, runs Composer only when available or required, then runs migrations, Laravel cache rebuild, and queue restart. It does not run npm on the server.
                         </div>
                         {deploymentLog && (
                             <pre className="max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{deploymentLog}</pre>
