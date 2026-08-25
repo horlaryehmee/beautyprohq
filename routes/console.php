@@ -77,13 +77,21 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         return $process->isSuccessful();
     };
 
-    $composerCommand = function () use ($commandExists): ?array {
+    $phpCommand = function () use ($commandExists): array {
+        return $commandExists('php') ? ['php'] : [PHP_BINARY];
+    };
+
+    $artisanCommand = function (string ...$arguments) use ($phpCommand): array {
+        return [...$phpCommand(), 'artisan', ...$arguments];
+    };
+
+    $composerCommand = function () use ($commandExists, $phpCommand): ?array {
         if ($commandExists('composer')) {
             return ['composer', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
         }
 
         if (is_file(base_path('composer.phar'))) {
-            return [PHP_BINARY, 'composer.phar', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
+            return [...$phpCommand(), 'composer.phar', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
         }
 
         return null;
@@ -108,11 +116,14 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
 
         if (trim($dirtyCheck->getOutput()) !== '') {
             $lines[] = 'Deployment stopped: the server working tree has uncommitted changes.';
+            $lines[] = trim($dirtyCheck->getOutput());
             $writeStatus('failed', 1);
             $this->error('Deployment stopped: the server working tree has uncommitted changes.');
 
             return 1;
         }
+
+        $run('php artisan optimize:clear', $artisanCommand('optimize:clear'), 120);
 
         $commands = [
             ["git fetch {$remote} {$branch} --no-tags", ['git', 'fetch', $remote, $branch, '--no-tags'], 120, false],
@@ -168,11 +179,11 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         }
 
         foreach ([
-            ['php artisan migrate --force', [PHP_BINARY, 'artisan', 'migrate', '--force'], 300, false],
-            ['php artisan storage:link', [PHP_BINARY, 'artisan', 'storage:link'], 120, true],
-            ['php artisan optimize:clear', [PHP_BINARY, 'artisan', 'optimize:clear'], 120, false],
-            ['php artisan optimize', [PHP_BINARY, 'artisan', 'optimize'], 120, false],
-            ['php artisan queue:restart', [PHP_BINARY, 'artisan', 'queue:restart'], 120, true],
+            ['php artisan migrate --force', $artisanCommand('migrate', '--force'), 300, false],
+            ['php artisan storage:link', $artisanCommand('storage:link'), 120, true],
+            ['php artisan optimize:clear', $artisanCommand('optimize:clear'), 120, false],
+            ['php artisan optimize', $artisanCommand('optimize'), 120, false],
+            ['php artisan queue:restart', $artisanCommand('queue:restart'), 120, true],
         ] as [$label, $command, $timeout, $optional]) {
             $exitCode = $run($label, $command, $timeout);
             if ($exitCode !== 0) {
