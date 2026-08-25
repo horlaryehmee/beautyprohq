@@ -8,10 +8,9 @@ const sections = [
     ]],
     ['First setup after deployment', [
         'Run database migrations on the live server after every update that introduces new tables, columns or seed-dependent features.',
-        'Admin Settings contains the operational integrations for SMTP, subscription checkout gateways, currency rates, Twilio WhatsApp and provider feature visibility.',
+        'Admin Settings contains the operational integrations for SMTP, subscription checkout gateways, currency rates and provider feature visibility.',
         'SMTP should be configured before relying on account verification, password reset, two-factor, booking, onboarding, payment and admin alert emails.',
         'Subscription gateways process provider plan payments to the platform. Provider booking payouts are handled separately through provider-owned gateway accounts.',
-        'Twilio WhatsApp credentials are configured centrally. The provider WhatsApp feature flag controls whether providers can enable WhatsApp booking alerts.',
         'Subscription plans, provider categories, homepage content, demo content, opportunities and security settings should be reviewed after deployment.',
     ]],
     ['Users and account control', [
@@ -69,13 +68,6 @@ const sections = [
         'TLS/587 is the common SMTP setup. SSL/465 is supported where the mail provider requires it.',
         'Password is encrypted. Leaving the password field blank keeps the saved password.',
         'When SMTP is enabled, platform emails use admin-saved SMTP settings first, with environment settings as fallback.',
-    ]],
-    ['Twilio WhatsApp setup', [
-        'Twilio WhatsApp is connected from Admin Settings using Account SID, Auth Token and WhatsApp sender number.',
-        'Use Twilio sandbox for testing. Production requires an approved Twilio WhatsApp sender.',
-        'After credentials are saved, enable provider WhatsApp notifications in Provider features.',
-        'Providers only see the WhatsApp notification section when admin enables the feature.',
-        'Booking WhatsApp messages are sent only when admin feature is enabled and provider has enabled alerts with a WhatsApp number.',
     ]],
     ['Currency settings', [
         'Currency settings control the rates used when users switch display currency on the frontend.',
