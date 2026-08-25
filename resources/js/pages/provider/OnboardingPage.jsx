@@ -4,6 +4,7 @@ import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMess
 import { useAuth } from '../../context/AuthContext';
 import { defaultCountries } from 'react-international-phone';
 import { browserCurrency } from '../../lib/browserCurrency';
+import { hasPaidSubscription } from '../../lib/utils';
 
 const days = [
     ['1', 'Monday'],
@@ -211,7 +212,7 @@ function ProviderOnboardingContent() {
     const bioWords = wordCount(form.bio);
     const activeSubscription = user?.active_subscription ?? user?.activeSubscription;
     const selectedPaidPlan = Boolean(user?.pending_paid_plan_selection)
-        || ['paid', 'pro'].includes(activeSubscription?.plan);
+        || hasPaidSubscription(activeSubscription);
 
     const sections = useMemo(() => [
         ['General', 'Business details'],

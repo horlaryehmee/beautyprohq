@@ -9,6 +9,8 @@ class Subscription extends Model
 {
     protected $guarded = [];
 
+    public const PAID_PLANS = ['paid', 'pro', 'daily_test'];
+
     protected function casts(): array
     {
         return [
@@ -33,11 +35,20 @@ class Subscription extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active' && (! $this->ends_at || $this->ends_at->isFuture());
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        $periodEndsAt = $this->ends_at ?: $this->renews_at;
+        if (in_array($this->plan, self::PAID_PLANS, true) && ! $periodEndsAt) {
+            return false;
+        }
+
+        return ! $periodEndsAt || $periodEndsAt->isFuture();
     }
 
     public function isPaid(): bool
     {
-        return $this->isActive() && in_array($this->plan, ['paid', 'pro', 'daily_test'], true);
+        return $this->isActive() && in_array($this->plan, self::PAID_PLANS, true);
     }
 }

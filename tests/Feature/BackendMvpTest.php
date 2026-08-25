@@ -543,6 +543,82 @@ class BackendMvpTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_elapsed_paid_subscription_no_longer_allows_paid_provider_features(): void
+    {
+        $user = User::factory()->provider()->create(['email_verified_at' => now()]);
+        ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'expired-daily-studio',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
+        ]);
+        $plan = SubscriptionPlan::where('key', 'daily_test')->firstOrFail();
+        $renewsAt = now()->subMinute()->startOfSecond();
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => 'paid',
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now()->subDay(),
+            'renews_at' => $renewsAt,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/provider/analytics')
+            ->assertForbidden()
+            ->assertJsonPath('upgrade_required', true);
+
+        $this->assertFalse($user->fresh()->hasPaidPlan());
+        $subscription->refresh();
+        $this->assertSame('expired', $subscription->status);
+        $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
+    }
+
+    public function test_record_periods_expires_unpaid_period_instead_of_creating_free_renewal(): void
+    {
+        $user = User::factory()->provider()->create();
+        $profile = ProviderProfile::create([
+            'user_id' => $user->id,
+            'slug' => 'unpaid-renewal-studio',
+            'profession' => 'Beauty Professional',
+            'verified' => true,
+            'onboarding_completed_at' => now(),
+            'account_approved_at' => now(),
+        ]);
+        $plan = SubscriptionPlan::where('key', 'paid')->firstOrFail();
+        $renewsAt = now()->subMinute()->startOfSecond();
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => 'paid',
+            'status' => 'active',
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'starts_at' => now()->subMonth(),
+            'renews_at' => $renewsAt,
+        ]);
+
+        Artisan::call('subscriptions:record-periods');
+
+        $subscription->refresh();
+        $this->assertSame('expired', $subscription->status);
+        $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
+        $this->assertFalse($user->fresh()->hasPaidPlan());
+        $this->assertFalse($profile->fresh()->verified);
+        $this->assertSame(0, Subscription::where('user_id', $user->id)->whereIn('plan', ['paid', 'pro', 'daily_test'])->where('status', 'active')->count());
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $user->id,
+            'plan' => 'free',
+            'status' => 'active',
+            'amount' => 0,
+        ]);
+    }
+
     public function test_premature_free_downgrade_is_restored_until_paid_period_end(): void
     {
         $user = User::factory()->provider()->create();

@@ -90,6 +90,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function hasPaidPlan(): bool
     {
+        $this->expireElapsedPaidAccess();
         $this->restorePrematurelyCancelledPaidAccess();
 
         $subscription = $this->relationLoaded('activeSubscription')
@@ -97,6 +98,51 @@ class User extends Authenticatable implements MustVerifyEmail
             : $this->activeSubscription()->first();
 
         return $subscription?->isPaid() ?? false;
+    }
+
+    public function expireElapsedPaidAccess(): bool
+    {
+        if (! $this->isProvider()) {
+            return false;
+        }
+
+        $expired = false;
+
+        DB::transaction(function () use (&$expired): void {
+            $subscriptions = $this->subscriptions()
+                ->whereIn('plan', Subscription::PAID_PLANS)
+                ->where('status', 'active')
+                ->where(function ($query): void {
+                    $query->where('ends_at', '<=', now())
+                        ->orWhere(function ($query): void {
+                            $query->whereNull('ends_at')->where('renews_at', '<=', now());
+                        });
+                })
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($subscriptions as $subscription) {
+                $metadata = $subscription->metadata ?? [];
+                $periodEndedAt = $subscription->ends_at ?: $subscription->renews_at ?: now();
+                $cancelled = $subscription->cancelled_at || (bool) ($metadata['cancel_at_period_end'] ?? false);
+
+                $metadata['paid_access_ended_at'] = now()->toIso8601String();
+
+                $subscription->update([
+                    'status' => $cancelled ? 'cancelled' : 'expired',
+                    'ends_at' => $periodEndedAt,
+                    'metadata' => $metadata,
+                ]);
+
+                $expired = true;
+            }
+        });
+
+        if ($expired) {
+            $this->unsetRelation('activeSubscription');
+        }
+
+        return $expired;
     }
 
     public function restorePrematurelyCancelledPaidAccess(): bool

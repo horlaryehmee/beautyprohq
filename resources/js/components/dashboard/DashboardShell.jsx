@@ -6,6 +6,7 @@ import { DashboardToastProvider, useDashboardToast } from './ToastProvider';
 import { Avatar, Button, cx } from './ui';
 import { useApiResource } from './useDashboard';
 import Logo from '../layout/Logo';
+import { hasPaidSubscription } from '../../lib/utils';
 
 export const providerNavigation = [
     { label: 'Overview', to: '/provider', icon: 'overview', end: true },
@@ -106,9 +107,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const user = suppliedUser ?? userResource.data ?? {};
     const verified = Boolean(user.provider_profile?.verified ?? user.providerProfile?.verified ?? user.verified);
     const activeSubscription = user.active_subscription ?? user.activeSubscription;
-    const activePlanDefinition = activeSubscription?.plan_definition ?? activeSubscription?.planDefinition;
-    const paid = activeSubscription?.status === 'active'
-        && (['paid', 'pro'].includes(activeSubscription?.plan) || Number(activePlanDefinition?.price ?? 0) > 0);
+    const paid = hasPaidSubscription(activeSubscription);
 
     useEffect(() => setMobileOpen(false), [location.pathname]);
 

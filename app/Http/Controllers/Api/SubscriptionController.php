@@ -75,6 +75,7 @@ class SubscriptionController extends Controller
     public function current(Request $request): JsonResponse
     {
         $user = $request->user();
+        $user->expireElapsedPaidAccess();
         $user->restorePrematurelyCancelledPaidAccess();
 
         $payments = $user
@@ -1033,9 +1034,7 @@ class SubscriptionController extends Controller
             return;
         }
 
-        $subscription = Subscription::where('status', 'active')
-            ->where('plan', 'paid')
-            ->where('metadata->paystack_subscription_code', $code)
+        $subscription = Subscription::where('metadata->paystack_subscription_code', $code)
             ->first();
 
         if (! $subscription) {
@@ -1056,8 +1055,10 @@ class SubscriptionController extends Controller
         ]);
 
         $subscription->update([
+            'status' => 'active',
             'amount' => $payment->amount,
             'currency' => $payment->currency,
+            'starts_at' => now(),
             'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $this->nextRenewalDate($subscription->planDefinition),
             'ends_at' => null,
             'cancelled_at' => null,

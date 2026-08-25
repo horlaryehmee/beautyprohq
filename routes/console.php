@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ContentNewsletterService;
+use App\Models\Subscription;
 use App\Models\User;
 
 Artisan::command('inspire', function () {
@@ -153,7 +154,7 @@ Schedule::command('newsletter:send-due-content')->everyFiveMinutes()->withoutOve
 
 Artisan::command('subscriptions:repair-cancelled-access', function (): int {
     $userIds = DB::table('subscriptions')
-        ->whereIn('plan', ['paid', 'pro', 'daily_test'])
+        ->whereIn('plan', Subscription::PAID_PLANS)
         ->where('status', 'cancelled')
         ->whereNotNull('renews_at')
         ->where('renews_at', '>', now())
@@ -175,7 +176,7 @@ Artisan::command('subscriptions:repair-cancelled-access', function (): int {
 Artisan::command('subscriptions:record-periods', function (): int {
     $due = DB::table('subscriptions')
         ->where('status', 'active')
-        ->whereIn('plan', ['paid', 'pro', 'daily_test'])
+        ->whereIn('plan', Subscription::PAID_PLANS)
         ->whereNotNull('renews_at')
         ->where('renews_at', '<=', now())
         ->get();
@@ -183,64 +184,42 @@ Artisan::command('subscriptions:record-periods', function (): int {
     $recorded = 0;
     foreach ($due as $row) {
         DB::transaction(function () use ($row, &$recorded): void {
-            $plan = DB::table('subscription_plans')->where('id', $row->subscription_plan_id)->first();
             $metadata = json_decode((string) ($row->metadata ?? '[]'), true) ?: [];
             $cancelAtPeriodEnd = (bool) ($metadata['cancel_at_period_end'] ?? false);
+            $cancelled = $cancelAtPeriodEnd || $row->cancelled_at !== null;
 
-            // Close the current period
+            $metadata['paid_access_ended_at'] = now()->toIso8601String();
+
             DB::table('subscriptions')->where('id', $row->id)->update([
-                'status' => $cancelAtPeriodEnd ? 'cancelled' : 'expired',
+                'status' => $cancelled ? 'cancelled' : 'expired',
                 'ends_at' => $row->renews_at,
+                'metadata' => json_encode($metadata),
                 'updated_at' => now(),
             ]);
 
-            if ($cancelAtPeriodEnd) {
-                $freePlan = DB::table('subscription_plans')->where('key', 'free')->first();
-                if ($freePlan) {
-                    DB::table('subscriptions')->insert([
-                        'user_id' => $row->user_id,
-                        'subscription_plan_id' => $freePlan->id,
-                        'plan' => 'free',
-                        'status' => 'active',
-                        'amount' => 0,
-                        'currency' => $freePlan->currency,
-                        'starts_at' => now(),
-                        'metadata' => json_encode([
-                            'downgraded_from_subscription_id' => $row->id,
-                            'downgraded_at' => now()->toIso8601String(),
-                            'paid_access_ended_at' => now()->toIso8601String(),
-                        ]),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-
-                DB::table('provider_profiles')
-                    ->where('user_id', $row->user_id)
-                    ->update(['verified' => false, 'updated_at' => now()]);
-
-                $recorded++;
-
-                return;
+            $freePlan = DB::table('subscription_plans')->where('key', 'free')->first();
+            if ($freePlan && ! DB::table('subscriptions')->where('user_id', $row->user_id)->where('plan', 'free')->where('status', 'active')->exists()) {
+                DB::table('subscriptions')->insert([
+                    'user_id' => $row->user_id,
+                    'subscription_plan_id' => $freePlan->id,
+                    'plan' => 'free',
+                    'status' => 'active',
+                    'amount' => 0,
+                    'currency' => $freePlan->currency,
+                    'starts_at' => now(),
+                    'metadata' => json_encode([
+                        'downgraded_from_subscription_id' => $row->id,
+                        'downgraded_at' => now()->toIso8601String(),
+                        'paid_access_ended_at' => now()->toIso8601String(),
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
 
-            // Open the next period so every monthly/daily cycle is recorded
-            $metadata['renewed_from_subscription_id'] = $row->id;
-            $metadata['renewed_at'] = now()->toIso8601String();
-
-            DB::table('subscriptions')->insert([
-                'user_id' => $row->user_id,
-                'subscription_plan_id' => $row->subscription_plan_id,
-                'plan' => $row->plan,
-                'status' => 'active',
-                'amount' => $row->amount,
-                'currency' => $row->currency,
-                'starts_at' => now(),
-                'renews_at' => ($plan?->billing_period ?? 'monthly') === 'daily' ? now()->addDay() : now()->addMonth(),
-                'metadata' => json_encode($metadata),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('provider_profiles')
+                ->where('user_id', $row->user_id)
+                ->update(['verified' => false, 'updated_at' => now()]);
 
             $recorded++;
         });

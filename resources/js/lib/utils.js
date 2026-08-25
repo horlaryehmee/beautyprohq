@@ -54,6 +54,21 @@ export function mediaUrl(value) {
     return `/storage/${String(value).replace(/^storage\//, '')}`;
 }
 
+export function hasPaidSubscription(subscription) {
+    if (!subscription || subscription.status !== 'active') return false;
+
+    const planDefinition = subscription.plan_definition ?? subscription.planDefinition;
+    const paidPlan = ['paid', 'pro', 'daily_test'].includes(subscription.plan)
+        || Number(planDefinition?.price ?? 0) > 0;
+    if (!paidPlan) return false;
+
+    const periodEnd = subscription.ends_at ?? subscription.renews_at;
+    if (!periodEnd) return false;
+
+    const periodEndDate = new Date(periodEnd);
+    return !Number.isNaN(periodEndDate.getTime()) && periodEndDate > new Date();
+}
+
 export function responsiveImage(value, {
     widths = [360, 520, 720],
     sizes = '100vw',

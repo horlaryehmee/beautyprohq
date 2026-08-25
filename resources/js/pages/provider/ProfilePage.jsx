@@ -15,7 +15,7 @@ import {
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
-import { mediaUrl } from '../../lib/utils';
+import { hasPaidSubscription, mediaUrl } from '../../lib/utils';
 
 const days = [
     ['1', 'Monday'],
@@ -167,7 +167,7 @@ export default function ProviderProfilePage() {
     const verified = Boolean(profile.verified);
     const categories = Array.isArray(categoriesResource.data) ? categoriesResource.data : categoriesResource.data?.data ?? [];
     const activeSubscription = profile.user?.active_subscription ?? profile.user?.activeSubscription;
-    const hasPaidPlan = ['paid', 'pro'].includes(activeSubscription?.plan) && activeSubscription?.status === 'active';
+    const hasPaidPlan = hasPaidSubscription(activeSubscription);
     const canEditCoverImage = hasPaidPlan;
     const profilePhotoSrc = form.profile_photo instanceof File ? null : mediaUrl(form.profile_photo);
     const coverImageSrc = form.cover_image instanceof File ? null : mediaUrl(form.cover_image);
