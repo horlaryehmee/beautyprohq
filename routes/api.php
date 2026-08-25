@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\DeploymentController as AdminDeploymentController;
 use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController;
 use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
@@ -224,6 +225,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings']);
         Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware('throttle:sensitive');
         Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:sensitive');
+        Route::get('/settings/deployment', [AdminDeploymentController::class, 'status']);
+        Route::post('/settings/deployment/run', [AdminDeploymentController::class, 'run'])->middleware('throttle:sensitive');
         Route::get('/demo-data', [AdminDemoDataController::class, 'status']);
         Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate']);
         Route::delete('/demo-data', [AdminDemoDataController::class, 'clear']);

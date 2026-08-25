@@ -1868,6 +1868,7 @@ class BackendMvpTest extends TestCase
             '/api/admin/opportunities',
             '/api/admin/announcements',
             '/api/admin/settings/features',
+            '/api/admin/settings/deployment',
             '/api/admin/settings/branding',
             '/api/admin/settings/currencies',
             '/api/admin/settings/twilio',
@@ -1880,6 +1881,19 @@ class BackendMvpTest extends TestCase
         ] as $endpoint) {
             $this->getJson($endpoint)->assertOk($endpoint);
         }
+    }
+
+    public function test_admin_deployment_status_is_admin_only(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'customer']));
+        $this->getJson('/api/admin/settings/deployment')->assertForbidden();
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->getJson('/api/admin/settings/deployment')
+            ->assertOk()
+            ->assertJsonPath('data.status', 'never_run')
+            ->assertJsonPath('data.remote', 'origin')
+            ->assertJsonPath('data.branch', 'main');
     }
 
     public function test_admin_can_use_cpanel_php_mail_for_platform_email(): void

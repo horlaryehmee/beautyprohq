@@ -42,6 +42,7 @@ export default function AdminSettingsPage() {
     const smtpResource = useApiResource('/admin/settings/smtp', {});
     const mailchimpResource = useApiResource('/admin/settings/mailchimp', {});
     const demoResource = useApiResource('/admin/demo-data', {});
+    const deploymentResource = useApiResource('/admin/settings/deployment', {});
     const { notify } = useDashboardToast();
     const [sectionTab, setSectionTab] = useState('general');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
@@ -74,6 +75,7 @@ export default function AdminSettingsPage() {
     const [syncingMailchimp, setSyncingMailchimp] = useState(false);
     const [populatingDemo, setPopulatingDemo] = useState(false);
     const [clearingDemo, setClearingDemo] = useState(false);
+    const [deploying, setDeploying] = useState(false);
     const [heroImages, setHeroImages] = useState([]);
     const [savingHero, setSavingHero] = useState(false);
     const [uploadingHero, setUploadingHero] = useState(false);
@@ -455,6 +457,27 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const runDeployment = async () => {
+        if (!window.confirm('Deploy latest committed code from origin/main now?')) {
+            return;
+        }
+
+        setDeploying(true);
+        try {
+            const result = await apiRequest('post', '/admin/settings/deployment/run');
+            deploymentResource.setData(result);
+            notify('Deployment completed.');
+        } catch (error) {
+            const payload = error?.response?.data?.data;
+            if (payload) {
+                deploymentResource.setData(payload);
+            }
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setDeploying(false);
+        }
+    };
+
     const toggleDailyTestPlan = async (enabled) => {
         const plan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
         if (!plan) {
@@ -476,12 +499,14 @@ export default function AdminSettingsPage() {
 
     const updateRate = (code, value) => setCurrencyForm((current) => ({ ...current, rates: { ...current.rates, [code]: value } }));
     const dailyTestPlan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
-    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error;
+    const deploymentLog = deploymentResource.data?.artisan_output || deploymentResource.data?.log || '';
+    const deploymentStatus = deploymentResource.data?.status ?? 'never_run';
+    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error || deploymentResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -659,6 +684,42 @@ export default function AdminSettingsPage() {
                         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                             <Button busy={clearingDemo} disabled={populatingDemo} onClick={clearDemoData} type="button" variant="danger">Clear demo data</Button>
                             <Button busy={populatingDemo} disabled={clearingDemo} onClick={populateDemoData} type="button">Populate demo data</Button>
+                        </div>
+                    </div>
+                )}
+            </Card>
+
+            <Card className={sectionTab === 'general' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Git deployment"
+                    description="Pull the latest committed main branch and run the fixed production update steps."
+                    action={<StatusBadge status={deploymentStatus.replaceAll('_', ' ')} />}
+                />
+                {deploymentResource.loading ? <LoadingBlock rows={3} /> : (
+                    <div className="mt-5 space-y-5">
+                        <div className="grid gap-3 md:grid-cols-3">
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Source</p>
+                                <p className="mt-1 break-all text-sm font-bold text-slate-950">{deploymentResource.data?.remote ?? 'origin'}/{deploymentResource.data?.branch ?? 'main'}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Started</p>
+                                <p className="mt-1 text-sm font-bold text-slate-950">{deploymentResource.data?.started_at ? new Date(deploymentResource.data.started_at).toLocaleString() : 'Never'}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Finished</p>
+                                <p className="mt-1 text-sm font-bold text-slate-950">{deploymentResource.data?.finished_at ? new Date(deploymentResource.data.finished_at).toLocaleString() : 'Not finished'}</p>
+                            </div>
+                        </div>
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                            This temporary action is fixed to Git, Composer, migrations, Laravel cache rebuild, and queue restart. It stops if the server working tree has uncommitted changes.
+                        </div>
+                        {deploymentLog && (
+                            <pre className="max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{deploymentLog}</pre>
+                        )}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                            <Button disabled={deploying} onClick={() => deploymentResource.reload()} type="button" variant="secondary">Refresh status</Button>
+                            <Button busy={deploying} onClick={runDeployment} type="button"><Icon name="refresh" size={16} /> Deploy latest</Button>
                         </div>
                     </div>
                 )}

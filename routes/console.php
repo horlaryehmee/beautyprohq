@@ -10,10 +10,119 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\ContentNewsletterService;
 use App\Models\Subscription;
 use App\Models\User;
+use Symfony\Component\Process\Process;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (): int {
+    $remote = (string) $this->option('remote');
+    $branch = (string) $this->option('branch');
+
+    if (! preg_match('/^[A-Za-z0-9._-]+$/', $remote) || ! preg_match('/^[A-Za-z0-9._\/-]+$/', $branch)) {
+        $this->error('Deployment failed: invalid remote or branch name.');
+
+        return 1;
+    }
+
+    $lock = Cache::lock('deploy-from-git', 900);
+    if (! $lock->get()) {
+        $this->error('Deployment failed: another deployment is already running.');
+
+        return 1;
+    }
+
+    $startedAt = now();
+    $lines = [];
+    $statusPath = 'admin-deploy-latest.json';
+    $writeStatus = function (string $status, ?int $exitCode = null) use (&$lines, $startedAt, $remote, $branch, $statusPath): void {
+        Storage::disk('local')->put($statusPath, json_encode([
+            'status' => $status,
+            'exit_code' => $exitCode,
+            'remote' => $remote,
+            'branch' => $branch,
+            'started_at' => $startedAt->toIso8601String(),
+            'finished_at' => in_array($status, ['succeeded', 'failed'], true) ? now()->toIso8601String() : null,
+            'log' => implode("\n", array_slice($lines, -600)),
+        ], JSON_PRETTY_PRINT));
+    };
+
+    $run = function (string $label, array $command, int $timeout = 300) use (&$lines): int {
+        $lines[] = '';
+        $lines[] = '$ '.$label;
+        $this->line('$ '.$label);
+
+        $process = new Process($command, base_path(), null, null, $timeout);
+        $process->run(function (string $type, string $buffer) use (&$lines): void {
+            foreach (preg_split('/\r\n|\r|\n/', rtrim($buffer)) as $line) {
+                if ($line === '') {
+                    continue;
+                }
+
+                $lines[] = $line;
+                $this->line($line);
+            }
+        });
+
+        return $process->getExitCode() ?? 1;
+    };
+
+    try {
+        $writeStatus('running');
+
+        $dirtyCheck = new Process(['git', 'status', '--porcelain'], base_path(), null, null, 60);
+        $dirtyCheck->run();
+        if (! $dirtyCheck->isSuccessful()) {
+            $lines[] = trim($dirtyCheck->getErrorOutput() ?: $dirtyCheck->getOutput());
+            $writeStatus('failed', $dirtyCheck->getExitCode());
+            $this->error('Deployment failed: could not inspect Git status.');
+
+            return 1;
+        }
+
+        if (trim($dirtyCheck->getOutput()) !== '') {
+            $lines[] = 'Deployment stopped: the server working tree has uncommitted changes.';
+            $writeStatus('failed', 1);
+            $this->error('Deployment stopped: the server working tree has uncommitted changes.');
+
+            return 1;
+        }
+
+        $commands = [
+            ["git fetch {$remote} {$branch} --no-tags", ['git', 'fetch', $remote, $branch, '--no-tags'], 120, false],
+            ["git pull --ff-only {$remote} {$branch}", ['git', 'pull', '--ff-only', $remote, $branch], 180, false],
+            ['composer install --no-dev --optimize-autoloader', ['composer', 'install', '--no-dev', '--no-interaction', '--prefer-dist', '--optimize-autoloader'], 300, false],
+            ['php artisan migrate --force', [PHP_BINARY, 'artisan', 'migrate', '--force'], 300, false],
+            ['php artisan storage:link', [PHP_BINARY, 'artisan', 'storage:link'], 120, true],
+            ['php artisan optimize:clear', [PHP_BINARY, 'artisan', 'optimize:clear'], 120, false],
+            ['php artisan optimize', [PHP_BINARY, 'artisan', 'optimize'], 120, false],
+            ['php artisan queue:restart', [PHP_BINARY, 'artisan', 'queue:restart'], 120, true],
+        ];
+
+        foreach ($commands as [$label, $command, $timeout, $optional]) {
+            $exitCode = $run($label, $command, $timeout);
+            if ($exitCode !== 0) {
+                if ($optional) {
+                    $lines[] = "Optional step failed with exit code {$exitCode}; continuing.";
+                    $this->warn("Optional step failed with exit code {$exitCode}; continuing.");
+
+                    continue;
+                }
+
+                $writeStatus('failed', $exitCode);
+
+                return $exitCode;
+            }
+        }
+
+        $writeStatus('succeeded', 0);
+
+        return 0;
+    } finally {
+        optional($lock)->release();
+    }
+})->purpose('Temporarily deploy the latest committed release from Git for admin dashboard use');
 
 Artisan::command('ops:check {--production : Enforce production-only safety checks}', function (): int {
     $strict = (bool) $this->option('production');
