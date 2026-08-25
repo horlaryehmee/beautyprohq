@@ -48,12 +48,12 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         ], JSON_PRETTY_PRINT));
     };
 
-    $run = function (string $label, array $command, int $timeout = 300) use (&$lines): int {
+    $run = function (string $label, array $command, int $timeout = 300, array $environment = []) use (&$lines): int {
         $lines[] = '';
         $lines[] = '$ '.$label;
         $this->line('$ '.$label);
 
-        $process = new Process($command, base_path(), null, null, $timeout);
+        $process = new Process($command, base_path(), $environment ?: null, null, $timeout);
         $process->run(function (string $type, string $buffer) use (&$lines): void {
             foreach (preg_split('/\r\n|\r|\n/', rtrim($buffer)) as $line) {
                 if ($line === '') {
@@ -95,6 +95,19 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         }
 
         return null;
+    };
+
+    $composerEnvironment = function (): array {
+        $home = storage_path('app/composer-home');
+
+        if (! is_dir($home)) {
+            mkdir($home, 0755, true);
+        }
+
+        return [
+            'HOME' => $_SERVER['HOME'] ?? $_ENV['HOME'] ?? $home,
+            'COMPOSER_HOME' => $_SERVER['COMPOSER_HOME'] ?? $_ENV['COMPOSER_HOME'] ?? $home,
+        ];
     };
 
     try {
@@ -159,23 +172,25 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
             $dependencyFilesChanged = false;
         }
 
-        $resolvedComposerCommand = $composerCommand();
+        $needsComposer = $dependencyFilesChanged || ! is_file(base_path('vendor/autoload.php'));
+        $resolvedComposerCommand = $needsComposer ? $composerCommand() : null;
+
         if ($resolvedComposerCommand) {
-            $exitCode = $run('composer install --no-dev --optimize-autoloader', $resolvedComposerCommand, 300);
+            $exitCode = $run('composer install --no-dev --optimize-autoloader', $resolvedComposerCommand, 300, $composerEnvironment());
             if ($exitCode !== 0) {
                 $writeStatus('failed', $exitCode);
 
                 return $exitCode;
             }
-        } elseif ($dependencyFilesChanged || ! is_file(base_path('vendor/autoload.php'))) {
+        } elseif ($needsComposer) {
             $lines[] = 'Deployment failed: Composer is unavailable and dependencies may need installation.';
             $writeStatus('failed', 1);
             $this->error('Deployment failed: Composer is unavailable and dependencies may need installation.');
 
             return 1;
         } else {
-            $lines[] = 'Composer is unavailable; dependency files did not change and vendor/autoload.php exists, so continuing.';
-            $this->warn('Composer is unavailable; dependency files did not change and vendor/autoload.php exists, so continuing.');
+            $lines[] = 'Composer skipped: dependency files did not change and vendor/autoload.php exists.';
+            $this->info('Composer skipped: dependency files did not change and vendor/autoload.php exists.');
         }
 
         foreach ([
