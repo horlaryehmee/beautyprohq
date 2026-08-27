@@ -8,10 +8,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class CommunityPost extends Model
 {
     protected $guarded = [];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) return null;
+        if (preg_match('/^https?:\/\//i', $this->image)) return preg_replace('/^http:\/\//i', 'https://', $this->image);
+        return preg_replace('/^http:\/\//i', 'https://', Storage::disk(config('filesystems.upload_disk', 'public'))->url($this->image));
+    }
 
     protected static function booted(): void
     {

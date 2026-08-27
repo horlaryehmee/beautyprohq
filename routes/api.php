@@ -254,6 +254,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/community-posts', [AdminContentController::class, 'community']);
         Route::post('/community-posts', [AdminContentController::class, 'storeCommunity']);
         Route::get('/community-posts/{communityPost}', [AdminContentController::class, 'showCommunity']);
+        Route::get('/community-posts/{communityPost}/preview', [AdminContentController::class, 'previewCommunity']);
         Route::put('/community-posts/{communityPost}', [AdminContentController::class, 'updateCommunity']);
         Route::delete('/community-posts/{communityPost}', [AdminContentController::class, 'destroyCommunity']);
         Route::get('/community-reports', [AdminContentController::class, 'communityReports']);

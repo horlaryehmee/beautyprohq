@@ -355,7 +355,7 @@ function RelatedCard({ item, type }) {
     );
 }
 
-export default function ContentDetailPage({ type = 'news' }) {
+export default function ContentDetailPage({ type = 'news', adminPreview = false }) {
     const params = useParams();
     const navigate = useNavigate();
     const identifier = params.slug ?? params.id;
@@ -370,8 +370,8 @@ export default function ContentDetailPage({ type = 'news' }) {
         setError('');
         try {
             const [detailResponse, relatedResponse] = await Promise.all([
-                api.get(endpointFor(type, identifier)),
-                api.get(listingEndpoint(type), { params: { per_page: 4 } }),
+                api.get(adminPreview ? `/admin/community-posts/${identifier}/preview` : endpointFor(type, identifier)),
+                api.get(adminPreview ? '/community-posts' : listingEndpoint(type), { params: { per_page: 4 } }),
             ]);
             const detail = unwrap(detailResponse);
             setItem(detail);
@@ -381,7 +381,7 @@ export default function ContentDetailPage({ type = 'news' }) {
         } finally {
             setLoading(false);
         }
-    }, [identifier, type]);
+    }, [adminPreview, identifier, type]);
 
     useEffect(() => {
         load();

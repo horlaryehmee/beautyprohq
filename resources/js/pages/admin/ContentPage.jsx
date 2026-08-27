@@ -28,7 +28,7 @@ const typeFilters = {
     ],
 };
 
-function ContentRow({ item, active }) {
+function ContentRow({ item, active, onApprove }) {
     const config = contentTypes[active];
     const editPath = `${config.editBase}/${item.id}/edit`;
     const summary = active === 'events'
@@ -39,7 +39,7 @@ function ContentRow({ item, active }) {
     return (
         <article className="grid grid-cols-[72px_1fr] gap-2.5 rounded-lg border border-slate-200 bg-white p-2 transition hover:border-slate-300 hover:shadow-sm lg:grid-cols-[96px_1fr_auto] lg:items-center lg:gap-4 lg:rounded-3xl lg:p-4">
             <Link to={editPath} aria-label={`Edit ${item.title || config.singular}`} className="aspect-square overflow-hidden rounded-lg bg-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 lg:rounded-2xl">
-                {item.image ? <img src={item.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-full place-items-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Image</div>}
+                {item.image_url || item.image ? <img src={item.image_url ?? item.image} alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-full place-items-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Image</div>}
             </Link>
             <div className="min-w-0">
                 <div className="flex items-center gap-1.5 overflow-hidden">
@@ -52,6 +52,7 @@ function ContentRow({ item, active }) {
                 <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-slate-500 lg:mt-1 lg:line-clamp-2 lg:text-sm lg:leading-6">{summary || 'No summary yet.'}</p>
             </div>
             <div className="col-span-2 flex flex-wrap gap-2 pt-1 lg:col-span-1 lg:justify-end lg:pt-0">
+                {active === 'community' && !item.published_at && <button type="button" onClick={() => onApprove(item)} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-bold text-emerald-700 lg:min-h-10 lg:flex-none lg:rounded-xl lg:px-4 lg:text-sm">Approve</button>}
                 {active === 'events' && (
                     <Link to={`${config.editBase}/${item.id}/registrations`} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-bphq-chrome bg-bphq-ivory px-3 text-xs font-bold text-bphq-espresso transition hover:bg-bphq-beige lg:min-h-10 lg:flex-none lg:rounded-xl lg:px-4 lg:text-sm">
                         Registrations
@@ -112,6 +113,16 @@ export default function AdminContentPage() {
             community.reload();
         } catch (requestError) {
             notify(requestError?.response?.data?.message || 'Report could not be updated.', 'error');
+        }
+    };
+
+    const approveCommunity = async (item) => {
+        try {
+            await apiRequest('put', `/admin/community-posts/${item.id}`, { status: 'published', published_at: new Date().toISOString() });
+            notify('Community post approved and published.');
+            community.reload();
+        } catch (requestError) {
+            notify(requestError?.response?.data?.message || 'Community post could not be approved.', 'error');
         }
     };
 
@@ -211,7 +222,7 @@ export default function AdminContentPage() {
                 ) : items.length ? (
                     <>
                         <div className="space-y-3">
-                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} />)}
+                            {items.map((item) => <ContentRow key={item.id} item={item} active={active} onApprove={approveCommunity} />)}
                         </div>
                         <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
                     </>

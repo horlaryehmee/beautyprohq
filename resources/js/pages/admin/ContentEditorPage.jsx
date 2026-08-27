@@ -50,6 +50,7 @@ function toForm(item, type) {
     return {
         ...config.empty,
         ...item,
+        image: item.image_url ?? item.image ?? '',
         status: statusFor(item),
         date: item.date ? String(item.date).slice(0, 10) : '',
         published_at: item.published_at ? String(item.published_at).slice(0, 16) : '',
@@ -278,7 +279,8 @@ export default function AdminContentEditorPage() {
                     <p className="mt-2 text-sm text-slate-500">Dedicated publishing workspace with SEO, featured image upload and publishing controls.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {publicPath && <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={publicPath} target="_blank" rel="noreferrer">View public page</a>}
+                    {editing && type === 'community' && <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={`/admin/content/community/${editing.id}/preview`} target="_blank" rel="noreferrer">Preview</a>}
+                    {publicPath && statusFor(editing) === 'published' && <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={publicPath} target="_blank" rel="noreferrer">View public page</a>}
                     {!isNew && <Button onClick={remove} type="button" variant="danger">Delete</Button>}
                     <Button busy={saving} type="submit">Save</Button>
                 </div>

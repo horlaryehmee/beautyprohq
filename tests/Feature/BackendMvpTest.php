@@ -1695,13 +1695,14 @@ class BackendMvpTest extends TestCase
         [$profile, $providerUser] = $this->provider('Community Provider', true);
         Sanctum::actingAs($providerUser);
 
-        $postId = $this->postJson('/api/provider/community-posts', [
+        $postId = $this->post('/api/provider/community-posts', [
             'title' => 'How I prepare clients before a beauty appointment',
             'content' => str_repeat('This provider submission shares useful client care, booking preparation, community learning, and professional standards. ', 3),
             'type' => 'help',
             'topic' => 'Client experience',
             'group_name' => 'Service providers',
             'mentions' => ['beautyprohq'],
+            'image_file' => $this->tinyPngUpload('community-featured.png'),
         ])->assertCreated()
             ->assertJsonPath('data.status', 'pending approval')
             ->json('data.id');
@@ -1711,10 +1712,18 @@ class BackendMvpTest extends TestCase
             'provider_id' => $profile->id,
             'published_at' => null,
         ]);
+        $this->assertDatabaseHas('uploaded_media', [
+            'user_id' => $providerUser->id,
+            'collection' => 'provider_community_featured',
+        ]);
 
         $this->getJson('/api/community-posts')->assertOk()->assertJsonMissing(['id' => $postId]);
 
         Sanctum::actingAs($admin);
+        $this->getJson("/api/admin/community-posts/{$postId}/preview")
+            ->assertOk()
+            ->assertJsonPath('data.id', $postId)
+            ->assertJsonPath('data.image_url', fn ($url) => str_starts_with($url, 'https://'));
         $this->putJson("/api/admin/community-posts/{$postId}", ['status' => 'published'])
             ->assertOk()
             ->assertJsonPath('data.id', $postId);

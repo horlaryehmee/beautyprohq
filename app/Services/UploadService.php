@@ -109,13 +109,18 @@ class UploadService
         $filename = $this->uniqueFilename($extension);
         $path = self::UPLOAD_DIRECTORY.'/'.$filename;
 
-        $manager = new ImageManager(new Driver());
-        $image = $manager->read($file->getRealPath())->scaleDown(width: 1600, height: 1600);
-        $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
+        try {
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($file->getRealPath())->scaleDown(width: 1600, height: 1600);
+            $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
 
-        Storage::disk($this->diskName())->put($path, (string) $encoded, ['visibility' => 'public']);
+            Storage::disk($this->diskName())->put($path, (string) $encoded, ['visibility' => 'public']);
 
-        return $this->storedPayload($path, $filename, (string) Storage::disk($this->diskName())->mimeType($path));
+            return $this->storedPayload($path, $filename, (string) Storage::disk($this->diskName())->mimeType($path));
+        } catch (\Throwable) {
+            // Shared hosting may have Intervention installed without an available image driver.
+            return $this->storeFile($file);
+        }
     }
 
     private function storeFile(UploadedFile $file): array

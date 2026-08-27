@@ -98,6 +98,11 @@ class ContentController extends Controller
         return $this->success($communityPost->load('provider.user:id,name'));
     }
 
+    public function previewCommunity(CommunityPost $communityPost): JsonResponse
+    {
+        return $this->success($communityPost->load('provider.user:id,name'));
+    }
+
     public function storeCommunity(Request $request): JsonResponse
     {
         $communityPost = CommunityPost::create($this->communityData($request));

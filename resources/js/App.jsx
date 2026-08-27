@@ -200,6 +200,9 @@ export default function App() {
 
                     <Route element={<ProtectedRoute roles={['admin']} />}>
                         <Route element={<PublicLayout />}>
+                            <Route path="admin/content/community/:id/preview" element={<ContentDetailPage type="community" adminPreview />} />
+                        </Route>
+                        <Route element={<PublicLayout />}>
                             <Route path="admin/providers/:provider/preview" element={<ProviderProfilePage adminPreview />} />
                         </Route>
                         <Route element={<CurrencyRoute />}>

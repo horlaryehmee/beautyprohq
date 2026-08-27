@@ -90,7 +90,7 @@ class CommunityPostController extends Controller
         ]);
 
         if ($request->hasFile('image_file')) {
-            $data['image'] = $uploads->store($request->file('image_file'))['path'];
+            $data['image'] = $uploads->store($request->file('image_file'), $request->user(), 'provider_community_featured')['path'];
         }
         unset($data['image_file']);
 
