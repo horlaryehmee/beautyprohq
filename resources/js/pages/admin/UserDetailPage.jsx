@@ -335,7 +335,7 @@ export default function AdminUserDetailPage() {
     const latest = useMemo(() => latestVerification(user), [user]);
     const submittedProfile = user?.provider_profile ?? user?.providerProfile ?? {};
     const submittedSocials = Object.entries(submittedProfile.social_links ?? {}).filter(([, value]) => Boolean(value));
-    const submittedPortfolioLinks = submittedProfile.portfolio_links ?? [];
+    const submittedPortfolio = latest?.portfolio_links?.length ? latest.portfolio_links : (submittedProfile.portfolio_links ?? []);
     const usage = user?.platform_usage ?? {};
     const providerUsage = usage.provider ?? {};
     const customerUsage = usage.customer ?? {};
@@ -443,8 +443,19 @@ export default function AdminUserDetailPage() {
                                     {submittedSocials.length ? <div className="mt-3 grid gap-2">{submittedSocials.map(([platform, url]) => <ExternalLink href={url} key={platform}>{platform}</ExternalLink>)}</div> : <p className="mt-2 text-sm text-slate-500">No social links submitted.</p>}
                                 </section>
                                 <section>
-                                    <h3 className="font-bold text-slate-950">Portfolio links</h3>
-                                    {submittedPortfolioLinks.length ? <div className="mt-3 grid gap-2">{submittedPortfolioLinks.map((url) => <ExternalLink href={url} key={url}>{url}</ExternalLink>)}</div> : <p className="mt-2 text-sm text-slate-500">No portfolio links submitted.</p>}
+                                    <h3 className="font-bold text-slate-950">Portfolio</h3>
+                                    {submittedPortfolio.length ? (
+                                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                            {submittedPortfolio.map((path, index) => (
+                                                <a className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50" href={mediaUrl(path)} key={path} rel="noreferrer" target="_blank">
+                                                    <div className="aspect-square overflow-hidden">
+                                                        <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={mediaUrl(path)} />
+                                                    </div>
+                                                    <p className="truncate px-3 py-2 text-xs font-bold text-slate-600">View image {index + 1}</p>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : <p className="mt-2 text-sm text-slate-500">No portfolio images submitted.</p>}
                                 </section>
                             </div>
 
