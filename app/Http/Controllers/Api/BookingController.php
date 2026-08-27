@@ -461,7 +461,9 @@ class BookingController extends Controller
             $value = $answers[$key];
             $type = $field['type'] ?? 'text';
             if ($type === 'checkbox') {
-                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                $value = is_array($field['options'] ?? null) && count($field['options'])
+                    ? array_values(array_intersect(array_map('strval', (array) $value), array_map('strval', $field['options'])))
+                    : filter_var($value, FILTER_VALIDATE_BOOLEAN);
             } elseif (is_array($value)) {
                 $value = implode(', ', array_map('strval', $value));
             } else {
@@ -471,10 +473,10 @@ class BookingController extends Controller
             if ($type === 'select' && ! in_array($value, $field['options'] ?? [], true)) {
                 abort(422, "Choose a valid option for: {$field['label']}");
             }
-            if (($field['required'] ?? false) && ($value === '' || ($type === 'checkbox' && $value !== true))) {
+            if (($field['required'] ?? false) && ($value === '' || ($type === 'checkbox' && (is_array($value) ? ! count($value) : $value !== true)))) {
                 abort(422, "Please answer: {$field['label']}");
             }
-            if ($value !== '' && ($value !== false || $type === 'checkbox')) {
+            if ($value !== '' && ($value !== false || $type === 'checkbox') && (! is_array($value) || count($value))) {
                 $clean[] = [
                     'label' => $field['label'],
                     'type' => $type,

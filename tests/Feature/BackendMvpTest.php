@@ -1218,6 +1218,7 @@ class BackendMvpTest extends TestCase
             'loyalty_enabled' => true,
             'booking_form_fields' => [
                 ['label' => 'Do you have allergies?', 'type' => 'textarea', 'required' => true],
+                ['label' => 'Preferred finish', 'type' => 'checkbox', 'options' => ['Natural', 'Glam'], 'required' => false],
             ],
         ]);
         $service = $provider->services()->create(['name' => 'Facial', 'category' => 'Skincare', 'service_type' => 'in_person', 'price' => 20000, 'duration_minutes' => 60]);
@@ -1232,7 +1233,7 @@ class BackendMvpTest extends TestCase
         $bookingId = $this->postJson('/api/bookings', [
             'provider_id' => $provider->id, 'service_id' => $service->id,
             'date' => $date->toDateString(), 'time' => '10:00',
-            'custom_fields' => ['_field_0' => 'No known allergies'],
+            'custom_fields' => ['_field_0' => 'No known allergies', '_field_1' => ['Natural', 'Glam']],
         ])->assertCreated()
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.manual_payment.account_reference', 'test-'.$providerUser->id)
@@ -1240,6 +1241,7 @@ class BackendMvpTest extends TestCase
             ->json('data.id');
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
         $this->assertSame('No known allergies', Booking::find($bookingId)->custom_fields[0]['answer']);
+        $this->assertSame(['Natural', 'Glam'], Booking::find($bookingId)->custom_fields[1]['answer']);
 
         Sanctum::actingAs($providerUser);
         $this->getJson('/api/provider/bookings')->assertOk()->assertJsonPath('data.0.custom_fields.0.label', 'Do you have allergies?')->assertJsonPath('data.0.custom_fields.0.answer', 'No known allergies');

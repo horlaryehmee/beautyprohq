@@ -335,7 +335,8 @@ function CustomBookingField({ field, value, onChange }) {
         return <FormField as="select" label={label} value={value} onChange={(event) => onChange(event.target.value)}><option value="">Choose an option</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</FormField>;
     }
     if (field.type === 'checkbox') {
-        return <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-sm font-semibold text-[#2A1D14]"><input checked={Boolean(value)} className="mt-1 size-4 accent-[#3A2A1F]" onChange={(event) => onChange(event.target.checked)} type="checkbox" />{field.label}</label>;
+        const selected = Array.isArray(value) ? value : [];
+        return <div><p className="mb-2 text-sm font-bold text-[#2A1D14]">{label}</p><div className="space-y-2">{(field.options ?? []).map((option) => <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-sm font-semibold text-[#2A1D14]" key={option}><input checked={selected.includes(option)} className="mt-1 size-4 accent-[#3A2A1F]" onChange={(event) => onChange(event.target.checked ? [...selected, option] : selected.filter((item) => item !== option))} type="checkbox" />{option}</label>)}</div></div>;
     }
     return <FormField as={field.type === 'textarea' ? 'textarea' : 'input'} label={label} value={value} onChange={(event) => onChange(event.target.value)} maxLength={1000} placeholder="Your answer" />;
 }

@@ -185,7 +185,7 @@ export default function ProviderBookingsPage() {
                             ]} />
                         </div>
                         {selectedBooking.notes && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes}</p></div>}
-                        {Array.isArray(selectedBooking.custom_fields) && selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').length > 0 && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Additional booking details</p><div className="mt-3 space-y-3">{selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').map((field, index) => <div key={`${field.label}-${index}`}><p className="text-xs font-semibold text-slate-400">{field.label}</p><p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-800">{field.type === 'checkbox' ? (field.answer ? 'Yes' : 'No') : field.answer}</p></div>)}</div></div>}
+                        {Array.isArray(selectedBooking.custom_fields) && selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').length > 0 && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Additional booking details</p><div className="mt-3 space-y-3">{selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').map((field, index) => <div key={`${field.label}-${index}`}><p className="text-xs font-semibold text-slate-400">{field.label}</p><p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-800">{Array.isArray(field.answer) ? field.answer.join(', ') : field.type === 'checkbox' ? (field.answer ? 'Yes' : 'No') : field.answer}</p></div>)}</div></div>}
                     </Card>
                 </div>
             )}
@@ -231,16 +231,16 @@ function BookingFormEditor({ fields, onAdd, onAddOption, onChange, onRemove, onS
                         <div className="rounded-2xl border border-slate-100 p-4" key={index}>
                             <div className="grid gap-3 lg:grid-cols-[1fr_170px_auto]">
                                 <Field label={`Question ${index + 1}`}><input className={inputClass} onChange={(event) => onChange(index, { label: event.target.value })} placeholder="e.g. What style are you booking for?" value={field.label ?? ''} /></Field>
-                                <Field label="Answer type"><select className={inputClass} onChange={(event) => onChange(index, { type: event.target.value, options: event.target.value === 'select' ? (field.options ?? []) : [] })} value={field.type ?? 'text'}><option value="text">Short text</option><option value="textarea">Long text</option><option value="select">Dropdown</option><option value="checkbox">Checkbox</option></select></Field>
+                                <Field label="Answer type"><select className={inputClass} onChange={(event) => onChange(index, { type: event.target.value, options: ['select', 'checkbox'].includes(event.target.value) ? (field.options ?? []) : [] })} value={field.type ?? 'text'}><option value="text">Short text</option><option value="textarea">Long text</option><option value="select">Dropdown</option><option value="checkbox">Checkbox</option></select></Field>
                                 <div className="flex items-end gap-2">
                                     <label className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-600"><input checked={Boolean(field.required)} className="size-4 accent-fuchsia-700" onChange={(event) => onChange(index, { required: event.target.checked })} type="checkbox" />Required</label>
                                     <Button onClick={() => onRemove(index)} type="button" variant="secondary">Remove</Button>
                                 </div>
                             </div>
-                            {field.type === 'select' && (
+                            {['select', 'checkbox'].includes(field.type) && (
                                 <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                                    <p className="text-sm font-bold text-slate-700">Dropdown choices</p>
-                                    <p className="mt-1 text-xs text-slate-500">Add each choice separately so customers can select one clearly.</p>
+                                    <p className="text-sm font-bold text-slate-700">{field.type === 'checkbox' ? 'Checkbox choices' : 'Dropdown choices'}</p>
+                                    <p className="mt-1 text-xs text-slate-500">Add each choice separately so customers can select clearly.</p>
                                     <div className="mt-3 flex flex-wrap gap-2">
                                         {(field.options ?? []).map((option, optionIndex) => <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700" key={`${option}-${optionIndex}`}>{option}<button aria-label={`Remove ${option}`} className="font-black text-rose-600" onClick={() => onChange(index, { options: (field.options ?? []).filter((_, itemIndex) => itemIndex !== optionIndex) })} type="button">x</button></span>)}
                                     </div>
@@ -250,7 +250,6 @@ function BookingFormEditor({ fields, onAdd, onAddOption, onChange, onRemove, onS
                                     </div>
                                 </div>
                             )}
-                            {field.type === 'checkbox' && <p className="mt-3 text-xs font-semibold text-slate-500">Customers will see this as a yes/no checkbox.</p>}
                         </div>
                     ))}
                     <div className="flex justify-end"><Button busy={saving} onClick={onSave} type="button">Save booking form</Button></div>
