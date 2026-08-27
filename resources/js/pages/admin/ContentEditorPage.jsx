@@ -97,6 +97,16 @@ function stripHtml(value) {
     return container.textContent || '';
 }
 
+function automaticSeoTitle(title, type) {
+    if (!title) return '';
+    const context = type === 'community' ? 'Community' : type === 'events' ? 'Events' : 'Beauty';
+    return `${title.trim()} | ${context} | BeautyPro HQ`.slice(0, 180);
+}
+
+function automaticSeoDescription(value) {
+    return stripHtml(value).replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
 function htmlFromPlainText(value) {
     return String(value ?? '')
         .split(/\n{2,}/)
@@ -206,11 +216,13 @@ export default function AdminContentEditorPage() {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [seoEdited, setSeoEdited] = useState({ title: false, description: false });
     const bodyKey = config.bodyKey;
 
     const load = useCallback(async () => {
         if (isNew) {
             setForm({ ...config.empty });
+            setSeoEdited({ title: false, description: false });
             setLoading(false);
             return;
         }
@@ -219,6 +231,7 @@ export default function AdminContentEditorPage() {
         try {
             const item = await apiRequest('get', `${config.endpoint}/${id}`);
             setEditing(item);
+            setSeoEdited({ title: Boolean(item.seo_title), description: Boolean(item.seo_description) });
             setForm(toForm(item, type));
         } catch (requestError) {
             setError(apiErrorMessage(requestError, 'Content could not be loaded.'));
@@ -230,6 +243,14 @@ export default function AdminContentEditorPage() {
     useEffect(() => {
         load();
     }, [load]);
+
+    useEffect(() => {
+        setForm((current) => ({
+            ...current,
+            seo_title: seoEdited.title ? current.seo_title : automaticSeoTitle(current.title, type),
+            seo_description: seoEdited.description ? current.seo_description : automaticSeoDescription(current.excerpt || current[bodyKey]),
+        }));
+    }, [bodyKey, form.title, form[bodyKey], form.excerpt, seoEdited.description, seoEdited.title, type]);
 
     const updateForm = (patch) => setForm((current) => ({ ...current, ...patch }));
 
@@ -348,10 +369,12 @@ export default function AdminContentEditorPage() {
                         <p className="mt-1 text-sm text-slate-500">These fields shape the browser title, Google snippet and social sharing text.</p>
                         <div className="mt-5 grid gap-4">
                             <Field label="SEO title">
-                                <input className={inputClass} maxLength={70} onChange={(event) => updateForm({ seo_title: event.target.value })} placeholder={form.title || 'Recommended: 50–60 characters'} value={form.seo_title ?? ''} />
+                                <input className={inputClass} maxLength={180} onChange={(event) => { setSeoEdited((current) => ({ ...current, title: true })); updateForm({ seo_title: event.target.value }); }} placeholder="Auto-filled from the title" value={form.seo_title ?? ''} />
+                                <p className="mt-1 text-xs text-slate-500">Auto-filled from the title until you edit this field.</p>
                             </Field>
                             <Field label="SEO description">
-                                <textarea className={`${inputClass} min-h-24 resize-y`} maxLength={170} onChange={(event) => updateForm({ seo_description: event.target.value })} placeholder="Recommended: 140–160 characters" value={form.seo_description ?? ''} />
+                                <textarea className={`${inputClass} min-h-24 resize-y`} maxLength={300} onChange={(event) => { setSeoEdited((current) => ({ ...current, description: true })); updateForm({ seo_description: event.target.value }); }} placeholder="Auto-filled from the content" value={form.seo_description ?? ''} />
+                                <p className="mt-1 text-xs text-slate-500">Auto-filled from the content until you edit this field.</p>
                             </Field>
                         </div>
                     </Card>
