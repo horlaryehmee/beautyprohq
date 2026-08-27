@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Card, EmptyState, ErrorState, IconButton, LoadingBlock, PageHeader, Pagination, apiErrorMessage, cx, formatDate, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 
@@ -46,6 +47,11 @@ function absoluteUrl(value) {
 
 function mediaDate(item) {
     return formatDate((item.last_modified ?? Date.now() / 1000) * 1000);
+}
+
+function providerProfilePath(user) {
+    const slug = user?.provider_profile?.slug;
+    return user?.role === 'provider' && slug ? `/providers/${slug}` : null;
 }
 
 const emptyMeta = {
@@ -258,6 +264,48 @@ export default function AdminMediaPage() {
                 title="Media library"
             />
 
+            <Card className="p-4 sm:p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-950">Filter media</h2>
+                        <p className="mt-1 text-sm text-slate-500">Search files, filter by type, uploader role, or upload folder.</p>
+                    </div>
+                    <Button onClick={resetFilters} type="button" variant="secondary">Reset filters</Button>
+                </div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_220px]">
+                    <input
+                        className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
+                        onChange={(event) => updateFilter('search', event.target.value)}
+                        placeholder="Search file, path, uploader name or email"
+                        value={filters.search}
+                    />
+                    <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('type', event.target.value)} value={filters.type}>
+                        <option value="">All types</option>
+                        <option value="image">Images</option>
+                        <option value="document">Documents</option>
+                    </select>
+                    <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('role', event.target.value)} value={filters.role}>
+                        <option value="">All users</option>
+                        <option value="provider">Providers</option>
+                        <option value="admin">Admins</option>
+                        <option value="customer">Customers</option>
+                    </select>
+                    <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('collection', event.target.value)} value={filters.collection}>
+                        <option value="">All folders</option>
+                        <option value="provider_onboarding_profile">Provider profiles</option>
+                        <option value="provider_onboarding_cover">Provider covers</option>
+                        <option value="provider_onboarding_portfolio">Provider portfolios</option>
+                        <option value="provider_verification_certification">Provider certificates</option>
+                        <option value="provider_verification_license">Provider licenses</option>
+                        <option value="provider_profile_photo">Profile updates</option>
+                        <option value="provider_profile_cover">Cover updates</option>
+                        <option value="user_upload">User uploads</option>
+                        <option value="legacy_upload">Legacy uploads</option>
+                        <option value="admin_media">Admin uploads</option>
+                    </select>
+                </div>
+            </Card>
+
             <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_1fr]">
                 <Card>
                     <h2 className="text-lg font-bold text-slate-950">Upload file</h2>
@@ -324,43 +372,6 @@ export default function AdminMediaPage() {
                         </div>
                     </div>
 
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Filters</p>
-                        <Button onClick={resetFilters} type="button" variant="secondary">Reset filters</Button>
-                    </div>
-                    <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_220px]">
-                        <input
-                            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
-                            onChange={(event) => updateFilter('search', event.target.value)}
-                            placeholder="Search file, path, uploader name or email"
-                            value={filters.search}
-                        />
-                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('type', event.target.value)} value={filters.type}>
-                            <option value="">All types</option>
-                            <option value="image">Images</option>
-                            <option value="document">Documents</option>
-                        </select>
-                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('role', event.target.value)} value={filters.role}>
-                            <option value="">All users</option>
-                            <option value="provider">Providers</option>
-                            <option value="admin">Admins</option>
-                            <option value="customer">Customers</option>
-                        </select>
-                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('collection', event.target.value)} value={filters.collection}>
-                            <option value="">All folders</option>
-                            <option value="provider_onboarding_profile">Provider profiles</option>
-                            <option value="provider_onboarding_cover">Provider covers</option>
-                            <option value="provider_onboarding_portfolio">Provider portfolios</option>
-                            <option value="provider_verification_certification">Provider certificates</option>
-                            <option value="provider_verification_license">Provider licenses</option>
-                            <option value="provider_profile_photo">Profile updates</option>
-                            <option value="provider_profile_cover">Cover updates</option>
-                            <option value="user_upload">User uploads</option>
-                            <option value="legacy_upload">Legacy uploads</option>
-                            <option value="admin_media">Admin uploads</option>
-                        </select>
-                    </div>
-
                     {loading ? <LoadingBlock rows={6} /> : error ? <ErrorState message={error} onRetry={() => loadMedia(page)} /> : items.length === 0 ? (
                         <EmptyState title="No media uploaded yet" description="Uploaded files will appear here." />
                     ) : (
@@ -386,6 +397,8 @@ export default function AdminMediaPage() {
                                         const checked = selectedPaths.has(item.path);
                                         const image = isImage(item);
                                         const deleting = deletingPath === item.path;
+                                        const userPath = item.user?.id ? `/admin/users/${item.user.id}` : null;
+                                        const providerPath = providerProfilePath(item.user);
 
                                         return (
                                             <div className={cx('grid gap-3 px-4 py-3 transition hover:bg-slate-50 lg:grid-cols-[40px_64px_minmax(220px,1fr)_120px_170px_120px_180px] lg:items-center', checked && 'bg-fuchsia-50/50')} key={item.path}>
@@ -416,10 +429,14 @@ export default function AdminMediaPage() {
                                                 <div className="min-w-0 text-sm text-slate-600">
                                                     <span className="font-semibold lg:hidden">Uploaded by: </span>
                                                     {item.user ? (
-                                                        <>
-                                                            <p className="truncate font-semibold text-slate-800">{item.user.name}</p>
+                                                        <div className="min-w-0">
+                                                            <Link className="block truncate font-semibold text-blue-700 hover:underline" to={userPath}>{item.user.name}</Link>
                                                             <p className="truncate text-xs text-slate-400">{item.user.email}</p>
-                                                        </>
+                                                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                                                <Link className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50" to={userPath}>Manage user</Link>
+                                                                {providerPath && <Link className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-50" to={providerPath}>View provider</Link>}
+                                                            </div>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-slate-400">Unknown</span>
                                                     )}
