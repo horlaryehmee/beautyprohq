@@ -329,9 +329,21 @@ function Stepper({ step }) {
     );
 }
 
+function CustomBookingField({ field, value, onChange }) {
+    const label = `${field.label ?? 'Additional question'}${field.required ? ' *' : ''}`;
+    if (field.type === 'select') {
+        return <FormField as="select" label={label} value={value} onChange={(event) => onChange(event.target.value)}><option value="">Choose an option</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</FormField>;
+    }
+    if (field.type === 'checkbox') {
+        return <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 text-sm font-semibold text-[#2A1D14]"><input checked={Boolean(value)} className="mt-1 size-4 accent-[#3A2A1F]" onChange={(event) => onChange(event.target.checked)} type="checkbox" />{field.label}</label>;
+    }
+    return <FormField as={field.type === 'textarea' ? 'textarea' : 'input'} label={label} value={value} onChange={(event) => onChange(event.target.value)} maxLength={1000} placeholder="Your answer" />;
+}
+
 export default function BookingModal({ open, onClose, provider, services = [], initialService, onBooked, standalone = false }) {
     const pro = providerIdentity(provider);
     const providerId = provider?.provider_id ?? pro.id ?? provider?.id;
+    const bookingFields = Array.isArray(provider?.booking_form_fields) ? provider.booking_form_fields : [];
     const { user } = useAuth();
     const toast = useToast();
     const [step, setStep] = useState(1);
@@ -339,6 +351,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [notes, setNotes] = useState('');
+    const [customAnswers, setCustomAnswers] = useState({});
     const [referralCode, setReferralCode] = useState('');
     const [redeemLoyalty, setRedeemLoyalty] = useState(false);
     const [customer, setCustomer] = useState({ name: '', email: '', phone: '', create_account: false, password: '', password_confirmation: '' });
@@ -406,6 +419,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setDate('');
         setTime('');
         setNotes('');
+        setCustomAnswers({});
         setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
         setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '', password_confirmation: '' });
@@ -467,6 +481,13 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         if (step === 3 && !detailsComplete) {
             setError(customer.create_account ? 'Name, email, phone number and matching passwords of at least 8 characters are required.' : 'Name, email and phone number are required.');
             return;
+        }
+        if (step === 3) {
+            const missing = bookingFields.find((field, index) => field.required && (field.type === 'checkbox' ? !customAnswers[index] : !String(customAnswers[index] ?? '').trim()));
+            if (missing) {
+                setError(`Please answer: ${missing.label}`);
+                return;
+            }
         }
         if (step === 4 && !selectedPaymentMethod && !redeemLoyalty) {
             setError('Choose a payment method to continue.');
@@ -544,7 +565,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                 time,
                 notes: notes.trim(),
                 referral_code: referralRewardsAvailable ? (referralCode.trim() || undefined) : undefined,
-                custom_fields: { _booking_timezone: selectedTimezone },
+                custom_fields: {
+                    _booking_timezone: selectedTimezone,
+                    ...Object.fromEntries(Object.entries(customAnswers).map(([index, answer]) => [`_field_${index}`, answer])),
+                },
                 redeem_loyalty: redeemLoyalty || undefined,
                 payment_method: selectedPaymentMethod?.gateway,
             };
@@ -933,6 +957,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     )}
                                                 </div>
                                                 {referralRewardsAvailable && <FormField label="Referral code (optional)" value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} maxLength={60} placeholder="BPHQ-..." />}
+                                                {bookingFields.map((field, index) => (
+                                                    <CustomBookingField field={field} key={`${field.label}-${index}`} value={customAnswers[index] ?? ''} onChange={(value) => setCustomAnswers((current) => ({ ...current, [index]: value }))} />
+                                                ))}
                                                 <FormField as="textarea" label="Note (optional)" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} placeholder="Share any extra details..." />
                                             </div>
                                         </div>

@@ -1232,15 +1232,17 @@ class BackendMvpTest extends TestCase
         $bookingId = $this->postJson('/api/bookings', [
             'provider_id' => $provider->id, 'service_id' => $service->id,
             'date' => $date->toDateString(), 'time' => '10:00',
+            'custom_fields' => ['_field_0' => 'No known allergies'],
         ])->assertCreated()
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.manual_payment.account_reference', 'test-'.$providerUser->id)
             ->assertJsonPath('data.manual_payment.instructions', 'Use the booking reference when paying.')
             ->json('data.id');
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
-        $this->assertSame([], Booking::find($bookingId)->custom_fields ?? []);
+        $this->assertSame('No known allergies', Booking::find($bookingId)->custom_fields[0]['answer']);
 
         Sanctum::actingAs($providerUser);
+        $this->getJson('/api/provider/bookings')->assertOk()->assertJsonPath('data.0.custom_fields.0.label', 'Do you have allergies?')->assertJsonPath('data.0.custom_fields.0.answer', 'No known allergies');
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'confirmed'])->assertOk();
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
         $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'points' => 10]);

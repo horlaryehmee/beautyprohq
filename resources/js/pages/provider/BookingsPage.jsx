@@ -185,6 +185,7 @@ export default function ProviderBookingsPage() {
                             ]} />
                         </div>
                         {selectedBooking.notes && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{selectedBooking.notes}</p></div>}
+                        {Array.isArray(selectedBooking.custom_fields) && selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').length > 0 && <div className="mt-4 rounded-2xl border border-slate-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Additional booking details</p><div className="mt-3 space-y-3">{selectedBooking.custom_fields.filter((field) => field.label !== 'Customer timezone').map((field, index) => <div key={`${field.label}-${index}`}><p className="text-xs font-semibold text-slate-400">{field.label}</p><p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-800">{field.type === 'checkbox' ? (field.answer ? 'Yes' : 'No') : field.answer}</p></div>)}</div></div>}
                     </Card>
                 </div>
             )}

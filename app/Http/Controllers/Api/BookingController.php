@@ -452,6 +452,37 @@ class BookingController extends Controller
             }
         }
 
+        foreach (array_values($provider->booking_form_fields ?? []) as $index => $field) {
+            $key = '_field_'.$index;
+            if (! array_key_exists($key, $answers)) {
+                continue;
+            }
+
+            $value = $answers[$key];
+            $type = $field['type'] ?? 'text';
+            if ($type === 'checkbox') {
+                $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            } elseif (is_array($value)) {
+                $value = implode(', ', array_map('strval', $value));
+            } else {
+                $value = trim((string) $value);
+            }
+
+            if ($type === 'select' && ! in_array($value, $field['options'] ?? [], true)) {
+                abort(422, "Choose a valid option for: {$field['label']}");
+            }
+            if (($field['required'] ?? false) && ($value === '' || ($type === 'checkbox' && $value !== true))) {
+                abort(422, "Please answer: {$field['label']}");
+            }
+            if ($value !== '' && ($value !== false || $type === 'checkbox')) {
+                $clean[] = [
+                    'label' => $field['label'],
+                    'type' => $type,
+                    'answer' => $value,
+                ];
+            }
+        }
+
         return $clean;
     }
 
