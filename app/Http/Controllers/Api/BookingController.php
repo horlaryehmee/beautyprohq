@@ -59,7 +59,7 @@ class BookingController extends Controller
         $this->assertVerifiedPaymentPayload($payment, $metadata, (int) ($data['amount'] ?? 0), strtoupper((string) ($data['currency'] ?? '')));
 
         if (($data['status'] ?? null) === 'success' && $this->markBookingPaymentPaid($payment, $data)) {
-            $this->notifyBookingPaymentPaid($payment);
+            $this->safeNotifyBookingPaymentPaid($payment);
         }
 
         return response()->json(['ok' => true]);
@@ -273,7 +273,7 @@ class BookingController extends Controller
             $booking->setAttribute('manual_payment', $this->manualPaymentDetails($provider));
         }
         if ($booking->payment?->status === 'paid') {
-            $this->notifyBookingPaymentPaid($booking->payment);
+            $this->safeNotifyBookingPaymentPaid($booking->payment);
         } else {
             $this->safeNotify($booking->customer, new BookingStatusNotification(
                 $booking,
@@ -565,22 +565,42 @@ class BookingController extends Controller
         abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
 
         if ($payment->status === 'paid') {
-            return $this->success($payment, 'Payment already verified.');
+            return $this->success($this->paymentConfirmationData($payment), 'Payment already verified.');
         }
 
-        if ($payment->gateway === 'paystack') {
-            $this->verifyPaystackBookingPayment($payment);
-        } elseif ($payment->gateway === 'stripe') {
-            $this->verifyStripeBookingPayment($payment, $validated['session_id'] ?? null);
-        } elseif ($payment->gateway === 'paypal') {
-            $this->verifyPaypalBookingPayment($payment, $validated['session_id'] ?? null);
-        } else {
-            abort(422, 'Unknown payment gateway.');
+        try {
+            if ($payment->gateway === 'paystack') {
+                $this->verifyPaystackBookingPayment($payment);
+            } elseif ($payment->gateway === 'stripe') {
+                $this->verifyStripeBookingPayment($payment, $validated['session_id'] ?? null);
+            } elseif ($payment->gateway === 'paypal') {
+                $this->verifyPaypalBookingPayment($payment, $validated['session_id'] ?? null);
+            } else {
+                abort(422, 'Unknown payment gateway.');
+            }
+        } catch (\Throwable $exception) {
+            $payment->refresh();
+            if ($payment->status !== 'paid') {
+                Log::error('Booking payment verification failed.', [
+                    'payment_id' => $payment->id,
+                    'gateway' => $payment->gateway,
+                    'reference' => $payment->reference,
+                    'exception' => $exception::class,
+                    'message' => $exception->getMessage(),
+                ]);
+
+                if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                    throw $exception;
+                }
+
+                return response()->json(['message' => 'The gateway confirmation is still being processed. Please wait a moment and try again.'], 503);
+            }
         }
 
-        $payment->refresh()->load(['booking.service', 'provider.user:id,name']);
+        $payment->refresh();
+        abort_unless($payment->status === 'paid', 422, 'Payment has not succeeded yet.');
 
-        return $this->success($payment, 'Payment verified.');
+        return $this->success($this->paymentConfirmationData($payment), 'Payment verified.');
     }
 
     private function authorizePaymentAccess(Request $request, Payment $payment, ?string $token): void
@@ -745,7 +765,7 @@ class BookingController extends Controller
         abort_unless(($data['status'] ?? null) === 'success', 422, 'Payment has not succeeded yet.');
 
         if ($this->markBookingPaymentPaid($payment, $data)) {
-            $this->notifyBookingPaymentPaid($payment);
+            $this->safeNotifyBookingPaymentPaid($payment);
         }
     }
 
@@ -773,7 +793,7 @@ class BookingController extends Controller
         abort_unless(($data['client_reference_id'] ?? null) === $payment->reference, 422, 'Stripe reference mismatch.');
 
         if ($this->markBookingPaymentPaid($payment, $data)) {
-            $this->notifyBookingPaymentPaid($payment);
+            $this->safeNotifyBookingPaymentPaid($payment);
         }
     }
 
@@ -813,7 +833,7 @@ class BookingController extends Controller
         abort_unless(strtoupper((string) $payment->currency) === strtoupper((string) $currency), 422, 'Payment currency mismatch.');
 
         if ($this->markBookingPaymentPaid($payment, $data)) {
-            $this->notifyBookingPaymentPaid($payment);
+            $this->safeNotifyBookingPaymentPaid($payment);
         }
     }
 
@@ -904,6 +924,41 @@ class BookingController extends Controller
                 'booking_notifications_sent_at' => now()->toIso8601String(),
             ],
         ])->save();
+    }
+
+    private function safeNotifyBookingPaymentPaid(Payment $payment): void
+    {
+        try {
+            $this->notifyBookingPaymentPaid($payment);
+        } catch (\Throwable $exception) {
+            Log::warning('Paid booking notification failed without affecting payment confirmation.', [
+                'payment_id' => $payment->id,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function paymentConfirmationData(Payment $payment): array
+    {
+        $payment->loadMissing(['booking.service', 'provider.user:id,name']);
+
+        return [
+            'id' => $payment->id,
+            'status' => $payment->status,
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'reference' => $payment->reference,
+            'paid_at' => optional($payment->paid_at)->toIso8601String(),
+            'booking' => $payment->booking ? [
+                'id' => $payment->booking->id,
+                'status' => $payment->booking->status,
+                'date' => optional($payment->booking->date)->toDateString(),
+                'time' => substr((string) $payment->booking->time, 0, 5),
+                'service' => $payment->booking->service?->name,
+                'provider' => $payment->provider?->user?->name,
+            ] : null,
+        ];
     }
 
     private function assertVerifiedPaymentPayload(Payment $payment, array $meta, int $amountMinor, string $currency): void

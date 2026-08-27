@@ -35,23 +35,32 @@ export default function BookingConfirmationPage() {
 
         let active = true;
         setState('verifying');
-        api.post('/booking-payments/verify', {
-            reference: reference || undefined,
-            session_id: sessionId || undefined,
-            payment_token: paymentToken || undefined,
-        })
-            .then((response) => {
-                if (!active) return;
-                const verified = unwrap(response);
-                setPayment(verified);
-                setState('success');
-                setMessage(response?.data?.message || 'Your payment has been verified successfully.');
-            })
-            .catch((requestError) => {
-                if (!active) return;
-                setState('error');
-                setMessage(apiError(requestError, 'We could not verify this payment yet.').message);
-            });
+        const verify = async () => {
+            let lastError;
+            for (let attempt = 0; attempt < 4 && active; attempt += 1) {
+                try {
+                    const response = await api.post('/booking-payments/verify', {
+                        reference: reference || undefined,
+                        session_id: sessionId || undefined,
+                        payment_token: paymentToken || undefined,
+                    });
+                    if (!active) return;
+                    setPayment(unwrap(response));
+                    setState('success');
+                    setMessage(response?.data?.message || 'Your payment has been verified successfully.');
+                    return;
+                } catch (requestError) {
+                    lastError = requestError;
+                    const status = requestError?.response?.status;
+                    if (![422, 429, 500, 503].includes(status) || attempt === 3) break;
+                    await new Promise((resolve) => window.setTimeout(resolve, 1500 * (attempt + 1)));
+                }
+            }
+            if (!active) return;
+            setState('error');
+            setMessage(apiError(lastError, 'The payment may still be processing. Please wait briefly and reload this page.').message);
+        };
+        verify();
 
         return () => { active = false; };
     }, [cancelled, paymentToken, reference, sessionId]);

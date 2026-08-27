@@ -10,6 +10,7 @@ use App\Models\ContactEnquiry;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
+use App\Models\Payment;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
@@ -1249,6 +1250,62 @@ class BackendMvpTest extends TestCase
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
         $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'points' => 10]);
         $this->assertDatabaseHas('crm_customers', ['provider_id' => $provider->id, 'customer_id' => $customer->id]);
+    }
+
+    public function test_customer_paystack_return_confirms_booking_with_stable_response(): void
+    {
+        Notification::fake();
+        [$provider] = $this->provider('Gateway Beauty', true);
+        $service = $provider->services()->create(['name' => 'Makeup', 'category' => 'Makeup', 'service_type' => 'in_person', 'price' => 25000, 'duration_minutes' => 60]);
+        $date = Carbon::tomorrow();
+        Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
+        $customer = User::factory()->create();
+
+        Sanctum::actingAs($customer);
+        $bookingId = $this->postJson('/api/bookings', [
+            'provider_id' => $provider->id,
+            'service_id' => $service->id,
+            'date' => $date->toDateString(),
+            'time' => '11:00',
+        ])->assertCreated()->json('data.id');
+
+        $account = $provider->paymentAccounts()->create([
+            'gateway' => 'paystack',
+            'public_key' => 'pk_test_provider',
+            'settings' => ['secret_key' => 'sk_test_provider'],
+            'is_connected' => true,
+            'enabled' => true,
+        ]);
+        $payment = Payment::where('booking_id', $bookingId)->firstOrFail();
+        $reference = 'BPHQ-BOOK-RETURN-TEST';
+        $token = 'booking-return-token';
+        $gatewayMetadata = [
+            'type' => 'booking_payment',
+            'payment_id' => $payment->id,
+            'booking_id' => $bookingId,
+            'provider_id' => $provider->id,
+            'provider_payment_account_id' => $account->id,
+            'provider_account_reference' => $account->public_key,
+        ];
+        $payment->update([
+            'gateway' => 'paystack',
+            'reference' => $reference,
+            'status' => 'processing',
+            'metadata' => [...$gatewayMetadata, 'payment_token' => $token],
+        ]);
+
+        Http::fake(['api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => ['status' => 'success', 'amount' => 2500000, 'currency' => 'NGN', 'metadata' => $gatewayMetadata],
+        ])]);
+
+        $this->postJson('/api/booking-payments/verify', ['reference' => $reference, 'payment_token' => $token])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.booking.status', 'confirmed')
+            ->assertJsonMissingPath('data.metadata');
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'paid']);
+        $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'status' => 'confirmed']);
     }
 
     public function test_guest_booking_account_creation_requires_matching_password_confirmation(): void
