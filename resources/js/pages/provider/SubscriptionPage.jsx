@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Button,
@@ -37,9 +37,11 @@ export default function ProviderSubscriptionPage() {
     const [busy, setBusy] = useState('');
     const [paymentResult, setPaymentResult] = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const handledPaymentReturn = useRef('');
     const { refreshUser } = useAuth();
     const { notify } = useDashboardToast();
-    const data = resource.data ?? {};
+    const { data: resourceData, setData: setSubscriptionData, loading, error, reload } = resource;
+    const data = resourceData ?? {};
     const plans = normalize(data, 'plans');
     const payments = normalize(data, 'payments');
     const paymentsMeta = metaFrom(data, 'payments');
@@ -57,18 +59,22 @@ export default function ProviderSubscriptionPage() {
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
     const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
     const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
+    const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
+    const paymentSessionId = searchParams.get('session_id') || '';
 
     useEffect(() => {
-        const reference = searchParams.get('reference') || searchParams.get('trxref');
-        const sessionId = searchParams.get('session_id');
-        if (!reference) return;
+        if (!paymentReference) return;
+        const returnKey = `${paymentReference}:${paymentSessionId}`;
+        if (handledPaymentReturn.current === returnKey) return;
+        handledPaymentReturn.current = returnKey;
+
         let cancelled = false;
         setBusy('verify');
-        apiRequest('post', '/provider/subscription/verify', { reference, session_id: sessionId || undefined })
+        apiRequest('post', '/provider/subscription/verify', { reference: paymentReference, session_id: paymentSessionId || undefined })
             .then(async (subscriptionResponse) => {
                 if (cancelled) return;
                 await refreshUser();
-                await resource.reload();
+                await reload();
                 if (cancelled) return;
                 setPaymentResult({
                     status: 'success',
@@ -83,7 +89,7 @@ export default function ProviderSubscriptionPage() {
                 const latest = await apiRequest('get', '/provider/subscription').catch(() => null);
                 if (cancelled) return;
                 if (isPaidActiveSubscription(latest?.subscription)) {
-                    resource.setData(latest);
+                    setSubscriptionData(latest);
                     await refreshUser();
                     if (cancelled) return;
                     setPaymentResult({
@@ -105,7 +111,7 @@ export default function ProviderSubscriptionPage() {
             })
             .finally(() => !cancelled && setBusy(''));
         return () => { cancelled = true; };
-    }, [refreshUser, resource, searchParams, setSearchParams]);
+    }, [paymentReference, paymentSessionId, refreshUser, reload, setSearchParams, setSubscriptionData]);
 
     const goToDashboard = () => {
         window.location.assign('/provider');
@@ -134,7 +140,7 @@ export default function ProviderSubscriptionPage() {
             await apiRequest('post', '/provider/subscription/downgrade');
             notify('Subscription renewal cancelled. Paid tools remain active until the period ends.');
             await refreshUser();
-            resource.reload();
+            reload();
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -150,7 +156,7 @@ export default function ProviderSubscriptionPage() {
                 title="Subscription"
             />
 
-            {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+            {error && <ErrorState message={error} onRetry={reload} />}
             {paymentResult && (
                 <div className="fixed inset-0 z-[80] grid place-items-end bg-slate-950/40 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-result-title">
                     <Card className="w-full max-w-lg rounded-b-none sm:rounded-3xl">
@@ -166,7 +172,7 @@ export default function ProviderSubscriptionPage() {
                     </Card>
                 </div>
             )}
-            {resource.loading ? <LoadingBlock rows={5} /> : (
+            {loading ? <LoadingBlock rows={5} /> : (
                 <>
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -19,6 +19,9 @@ const days = [
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
 const minimumBioWords = 40;
+const maxOriginalImageBytes = 12 * 1024 * 1024;
+const maxOptimizedImageDimension = 1600;
+const optimizedImageQuality = 0.78;
 const countryOptions = defaultCountries
     .map(([name, iso2, dialCode]) => ({ code: iso2.toUpperCase(), name, dialCode: `+${dialCode}` }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -30,6 +33,60 @@ function flagUrl(countryCode) {
 
 function wordCount(value) {
     return String(value ?? '').trim().match(/\b[\w'-]+\b/g)?.length ?? 0;
+}
+
+function fileSizeLabel(bytes) {
+    if (!Number.isFinite(bytes)) return '';
+    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+function assertImageSize(file) {
+    if (file?.type?.startsWith('image/') && file.size > maxOriginalImageBytes) {
+        throw new Error(`${file.name} is too large. Upload images up to 12 MB; they will be optimized automatically.`);
+    }
+}
+
+function imageMimeType(file) {
+    if (file.type === 'image/png') return 'image/jpeg';
+    if (file.type === 'image/webp') return 'image/webp';
+    return 'image/jpeg';
+}
+
+async function optimizeImageFile(file) {
+    if (!(file instanceof File) || !file.type.startsWith('image/')) return file;
+    assertImageSize(file);
+
+    if (!window.createImageBitmap) return file;
+
+    const bitmap = await createImageBitmap(file);
+    const ratio = Math.min(1, maxOptimizedImageDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * ratio));
+    const height = Math.max(1, Math.round(bitmap.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    const mimeType = imageMimeType(file);
+    const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((result) => result ? resolve(result) : reject(new Error(`Could not optimize ${file.name}.`)), mimeType, optimizedImageQuality);
+    });
+
+    if (blob.size >= file.size && file.size <= 5 * 1024 * 1024) return file;
+
+    const extension = mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+    return new File([blob], `${baseName}-optimized.${extension}`, {
+        type: mimeType,
+        lastModified: Date.now(),
+    });
+}
+
+async function optimizeImageFiles(files) {
+    return Promise.all(files.map((file) => optimizeImageFile(file)));
 }
 
 function CountryPhoneField({ value, onChange }) {
@@ -141,6 +198,7 @@ function ProviderOnboardingContent() {
     const categoriesResource = useApiResource('/provider-categories', []);
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [optimizing, setOptimizing] = useState(false);
     const [submitted, setSubmitted] = useState(false);
 
     const defaultForm = {
@@ -228,6 +286,30 @@ function ProviderOnboardingContent() {
     ], [selectedPaidPlan]);
 
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+    const updateImage = async (key, file) => {
+        if (!file) {
+            update(key, null);
+            return;
+        }
+
+        try {
+            assertImageSize(file);
+            update(key, file);
+        } catch (error) {
+            update(key, null);
+            notify(error.message, 'error');
+        }
+    };
+    const updateImageList = (key, files, limit) => {
+        try {
+            const selected = Array.from(files ?? []).slice(0, limit);
+            selected.forEach(assertImageSize);
+            update(key, selected);
+        } catch (error) {
+            update(key, []);
+            notify(error.message, 'error');
+        }
+    };
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
     const addSocial = () => setForm((current) => ({ ...current, social_links: [...current.social_links, { platform: 'Instagram', url: '' }] }));
     const removeSocial = (index) => setForm((current) => ({ ...current, social_links: current.social_links.filter((_, itemIndex) => itemIndex !== index) }));
@@ -249,18 +331,35 @@ function ProviderOnboardingContent() {
             notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
             return;
         }
+        if (!(form.profile_photo instanceof File) || !(form.cover_image instanceof File)) {
+            setStep(1);
+            notify('Select a profile image and cover image before submitting.', 'error');
+            return;
+        }
         setSaving(true);
+        setOptimizing(true);
         try {
+            const optimizedProfilePhoto = await optimizeImageFile(form.profile_photo);
+            const optimizedCoverImage = await optimizeImageFile(form.cover_image);
+            const optimizedPortfolioImages = await optimizeImageFiles(form.portfolio_images);
+            const optimizedCertificationDocuments = await optimizeImageFiles(form.certification_documents);
+            const optimizedLicenseDocuments = await optimizeImageFiles(form.license_documents);
+            setOptimizing(false);
+
             const payload = new FormData();
             Object.entries(form).forEach(([key, value]) => {
                 if (key === 'social_links' || key === 'availability') {
                     payload.append(key, JSON.stringify(value));
+                } else if (key === 'profile_photo') {
+                    payload.append(key, optimizedProfilePhoto);
+                } else if (key === 'cover_image') {
+                    payload.append(key, optimizedCoverImage);
                 } else if (key === 'portfolio_images') {
-                    value.forEach((file) => payload.append('portfolio_images[]', file));
+                    optimizedPortfolioImages.forEach((file) => payload.append('portfolio_images[]', file));
                 } else if (key === 'certification_documents') {
-                    value.forEach((file) => payload.append('certification_documents[]', file));
+                    optimizedCertificationDocuments.forEach((file) => payload.append('certification_documents[]', file));
                 } else if (key === 'license_documents') {
-                    value.forEach((file) => payload.append('license_documents[]', file));
+                    optimizedLicenseDocuments.forEach((file) => payload.append('license_documents[]', file));
                 } else if (value instanceof File) {
                     payload.append(key, value);
                 } else {
@@ -271,7 +370,10 @@ function ProviderOnboardingContent() {
             payload.set('social_links', JSON.stringify(form.social_links.filter((item) => item.url)));
             payload.set('availability', JSON.stringify(form.availability));
 
-            const response = await dashboardApi.post('/provider/onboarding', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const response = await dashboardApi.post('/provider/onboarding', payload, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 120000,
+            });
             const data = response?.data?.data ?? {};
             sessionStorage.removeItem('bphq_onboarding_draft');
             notify(data.approval_required ? 'Details received. Admin approval is required before dashboard access.' : 'Listing details saved.');
@@ -279,8 +381,11 @@ function ProviderOnboardingContent() {
             await refreshUser?.();
             navigate(data.redirect_to ?? '/provider/onboarding', { replace: true });
         } catch (error) {
-            notify(apiErrorMessage(error), 'error');
+            notify(error.code === 'ECONNABORTED'
+                ? 'The upload is taking too long. Try again with fewer images or a stronger connection.'
+                : apiErrorMessage(error), 'error');
         } finally {
+            setOptimizing(false);
             setSaving(false);
         }
     };
@@ -384,8 +489,16 @@ function ProviderOnboardingContent() {
 
                         {step === 1 && (
                             <div className="grid gap-5 sm:grid-cols-2">
-                                <Field label="Profile image" required><input accept="image/*" className={inputClass} onChange={(event) => update('profile_photo', event.target.files?.[0] ?? null)} required type="file" /></Field>
-                                <Field label="Cover image" required><input accept="image/*" className={inputClass} onChange={(event) => update('cover_image', event.target.files?.[0] ?? null)} required type="file" /></Field>
+                                <Field label="Profile image" required>
+                                    <input accept="image/*" className={inputClass} onChange={(event) => updateImage('profile_photo', event.target.files?.[0] ?? null)} required type="file" />
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Images are optimized before upload.</p>
+                                    {form.profile_photo && <p className="mt-1 text-xs font-semibold text-slate-500">{form.profile_photo.name} - {fileSizeLabel(form.profile_photo.size)}</p>}
+                                </Field>
+                                <Field label="Cover image" required>
+                                    <input accept="image/*" className={inputClass} onChange={(event) => updateImage('cover_image', event.target.files?.[0] ?? null)} required type="file" />
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Large images are resized and compressed automatically.</p>
+                                    {form.cover_image && <p className="mt-1 text-xs font-semibold text-slate-500">{form.cover_image.name} - {fileSizeLabel(form.cover_image.size)}</p>}
+                                </Field>
                             </div>
                         )}
 
@@ -456,17 +569,17 @@ function ProviderOnboardingContent() {
                                         accept="image/*"
                                         className={inputClass}
                                         multiple
-                                        onChange={(event) => update('portfolio_images', Array.from(event.target.files ?? []).slice(0, 6))}
+                                        onChange={(event) => updateImageList('portfolio_images', event.target.files, 6)}
                                         type="file"
                                     />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Add up to 6 images. If you skip this, your profile picture will be used in the gallery.</p>
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Add up to 6 images, 12 MB max each. They are optimized before upload. If you skip this, your profile picture will be used in the gallery.</p>
                                 </Field>
                                 {form.portfolio_images.length > 0 && (
                                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                                         {form.portfolio_images.map((file, index) => (
                                             <div key={`${file.name}-${index}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
                                                 <span className="block truncate">{file.name}</span>
-                                                <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                                <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -525,16 +638,16 @@ function ProviderOnboardingContent() {
                                         accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                                         className={inputClass}
                                         multiple
-                                        onChange={(event) => update('certification_documents', Array.from(event.target.files ?? []).slice(0, 5))}
+                                        onChange={(event) => updateImageList('certification_documents', event.target.files, 5)}
                                         type="file"
                                     />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload certificates, training proof, permits, or equivalent documents. PDF, image, Word files.</p>
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload certificates, training proof, permits, or equivalent documents. Image files are optimized before upload; PDF and Word files are sent as selected.</p>
                                     {form.certification_documents.length > 0 && (
                                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                             {form.certification_documents.map((file, index) => (
                                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
                                                     <span className="block truncate">{file.name}</span>
-                                                    <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                                    <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -545,16 +658,16 @@ function ProviderOnboardingContent() {
                                         accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                                         className={inputClass}
                                         multiple
-                                        onChange={(event) => update('license_documents', Array.from(event.target.files ?? []).slice(0, 5))}
+                                        onChange={(event) => updateImageList('license_documents', event.target.files, 5)}
                                         type="file"
                                     />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload license, business registration, studio permit, insurance, or other professional documents if available.</p>
+                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload license, business registration, studio permit, insurance, or other professional documents if available. Image files are optimized before upload.</p>
                                     {form.license_documents.length > 0 && (
                                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                             {form.license_documents.map((file, index) => (
                                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
                                                     <span className="block truncate">{file.name}</span>
-                                                    <span className="mt-1 block text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                                    <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -587,7 +700,7 @@ function ProviderOnboardingContent() {
                                     }
                                     setStep((current) => Math.min(sections.length - 1, current + 1));
                                 }} type="button">Continue</Button>
-                                : <Button busy={saving} type="submit">Submit listing details</Button>}
+                                : <Button busy={saving} type="submit">{optimizing ? 'Optimizing images...' : 'Submit listing details'}</Button>}
                         </div>
                     </Card>
                 </form>

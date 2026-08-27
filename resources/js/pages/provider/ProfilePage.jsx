@@ -29,6 +29,58 @@ const days = [
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
+const maxOriginalImageBytes = 12 * 1024 * 1024;
+const maxOptimizedImageDimension = 1600;
+const optimizedImageQuality = 0.78;
+
+function fileSizeLabel(bytes) {
+    if (!Number.isFinite(bytes)) return '';
+    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+function assertImageSize(file) {
+    if (file?.type?.startsWith('image/') && file.size > maxOriginalImageBytes) {
+        throw new Error(`${file.name} is too large. Upload images up to 12 MB; they will be optimized automatically.`);
+    }
+}
+
+function imageMimeType(file) {
+    if (file.type === 'image/png') return 'image/jpeg';
+    if (file.type === 'image/webp') return 'image/webp';
+    return 'image/jpeg';
+}
+
+async function optimizeImageFile(file) {
+    if (!(file instanceof File) || !file.type.startsWith('image/')) return file;
+    assertImageSize(file);
+    if (!window.createImageBitmap) return file;
+
+    const bitmap = await createImageBitmap(file);
+    const ratio = Math.min(1, maxOptimizedImageDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * ratio));
+    const height = Math.max(1, Math.round(bitmap.height * ratio));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    const mimeType = imageMimeType(file);
+    const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((result) => result ? resolve(result) : reject(new Error(`Could not optimize ${file.name}.`)), mimeType, optimizedImageQuality);
+    });
+
+    if (blob.size >= file.size && file.size <= 5 * 1024 * 1024) return file;
+
+    const extension = mimeType === 'image/webp' ? 'webp' : 'jpg';
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+    return new File([blob], `${baseName}-optimized.${extension}`, {
+        type: mimeType,
+        lastModified: Date.now(),
+    });
+}
 
 function LinkList({ items = [], onRemove }) {
     if (!items.length) return <p className="mt-3 text-sm text-slate-400">No files added yet.</p>;
@@ -203,6 +255,17 @@ export default function ProviderProfilePage() {
 
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
     const change = (key) => (event) => update(key, event.target.value);
+    const updateImage = (key, event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+            assertImageSize(file);
+            update(key, file);
+        } catch (error) {
+            event.target.value = '';
+            notify(error.message, 'error');
+        }
+    };
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
     const addSocial = () => setForm((current) => ({ ...current, social_links: [...current.social_links, { platform: 'Instagram', url: '' }] }));
     const removeSocial = (index) => setForm((current) => ({ ...current, social_links: current.social_links.filter((_, itemIndex) => itemIndex !== index) }));
@@ -267,17 +330,19 @@ export default function ProviderProfilePage() {
                 Object.entries(payload).forEach(([key, value]) => {
                     requestPayload.append(key, Array.isArray(value) || typeof value === 'object' ? JSON.stringify(value) : (value ?? ''));
                 });
-                if (form.profile_photo instanceof File) requestPayload.append('profile_photo', form.profile_photo);
-                if (form.cover_image instanceof File) requestPayload.append('cover_image', form.cover_image);
+                if (form.profile_photo instanceof File) requestPayload.append('profile_photo', await optimizeImageFile(form.profile_photo));
+                if (form.cover_image instanceof File) requestPayload.append('cover_image', await optimizeImageFile(form.cover_image));
             }
 
             const updated = hasImageUpload
-                ? await apiRequest('post', '/provider/profile', requestPayload, { headers: { 'Content-Type': 'multipart/form-data' } })
+                ? await apiRequest('post', '/provider/profile', requestPayload, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 })
                 : await apiRequest('put', '/provider/profile', payload);
             resource.setData((current) => ({ ...current, ...(updated ?? {}) }));
             notify('Profile changes saved.');
         } catch (error) {
-            notify(apiErrorMessage(error), 'error');
+            notify(error.code === 'ECONNABORTED'
+                ? 'The upload is taking too long. Try again with fewer images or a stronger connection.'
+                : apiErrorMessage(error), 'error');
         } finally {
             setSaving(false);
         }
@@ -293,14 +358,17 @@ export default function ProviderProfilePage() {
         }
         setUploadingPortfolio(true);
         try {
+            const optimized = await optimizeImageFile(file);
             const payload = new FormData();
-            payload.append('image', file);
-            const item = await apiRequest('post', '/provider/profile/portfolio', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            payload.append('image', optimized);
+            const item = await apiRequest('post', '/provider/profile/portfolio', payload, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 });
             setForm((current) => ({ ...current, portfolio_items: [...current.portfolio_items, item].slice(0, 6) }));
             resource.setData((current) => ({ ...current, portfolio_items: [...(current?.portfolio_items ?? current?.portfolioItems ?? []), item].slice(0, 6) }));
             notify('Portfolio image uploaded.');
         } catch (error) {
-            notify(apiErrorMessage(error), 'error');
+            notify(error.code === 'ECONNABORTED'
+                ? 'The upload is taking too long. Try again with a smaller image or a stronger connection.'
+                : apiErrorMessage(error), 'error');
         } finally {
             setUploadingPortfolio(false);
         }
@@ -336,15 +404,18 @@ export default function ProviderProfilePage() {
         if (!file) return;
         setUploadingVerificationType(type);
         try {
+            const optimized = await optimizeImageFile(file);
             const payload = new FormData();
             payload.append('type', type);
-            payload.append('file', file);
-            const stored = await apiRequest('post', '/provider/verification/files', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+            payload.append('file', optimized);
+            const stored = await apiRequest('post', '/provider/verification/files', payload, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 });
             const key = type === 'certification' ? 'certification_files' : 'license_files';
             setForm((current) => ({ ...current, [key]: [...current[key], stored.path].slice(0, 10) }));
             notify('Verification file uploaded.');
         } catch (error) {
-            notify(apiErrorMessage(error), 'error');
+            notify(error.code === 'ECONNABORTED'
+                ? 'The upload is taking too long. Try again with a smaller file or a stronger connection.'
+                : apiErrorMessage(error), 'error');
         } finally {
             setUploadingVerificationType(null);
         }
@@ -409,16 +480,16 @@ export default function ProviderProfilePage() {
                         <div className="grid gap-5 sm:grid-cols-2">
                             <Field label="Profile image">
                                 {profilePhotoSrc && <img alt="" className="mb-3 h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200" src={profilePhotoSrc} />}
-                                {form.profile_photo instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.profile_photo.name}</p>}
-                                <input accept="image/*" className={inputClass} onChange={(event) => update('profile_photo', event.target.files?.[0] ?? form.profile_photo)} type="file" />
-                                <p className="mt-2 text-xs font-semibold text-slate-400">Uploads are optimized before they are saved.</p>
+                                {form.profile_photo instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.profile_photo.name} - {fileSizeLabel(form.profile_photo.size)}</p>}
+                                <input accept="image/*" className={inputClass} onChange={(event) => updateImage('profile_photo', event)} type="file" />
+                                <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Uploads are optimized before they are saved.</p>
                             </Field>
                             <Field label="Cover image">
                                 {coverImageSrc && <img alt="" className="mb-3 h-28 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={coverImageSrc} />}
-                                {form.cover_image instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.cover_image.name}</p>}
-                                <input accept="image/*" className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={(event) => update('cover_image', event.target.files?.[0] ?? form.cover_image)} type="file" />
+                                {form.cover_image instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.cover_image.name} - {fileSizeLabel(form.cover_image.size)}</p>}
+                                <input accept="image/*" className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={(event) => updateImage('cover_image', event)} type="file" />
                                 {!canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Cover image editing is available on the Pro plan.</p>}
-                                {canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Uploads are optimized before they are saved.</p>}
+                                {canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Uploads are optimized before they are saved.</p>}
                             </Field>
                         </div>
                     )}
@@ -476,11 +547,11 @@ export default function ProviderProfilePage() {
 
                     {currentSection === 'Portfolio' && (
                         <div className="space-y-5">
-                            <CardHeader description="Upload up to 6 clear images of your work. Images are optimized before they are saved." title="Portfolio" />
+                            <CardHeader description="Upload up to 6 clear images of your work. Images up to 12 MB are optimized before they are saved." title="Portfolio" />
                             <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p className="text-sm font-bold text-slate-900">{portfolioItems.length}/6 images added</p>
-                                    <p className="mt-1 text-xs font-semibold text-slate-400">Use real client work or portfolio-ready examples.</p>
+                                    <p className="mt-1 text-xs font-semibold text-slate-400">Use real client work or portfolio-ready examples. Max original file: 12 MB.</p>
                                 </div>
                                 <label className={`relative inline-flex min-h-10 items-center justify-center overflow-hidden rounded-xl border border-bphq-chrome bg-white px-4 text-sm font-semibold text-bphq-espresso transition hover:bg-bphq-ivory ${uploadingPortfolio || portfolioItems.length >= 6 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                                     {uploadingPortfolio ? 'Uploading...' : 'Upload image'}

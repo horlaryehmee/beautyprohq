@@ -96,7 +96,7 @@ class UploadService
         $path = self::UPLOAD_DIRECTORY.'/'.$filename;
 
         $manager = new ImageManager(new Driver());
-        $image = $manager->read($file->getRealPath())->scaleDown(width: 1200);
+        $image = $manager->read($file->getRealPath())->scaleDown(width: 1600, height: 1600);
         $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
 
         Storage::disk($this->diskName())->put($path, (string) $encoded, ['visibility' => 'public']);
