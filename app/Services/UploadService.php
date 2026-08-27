@@ -171,7 +171,7 @@ class UploadService
     {
         $this->syncStoredFilesToMediaRecords();
 
-        $query = UploadedMedia::with('user.providerProfile:id,user_id,slug,name')
+        $query = UploadedMedia::with('user.providerProfile:id,user_id,slug')
             ->latest();
 
         if (($filters['type'] ?? null) === 'image') {
@@ -237,7 +237,6 @@ class UploadService
                 'provider_profile' => $media->user->providerProfile ? [
                     'id' => $media->user->providerProfile->id,
                     'slug' => $media->user->providerProfile->slug,
-                    'name' => $media->user->providerProfile->name,
                 ] : null,
             ] : null,
         ];

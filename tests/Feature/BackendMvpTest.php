@@ -16,6 +16,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Models\UploadedMedia;
 use App\Models\VerificationRequest;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\BeautyProVerifyEmailNotification;
@@ -1835,6 +1836,37 @@ class BackendMvpTest extends TestCase
 
         $this->deleteJson('/api/admin/media', ['path' => '../.env'])
             ->assertUnprocessable();
+    }
+
+    public function test_admin_can_load_media_uploaded_by_a_provider(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $provider = User::factory()->provider()->create(['name' => 'Media Provider']);
+        ProviderProfile::create([
+            'user_id' => $provider->id,
+            'slug' => 'media-provider',
+            'profession' => 'Makeup artist',
+        ]);
+        Storage::disk('public')->put('uploads/provider-work.jpg', 'image');
+        UploadedMedia::create([
+            'user_id' => $provider->id,
+            'disk' => 'public',
+            'path' => 'uploads/provider-work.jpg',
+            'filename' => 'provider-work.jpg',
+            'original_name' => 'Provider work.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 5,
+            'extension' => 'jpg',
+            'collection' => 'provider_onboarding_portfolio',
+        ]);
+
+        $this->getJson('/api/admin/media')
+            ->assertOk()
+            ->assertJsonPath('data.0.user.name', 'Media Provider')
+            ->assertJsonPath('data.0.user.provider_profile.slug', 'media-provider')
+            ->assertJsonMissingPath('data.0.user.provider_profile.name');
     }
 
     public function test_admin_session_can_load_main_dashboard_sections(): void
