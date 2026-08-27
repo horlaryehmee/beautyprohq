@@ -1139,6 +1139,14 @@ class BackendMvpTest extends TestCase
             'is_listed' => true,
             'onboarding_completed_at' => now(),
             'account_approved_at' => null,
+            'profile_photo' => 'uploads/pending-profile.webp',
+            'cover_image' => 'uploads/pending-cover.webp',
+        ]);
+        $provider->portfolioItems()->create([
+            'title' => 'Pending portfolio image',
+            'media_url' => 'uploads/pending-portfolio.webp',
+            'media_type' => 'image',
+            'sort_order' => 0,
         ]);
 
         $this->getJson('/api/providers?search=Hidden')
@@ -1150,11 +1158,20 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/admin/providers/'.$provider->slug.'/preview')->assertUnauthorized();
 
         Sanctum::actingAs(User::factory()->admin()->create());
+        $mediaBaseUrl = preg_replace('/^http:\/\//i', 'https://', rtrim((string) config('app.url'), '/')).'/storage/uploads/';
         $this->getJson('/api/admin/providers/'.$provider->slug.'/preview')
             ->assertOk()
             ->assertJsonPath('data.user.name', 'Hidden Pending Artist')
             ->assertJsonPath('data.profession', 'Beauty Professional')
+            ->assertJsonPath('data.profile_photo_url', $mediaBaseUrl.'pending-profile.webp')
+            ->assertJsonPath('data.cover_image_url', $mediaBaseUrl.'pending-cover.webp')
+            ->assertJsonPath('data.portfolio_items.0.url', $mediaBaseUrl.'pending-portfolio.webp')
             ->assertJsonPath('data.is_admin_preview', true);
+
+        $this->getJson('/api/admin/users/'.$user->id)
+            ->assertOk()
+            ->assertJsonPath('data.provider_profile.cover_image_url', $mediaBaseUrl.'pending-cover.webp')
+            ->assertJsonPath('data.provider_profile.portfolio_items.0.url', $mediaBaseUrl.'pending-portfolio.webp');
     }
 
     public function test_public_provider_contact_sends_spam_protected_email(): void

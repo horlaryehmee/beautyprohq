@@ -39,16 +39,21 @@ function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
     );
 }
 
-function PortfolioGallery({ items = [] }) {
+function PortfolioGallery({ items = [], records = [] }) {
+    const portfolio = items.map((path) => {
+        const record = records.find((item) => item.media_url === path || item.url === path);
+        return { path, url: record?.url ?? mediaUrl(path) };
+    });
+
     return (
         <div className="md:col-span-2">
             <p className="text-sm font-bold text-slate-700">Portfolio</p>
-            {items.length ? (
+            {portfolio.length ? (
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {items.map((path, index) => (
-                        <a className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50" href={mediaUrl(path)} key={path} rel="noreferrer" target="_blank">
+                    {portfolio.map((item, index) => (
+                        <a className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50" href={item.url} key={item.path} rel="noreferrer" target="_blank">
                             <div className="aspect-square overflow-hidden">
-                                <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={mediaUrl(path)} />
+                                <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={item.url} />
                             </div>
                             <p className="px-3 py-2 text-xs font-bold text-slate-600">View image {index + 1}</p>
                         </a>
@@ -162,7 +167,7 @@ export default function AdminVerificationPage() {
                         </div>
 
                         <div className="mt-5 grid gap-5 md:grid-cols-2">
-                            <PortfolioGallery items={selected.portfolio_links ?? []} />
+                            <PortfolioGallery items={selected.portfolio_links ?? []} records={selected.provider?.portfolio_items ?? selected.provider?.portfolioItems ?? []} />
                             <LinkGroup title="Social media links" items={Object.values(selected.social_links ?? {}).filter(Boolean)} tone="emerald" />
                             <LinkGroup title="Certifications" items={selected.certification_files ?? []} tone="sky" />
                             <LinkGroup title="Licenses" items={selected.license_files ?? []} tone="sky" />
@@ -188,4 +193,3 @@ export default function AdminVerificationPage() {
         </div>
     );
 }
-

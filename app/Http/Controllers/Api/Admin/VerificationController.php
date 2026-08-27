@@ -15,7 +15,11 @@ class VerificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $items = VerificationRequest::with(['provider.user:id,name,email', 'reviewer:id,name'])
+        $items = VerificationRequest::with([
+            'provider.user:id,name,email',
+            'provider.portfolioItems' => fn ($query) => $query->orderBy('sort_order'),
+            'reviewer:id,name',
+        ])
             ->when($request->status, fn ($q, $status) => $q->where('status', $status))
             ->latest()->paginate($this->perPage($request, 20, 100));
 

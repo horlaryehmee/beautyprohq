@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class ProviderProfile extends Model
 {
@@ -39,7 +40,34 @@ class ProviderProfile extends Model
         ];
     }
 
-    protected $appends = ['onboarding_complete', 'account_approved', 'account_approval_status'];
+    protected $appends = ['onboarding_complete', 'account_approved', 'account_approval_status', 'profile_photo_url', 'cover_image_url'];
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        return $this->absoluteMediaUrl($this->profile_photo);
+    }
+
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        return $this->absoluteMediaUrl($this->cover_image);
+    }
+
+    private function absoluteMediaUrl(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (preg_match('/^https?:\/\//i', $value)) {
+            return preg_replace('/^http:\/\//i', 'https://', $value);
+        }
+
+        $url = str_starts_with($value, '/')
+            ? rtrim((string) config('app.url'), '/').$value
+            : Storage::disk(config('filesystems.upload_disk', 'public'))->url($value);
+
+        return preg_replace('/^http:\/\//i', 'https://', $url);
+    }
 
     public function getOnboardingCompleteAttribute(): bool
     {

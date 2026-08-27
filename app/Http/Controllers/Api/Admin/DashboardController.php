@@ -162,6 +162,7 @@ class DashboardController extends Controller
         $user->load([
             'providerProfile.category',
             'providerProfile.services',
+            'providerProfile.portfolioItems' => fn ($query) => $query->orderBy('sort_order'),
             'providerProfile.availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time'),
             'providerProfile.bookings' => fn ($query) => $query->with(['customer:id,name,email,phone,created_at', 'service:id,name,price', 'payment:id,booking_id,status,amount,currency'])->latest()->limit(50),
             'providerProfile.verificationRequests' => fn ($query) => $query->latest(),

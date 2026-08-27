@@ -200,8 +200,8 @@ export default function AdminUserDetailPage() {
                     location: profile.location ?? '',
                     country: profile.country ?? '',
                     city: profile.city ?? '',
-                    profile_photo: profile.profile_photo ?? '',
-                    cover_image: profile.cover_image ?? '',
+                    profile_photo: profile.profile_photo_url ?? profile.profile_photo ?? '',
+                    cover_image: profile.cover_image_url ?? profile.cover_image ?? '',
                     contact_email: profile.contact_email ?? '',
                     contact_phone: profile.contact_phone ?? '',
                     website: profile.website ?? profile.social_links?.website ?? '',
@@ -327,7 +327,11 @@ export default function AdminUserDetailPage() {
     const latest = useMemo(() => latestVerification(user), [user]);
     const submittedProfile = user?.provider_profile ?? user?.providerProfile ?? {};
     const submittedSocials = Object.entries(submittedProfile.social_links ?? {}).filter(([, value]) => Boolean(value));
-    const submittedPortfolio = latest?.portfolio_links?.length ? latest.portfolio_links : (submittedProfile.portfolio_links ?? []);
+    const portfolioRecords = submittedProfile.portfolio_items ?? submittedProfile.portfolioItems ?? [];
+    const submittedPortfolio = (latest?.portfolio_links?.length ? latest.portfolio_links : (submittedProfile.portfolio_links ?? [])).map((path) => {
+        const record = portfolioRecords.find((item) => item.media_url === path || item.url === path);
+        return { path, url: record?.url ?? mediaUrl(path) };
+    });
     const usage = user?.platform_usage ?? {};
     const providerUsage = usage.provider ?? {};
     const customerUsage = usage.customer ?? {};
@@ -438,10 +442,10 @@ export default function AdminUserDetailPage() {
                                     <h3 className="font-bold text-slate-950">Portfolio</h3>
                                     {submittedPortfolio.length ? (
                                         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                            {submittedPortfolio.map((path, index) => (
-                                                <a className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50" href={mediaUrl(path)} key={path} rel="noreferrer" target="_blank">
+                                            {submittedPortfolio.map((item, index) => (
+                                                <a className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50" href={item.url} key={item.path} rel="noreferrer" target="_blank">
                                                     <div className="aspect-square overflow-hidden">
-                                                        <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={mediaUrl(path)} />
+                                                        <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={item.url} />
                                                     </div>
                                                     <p className="truncate px-3 py-2 text-xs font-bold text-slate-600">View image {index + 1}</p>
                                                 </a>

@@ -28,7 +28,9 @@ class UploadedMedia extends Model
 
     public function getUrlAttribute(): string
     {
-        return Storage::disk($this->disk)->url($this->path);
+        $url = Storage::disk($this->disk)->url($this->path);
+
+        return preg_replace('/^http:\/\//i', 'https://', $url);
     }
 
     public function getTypeAttribute(): string
