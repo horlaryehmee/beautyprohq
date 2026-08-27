@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Avatar,
     Button,
     Card,
+    CardHeader,
     Currency,
     EmptyState,
     ErrorState,
+    Field,
     LoadingBlock,
     PageHeader,
     SearchInput,
@@ -20,6 +22,7 @@ import {
     useDashboardToast,
     useDebouncedValue,
 } from '../../components/dashboard';
+import { hasPaidSubscription } from '../../lib/utils';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.bookings ?? value?.data ?? [];
 const filters = ['all', 'pending', 'confirmed', 'completed', 'cancelled', 'rejected'];
@@ -39,9 +42,44 @@ export default function ProviderBookingsPage() {
     const navigate = useNavigate();
     const debouncedQuery = useDebouncedValue(query);
     const resource = useApiResource('/provider/bookings', [], { params: { status: status === 'all' ? undefined : status, search: debouncedQuery || undefined }, refreshInterval: 15000 });
+    const profileResource = useApiResource('/provider/profile', {});
+    const hasPaidPlan = hasPaidSubscription(profileResource.data?.user?.active_subscription || profileResource.data?.user?.activeSubscription);
+    const [bookingFields, setBookingFields] = useState([]);
+    const [savingFields, setSavingFields] = useState(false);
     const [bookings, setBookings] = [normalize(resource.data), resource.setData];
     const { run, isBusy } = useAsyncAction();
     const { notify } = useDashboardToast();
+
+    useEffect(() => {
+        if (profileResource.data && Object.keys(profileResource.data).length) {
+            setBookingFields(Array.isArray(profileResource.data.booking_form_fields) ? profileResource.data.booking_form_fields : []);
+        }
+    }, [profileResource.data]);
+
+    const updateBookingField = (index, patch) => setBookingFields((current) => current.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...patch } : field));
+    const addBookingField = () => setBookingFields((current) => [...current, { label: '', type: 'text', required: false, options: [] }].slice(0, 8));
+    const removeBookingField = (index) => setBookingFields((current) => current.filter((_, fieldIndex) => fieldIndex !== index));
+    const addOption = (index, value) => {
+        const option = value.trim();
+        if (!option) return;
+        setBookingFields((current) => current.map((field, fieldIndex) => fieldIndex === index ? { ...field, options: [...(field.options ?? []), option].slice(0, 12) } : field));
+    };
+    const saveBookingFields = async () => {
+        setSavingFields(true);
+        try {
+            const fields = bookingFields.filter((field) => field.label?.trim()).map((field) => ({
+                label: field.label.trim(), type: field.type || 'text', required: Boolean(field.required), options: (field.options ?? []).filter(Boolean).slice(0, 12),
+            }));
+            const updated = await apiRequest('put', '/provider/profile', { booking_form_fields: fields });
+            setBookingFields(updated?.booking_form_fields ?? fields);
+            profileResource.setData((current) => ({ ...current, ...(updated ?? {}), booking_form_fields: updated?.booking_form_fields ?? fields }));
+            notify('Booking form saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingFields(false);
+        }
+    };
 
     const visible = useMemo(() => normalize(bookings).filter((booking) => {
         const matchesStatus = status === 'all' || booking.status === status;
@@ -75,6 +113,7 @@ export default function ProviderBookingsPage() {
     return (
         <div className="space-y-6">
             <PageHeader description="Accept requests, keep customers informed and complete appointments." eyebrow="Appointments" title="Bookings" />
+            {hasPaidPlan && <BookingFormEditor fields={bookingFields} onAdd={addBookingField} onAddOption={addOption} onChange={updateBookingField} onRemove={removeBookingField} onSave={saveBookingFields} saving={savingFields} />}
             <Card>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -166,5 +205,58 @@ function DetailBlock({ title, items }) {
                 ))}
             </div>
         </div>
+    );
+}
+
+function BookingFormEditor({ fields, onAdd, onAddOption, onChange, onRemove, onSave, saving }) {
+    const [optionDrafts, setOptionDrafts] = useState({});
+
+    const addDraftOption = (index) => {
+        const value = optionDrafts[index] ?? '';
+        if (!value.trim()) return;
+        onAddOption(index, value);
+        setOptionDrafts((current) => ({ ...current, [index]: '' }));
+    };
+
+    return (
+        <Card>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <CardHeader description="The standard booking form already includes name, email, phone number and notes. Add up to 8 extra questions for your customers here." title="Booking form" />
+                <Button disabled={fields.length >= 8} onClick={onAdd} type="button" variant="soft">Add question</Button>
+            </div>
+            {fields.length ? (
+                <div className="mt-5 space-y-4">
+                    {fields.map((field, index) => (
+                        <div className="rounded-2xl border border-slate-100 p-4" key={index}>
+                            <div className="grid gap-3 lg:grid-cols-[1fr_170px_auto]">
+                                <Field label={`Question ${index + 1}`}><input className={inputClass} onChange={(event) => onChange(index, { label: event.target.value })} placeholder="e.g. What style are you booking for?" value={field.label ?? ''} /></Field>
+                                <Field label="Answer type"><select className={inputClass} onChange={(event) => onChange(index, { type: event.target.value, options: event.target.value === 'select' ? (field.options ?? []) : [] })} value={field.type ?? 'text'}><option value="text">Short text</option><option value="textarea">Long text</option><option value="select">Dropdown</option><option value="checkbox">Checkbox</option></select></Field>
+                                <div className="flex items-end gap-2">
+                                    <label className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-600"><input checked={Boolean(field.required)} className="size-4 accent-fuchsia-700" onChange={(event) => onChange(index, { required: event.target.checked })} type="checkbox" />Required</label>
+                                    <Button onClick={() => onRemove(index)} type="button" variant="secondary">Remove</Button>
+                                </div>
+                            </div>
+                            {field.type === 'select' && (
+                                <div className="mt-4 rounded-xl bg-slate-50 p-3">
+                                    <p className="text-sm font-bold text-slate-700">Dropdown choices</p>
+                                    <p className="mt-1 text-xs text-slate-500">Add each choice separately so customers can select one clearly.</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {(field.options ?? []).map((option, optionIndex) => <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700" key={`${option}-${optionIndex}`}>{option}<button aria-label={`Remove ${option}`} className="font-black text-rose-600" onClick={() => onChange(index, { options: (field.options ?? []).filter((_, itemIndex) => itemIndex !== optionIndex) })} type="button">x</button></span>)}
+                                    </div>
+                                    <div className="mt-3 flex gap-2">
+                                        <input className={`${inputClass} min-w-0`} onChange={(event) => setOptionDrafts((current) => ({ ...current, [index]: event.target.value }))} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addDraftOption(index); } }} placeholder="Add a choice" value={optionDrafts[index] ?? ''} />
+                                        <Button onClick={() => addDraftOption(index)} type="button" variant="secondary">Add choice</Button>
+                                    </div>
+                                </div>
+                            )}
+                            {field.type === 'checkbox' && <p className="mt-3 text-xs font-semibold text-slate-500">Customers will see this as a yes/no checkbox.</p>}
+                        </div>
+                    ))}
+                    <div className="flex justify-end"><Button busy={saving} onClick={onSave} type="button">Save booking form</Button></div>
+                </div>
+            ) : (
+                <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><span>No extra booking questions yet. Customers will see name, email, phone number and notes.</span><Button busy={saving} onClick={onSave} type="button">Save booking form</Button></div>
+            )}
+        </Card>
     );
 }
