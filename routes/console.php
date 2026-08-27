@@ -117,6 +117,11 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         $beforeRefProcess->run();
         $beforeRef = $beforeRefProcess->isSuccessful() ? trim($beforeRefProcess->getOutput()) : null;
 
+        $nonBuildChanges = new Process([
+            'git', 'diff', '--quiet', 'HEAD', '--', '.', ':(exclude)public/build',
+        ], base_path(), null, null, 60);
+        $nonBuildChanges->run();
+
         $dirtyCheck = new Process(['git', 'status', '--porcelain', '--untracked-files=no'], base_path(), null, null, 60);
         $dirtyCheck->run();
         if (! $dirtyCheck->isSuccessful()) {
@@ -125,6 +130,26 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
             $this->error('Deployment failed: could not inspect Git status.');
 
             return 1;
+        }
+
+        if (trim($dirtyCheck->getOutput()) !== '' && $nonBuildChanges->getExitCode() === 0) {
+            $lines[] = 'Resetting generated frontend asset changes before deployment.';
+            $this->info('Resetting generated frontend asset changes before deployment.');
+
+            foreach ([
+                ['git restore public/build', ['git', 'restore', '--source=HEAD', '--staged', '--worktree', '--', 'public/build']],
+                ['git clean public/build', ['git', 'clean', '-fd', '--', 'public/build']],
+            ] as [$label, $command]) {
+                $exitCode = $run($label, $command, 60);
+                if ($exitCode !== 0) {
+                    $writeStatus('failed', $exitCode);
+
+                    return $exitCode;
+                }
+            }
+
+            $dirtyCheck = new Process(['git', 'status', '--porcelain', '--untracked-files=no'], base_path(), null, null, 60);
+            $dirtyCheck->run();
         }
 
         if (trim($dirtyCheck->getOutput()) !== '') {
@@ -136,7 +161,12 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
             return 1;
         }
 
-        $run('php artisan optimize:clear', $artisanCommand('optimize:clear'), 120);
+        $cleanGeneratedAssets = $run('git clean public/build', ['git', 'clean', '-fd', '--', 'public/build'], 60);
+        if ($cleanGeneratedAssets !== 0) {
+            $writeStatus('failed', $cleanGeneratedAssets);
+
+            return $cleanGeneratedAssets;
+        }
 
         $commands = [
             ["git fetch {$remote} {$branch} --no-tags", ['git', 'fetch', $remote, $branch, '--no-tags'], 120, false],
@@ -236,11 +266,6 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         foreach ([
             ['php artisan migrate --force', $artisanCommand('migrate', '--force'), 300, false],
             ['php artisan storage:link', $artisanCommand('storage:link'), 120, true],
-            ['php artisan cache:clear', $artisanCommand('cache:clear'), 120, false],
-            ['php artisan config:clear', $artisanCommand('config:clear'), 120, false],
-            ['php artisan route:clear', $artisanCommand('route:clear'), 120, false],
-            ['php artisan view:clear', $artisanCommand('view:clear'), 120, false],
-            ['php artisan event:clear', $artisanCommand('event:clear'), 120, false],
             ['php artisan optimize:clear', $artisanCommand('optimize:clear'), 120, false],
             ['php artisan optimize', $artisanCommand('optimize'), 120, false],
             ['php artisan queue:restart', $artisanCommand('queue:restart'), 120, true],
