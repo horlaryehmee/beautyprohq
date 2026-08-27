@@ -46,6 +46,7 @@ class SecurityHeaders
     {
         $nonce = Vite::cspNonce();
         $scriptSources = ["'self'"];
+        $styleSources = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
 
         if ($nonce) {
             $scriptSources[] = "'nonce-{$nonce}'";
@@ -55,6 +56,7 @@ class SecurityHeaders
         $connectSources = ["'self'"];
         if (app()->isLocal()) {
             $scriptSources = [...$scriptSources, "'unsafe-eval'", 'http://localhost:5173', 'http://127.0.0.1:5173'];
+            $styleSources = [...$styleSources, 'http://localhost:5173', 'http://127.0.0.1:5173'];
             $connectSources = [...$connectSources, 'http://localhost:5173', 'http://127.0.0.1:5173', 'ws://localhost:5173', 'ws://127.0.0.1:5173'];
         }
 
@@ -65,7 +67,7 @@ class SecurityHeaders
             "frame-ancestors 'self'",
             "form-action 'self'",
             'script-src '.implode(' ', [...$scriptSources, config('security.csp.unsafe_inline_fallback', false) ? "'unsafe-inline'" : '']),
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            'style-src '.implode(' ', $styleSources),
             "font-src 'self' https://fonts.gstatic.com data:",
             "img-src 'self' https: data: blob:",
             "media-src 'self' https: data: blob:",
