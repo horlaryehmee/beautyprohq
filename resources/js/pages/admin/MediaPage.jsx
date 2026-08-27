@@ -54,6 +54,12 @@ const emptyMeta = {
     per_page: 12,
     total: 0,
 };
+const emptyFilters = {
+    search: '',
+    type: '',
+    role: '',
+    collection: '',
+};
 
 export default function AdminMediaPage() {
     const { notify } = useDashboardToast();
@@ -69,12 +75,7 @@ export default function AdminMediaPage() {
     const [selectedPaths, setSelectedPaths] = useState(() => new Set());
     const [previewUrl, setPreviewUrl] = useState('');
     const [uploaded, setUploaded] = useState(null);
-    const [filters, setFilters] = useState({
-        search: '',
-        type: '',
-        role: '',
-        collection: '',
-    });
+    const [filters, setFilters] = useState(emptyFilters);
 
     const loadMedia = useCallback(async (nextPage = page, nextFilters = filters) => {
         setLoading(true);
@@ -103,6 +104,10 @@ export default function AdminMediaPage() {
         const next = { ...filters, [key]: value };
         setFilters(next);
         loadMedia(1, next);
+    };
+    const resetFilters = () => {
+        setFilters(emptyFilters);
+        loadMedia(1, emptyFilters);
     };
 
     useEffect(() => () => {
@@ -319,7 +324,11 @@ export default function AdminMediaPage() {
                         </div>
                     </div>
 
-                    <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_180px]">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Filters</p>
+                        <Button onClick={resetFilters} type="button" variant="secondary">Reset filters</Button>
+                    </div>
+                    <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_220px]">
                         <input
                             className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
                             onChange={(event) => updateFilter('search', event.target.value)}
@@ -342,8 +351,12 @@ export default function AdminMediaPage() {
                             <option value="provider_onboarding_profile">Provider profiles</option>
                             <option value="provider_onboarding_cover">Provider covers</option>
                             <option value="provider_onboarding_portfolio">Provider portfolios</option>
-                            <option value="provider_onboarding_certification_documents">Provider certificates</option>
-                            <option value="provider_onboarding_license_documents">Provider licenses</option>
+                            <option value="provider_verification_certification">Provider certificates</option>
+                            <option value="provider_verification_license">Provider licenses</option>
+                            <option value="provider_profile_photo">Profile updates</option>
+                            <option value="provider_profile_cover">Cover updates</option>
+                            <option value="user_upload">User uploads</option>
+                            <option value="legacy_upload">Legacy uploads</option>
                             <option value="admin_media">Admin uploads</option>
                         </select>
                     </div>

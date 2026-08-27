@@ -378,6 +378,29 @@ function ProviderOnboardingContent() {
     };
 
     const isUploading = Object.values(uploadingFields).some(Boolean);
+    const hasCompletedUpload = (key) => Boolean(form[key])
+        && (uploadFiles[key]?.length ? uploadFiles[key].some((item) => item.status === 'completed' && item.path === form[key]) : true);
+    const validateStepBeforeLeaving = (targetStep = step + 1) => {
+        if (targetStep <= step) return true;
+        if (isUploading) {
+            notify('Please wait for the upload to finish before continuing.', 'error');
+            return false;
+        }
+        if (step === 0 && bioWords < minimumBioWords) {
+            notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
+            return false;
+        }
+        if (currentSection === 'Images' && (!hasCompletedUpload('profile_photo') || !hasCompletedUpload('cover_image'))) {
+            notify('Upload both profile and cover images before continuing.', 'error');
+            return false;
+        }
+        return true;
+    };
+    const goToStep = (targetStep) => {
+        if (!validateStepBeforeLeaving(targetStep)) return;
+        setStep(Math.max(0, Math.min(sections.length - 1, targetStep)));
+    };
+    const continueToNextStep = () => goToStep(step + 1);
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
     const addSocial = () => setForm((current) => ({ ...current, social_links: [...current.social_links, { platform: 'Instagram', url: '' }] }));
     const removeSocial = (index) => setForm((current) => ({ ...current, social_links: current.social_links.filter((_, itemIndex) => itemIndex !== index) }));
@@ -487,7 +510,7 @@ function ProviderOnboardingContent() {
                     <aside className="lg:sticky lg:top-6 lg:self-start">
                         <Card className="p-3">
                             {sections.map(([title, subtitle], index) => (
-                                <button className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => setStep(index)} type="button">
+                                <button className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${step === index ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50'}`} key={title} onClick={() => goToStep(index)} type="button">
                                     <span className={`grid size-7 place-items-center rounded-full text-xs font-semibold ${step === index ? 'bg-white text-slate-950' : 'bg-slate-100 text-slate-400'}`}>{index + 1}</span>
                                     <span>
                                         <span className="block text-sm font-semibold">{title}</span>
@@ -721,13 +744,7 @@ function ProviderOnboardingContent() {
                         <div className="mt-8 flex justify-between gap-3 border-t border-slate-100 pt-5">
                             <Button disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button" variant="secondary">Back</Button>
                             {step < sections.length - 1
-                                ? <Button onClick={() => {
-                                    if (step === 0 && bioWords < minimumBioWords) {
-                                        notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
-                                        return;
-                                    }
-                                    setStep((current) => Math.min(sections.length - 1, current + 1));
-                                }} type="button">Continue</Button>
+                                ? <Button disabled={isUploading} onClick={continueToNextStep} type="button">{isUploading ? 'Uploading...' : 'Continue'}</Button>
                                 : <Button busy={saving} disabled={isUploading} type="submit">Submit listing details</Button>}
                         </div>
                     </Card>
