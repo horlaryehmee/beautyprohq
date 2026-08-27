@@ -6,6 +6,7 @@ import {
     CardHeader,
     ErrorState,
     Field,
+    FileUploadCard,
     LoadingBlock,
     PageHeader,
     StatusBadge,
@@ -32,11 +33,7 @@ const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook'
 const maxOriginalImageBytes = 12 * 1024 * 1024;
 const maxOptimizedImageDimension = 1600;
 const optimizedImageQuality = 0.78;
-
-function fileSizeLabel(bytes) {
-    if (!Number.isFinite(bytes)) return '';
-    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-}
+const blankImageUploads = () => ({ profile_photo: [], cover_image: [] });
 
 function assertImageSize(file) {
     if (file?.type?.startsWith('image/') && file.size > maxOriginalImageBytes) {
@@ -164,6 +161,8 @@ export default function ProviderProfilePage() {
         professional_info: '',
     });
     const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState({});
+    const [imageUploadFiles, setImageUploadFiles] = useState(() => blankImageUploads());
     const [removingPortfolioId, setRemovingPortfolioId] = useState(null);
     const [uploadingVerificationType, setUploadingVerificationType] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -223,6 +222,7 @@ export default function ProviderProfilePage() {
     const canEditCoverImage = hasPaidPlan;
     const profilePhotoSrc = form.profile_photo instanceof File ? null : mediaUrl(form.profile_photo);
     const coverImageSrc = form.cover_image instanceof File ? null : mediaUrl(form.cover_image);
+    const isUploadingProfileImage = Object.values(uploadingImages).some(Boolean);
     const portfolioItems = [...(form.portfolio_items ?? [])].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
     const sections = useMemo(() => [
         ['General', 'Business details'],
@@ -255,16 +255,72 @@ export default function ProviderProfilePage() {
 
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
     const change = (key) => (event) => update(key, event.target.value);
-    const updateImage = (key, event) => {
-        const file = event.target.files?.[0];
+    const updateImageUploadFile = (key, id, patch) => {
+        setImageUploadFiles((current) => ({
+            ...current,
+            [key]: (current[key] ?? []).map((item) => item.id === id ? { ...item, ...patch } : item),
+        }));
+    };
+
+    const uploadProfileImage = async (key, files, collection) => {
+        const file = Array.from(files ?? [])[0];
         if (!file) return;
+
+        const entry = {
+            id: `${key}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            progress: 0,
+            size: file.size,
+            status: 'uploading',
+            type: file.type,
+        };
+
+        update(key, '');
+        setImageUploadFiles((current) => ({ ...current, [key]: [entry] }));
+        setUploadingImages((current) => ({ ...current, [key]: true }));
+
         try {
             assertImageSize(file);
-            update(key, file);
+            const optimized = await optimizeImageFile(file);
+            const payload = new FormData();
+            payload.append('file', optimized);
+            payload.append('collection', collection);
+
+            const stored = await apiRequest('post', '/upload', payload, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (event) => {
+                    if (!event.total) return;
+                    updateImageUploadFile(key, entry.id, { progress: Math.round((event.loaded / event.total) * 100) });
+                },
+                timeout: 120000,
+            });
+
+            updateImageUploadFile(key, entry.id, {
+                name: stored.original_name ?? file.name,
+                path: stored.path,
+                progress: 100,
+                size: stored.size ?? file.size,
+                status: 'completed',
+                type: stored.mime_type ?? file.type,
+            });
+            update(key, stored.path);
+            notify(`${file.name} uploaded to media.`);
         } catch (error) {
-            event.target.value = '';
-            notify(error.message, 'error');
+            updateImageUploadFile(key, entry.id, {
+                error: error.code === 'ECONNABORTED' ? 'Timed out' : apiErrorMessage(error),
+                status: 'error',
+            });
+            notify(error.code === 'ECONNABORTED'
+                ? 'The upload is taking too long. Try again with a smaller image or a stronger connection.'
+                : apiErrorMessage(error), 'error');
+        } finally {
+            setUploadingImages((current) => ({ ...current, [key]: false }));
         }
+    };
+
+    const removeProfileImageUpload = (key, id) => {
+        setImageUploadFiles((current) => ({ ...current, [key]: (current[key] ?? []).filter((item) => item.id !== id) }));
+        update(key, '');
     };
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
     const addSocial = () => setForm((current) => ({ ...current, social_links: [...current.social_links, { platform: 'Instagram', url: '' }] }));
@@ -292,6 +348,10 @@ export default function ProviderProfilePage() {
 
     const saveProfile = async (event) => {
         event.preventDefault();
+        if (isUploadingProfileImage) {
+            notify('Wait for image uploads to finish before saving.', 'error');
+            return;
+        }
         setSaving(true);
         try {
             const socialLinks = rowsToSocialObject(form.social_links);
@@ -478,19 +538,35 @@ export default function ProviderProfilePage() {
 
                     {currentSection === 'Images' && (
                         <div className="grid gap-5 sm:grid-cols-2">
-                            <Field label="Profile image">
+                            <div>
                                 {profilePhotoSrc && <img alt="" className="mb-3 h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200" src={profilePhotoSrc} />}
-                                {form.profile_photo instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.profile_photo.name} - {fileSizeLabel(form.profile_photo.size)}</p>}
-                                <input accept="image/*" className={inputClass} onChange={(event) => updateImage('profile_photo', event)} type="file" />
-                                <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Uploads are optimized before they are saved.</p>
-                            </Field>
-                            <Field label="Cover image">
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse image"
+                                    description="This uploads to media as soon as you choose it."
+                                    disabled={uploadingImages.profile_photo}
+                                    files={imageUploadFiles.profile_photo}
+                                    helper="JPG, PNG or WEBP up to 12 MB. Images are optimized automatically."
+                                    onFileRemove={(id) => removeProfileImageUpload('profile_photo', id)}
+                                    onFilesSelected={(files) => uploadProfileImage('profile_photo', files, 'provider_profile_photo')}
+                                    title="Profile image"
+                                />
+                            </div>
+                            <div>
                                 {coverImageSrc && <img alt="" className="mb-3 h-28 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={coverImageSrc} />}
-                                {form.cover_image instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.cover_image.name} - {fileSizeLabel(form.cover_image.size)}</p>}
-                                <input accept="image/*" className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`} disabled={!canEditCoverImage} onChange={(event) => updateImage('cover_image', event)} type="file" />
                                 {!canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Cover image editing is available on the Pro plan.</p>}
-                                {canEditCoverImage && <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Uploads are optimized before they are saved.</p>}
-                            </Field>
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse image"
+                                    description="This uploads to media immediately and is reused when saving."
+                                    disabled={!canEditCoverImage || uploadingImages.cover_image}
+                                    files={imageUploadFiles.cover_image}
+                                    helper="JPG, PNG or WEBP up to 12 MB. Large images are resized and compressed."
+                                    onFileRemove={(id) => removeProfileImageUpload('cover_image', id)}
+                                    onFilesSelected={(files) => uploadProfileImage('cover_image', files, 'provider_profile_cover')}
+                                    title="Cover image"
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -643,7 +719,7 @@ export default function ProviderProfilePage() {
                         <Button disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))} type="button" variant="secondary">Back</Button>
                         <div className="grid gap-2 sm:flex">
                             {step < sections.length - 1 && <Button onClick={() => setStep((current) => Math.min(sections.length - 1, current + 1))} type="button" variant="secondary">Continue</Button>}
-                            <Button busy={saving} type="submit">Save profile</Button>
+                            <Button busy={saving} disabled={isUploadingProfileImage} type="submit">Save profile</Button>
                         </div>
                     </div>
                 </Card>
