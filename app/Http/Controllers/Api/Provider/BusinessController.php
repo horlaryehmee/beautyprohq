@@ -22,6 +22,8 @@ use Illuminate\Validation\Rule;
 
 class BusinessController extends Controller
 {
+    private const PROVIDER_PAYMENT_GATEWAYS = ['paystack', 'manual'];
+
     public function crm(Request $request): JsonResponse
     {
         $provider = $request->user()->providerProfile;
@@ -189,14 +191,14 @@ class BusinessController extends Controller
 
         return $this->success([
             'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
-            'default_payment_gateway' => $provider->default_payment_gateway,
+            'default_payment_gateway' => in_array($provider->default_payment_gateway, self::PROVIDER_PAYMENT_GATEWAYS, true) ? $provider->default_payment_gateway : null,
             'timezone' => $provider->timezone ?? 'Africa/Lagos',
             'whatsapp_feature_enabled' => $this->providerWhatsappFeatureEnabled(),
             'whatsapp_number' => $this->providerWhatsappFeatureEnabled() ? $provider->whatsapp_number : null,
             'whatsapp_notifications_enabled' => $this->providerWhatsappFeatureEnabled() && (bool) $provider->whatsapp_notifications_enabled,
             'payment_gateways' => $provider->paymentAccounts()->where(function ($query): void {
                 $query->where('enabled', true)->orWhere('is_connected', true);
-            })->pluck('gateway')->values(),
+            })->whereIn('gateway', self::PROVIDER_PAYMENT_GATEWAYS)->pluck('gateway')->values(),
             'supported_currencies' => array_keys(config('currencies.supported', [])),
         ]);
     }
@@ -205,7 +207,7 @@ class BusinessController extends Controller
     {
         $validated = $request->validate([
             'default_currency' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
-            'default_payment_gateway' => ['nullable', Rule::in(['paystack', 'stripe', 'paypal', 'manual'])],
+            'default_payment_gateway' => ['nullable', Rule::in(self::PROVIDER_PAYMENT_GATEWAYS)],
             'timezone' => ['nullable', 'timezone'],
             'whatsapp_number' => ['nullable', 'string', 'max:40'],
             'whatsapp_notifications_enabled' => ['sometimes', 'boolean'],
@@ -243,7 +245,7 @@ class BusinessController extends Controller
 
     public function paymentAccounts(Request $request): JsonResponse
     {
-        $accounts = $request->user()->providerProfile->paymentAccounts()->get()
+        $accounts = $request->user()->providerProfile->paymentAccounts()->whereIn('gateway', self::PROVIDER_PAYMENT_GATEWAYS)->get()
             ->map(function (PaymentAccount $account) {
                 $settings = $account->settings ?? [];
                 $account->has_secret_key = filled($settings['secret_key'] ?? null);
@@ -261,7 +263,7 @@ class BusinessController extends Controller
     public function updatePaymentAccount(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'gateway' => ['required', Rule::in(['paystack', 'stripe', 'paypal', 'manual'])],
+            'gateway' => ['required', Rule::in(self::PROVIDER_PAYMENT_GATEWAYS)],
             'account_reference' => ['nullable', 'string', 'max:255'],
             'account_name' => ['nullable', 'string', 'max:255'],
             'account_identifier' => ['nullable', 'string', 'max:255'],

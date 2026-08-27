@@ -21,8 +21,6 @@ import {
 
 const gateways = [
     { id: 'paystack', name: 'Paystack', description: 'Connect your own Paystack integration keys for booking payments.' },
-    { id: 'stripe', name: 'Stripe', description: 'Connect your own Stripe integration keys for booking payments.' },
-    { id: 'paypal', name: 'PayPal', description: 'Connect your live PayPal REST app credentials for booking payments.' },
     { id: 'manual', name: 'Manual payment', description: 'Add account details for bank transfer, cash, POS or other offline payment confirmation.' },
 ];
 
