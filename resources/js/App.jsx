@@ -199,6 +199,9 @@ export default function App() {
                     </Route>
 
                     <Route element={<ProtectedRoute roles={['admin']} />}>
+                        <Route element={<PublicLayout />}>
+                            <Route path="admin/providers/:provider/preview" element={<ProviderProfilePage adminPreview />} />
+                        </Route>
                         <Route element={<CurrencyRoute />}>
                             <Route path="admin" element={<AdminWorkspace />}>
                                 <Route index element={<AdminDashboardPage />} />

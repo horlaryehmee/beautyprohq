@@ -154,6 +154,7 @@ export default function AdminVerificationPage() {
                         </label>
                         <div className="mt-5 flex flex-wrap justify-end gap-2">
                             <Button onClick={() => setSelected(null)} type="button" variant="secondary">Close</Button>
+                            {selected.provider?.slug && <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" href={`/admin/providers/${selected.provider.slug}/preview`} rel="noreferrer" target="_blank">Frontend preview</a>}
                             {selected.status === 'pending' && (
                                 <>
                                     <Button busy={isBusy(`${selected.id}-rejected`)} onClick={() => decide(selected, 'rejected')} type="button" variant="danger">Decline</Button>
@@ -167,6 +168,5 @@ export default function AdminVerificationPage() {
         </div>
     );
 }
-
 
 

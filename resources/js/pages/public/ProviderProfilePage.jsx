@@ -282,7 +282,7 @@ function ContactForm({ providerName, form, errors, submitting, onChange, onSubmi
     );
 }
 
-export default function ProviderProfilePage() {
+export default function ProviderProfilePage({ adminPreview = false }) {
     const { provider: routeProvider, id, slug } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -316,6 +316,16 @@ export default function ProviderProfilePage() {
         setLoading(true);
         setError('');
         try {
+            if (adminPreview) {
+                const response = await api.get(`/admin/providers/${identifier}/preview`);
+                const profilePayload = unwrap(response);
+                setProvider(profilePayload);
+                setSaved(false);
+                setServices(profilePayload?.services ?? []);
+                setReviews(profilePayload?.reviews ?? []);
+                return;
+            }
+
             const [profileResult, servicesResult, reviewsResult] = await Promise.allSettled([
                 api.get(`/providers/${identifier}`),
                 api.get(`/providers/${identifier}/services`),
@@ -335,7 +345,7 @@ export default function ProviderProfilePage() {
         } finally {
             setLoading(false);
         }
-    }, [identifier]);
+    }, [adminPreview, identifier]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -411,6 +421,10 @@ export default function ProviderProfilePage() {
     }, [digitalPage, digitalPageCount]);
 
     function book(service = null) {
+        if (adminPreview) {
+            toast.error('Booking is disabled in the private admin preview.');
+            return;
+        }
         if (!canBookDirectly) {
             toast.error('This provider is not accepting direct bookings on BeautyPro HQ yet.');
             return;
@@ -496,6 +510,10 @@ export default function ProviderProfilePage() {
 
     async function submitContact(event) {
         event.preventDefault();
+        if (adminPreview) {
+            toast.error('Contact submission is disabled in the private admin preview.');
+            return;
+        }
         setContactSubmitting(true);
         setContactErrors({});
         try {
@@ -522,11 +540,22 @@ export default function ProviderProfilePage() {
     const coverImage = mediaUrl(pro.profile.cover_photo ?? provider?.cover_photo ?? provider?.cover_image) ?? portfolio[0]?.image ?? pro.photo;
     return (
         <>
+            {adminPreview && (
+                <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-950">
+                    <div className="page-container flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-bold">Private admin preview</p>
+                            <p className="text-xs">This profile is not visible to customers until the provider account is approved.</p>
+                        </div>
+                        <Link className="text-sm font-bold underline" to="/admin/directory">Back to account approvals</Link>
+                    </div>
+                </div>
+            )}
             <section className="bg-[#F7F3ED]">
                 <div className="relative">
                     <div className="page-container absolute inset-x-0 top-3 z-20 flex items-center justify-between gap-2 sm:top-5">
-                        <Link to="/directory" className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/70 bg-white/92 px-3 text-xs font-semibold text-[#2A1D14] shadow-sm backdrop-blur transition hover:bg-white sm:min-h-10 sm:gap-2 sm:px-4 sm:text-sm">
-                            <Icon name="chevronLeft" size={16} /> Directory
+                        <Link to={adminPreview ? '/admin/directory' : '/directory'} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/70 bg-white/92 px-3 text-xs font-semibold text-[#2A1D14] shadow-sm backdrop-blur transition hover:bg-white sm:min-h-10 sm:gap-2 sm:px-4 sm:text-sm">
+                            <Icon name="chevronLeft" size={16} /> {adminPreview ? 'Approvals' : 'Directory'}
                         </Link>
                         <div className="flex items-center gap-2">
                             {(!user || user.role === 'customer') && (
@@ -1020,7 +1049,7 @@ export default function ProviderProfilePage() {
             )}
 
             <ReviewModal open={showReview} onClose={() => setShowReview(false)} providerName={pro.name} onSubmit={submitReview} submitting={reviewSubmitting} />
-            {canBookDirectly && <LiveChatWidget providerId={pro.id} providerName={pro.name} />}
+            {canBookDirectly && !adminPreview && <LiveChatWidget providerId={pro.id} providerName={pro.name} />}
         </>
     );
 }

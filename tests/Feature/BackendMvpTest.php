@@ -1146,6 +1146,15 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('meta.total', 0);
 
         $this->getJson('/api/providers/'.$provider->slug)->assertNotFound();
+
+        $this->getJson('/api/admin/providers/'.$provider->slug.'/preview')->assertUnauthorized();
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->getJson('/api/admin/providers/'.$provider->slug.'/preview')
+            ->assertOk()
+            ->assertJsonPath('data.user.name', 'Hidden Pending Artist')
+            ->assertJsonPath('data.profession', 'Beauty Professional')
+            ->assertJsonPath('data.is_admin_preview', true);
     }
 
     public function test_public_provider_contact_sends_spam_protected_email(): void

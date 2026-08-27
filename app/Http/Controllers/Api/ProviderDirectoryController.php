@@ -77,6 +77,17 @@ class ProviderDirectoryController extends Controller
 
         $this->recordProfileView($request, $provider);
 
+        return $this->success($this->profileData($request, $provider));
+    }
+
+    public function adminPreview(Request $request, ProviderProfile $provider): JsonResponse
+    {
+        return $this->success($this->profileData($request, $provider, true));
+    }
+
+    private function profileData(Request $request, ProviderProfile $provider, bool $adminPreview = false): ProviderProfile
+    {
+
         $data = $provider->fresh()->load([
             'user:id,name',
             'user.activeSubscription.planDefinition',
@@ -94,9 +105,10 @@ class ProviderDirectoryController extends Controller
         if (! $hasPaidPlan) {
             $data->setRelation('digitalProducts', collect());
         }
-        $data->setAttribute('is_saved', $request->user()?->isCustomer() ? $request->user()->savedProviders()->whereKey($provider->id)->exists() : false);
+        $data->setAttribute('is_saved', ! $adminPreview && $request->user()?->isCustomer() ? $request->user()->savedProviders()->whereKey($provider->id)->exists() : false);
         $data->setAttribute('can_book_directly', $hasPaidPlan);
         $data->setAttribute('can_show_digital_products', $hasPaidPlan);
+        $data->setAttribute('is_admin_preview', $adminPreview);
         $data->setAttribute('referral_rewards_available', (bool) (
             $data->loyalty_enabled
             && $data->referral_rewards_enabled
@@ -114,7 +126,7 @@ class ProviderDirectoryController extends Controller
         ])->values() : []);
         $data->makeHidden('paymentAccounts');
 
-        return $this->success($data);
+        return $data;
     }
 
     public function services(ProviderProfile $provider): JsonResponse

@@ -189,6 +189,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::patch('/users/{user}', [AdminDashboardController::class, 'updateUser']);
         Route::delete('/users/{user}', [AdminDashboardController::class, 'destroyUser']);
         Route::get('/directory', [AdminDashboardController::class, 'directory']);
+        Route::get('/providers/{provider}/preview', [ProviderDirectoryController::class, 'adminPreview']);
         Route::patch('/providers/{provider}', [AdminDashboardController::class, 'updateProvider']);
         Route::get('/provider-categories', [AdminDashboardController::class, 'providerCategories']);
         Route::post('/provider-categories', [AdminDashboardController::class, 'storeProviderCategory']);
