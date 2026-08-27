@@ -261,6 +261,24 @@ class DashboardController extends Controller
         }
 
         $paidVerificationRequired = $this->hasPendingPaidPlanSelection($request->user());
+        $storedUploadRule = function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value instanceof \Illuminate\Http\UploadedFile) {
+                return;
+            }
+
+            if (! is_string($value) || ! str_starts_with($value, 'uploads/') || str_contains($value, '..')) {
+                $fail('The selected upload is invalid.');
+            }
+        };
+        $profilePhotoRules = $request->hasFile('profile_photo')
+            ? ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']
+            : ['required', 'string', 'max:1000', $storedUploadRule];
+        $coverImageRules = $request->hasFile('cover_image')
+            ? ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192']
+            : ['required', 'string', 'max:1000', $storedUploadRule];
+        $storedOrImageRule = ['nullable', $storedUploadRule];
+        $storedOrDocumentRule = ['nullable', $storedUploadRule];
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'provider_category_id' => ['required', 'integer', 'exists:provider_categories,id'],
@@ -277,8 +295,8 @@ class DashboardController extends Controller
                     }
                 },
             ],
-            'profile_photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'cover_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'profile_photo' => $profilePhotoRules,
+            'cover_image' => $coverImageRules,
             'contact_email' => ['required', 'email', 'max:255'],
             'contact_phone' => ['required', 'string', 'max:40'],
             'website' => ['nullable', 'url:http,https', 'max:500'],
@@ -295,15 +313,15 @@ class DashboardController extends Controller
             'availability.*.start_time' => ['required', 'date_format:H:i'],
             'availability.*.end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'portfolio_images' => ['sometimes', 'array', 'max:6'],
-            'portfolio_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'portfolio_images.*' => $request->hasFile('portfolio_images') ? ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'] : $storedOrImageRule,
             'verification_years' => [$paidVerificationRequired ? 'required' : 'nullable', 'integer', 'min:0', 'max:80'],
             'verification_experience' => [$paidVerificationRequired ? 'required' : 'nullable', 'string', 'max:2000'],
             'verification_credentials' => ['nullable', 'string', 'max:2000'],
             'verification_license_details' => ['nullable', 'string', 'max:2000'],
             'certification_documents' => [$paidVerificationRequired ? 'required_without:license_documents' : 'nullable', 'array', 'max:5'],
-            'certification_documents.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
+            'certification_documents.*' => $request->hasFile('certification_documents') ? ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'] : $storedOrDocumentRule,
             'license_documents' => [$paidVerificationRequired ? 'required_without:certification_documents' : 'nullable', 'array', 'max:5'],
-            'license_documents.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
+            'license_documents.*' => $request->hasFile('license_documents') ? ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'] : $storedOrDocumentRule,
             'terms_accepted' => ['accepted'],
         ]);
 
@@ -324,8 +342,12 @@ class DashboardController extends Controller
                 'provider_category_id' => $validated['provider_category_id'],
                 'profession' => $validated['profession'],
                 'bio' => $validated['bio'],
-                'profile_photo' => $uploads->store($request->file('profile_photo'))['path'],
-                'cover_image' => $uploads->store($request->file('cover_image'))['path'],
+                'profile_photo' => $request->hasFile('profile_photo')
+                    ? $uploads->store($request->file('profile_photo'), $request->user(), 'provider_onboarding_profile')['path']
+                    : $validated['profile_photo'],
+                'cover_image' => $request->hasFile('cover_image')
+                    ? $uploads->store($request->file('cover_image'), $request->user(), 'provider_onboarding_cover')['path']
+                    : $validated['cover_image'],
                 'contact_email' => $validated['contact_email'],
                 'contact_phone' => $validated['contact_phone'] ?? null,
                 'website' => $validated['website'] ?? null,
@@ -347,11 +369,14 @@ class DashboardController extends Controller
                 $provider->availability()->create($slot + ['is_active' => true]);
             }
 
-            foreach (array_slice($request->file('portfolio_images', []), 0, 6) as $index => $image) {
-                $stored = $uploads->store($image);
+            $portfolioImages = $request->hasFile('portfolio_images')
+                ? array_map(fn ($image) => $uploads->store($image, $request->user(), 'provider_onboarding_portfolio')['path'], array_slice($request->file('portfolio_images', []), 0, 6))
+                : array_slice($validated['portfolio_images'] ?? [], 0, 6);
+
+            foreach ($portfolioImages as $index => $imagePath) {
                 $provider->portfolioItems()->create([
                     'title' => 'Portfolio image '.($index + 1),
-                    'media_url' => $stored['path'],
+                    'media_url' => $imagePath,
                     'media_type' => 'image',
                     'sort_order' => $index,
                 ]);
@@ -365,14 +390,14 @@ class DashboardController extends Controller
                 ->values()
                 ->all();
             $certificationFiles = [];
-            foreach (array_slice($request->file('certification_documents', []), 0, 5) as $document) {
-                $certificationFiles[] = $uploads->store($document)['path'];
-            }
+            $certificationFiles = $request->hasFile('certification_documents')
+                ? array_map(fn ($document) => $uploads->store($document, $request->user(), 'provider_verification_certification')['path'], array_slice($request->file('certification_documents', []), 0, 5))
+                : array_slice($validated['certification_documents'] ?? [], 0, 5);
 
             $licenseFiles = [];
-            foreach (array_slice($request->file('license_documents', []), 0, 5) as $document) {
-                $licenseFiles[] = $uploads->store($document)['path'];
-            }
+            $licenseFiles = $request->hasFile('license_documents')
+                ? array_map(fn ($document) => $uploads->store($document, $request->user(), 'provider_verification_license')['path'], array_slice($request->file('license_documents', []), 0, 5))
+                : array_slice($validated['license_documents'] ?? [], 0, 5);
 
             $professionalInfo = implode("\n\n", array_filter([
                 "Professional title: {$validated['profession']}",
@@ -396,20 +421,27 @@ class DashboardController extends Controller
             ]);
         });
 
-        $request->user()->notify(new PlatformUpdateNotification(
-            'Provider details received',
-            'Your provider details have been received and are waiting for admin approval. You will be notified once the review is complete.',
-            'View status',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/onboarding',
-            ['provider_id' => $provider->id],
-        ));
-        User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
-            'Provider approval required',
-            "{$request->user()->name} submitted provider details for approval.",
-            'Review verification',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/verification',
-            ['provider_id' => $provider->id, 'user_id' => $request->user()->id, 'verification_id' => $verification->id],
-        ));
+        $userId = $request->user()->id;
+        $userName = $request->user()->name;
+        $providerId = $provider->id;
+        $verificationId = $verification->id;
+        dispatch(function () use ($userId, $userName, $providerId, $verificationId): void {
+            $user = User::find($userId);
+            $user?->notify(new PlatformUpdateNotification(
+                'Provider details received',
+                'Your provider details have been received and are waiting for admin approval. You will be notified once the review is complete.',
+                'View status',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/onboarding',
+                ['provider_id' => $providerId],
+            ));
+            User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
+                'Provider approval required',
+                "{$userName} submitted provider details for approval.",
+                'Review verification',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/verification',
+                ['provider_id' => $providerId, 'user_id' => $userId, 'verification_id' => $verificationId],
+            ));
+        })->afterResponse();
 
         return $this->success([
             'provider' => $provider->fresh()->load(['user:id,name,email,phone', 'category', 'availability']),

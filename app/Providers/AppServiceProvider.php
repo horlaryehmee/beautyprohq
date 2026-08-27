@@ -114,7 +114,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('upload', fn (Request $request): Limit => $this->withRateLimitResponse(
-            Limit::perMinute(10)->by('upload:'.$this->actorKey($request))
+            Limit::perMinute(30)->by('upload:'.$this->actorKey($request))
         ));
 
         RateLimiter::for('sensitive', fn (Request $request): Limit => $this->withRateLimitResponse(

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, DashboardToastProvider, Field, LoadingBlock, apiErrorMessage, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
+import { Button, Card, DashboardToastProvider, Field, FileUploadCard, LoadingBlock, apiErrorMessage, dashboardApi, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import { useAuth } from '../../context/AuthContext';
 import { defaultCountries } from 'react-international-phone';
 import { browserCurrency } from '../../lib/browserCurrency';
@@ -22,6 +22,8 @@ const minimumBioWords = 40;
 const maxOriginalImageBytes = 12 * 1024 * 1024;
 const maxOptimizedImageDimension = 1600;
 const optimizedImageQuality = 0.78;
+const uploadFieldKeys = ['profile_photo', 'cover_image', 'portfolio_images', 'certification_documents', 'license_documents'];
+const blankUploadFiles = () => Object.fromEntries(uploadFieldKeys.map((key) => [key, []]));
 const countryOptions = defaultCountries
     .map(([name, iso2, dialCode]) => ({ code: iso2.toUpperCase(), name, dialCode: `+${dialCode}` }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -33,11 +35,6 @@ function flagUrl(countryCode) {
 
 function wordCount(value) {
     return String(value ?? '').trim().match(/\b[\w'-]+\b/g)?.length ?? 0;
-}
-
-function fileSizeLabel(bytes) {
-    if (!Number.isFinite(bytes)) return '';
-    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 }
 
 function assertImageSize(file) {
@@ -83,10 +80,6 @@ async function optimizeImageFile(file) {
         type: mimeType,
         lastModified: Date.now(),
     });
-}
-
-async function optimizeImageFiles(files) {
-    return Promise.all(files.map((file) => optimizeImageFile(file)));
 }
 
 function CountryPhoneField({ value, onChange }) {
@@ -198,7 +191,8 @@ function ProviderOnboardingContent() {
     const categoriesResource = useApiResource('/provider-categories', []);
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
-    const [optimizing, setOptimizing] = useState(false);
+    const [uploadingFields, setUploadingFields] = useState({});
+    const [uploadFiles, setUploadFiles] = useState(() => blankUploadFiles());
     const [submitted, setSubmitted] = useState(false);
 
     const defaultForm = {
@@ -286,30 +280,104 @@ function ProviderOnboardingContent() {
     ], [selectedPaidPlan]);
 
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-    const updateImage = async (key, file) => {
-        if (!file) {
-            update(key, null);
+    const updateUploadFile = (key, id, patch) => {
+        setUploadFiles((current) => ({
+            ...current,
+            [key]: (current[key] ?? []).map((item) => item.id === id ? { ...item, ...patch } : item),
+        }));
+    };
+
+    const uploadStoredFile = async (file, collection, onProgress) => {
+        const optimized = await optimizeImageFile(file);
+        const payload = new FormData();
+        payload.append('file', optimized);
+        payload.append('collection', collection);
+
+        const response = await dashboardApi.post('/upload', payload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (event) => {
+                if (!event.total) return;
+                onProgress?.(Math.round((event.loaded / event.total) * 100));
+            },
+            timeout: 120000,
+        });
+
+        return response?.data?.data ?? response?.data;
+    };
+
+    const uploadSelectedFiles = async (key, files, { limit = 1, multiple = false, collection = `provider_onboarding_${key}` } = {}) => {
+        const currentFiles = uploadFiles[key] ?? [];
+        const selected = Array.from(files ?? []);
+        const openSlots = multiple ? Math.max(0, limit - currentFiles.length) : 1;
+        const filesToUpload = selected.slice(0, openSlots);
+
+        if (!filesToUpload.length) {
+            if (selected.length && multiple) notify(`You can upload up to ${limit} files for this section.`, 'error');
             return;
         }
 
-        try {
-            assertImageSize(file);
-            update(key, file);
-        } catch (error) {
-            update(key, null);
-            notify(error.message, 'error');
+        if (!multiple) update(key, null);
+        if (multiple && currentFiles.length + selected.length > limit) {
+            notify(`Only ${openSlots} more ${openSlots === 1 ? 'file' : 'files'} can be added here.`, 'error');
         }
-    };
-    const updateImageList = (key, files, limit) => {
-        try {
-            const selected = Array.from(files ?? []).slice(0, limit);
-            selected.forEach(assertImageSize);
-            update(key, selected);
-        } catch (error) {
-            update(key, []);
-            notify(error.message, 'error');
+
+        const entries = filesToUpload.map((file, index) => ({
+            id: `${key}-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            progress: 0,
+            status: 'uploading',
+        }));
+
+        setUploadFiles((current) => ({
+            ...current,
+            [key]: multiple ? [...(current[key] ?? []), ...entries] : entries,
+        }));
+        setUploadingFields((current) => ({ ...current, [key]: true }));
+
+        const results = await Promise.all(entries.map(async (entry, index) => {
+            const file = filesToUpload[index];
+            try {
+                assertImageSize(file);
+                const stored = await uploadStoredFile(file, collection, (progress) => updateUploadFile(key, entry.id, { progress }));
+                updateUploadFile(key, entry.id, {
+                    name: stored.original_name ?? file.name,
+                    path: stored.path,
+                    progress: 100,
+                    size: stored.size ?? file.size,
+                    status: 'completed',
+                    type: stored.mime_type ?? file.type,
+                });
+                setForm((current) => ({
+                    ...current,
+                    [key]: multiple ? [...(current[key] ?? []), stored.path].slice(0, limit) : stored.path,
+                }));
+                return stored;
+            } catch (error) {
+                updateUploadFile(key, entry.id, {
+                    error: error.code === 'ECONNABORTED' ? 'Timed out' : (error.message || apiErrorMessage(error)),
+                    status: 'error',
+                });
+                return null;
+            }
+        }));
+
+        const uploaded = results.filter(Boolean);
+        if (uploaded.length) notify(`${uploaded.length} ${uploaded.length === 1 ? 'file' : 'files'} uploaded to media.`);
+        if (uploaded.length < filesToUpload.length) {
+            notify('Some files could not upload. Remove failed files and try again.', 'error');
         }
+        setUploadingFields((current) => ({ ...current, [key]: false }));
     };
+
+    const removeUploadedFile = (key, id, multiple = false) => {
+        const nextFiles = (uploadFiles[key] ?? []).filter((item) => item.id !== id);
+        setUploadFiles((current) => ({ ...current, [key]: nextFiles }));
+        update(key, multiple ? nextFiles.filter((item) => item.status === 'completed' && item.path).map((item) => item.path) : null);
+    };
+
+    const isUploading = Object.values(uploadingFields).some(Boolean);
     const updateSocial = (index, patch) => setForm((current) => ({ ...current, social_links: current.social_links.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
     const addSocial = () => setForm((current) => ({ ...current, social_links: [...current.social_links, { platform: 'Instagram', url: '' }] }));
     const removeSocial = (index) => setForm((current) => ({ ...current, social_links: current.social_links.filter((_, itemIndex) => itemIndex !== index) }));
@@ -331,49 +399,22 @@ function ProviderOnboardingContent() {
             notify(`About Me / Description must be well written and at least ${minimumBioWords} words.`, 'error');
             return;
         }
-        if (!(form.profile_photo instanceof File) || !(form.cover_image instanceof File)) {
+        if (!form.profile_photo || !form.cover_image) {
             setStep(1);
             notify('Select a profile image and cover image before submitting.', 'error');
             return;
         }
+        if (isUploading) {
+            notify('Wait for uploads to finish before submitting.', 'error');
+            return;
+        }
         setSaving(true);
-        setOptimizing(true);
         try {
-            const optimizedProfilePhoto = await optimizeImageFile(form.profile_photo);
-            const optimizedCoverImage = await optimizeImageFile(form.cover_image);
-            const optimizedPortfolioImages = await optimizeImageFiles(form.portfolio_images);
-            const optimizedCertificationDocuments = await optimizeImageFiles(form.certification_documents);
-            const optimizedLicenseDocuments = await optimizeImageFiles(form.license_documents);
-            setOptimizing(false);
-
-            const payload = new FormData();
-            Object.entries(form).forEach(([key, value]) => {
-                if (key === 'social_links' || key === 'availability') {
-                    payload.append(key, JSON.stringify(value));
-                } else if (key === 'profile_photo') {
-                    payload.append(key, optimizedProfilePhoto);
-                } else if (key === 'cover_image') {
-                    payload.append(key, optimizedCoverImage);
-                } else if (key === 'portfolio_images') {
-                    optimizedPortfolioImages.forEach((file) => payload.append('portfolio_images[]', file));
-                } else if (key === 'certification_documents') {
-                    optimizedCertificationDocuments.forEach((file) => payload.append('certification_documents[]', file));
-                } else if (key === 'license_documents') {
-                    optimizedLicenseDocuments.forEach((file) => payload.append('license_documents[]', file));
-                } else if (value instanceof File) {
-                    payload.append(key, value);
-                } else {
-                    payload.append(key, value ?? '');
-                }
-            });
-            payload.set('terms_accepted', form.terms_accepted ? '1' : '0');
-            payload.set('social_links', JSON.stringify(form.social_links.filter((item) => item.url)));
-            payload.set('availability', JSON.stringify(form.availability));
-
-            const response = await dashboardApi.post('/provider/onboarding', payload, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                timeout: 120000,
-            });
+            const response = await dashboardApi.post('/provider/onboarding', {
+                ...form,
+                terms_accepted: form.terms_accepted ? '1' : '0',
+                social_links: form.social_links.filter((item) => item.url),
+            }, { timeout: 30000 });
             const data = response?.data?.data ?? {};
             sessionStorage.removeItem('bphq_onboarding_draft');
             notify(data.approval_required ? 'Details received. Admin approval is required before dashboard access.' : 'Listing details saved.');
@@ -385,7 +426,6 @@ function ProviderOnboardingContent() {
                 ? 'The upload is taking too long. Try again with fewer images or a stronger connection.'
                 : apiErrorMessage(error), 'error');
         } finally {
-            setOptimizing(false);
             setSaving(false);
         }
     };
@@ -489,16 +529,28 @@ function ProviderOnboardingContent() {
 
                         {step === 1 && (
                             <div className="grid gap-5 sm:grid-cols-2">
-                                <Field label="Profile image" required>
-                                    <input accept="image/*" className={inputClass} onChange={(event) => updateImage('profile_photo', event.target.files?.[0] ?? null)} required type="file" />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Images are optimized before upload.</p>
-                                    {form.profile_photo && <p className="mt-1 text-xs font-semibold text-slate-500">{form.profile_photo.name} - {fileSizeLabel(form.profile_photo.size)}</p>}
-                                </Field>
-                                <Field label="Cover image" required>
-                                    <input accept="image/*" className={inputClass} onChange={(event) => updateImage('cover_image', event.target.files?.[0] ?? null)} required type="file" />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Max original file: 12 MB. Large images are resized and compressed automatically.</p>
-                                    {form.cover_image && <p className="mt-1 text-xs font-semibold text-slate-500">{form.cover_image.name} - {fileSizeLabel(form.cover_image.size)}</p>}
-                                </Field>
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse image"
+                                    description="This uploads to media as soon as you choose it."
+                                    disabled={uploadingFields.profile_photo}
+                                    files={uploadFiles.profile_photo}
+                                    helper="JPG, PNG or WEBP up to 12 MB. Images are optimized automatically."
+                                    onFileRemove={(id) => removeUploadedFile('profile_photo', id)}
+                                    onFilesSelected={(files) => uploadSelectedFiles('profile_photo', files, { collection: 'provider_onboarding_profile', limit: 1 })}
+                                    title="Profile image"
+                                />
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse image"
+                                    description="This uploads to media immediately and is reused on submit."
+                                    disabled={uploadingFields.cover_image}
+                                    files={uploadFiles.cover_image}
+                                    helper="JPG, PNG or WEBP up to 12 MB. Large images are resized and compressed."
+                                    onFileRemove={(id) => removeUploadedFile('cover_image', id)}
+                                    onFilesSelected={(files) => uploadSelectedFiles('cover_image', files, { collection: 'provider_onboarding_cover', limit: 1 })}
+                                    title="Cover image"
+                                />
                             </div>
                         )}
 
@@ -564,26 +616,18 @@ function ProviderOnboardingContent() {
 
                         {step === 7 && (
                             <div className="space-y-5">
-                                <Field label="Portfolio gallery images (optional)">
-                                    <input
-                                        accept="image/*"
-                                        className={inputClass}
-                                        multiple
-                                        onChange={(event) => updateImageList('portfolio_images', event.target.files, 6)}
-                                        type="file"
-                                    />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Add up to 6 images, 12 MB max each. They are optimized before upload. If you skip this, your profile picture will be used in the gallery.</p>
-                                </Field>
-                                {form.portfolio_images.length > 0 && (
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                        {form.portfolio_images.map((file, index) => (
-                                            <div key={`${file.name}-${index}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
-                                                <span className="block truncate">{file.name}</span>
-                                                <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse images"
+                                    description="Add up to 6 gallery images. Each one is saved to media on upload."
+                                    disabled={uploadingFields.portfolio_images || uploadFiles.portfolio_images.length >= 6}
+                                    files={uploadFiles.portfolio_images}
+                                    helper="JPG, PNG or WEBP up to 12 MB each. Images are optimized automatically."
+                                    multiple
+                                    onFileRemove={(id) => removeUploadedFile('portfolio_images', id, true)}
+                                    onFilesSelected={(files) => uploadSelectedFiles('portfolio_images', files, { collection: 'provider_onboarding_portfolio', limit: 6, multiple: true })}
+                                    title="Portfolio gallery images"
+                                />
                             </div>
                         )}
 
@@ -633,46 +677,30 @@ function ProviderOnboardingContent() {
                                         value={form.verification_license_details}
                                     />
                                 </Field>
-                                <Field label="Certification documents">
-                                    <input
-                                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                                        className={inputClass}
-                                        multiple
-                                        onChange={(event) => updateImageList('certification_documents', event.target.files, 5)}
-                                        type="file"
-                                    />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload certificates, training proof, permits, or equivalent documents. Image files are optimized before upload; PDF and Word files are sent as selected.</p>
-                                    {form.certification_documents.length > 0 && (
-                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                            {form.certification_documents.map((file, index) => (
-                                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
-                                                    <span className="block truncate">{file.name}</span>
-                                                    <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </Field>
-                                <Field label="License or business documents">
-                                    <input
-                                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                                        className={inputClass}
-                                        multiple
-                                        onChange={(event) => updateImageList('license_documents', event.target.files, 5)}
-                                        type="file"
-                                    />
-                                    <p className="mt-2 text-xs font-semibold text-slate-400">Upload license, business registration, studio permit, insurance, or other professional documents if available. Image files are optimized before upload.</p>
-                                    {form.license_documents.length > 0 && (
-                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                            {form.license_documents.map((file, index) => (
-                                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-700" key={`${file.name}-${index}`}>
-                                                    <span className="block truncate">{file.name}</span>
-                                                    <span className="mt-1 block text-xs text-slate-400">{fileSizeLabel(file.size)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </Field>
+                                <FileUploadCard
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                                    browseLabel="Browse files"
+                                    description="Certificates and proof files are saved to media immediately."
+                                    disabled={uploadingFields.certification_documents || uploadFiles.certification_documents.length >= 5}
+                                    files={uploadFiles.certification_documents}
+                                    helper="PDF, DOC, DOCX, JPG, PNG or WEBP up to 12 MB each."
+                                    multiple
+                                    onFileRemove={(id) => removeUploadedFile('certification_documents', id, true)}
+                                    onFilesSelected={(files) => uploadSelectedFiles('certification_documents', files, { collection: 'provider_verification_certification', limit: 5, multiple: true })}
+                                    title="Certification documents"
+                                />
+                                <FileUploadCard
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                                    browseLabel="Browse files"
+                                    description="Licenses and business documents upload before final submit."
+                                    disabled={uploadingFields.license_documents || uploadFiles.license_documents.length >= 5}
+                                    files={uploadFiles.license_documents}
+                                    helper="PDF, DOC, DOCX, JPG, PNG or WEBP up to 12 MB each."
+                                    multiple
+                                    onFileRemove={(id) => removeUploadedFile('license_documents', id, true)}
+                                    onFilesSelected={(files) => uploadSelectedFiles('license_documents', files, { collection: 'provider_verification_license', limit: 5, multiple: true })}
+                                    title="License or business documents"
+                                />
                             </div>
                         )}
 
@@ -700,7 +728,7 @@ function ProviderOnboardingContent() {
                                     }
                                     setStep((current) => Math.min(sections.length - 1, current + 1));
                                 }} type="button">Continue</Button>
-                                : <Button busy={saving} type="submit">{optimizing ? 'Optimizing images...' : 'Submit listing details'}</Button>}
+                                : <Button busy={saving} disabled={isUploading} type="submit">Submit listing details</Button>}
                         </div>
                     </Card>
                 </form>

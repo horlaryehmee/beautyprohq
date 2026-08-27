@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, EmptyState, ErrorState, IconButton, LoadingBlock, PageHeader, Pagination, apiErrorMessage, cx, formatDate, useDashboardToast } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 
-const acceptedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const acceptedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+const acceptedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx'];
 
 function formatBytes(value) {
     const size = Number(value ?? 0);
@@ -14,6 +22,17 @@ function formatBytes(value) {
 
 function isImage(file) {
     return String(file?.mime_type ?? file?.type ?? '').startsWith('image/');
+}
+
+function mediaTypeLabel(item) {
+    if (isImage(item)) return 'Image';
+    const extension = String(item?.extension ?? item?.name ?? '').split('.').pop()?.toUpperCase();
+    return extension && extension.length <= 5 ? extension : 'Document';
+}
+
+function fileAllowed(file) {
+    const extension = String(file?.name ?? '').split('.').pop()?.toLowerCase();
+    return acceptedTypes.includes(file?.type) || acceptedExtensions.includes(extension);
 }
 
 function absoluteUrl(value) {
@@ -50,13 +69,19 @@ export default function AdminMediaPage() {
     const [selectedPaths, setSelectedPaths] = useState(() => new Set());
     const [previewUrl, setPreviewUrl] = useState('');
     const [uploaded, setUploaded] = useState(null);
+    const [filters, setFilters] = useState({
+        search: '',
+        type: '',
+        role: '',
+        collection: '',
+    });
 
-    const loadMedia = useCallback(async (nextPage = page) => {
+    const loadMedia = useCallback(async (nextPage = page, nextFilters = filters) => {
         setLoading(true);
         setError('');
         try {
             const response = await dashboardApi.get('/admin/media', {
-                params: { page: nextPage, per_page: 12 },
+                params: { page: nextPage, per_page: 12, ...nextFilters },
             });
             const payload = unwrap(response);
             setItems(payload?.data ?? []);
@@ -68,11 +93,17 @@ export default function AdminMediaPage() {
         } finally {
             setLoading(false);
         }
-    }, [page]);
+    }, [filters, page]);
 
     useEffect(() => {
         loadMedia(1);
     }, []);
+
+    const updateFilter = (key, value) => {
+        const next = { ...filters, [key]: value };
+        setFilters(next);
+        loadMedia(1, next);
+    };
 
     useEffect(() => () => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -105,8 +136,8 @@ export default function AdminMediaPage() {
             return;
         }
 
-        if (!acceptedTypes.includes(selectedFile.type)) {
-            setError('Upload a JPG, PNG, WEBP, or PDF file.');
+        if (!fileAllowed(selectedFile)) {
+            setError('Upload a JPG, PNG, WEBP, PDF, DOC, or DOCX file.');
             return;
         }
 
@@ -117,8 +148,9 @@ export default function AdminMediaPage() {
         try {
             const formData = new FormData();
             formData.append('file', selectedFile);
+            formData.append('collection', 'admin_media');
 
-            const response = await dashboardApi.post('/upload', formData, {
+            const response = await dashboardApi.post('/admin/media', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (event) => {
                     if (!event.total) return;
@@ -224,7 +256,7 @@ export default function AdminMediaPage() {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_1fr]">
                 <Card>
                     <h2 className="text-lg font-bold text-slate-950">Upload file</h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">JPG, PNG, WEBP, or PDF. Maximum file size is 2MB.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">JPG, PNG, WEBP, PDF, DOC, or DOCX. Maximum file size is 12MB.</p>
 
                     <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                         {preview && isImage(preview) && preview.url ? (
@@ -243,7 +275,7 @@ export default function AdminMediaPage() {
                         <label className="block">
                             <span className="sr-only">Choose file</span>
                             <input
-                                accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 className="block w-full cursor-pointer rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:min-h-10 file:border-0 file:bg-slate-950 file:px-4 file:text-sm file:font-bold file:text-white"
                                 disabled={uploading}
                                 onChange={chooseFile}
@@ -287,12 +319,41 @@ export default function AdminMediaPage() {
                         </div>
                     </div>
 
+                    <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_150px_180px]">
+                        <input
+                            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100"
+                            onChange={(event) => updateFilter('search', event.target.value)}
+                            placeholder="Search file, path, uploader name or email"
+                            value={filters.search}
+                        />
+                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('type', event.target.value)} value={filters.type}>
+                            <option value="">All types</option>
+                            <option value="image">Images</option>
+                            <option value="document">Documents</option>
+                        </select>
+                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('role', event.target.value)} value={filters.role}>
+                            <option value="">All users</option>
+                            <option value="provider">Providers</option>
+                            <option value="admin">Admins</option>
+                            <option value="customer">Customers</option>
+                        </select>
+                        <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-fuchsia-400 focus:ring-4 focus:ring-fuchsia-100" onChange={(event) => updateFilter('collection', event.target.value)} value={filters.collection}>
+                            <option value="">All folders</option>
+                            <option value="provider_onboarding_profile">Provider profiles</option>
+                            <option value="provider_onboarding_cover">Provider covers</option>
+                            <option value="provider_onboarding_portfolio">Provider portfolios</option>
+                            <option value="provider_onboarding_certification_documents">Provider certificates</option>
+                            <option value="provider_onboarding_license_documents">Provider licenses</option>
+                            <option value="admin_media">Admin uploads</option>
+                        </select>
+                    </div>
+
                     {loading ? <LoadingBlock rows={6} /> : error ? <ErrorState message={error} onRetry={() => loadMedia(page)} /> : items.length === 0 ? (
                         <EmptyState title="No media uploaded yet" description="Uploaded files will appear here." />
                     ) : (
                         <>
                             <div className="overflow-hidden rounded-2xl border border-slate-200">
-                                <div className="hidden grid-cols-[40px_64px_minmax(220px,1fr)_120px_120px_180px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 lg:grid">
+                                <div className="hidden grid-cols-[40px_64px_minmax(220px,1fr)_120px_170px_120px_180px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 lg:grid">
                                     <label className="grid place-items-center">
                                         <span className="sr-only">Select all files on this page</span>
                                         <input checked={allVisibleSelected} className="size-4 rounded border-slate-300" onChange={toggleVisible} type="checkbox" />
@@ -300,6 +361,7 @@ export default function AdminMediaPage() {
                                     <span>File</span>
                                     <span>Name</span>
                                     <span>Type</span>
+                                    <span>Uploaded by</span>
                                     <span>Date</span>
                                     <span className="text-right">Actions</span>
                                 </div>
@@ -313,7 +375,7 @@ export default function AdminMediaPage() {
                                         const deleting = deletingPath === item.path;
 
                                         return (
-                                            <div className={cx('grid gap-3 px-4 py-3 transition hover:bg-slate-50 lg:grid-cols-[40px_64px_minmax(220px,1fr)_120px_120px_180px] lg:items-center', checked && 'bg-fuchsia-50/50')} key={item.path}>
+                                            <div className={cx('grid gap-3 px-4 py-3 transition hover:bg-slate-50 lg:grid-cols-[40px_64px_minmax(220px,1fr)_120px_170px_120px_180px] lg:items-center', checked && 'bg-fuchsia-50/50')} key={item.path}>
                                                 <label className="absolute mt-1 grid place-items-center lg:static">
                                                     <span className="sr-only">Select {name}</span>
                                                     <input checked={checked} className="size-4 rounded border-slate-300" onChange={() => togglePath(item.path)} type="checkbox" />
@@ -323,7 +385,7 @@ export default function AdminMediaPage() {
                                                     {image ? (
                                                         <img alt="" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={url} />
                                                     ) : (
-                                                        <span className="grid size-full place-items-center text-xs font-bold uppercase text-slate-500">PDF</span>
+                                                        <span className="grid size-full place-items-center text-xs font-bold uppercase text-slate-500">{mediaTypeLabel(item)}</span>
                                                     )}
                                                 </a>
 
@@ -334,8 +396,20 @@ export default function AdminMediaPage() {
                                                 </div>
 
                                                 <div className="text-sm text-slate-600">
-                                                    <span className="font-semibold lg:hidden">Type: </span>{image ? 'Image' : 'Document'}
+                                                    <span className="font-semibold lg:hidden">Type: </span>{mediaTypeLabel(item)}
                                                     <p className="mt-1 text-xs text-slate-400">{formatBytes(item.size)}</p>
+                                                </div>
+
+                                                <div className="min-w-0 text-sm text-slate-600">
+                                                    <span className="font-semibold lg:hidden">Uploaded by: </span>
+                                                    {item.user ? (
+                                                        <>
+                                                            <p className="truncate font-semibold text-slate-800">{item.user.name}</p>
+                                                            <p className="truncate text-xs text-slate-400">{item.user.email}</p>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-slate-400">Unknown</span>
+                                                    )}
                                                 </div>
 
                                                 <div className="text-sm text-slate-600">
