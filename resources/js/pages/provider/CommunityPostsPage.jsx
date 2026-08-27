@@ -12,11 +12,13 @@ import {
     StatusBadge,
     apiErrorMessage,
     apiRequest,
+    FileUploadCard,
     formatDate,
     inputClass,
     useApiResource,
     useDashboardToast,
 } from '../../components/dashboard';
+import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import { mediaUrl } from '../../lib/utils';
 
 const ContentWysiwygEditor = lazy(() => import('../../pages/admin/ContentWysiwygEditor').catch((error) => {
@@ -48,19 +50,55 @@ export default function ProviderCommunityPostsPage() {
     const [editing, setEditing] = useState(null);
     const [showForm, setShowForm] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [featuredUpload, setFeaturedUpload] = useState([]);
+    const [uploadingFeatured, setUploadingFeatured] = useState(false);
     const { notify } = useDashboardToast();
 
     const openForm = (item = null) => {
         setEditing(item);
         setForm(item ? formFrom(item) : emptyPost);
+        setFeaturedUpload(item?.image ? [{ id: 'featured-existing', name: item.image.split('/').pop(), path: item.image, type: 'image/*', size: 0, progress: 100, status: 'completed' }] : []);
         setShowForm(true);
     };
 
     const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
     const updateContent = (value) => setForm((current) => ({ ...current, content: value }));
 
+    const uploadFeaturedImage = async (files) => {
+        const file = files?.[0];
+        if (!file) return;
+        const entry = { id: `${Date.now()}-${file.name}`, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' };
+        setFeaturedUpload([entry]);
+        setUploadingFeatured(true);
+        try {
+            const payload = new FormData();
+            payload.append('file', file);
+            payload.append('collection', 'provider_community_featured');
+            const response = await dashboardApi.post('/upload', payload, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 120000,
+                onUploadProgress: (event) => {
+                    if (event.total) setFeaturedUpload([{ ...entry, progress: Math.round((event.loaded / event.total) * 100), status: 'uploading' }]);
+                },
+            });
+            const stored = unwrap(response);
+            setForm((current) => ({ ...current, image: stored.path, image_file: null }));
+            setFeaturedUpload([{ ...entry, name: stored.original_name ?? file.name, path: stored.path, progress: 100, status: 'completed' }]);
+            notify('Featured image uploaded to media.');
+        } catch (error) {
+            setFeaturedUpload([{ ...entry, progress: 0, status: 'error', error: apiErrorMessage(error, 'Image upload failed.') }]);
+            setForm((current) => ({ ...current, image: '', image_file: null }));
+        } finally {
+            setUploadingFeatured(false);
+        }
+    };
+
     const save = async (event) => {
         event.preventDefault();
+        if (uploadingFeatured) {
+            notify('Please wait for the featured image upload to finish.', 'error');
+            return;
+        }
         setSaving(true);
         try {
             const payload = new FormData();
@@ -71,8 +109,7 @@ export default function ProviderCommunityPostsPage() {
             payload.append('topic', form.topic || 'General');
             payload.append('group_name', form.group_name || '');
             form.mentions.split(',').map((item) => item.trim()).filter(Boolean).forEach((mention) => payload.append('mentions[]', mention));
-            if (form.image_file instanceof File) payload.append('image_file', form.image_file);
-            else if (form.image) payload.append('image', form.image);
+            if (form.image) payload.append('image', form.image);
 
             const saved = await apiRequest('post', editing ? `/provider/community-posts/${editing.id}` : '/provider/community-posts', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
             resource.setData((current) => editing ? normalize(current).map((item) => item.id === editing.id ? saved : item) : [saved, ...normalize(current)]);
@@ -154,11 +191,19 @@ export default function ProviderCommunityPostsPage() {
                             <Field label="Type"><select className={inputClass} onChange={update('type')} value={form.type}>{['community', 'story', 'spotlight', 'help', 'business_win', 'event_coverage'].map((item) => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}</select></Field>
                             <Field label="Topic"><input className={inputClass} onChange={update('topic')} placeholder="Client experience, pricing, growth..." value={form.topic} /></Field>
                             <Field label="Group"><input className={inputClass} onChange={update('group_name')} placeholder="General, Studio owners..." value={form.group_name} /></Field>
-                                <Field label="Featured image">
-                                {form.image && !(form.image_file instanceof File) && <img alt="" className="mb-3 h-28 w-full rounded-2xl object-cover ring-1 ring-slate-200" src={mediaUrl(form.image)} />}
-                                {form.image_file instanceof File && <p className="mb-3 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-600">{form.image_file.name}</p>}
-                                <input accept="image/*" className={inputClass} onChange={(event) => setForm((current) => ({ ...current, image_file: event.target.files?.[0] ?? null }))} type="file" />
-                            </Field>
+                            <div className="sm:col-span-2">
+                                <FileUploadCard
+                                    accept="image/*"
+                                    browseLabel="Browse image"
+                                    description="This image uploads to provider media immediately and is attached to the post when submitted."
+                                    disabled={uploadingFeatured}
+                                    files={featuredUpload}
+                                    helper="JPG, PNG or WEBP up to 12 MB. Images are optimized automatically."
+                                    onFileRemove={() => { setFeaturedUpload([]); setForm((current) => ({ ...current, image: '', image_file: null })); }}
+                                    onFilesSelected={uploadFeaturedImage}
+                                    title="Featured image"
+                                />
+                            </div>
                             <Field className="sm:col-span-2" label="Mentions"><input className={inputClass} onChange={update('mentions')} placeholder="@beautyprohq, @profile-slug" value={form.mentions} /></Field>
                             <Field className="sm:col-span-2" label="Content">
                                 <Suspense fallback={<LoadingBlock rows={4} />}>
