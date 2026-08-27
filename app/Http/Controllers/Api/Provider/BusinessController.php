@@ -250,6 +250,9 @@ class BusinessController extends Controller
                 $settings = $account->settings ?? [];
                 $account->has_secret_key = filled($settings['secret_key'] ?? null);
                 $account->mode = $settings['mode'] ?? null;
+                if ($account->gateway === 'manual') {
+                    $account->instructions = $settings['instructions'] ?? null;
+                }
                 if ($account->gateway === 'paystack') {
                     $account->webhook_url = $this->paystackWebhookUrl($account);
                 }
@@ -270,6 +273,7 @@ class BusinessController extends Controller
             'public_key' => ['nullable', 'string', 'max:500'],
             'settings' => ['nullable', 'array'],
             'settings.secret_key' => ['nullable', 'string', 'max:500'],
+            'settings.instructions' => ['nullable', 'string', 'max:2000'],
             'is_connected' => ['sometimes', 'boolean'],
             'enabled' => ['sometimes', 'boolean'],
         ]);
@@ -302,6 +306,9 @@ class BusinessController extends Controller
             $validated
         );
         $account->has_secret_key = filled(($account->settings ?? [])['secret_key'] ?? null);
+        if ($account->gateway === 'manual') {
+            $account->instructions = ($account->settings ?? [])['instructions'] ?? null;
+        }
         if ($account->gateway === 'paystack') {
             $account->webhook_url = $this->paystackWebhookUrl($account);
         }

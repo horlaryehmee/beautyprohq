@@ -1548,6 +1548,18 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.enabled', true);
         $this->assertStringContainsString('/api/paystack/provider-webhook/', $paymentAccountResponse->json('data.webhook_url'));
         $this->assertDatabaseHas('payment_accounts', ['provider_id' => $provider->id, 'gateway' => 'paystack', 'account_identifier' => 'ACCT_demo']);
+
+        $this->putJson('/api/provider/payment-accounts', [
+            'gateway' => 'manual', 'account_name' => 'Studio Owner Ltd',
+            'account_reference' => 'Bank: Example Bank / 0000000000',
+            'settings' => ['instructions' => 'Send proof of payment by WhatsApp.'],
+            'enabled' => true,
+        ])->assertOk()->assertJsonPath('data.instructions', 'Send proof of payment by WhatsApp.');
+        $accounts = $this->getJson('/api/provider/payment-accounts')->assertOk();
+        $accounts->assertJsonFragment(['gateway' => 'paystack', 'enabled' => true]);
+        $accounts->assertJsonFragment(['gateway' => 'manual', 'instructions' => 'Send proof of payment by WhatsApp.']);
+        $this->assertDatabaseHas('payment_accounts', ['provider_id' => $provider->id, 'gateway' => 'paystack', 'enabled' => true]);
+        $this->assertDatabaseHas('payment_accounts', ['provider_id' => $provider->id, 'gateway' => 'manual', 'enabled' => true]);
     }
 
     public function test_paystack_webhook_urls_are_exposed_for_admin_and_each_provider(): void

@@ -58,7 +58,7 @@ export default function ProviderPaymentsPage() {
             secret_key: '',
             account_name: saved?.account_name ?? '',
             account_reference: saved?.account_reference ?? saved?.account_identifier ?? '',
-            instructions: saved?.settings?.instructions ?? '',
+            instructions: saved?.instructions ?? '',
             enabled: saved?.enabled ?? saved?.is_connected ?? true,
         });
     }, [accounts, activeGateway]);
@@ -72,7 +72,7 @@ export default function ProviderPaymentsPage() {
         event.preventDefault();
         setSaving(true);
         try {
-            const updated = await apiRequest('put', '/provider/payment-accounts', {
+            await apiRequest('put', '/provider/payment-accounts', {
                 gateway: activeGateway.id,
                 public_key: account.public_key,
                 account_name: account.account_name,
@@ -84,13 +84,7 @@ export default function ProviderPaymentsPage() {
                     ...(activeGateway.id === 'manual' ? { instructions: account.instructions } : {}),
                 },
             });
-            accountsResource.setData((current) => ({
-                ...(current ?? {}),
-                accounts: {
-                    ...(current?.accounts ?? current ?? {}),
-                    [activeGateway.id]: updated ?? { gateway: activeGateway.id, ...account },
-                },
-            }));
+            await accountsResource.reload(true);
             setActiveGateway(null);
             notify(`${activeGateway.name} connection saved.`);
         } catch (error) {
