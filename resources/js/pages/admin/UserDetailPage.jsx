@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, usePagination } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
+import { mediaUrl } from '../../lib/utils';
 
 const socialKeys = ['instagram', 'tiktok', 'facebook', 'youtube', 'linkedin', 'whatsapp', 'website'];
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
@@ -39,15 +40,6 @@ function usageValue(value) {
 
 function money(value, currency = 'NGN') {
     return `${currency} ${Number(value ?? 0).toLocaleString()}`;
-}
-
-function mediaUrl(value) {
-    if (!value) return '';
-    try {
-        return new URL(value, window.location.origin).href;
-    } catch {
-        return String(value);
-    }
 }
 
 function mediaLabel(item) {
