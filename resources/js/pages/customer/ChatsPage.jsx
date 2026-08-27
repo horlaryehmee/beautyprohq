@@ -114,9 +114,9 @@ export default function CustomerChatsPage() {
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
             <Card className="overflow-hidden p-0">
-                <div className="grid min-h-[680px] lg:grid-cols-[340px_minmax(0,1fr)]">
-                    <aside className="border-b border-slate-100 lg:border-b-0 lg:border-r">
-                        <div className="h-[620px] overflow-y-auto">
+                <div className="grid min-h-[calc(100dvh-12rem)] lg:min-h-[680px] lg:grid-cols-[340px_minmax(0,1fr)]">
+                    <aside className={`${selected ? 'hidden lg:block' : 'block'} border-b border-slate-100 lg:border-b-0 lg:border-r`}>
+                        <div className="h-[calc(100dvh-16rem)] min-h-[28rem] overflow-y-auto lg:h-[620px]">
                             {resource.loading ? <div className="p-4"><LoadingBlock rows={7} /></div> : conversations.length ? (
                                 <div className="divide-y divide-slate-100">
                                     {conversations.map((conversation) => {
@@ -147,11 +147,12 @@ export default function CustomerChatsPage() {
                         </div>
                     </aside>
 
-                    <section className="flex min-h-0 flex-col bg-slate-50">
+                    <section className={`${selected ? 'flex' : 'hidden lg:flex'} min-h-0 min-w-0 flex-col bg-slate-50`}>
                         {selected ? (
                             <>
-                                <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white p-4">
+                                <header className="flex items-center gap-2 border-b border-slate-100 bg-white p-3 sm:gap-3 sm:p-4">
                                     <div className="flex min-w-0 items-center gap-3">
+                                        <Button className="shrink-0 lg:hidden" onClick={() => setSelected(null)} type="button" variant="secondary">Back</Button>
                                         <Avatar name={selected.provider_name} size="lg" />
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
@@ -163,12 +164,12 @@ export default function CustomerChatsPage() {
                                     </div>
                                 </header>
 
-                                <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#efe7dc] p-4">
+                                <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#efe7dc] p-3 sm:p-4">
                                     {threadLoading ? <LoadingBlock rows={7} /> : messages.map((message) => {
                                         const mine = message.sender_type === 'visitor';
                                         return (
                                             <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`} key={message.id}>
-                                                <div className={`max-w-[min(78%,42rem)] rounded-2xl px-4 py-2 text-sm leading-6 shadow-sm ${mine ? 'rounded-br-md bg-[#DCF8C6] text-slate-900' : 'rounded-bl-md bg-white text-slate-800'}`}>
+                                                <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm sm:max-w-[78%] sm:px-4 ${mine ? 'rounded-br-md bg-[#DCF8C6] text-slate-900' : 'rounded-bl-md bg-white text-slate-800'}`}>
                                                     <p className="whitespace-pre-wrap break-words">{message.body}</p>
                                                     <p className="mt-1 text-right text-[10px] font-semibold text-slate-400">{timeText(message.created_at)}</p>
                                                 </div>
@@ -177,7 +178,7 @@ export default function CustomerChatsPage() {
                                     })}
                                 </div>
 
-                                <form className="border-t border-slate-100 bg-white p-4" onSubmit={sendReply}>
+                                <form className="border-t border-slate-100 bg-white p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-4" onSubmit={sendReply}>
                                     <div className="flex items-end gap-3">
                                         <textarea className={`${inputClass} max-h-36 min-h-11 resize-none rounded-2xl`} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) sendReply(event); }} placeholder="Message" value={reply} />
                                         <Button busy={sending} className="min-h-11 rounded-2xl" disabled={!reply.trim()} type="submit">Send</Button>
