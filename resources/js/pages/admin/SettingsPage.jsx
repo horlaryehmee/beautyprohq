@@ -76,6 +76,7 @@ export default function AdminSettingsPage() {
     const [populatingDemo, setPopulatingDemo] = useState(false);
     const [clearingDemo, setClearingDemo] = useState(false);
     const [deploying, setDeploying] = useState(false);
+    const [clearingCache, setClearingCache] = useState(false);
     const [heroImages, setHeroImages] = useState([]);
     const [savingHero, setSavingHero] = useState(false);
     const [uploadingHero, setUploadingHero] = useState(false);
@@ -478,6 +479,27 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const hardClearCache = async () => {
+        if (!window.confirm('Hard clear server caches now? This clears Laravel caches, restarts queues, and resets OPcache when available.')) {
+            return;
+        }
+
+        setClearingCache(true);
+        try {
+            const result = await apiRequest('post', '/admin/settings/cache/clear');
+            deploymentResource.setData(result);
+            notify('Hard cache clear completed.');
+        } catch (error) {
+            const payload = error?.response?.data?.data;
+            if (payload) {
+                deploymentResource.setData(payload);
+            }
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setClearingCache(false);
+        }
+    };
+
     const toggleDailyTestPlan = async (enabled) => {
         const plan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
         if (!plan) {
@@ -712,14 +734,15 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                            This temporary action pulls committed files, runs Composer only when available or required, then runs migrations, Laravel cache rebuild, and queue restart. It does not run npm on the server.
+                            Deploy pulls committed files, runs Composer only when available or required, then runs migrations, Laravel cache rebuild, and queue restart. Hard clear cache only clears server-side Laravel caches and resets OPcache when available.
                         </div>
                         {deploymentLog && (
                             <pre className="max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{deploymentLog}</pre>
                         )}
                         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                            <Button disabled={deploying} onClick={() => deploymentResource.reload()} type="button" variant="secondary">Refresh status</Button>
-                            <Button busy={deploying} onClick={runDeployment} type="button"><Icon name="refresh" size={16} /> Deploy latest</Button>
+                            <Button disabled={deploying || clearingCache} onClick={() => deploymentResource.reload()} type="button" variant="secondary">Refresh status</Button>
+                            <Button busy={clearingCache} disabled={deploying} onClick={hardClearCache} type="button" variant="soft"><Icon name="refresh" size={16} /> Hard clear cache</Button>
+                            <Button busy={deploying} disabled={clearingCache} onClick={runDeployment} type="button"><Icon name="refresh" size={16} /> Deploy latest</Button>
                         </div>
                     </div>
                 )}

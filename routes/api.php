@@ -227,6 +227,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:sensitive');
         Route::get('/settings/deployment', [AdminDeploymentController::class, 'status']);
         Route::post('/settings/deployment/run', [AdminDeploymentController::class, 'run'])->middleware('throttle:sensitive');
+        Route::post('/settings/cache/clear', [AdminDeploymentController::class, 'clearCache'])->middleware('throttle:sensitive');
         Route::get('/demo-data', [AdminDemoDataController::class, 'status']);
         Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate']);
         Route::delete('/demo-data', [AdminDemoDataController::class, 'clear']);
