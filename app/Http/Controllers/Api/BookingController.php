@@ -387,7 +387,7 @@ class BookingController extends Controller
         return [
             'account_name' => $account->account_name,
             'account_reference' => $account->account_reference,
-            'instructions' => $account->settings['instructions'] ?? null,
+            'instructions' => $account->payment_instructions ?? $account->settings['instructions'] ?? null,
         ];
     }
 

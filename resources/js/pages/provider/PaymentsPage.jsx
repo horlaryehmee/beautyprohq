@@ -78,10 +78,10 @@ export default function ProviderPaymentsPage() {
                 account_name: account.account_name,
                 account_reference: account.account_reference,
                 account_identifier: account.account_reference,
+                ...(activeGateway.id === 'manual' ? { instructions: account.instructions } : {}),
                 enabled: account.enabled,
                 settings: {
                     ...(account.secret_key ? { secret_key: account.secret_key } : {}),
-                    ...(activeGateway.id === 'manual' ? { instructions: account.instructions } : {}),
                 },
             });
             await accountsResource.reload(true);

@@ -251,7 +251,7 @@ class BusinessController extends Controller
                 $account->has_secret_key = filled($settings['secret_key'] ?? null);
                 $account->mode = $settings['mode'] ?? null;
                 if ($account->gateway === 'manual') {
-                    $account->instructions = $settings['instructions'] ?? null;
+                    $account->instructions = $account->payment_instructions ?? $settings['instructions'] ?? null;
                 }
                 if ($account->gateway === 'paystack') {
                     $account->webhook_url = $this->paystackWebhookUrl($account);
@@ -274,14 +274,17 @@ class BusinessController extends Controller
             'settings' => ['nullable', 'array'],
             'settings.secret_key' => ['nullable', 'string', 'max:500'],
             'settings.instructions' => ['nullable', 'string', 'max:2000'],
+            'instructions' => ['nullable', 'string', 'max:2000'],
             'is_connected' => ['sometimes', 'boolean'],
             'enabled' => ['sometimes', 'boolean'],
         ]);
         if (($validated['gateway'] ?? null) === 'manual') {
+            $validated['payment_instructions'] = $validated['instructions'] ?? $validated['settings']['instructions'] ?? null;
             $validated['public_key'] = null;
             $validated['is_connected'] = $validated['enabled'] ?? true;
             $validated['enabled'] = $validated['enabled'] ?? true;
         }
+        unset($validated['instructions']);
         if (! array_key_exists('account_reference', $validated) && isset($validated['account_identifier'])) {
             $validated['account_reference'] = $validated['account_identifier'];
         }
@@ -307,7 +310,7 @@ class BusinessController extends Controller
         );
         $account->has_secret_key = filled(($account->settings ?? [])['secret_key'] ?? null);
         if ($account->gateway === 'manual') {
-            $account->instructions = ($account->settings ?? [])['instructions'] ?? null;
+            $account->instructions = $account->payment_instructions ?? ($account->settings ?? [])['instructions'] ?? null;
         }
         if ($account->gateway === 'paystack') {
             $account->webhook_url = $this->paystackWebhookUrl($account);
