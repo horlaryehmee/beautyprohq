@@ -8,13 +8,6 @@
     # Block hidden files except ACME challenges used for HTTPS certificates.
     RewriteRule "(^|/)\.(?!well-known/)" - [F,L]
 
-    <IfModule LiteSpeed>
-        CacheLookup on
-        RewriteCond %{REQUEST_METHOD} =GET
-        RewriteCond %{REQUEST_URI} ^/$
-        RewriteRule ^$ - [E=Cache-Control:max-age=60]
-    </IfModule>
-
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -51,6 +44,9 @@
 
     SetEnvIf Request_URI "^/build/assets/" bphq_immutable_asset
     Header always set Cache-Control "public, max-age=31536000, immutable" env=bphq_immutable_asset
+
+    SetEnvIf Request_URI "^/build/manifest\.json$" bphq_build_manifest
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=bphq_build_manifest
 
     SetEnvIf Request_URI "^/storage/uploads/.*\.(avif|webp|png|jpe?g|gif|svg)$" bphq_upload_asset
     Header always set Cache-Control "public, max-age=31536000, immutable" env=bphq_upload_asset

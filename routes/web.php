@@ -36,6 +36,14 @@ $requestHasComingSoonBypass = static function (Request $request) use ($comingSoo
     return filled($token) && hash_equals((string) $token, (string) $request->cookie('bphq_coming_soon_bypass'));
 };
 
+$noStore = static function ($response) {
+    return $response
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0')
+        ->header('X-LiteSpeed-Cache-Control', 'no-cache');
+};
+
 Route::get('/coming-soon', fn () => response()
     ->view('coming-soon')
     ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
@@ -58,7 +66,7 @@ Route::get('/robots.txt', [SeoController::class, 'robots']);
 Route::get('/llms.txt', [SeoController::class, 'llms']);
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
-Route::get('/', function (Request $request) use ($comingSoonEnabled, $requestHasComingSoonBypass) {
+Route::get('/', function (Request $request) use ($comingSoonEnabled, $requestHasComingSoonBypass, $noStore) {
     if ($comingSoonEnabled() && ! $requestHasComingSoonBypass($request)) {
         return response()
             ->view('coming-soon')
@@ -68,7 +76,7 @@ Route::get('/', function (Request $request) use ($comingSoonEnabled, $requestHas
     $heroImages = HomepageShell::heroImages();
     $heroPreload = HomepageShell::responsiveUnsplash($heroImages[0] ?? 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=560&q=70');
 
-    return response()
+    return $noStore(response()
         ->view('app', [
             'homepageShell' => true,
             'heroShellImages' => collect($heroImages)->map(fn (string $src): array => HomepageShell::responsiveUnsplash($src))->all(),
@@ -79,9 +87,7 @@ Route::get('/', function (Request $request) use ($comingSoonEnabled, $requestHas
             ],
             'pageTitle' => 'The Beauty Service Ecosystem | BeautyPro HQ',
             'pageDescription' => 'Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry.',
-        ])
-        ->header('Cache-Control', 'public, max-age=0, s-maxage=60, must-revalidate, no-transform')
-        ->header('X-LiteSpeed-Cache-Control', 'public,max-age=60');
+        ]));
 })->withoutMiddleware([
     StartSession::class,
     ShareErrorsFromSession::class,
@@ -153,7 +159,7 @@ Route::get('/newsletter/unsubscribe/{subscriber}', function (NewsletterSubscribe
     );
 })->middleware('signed')->name('newsletter.unsubscribe');
 
-Route::get('/{path?}', function (Request $request, ?string $path = null) use ($comingSoonEnabled, $requestHasComingSoonBypass) {
+Route::get('/{path?}', function (Request $request, ?string $path = null) use ($comingSoonEnabled, $requestHasComingSoonBypass, $noStore) {
     $path = trim((string) $path, '/');
     $firstSegment = strtok($path, '/') ?: '';
     $comingSoonBypass = in_array($firstSegment, [
@@ -177,11 +183,8 @@ Route::get('/{path?}', function (Request $request, ?string $path = null) use ($c
     $response = response()->view('app');
 
     if ($comingSoonBypass) {
-        return $response
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', '0');
+        return $noStore($response);
     }
 
-    return $response;
+    return $noStore($response);
 })->where('path', '^(?!api|sanctum|up).*$');

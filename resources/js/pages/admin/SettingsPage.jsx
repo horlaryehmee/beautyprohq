@@ -734,7 +734,7 @@ export default function AdminSettingsPage() {
                             </div>
                         </div>
                         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                            Deploy pulls committed files, runs Composer only when available or required, then runs migrations, Laravel cache rebuild, and queue restart. Hard clear cache only clears server-side Laravel caches and resets OPcache when available.
+                            Deploy pulls committed files, rebuilds frontend assets, runs migrations, rebuilds Laravel caches, and restarts queues. Hard clear cache clears server-side Laravel caches and resets OPcache when available.
                         </div>
                         {deploymentLog && (
                             <pre className="max-h-80 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{deploymentLog}</pre>

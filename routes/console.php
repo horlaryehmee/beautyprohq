@@ -110,6 +110,14 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         ];
     };
 
+    $npmCommand = function (string ...$arguments) use ($commandExists): ?array {
+        if (! $commandExists('npm')) {
+            return null;
+        }
+
+        return ['npm', ...$arguments];
+    };
+
     try {
         $writeStatus('running');
 
@@ -193,9 +201,35 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
             $this->info('Composer skipped: dependency files did not change and vendor/autoload.php exists.');
         }
 
+        $resolvedNpmInstallCommand = $npmCommand(is_file(base_path('package-lock.json')) ? 'ci' : 'install');
+        if (! $resolvedNpmInstallCommand) {
+            $lines[] = 'Deployment failed: npm is unavailable, so frontend assets cannot be rebuilt.';
+            $writeStatus('failed', 1);
+            $this->error('Deployment failed: npm is unavailable, so frontend assets cannot be rebuilt.');
+
+            return 1;
+        }
+
+        foreach ([
+            [is_file(base_path('package-lock.json')) ? 'npm ci' : 'npm install', $resolvedNpmInstallCommand, 600, false],
+            ['npm run build', $npmCommand('run', 'build'), 600, false],
+        ] as [$label, $command, $timeout, $optional]) {
+            $exitCode = $run($label, $command, $timeout);
+            if ($exitCode !== 0) {
+                $writeStatus('failed', $exitCode);
+
+                return $exitCode;
+            }
+        }
+
         foreach ([
             ['php artisan migrate --force', $artisanCommand('migrate', '--force'), 300, false],
             ['php artisan storage:link', $artisanCommand('storage:link'), 120, true],
+            ['php artisan cache:clear', $artisanCommand('cache:clear'), 120, false],
+            ['php artisan config:clear', $artisanCommand('config:clear'), 120, false],
+            ['php artisan route:clear', $artisanCommand('route:clear'), 120, false],
+            ['php artisan view:clear', $artisanCommand('view:clear'), 120, false],
+            ['php artisan event:clear', $artisanCommand('event:clear'), 120, false],
             ['php artisan optimize:clear', $artisanCommand('optimize:clear'), 120, false],
             ['php artisan optimize', $artisanCommand('optimize'), 120, false],
             ['php artisan queue:restart', $artisanCommand('queue:restart'), 120, true],
@@ -213,6 +247,13 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
 
                 return $exitCode;
             }
+        }
+
+        clearstatcache(true);
+        if (function_exists('opcache_reset')) {
+            $lines[] = 'PHP OPcache reset: '.(@opcache_reset() ? 'ok' : 'not available for this SAPI');
+        } else {
+            $lines[] = 'PHP OPcache reset: extension not loaded';
         }
 
         $writeStatus('succeeded', 0);
