@@ -110,14 +110,6 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         ];
     };
 
-    $npmCommand = function (string ...$arguments) use ($commandExists): ?array {
-        if (! $commandExists('npm')) {
-            return null;
-        }
-
-        return ['npm', ...$arguments];
-    };
-
     try {
         $writeStatus('running');
 
@@ -201,26 +193,45 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
             $this->info('Composer skipped: dependency files did not change and vendor/autoload.php exists.');
         }
 
-        $resolvedNpmInstallCommand = $npmCommand(is_file(base_path('package-lock.json')) ? 'ci' : 'install');
-        if (! $resolvedNpmInstallCommand) {
-            $lines[] = 'Deployment failed: npm is unavailable, so frontend assets cannot be rebuilt.';
+        $manifestPath = public_path('build/manifest.json');
+        $manifest = is_file($manifestPath)
+            ? json_decode((string) file_get_contents($manifestPath), true)
+            : null;
+        $missingAssets = [];
+
+        if (is_array($manifest)) {
+            foreach ($manifest as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $referencedFiles = [
+                    $entry['file'] ?? null,
+                    ...($entry['css'] ?? []),
+                    ...($entry['assets'] ?? []),
+                ];
+
+                foreach ($referencedFiles as $file) {
+                    if (is_string($file) && ! is_file(public_path('build/'.$file))) {
+                        $missingAssets[] = $file;
+                    }
+                }
+            }
+        }
+
+        if (! is_array($manifest) || $manifest === [] || $missingAssets !== []) {
+            $lines[] = 'Deployment failed: committed frontend assets are missing or invalid.';
+            if ($missingAssets !== []) {
+                $lines[] = 'Missing assets: '.implode(', ', array_slice($missingAssets, 0, 20));
+            }
             $writeStatus('failed', 1);
-            $this->error('Deployment failed: npm is unavailable, so frontend assets cannot be rebuilt.');
+            $this->error('Deployment failed: committed frontend assets are missing or invalid.');
 
             return 1;
         }
 
-        foreach ([
-            [is_file(base_path('package-lock.json')) ? 'npm ci' : 'npm install', $resolvedNpmInstallCommand, 600, false],
-            ['npm run build', $npmCommand('run', 'build'), 600, false],
-        ] as [$label, $command, $timeout, $optional]) {
-            $exitCode = $run($label, $command, $timeout);
-            if ($exitCode !== 0) {
-                $writeStatus('failed', $exitCode);
-
-                return $exitCode;
-            }
-        }
+        $lines[] = 'Frontend assets: committed Vite build verified ('.count($manifest).' manifest entries).';
+        $this->info('Frontend assets: committed Vite build verified.');
 
         foreach ([
             ['php artisan migrate --force', $artisanCommand('migrate', '--force'), 300, false],
