@@ -1862,8 +1862,9 @@ class BackendMvpTest extends TestCase
             'collection' => 'provider_onboarding_portfolio',
         ]);
 
-        $this->getJson('/api/admin/media')
+        $this->getJson('/api/admin/media?user_id='.$provider->id)
             ->assertOk()
+            ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.user.name', 'Media Provider')
             ->assertJsonPath('data.0.user.provider_profile.slug', 'media-provider')
             ->assertJsonMissingPath('data.0.user.provider_profile.name');

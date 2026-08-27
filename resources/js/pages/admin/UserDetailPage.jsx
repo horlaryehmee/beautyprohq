@@ -41,6 +41,28 @@ function money(value, currency = 'NGN') {
     return `${currency} ${Number(value ?? 0).toLocaleString()}`;
 }
 
+function mediaUrl(value) {
+    if (!value) return '';
+    try {
+        return new URL(value, window.location.origin).href;
+    } catch {
+        return String(value);
+    }
+}
+
+function mediaLabel(item) {
+    if (String(item?.mime_type ?? '').startsWith('image/')) return 'Image';
+    return String(item?.extension ?? 'File').toUpperCase();
+}
+
+function formatMediaSize(value) {
+    const size = Number(value ?? 0);
+    if (!Number.isFinite(size) || size <= 0) return '0 B';
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 ** 2) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 ** 2)).toFixed(1)} MB`;
+}
+
 function OnboardingChecklist({ form, profile, hasProviderControls }) {
     if (!hasProviderControls) return null;
 
@@ -125,6 +147,24 @@ export default function AdminUserDetailPage() {
     const [deleting, setDeleting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState('');
     const [error, setError] = useState('');
+    const [providerMedia, setProviderMedia] = useState([]);
+    const [providerMediaMeta, setProviderMediaMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
+    const [providerMediaLoading, setProviderMediaLoading] = useState(true);
+    const [providerMediaError, setProviderMediaError] = useState('');
+
+    const loadProviderMedia = useCallback(async (page = 1) => {
+        setProviderMediaLoading(true);
+        setProviderMediaError('');
+        try {
+            const result = await apiRequest('get', `/admin/media?user_id=${encodeURIComponent(id)}&page=${page}&per_page=8`);
+            setProviderMedia(result?.data ?? []);
+            setProviderMediaMeta(result?.meta ?? { current_page: page, last_page: 1, total: 0 });
+        } catch (requestError) {
+            setProviderMediaError(apiErrorMessage(requestError, 'Provider media could not be loaded.'));
+        } finally {
+            setProviderMediaLoading(false);
+        }
+    }, [id]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -183,6 +223,10 @@ export default function AdminUserDetailPage() {
     useEffect(() => {
         load();
     }, [load]);
+
+    useEffect(() => {
+        loadProviderMedia(1);
+    }, [loadProviderMedia]);
 
     const profile = form?.provider_profile ?? {};
     const hasProviderControls = form?.role === 'provider' || Boolean(user?.provider_profile ?? user?.providerProfile);
@@ -404,6 +448,52 @@ export default function AdminUserDetailPage() {
                             <Field className="mt-4" label="Portfolio / verification links" hint="One link per line. This is added after onboarding and supports portfolio display or verification review.">
                                 <textarea className={`${inputClass} min-h-28 resize-y`} onChange={(event) => updateProfile({ portfolio_links: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })} value={(profile.portfolio_links ?? []).join('\n')} />
                             </Field>
+                        </Card>
+                    )}
+
+                    {hasProviderControls && (
+                        <Card>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-950">Uploaded media</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Every file uploaded by this provider, including onboarding images and verification documents.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <StatusBadge status={`${providerMediaMeta.total ?? 0} files`} />
+                                    <Link className="text-sm font-bold text-fuchsia-700 hover:underline" to="/admin/media">Media library</Link>
+                                </div>
+                            </div>
+
+                            {providerMediaLoading ? <div className="mt-5"><LoadingBlock rows={4} /></div> : providerMediaError ? (
+                                <div className="mt-5"><ErrorState message={providerMediaError} onRetry={() => loadProviderMedia(providerMediaMeta.current_page ?? 1)} /></div>
+                            ) : providerMedia.length === 0 ? (
+                                <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">This provider has not uploaded any media yet.</p>
+                            ) : (
+                                <>
+                                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        {providerMedia.map((item) => {
+                                            const url = mediaUrl(item.url);
+                                            const image = String(item.mime_type ?? '').startsWith('image/');
+                                            return (
+                                                <a className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-fuchsia-300 hover:shadow-sm" href={url} key={item.id ?? item.path} rel="noreferrer" target="_blank">
+                                                    <div className="aspect-[4/3] bg-slate-100">
+                                                        {image
+                                                            ? <img alt="" className="size-full object-cover" src={url} />
+                                                            : <span className="grid size-full place-items-center text-sm font-bold text-slate-500">{mediaLabel(item)}</span>
+                                                        }
+                                                    </div>
+                                                    <div className="min-w-0 p-3">
+                                                        <p className="truncate text-sm font-bold text-slate-900">{item.name ?? item.filename}</p>
+                                                        <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.collection?.replaceAll('_', ' ') ?? 'Upload'}</p>
+                                                        <p className="mt-2 text-xs text-slate-400">{formatMediaSize(item.size)} | {formatDate(item.created_at)}</p>
+                                                    </div>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                    <Pagination page={providerMediaMeta.current_page ?? 1} pageCount={providerMediaMeta.last_page ?? 1} onPageChange={loadProviderMedia} />
+                                </>
+                            )}
                         </Card>
                     )}
 
