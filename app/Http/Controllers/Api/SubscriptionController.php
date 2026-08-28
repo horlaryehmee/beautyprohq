@@ -99,6 +99,10 @@ class SubscriptionController extends Controller
             'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($user),
             'detected_currency' => $this->subscriptionCurrencyForRequest($request),
             'account_currency' => $accountCurrency,
+            'subscription_currencies' => collect(CurrencyResolver::supportedPayload())
+                ->whereIn('code', self::SUPPORTED_SUBSCRIPTION_CURRENCIES)
+                ->values()
+                ->all(),
             'plans' => $this->subscriptionPlansForRequest($request, $accountCurrency),
             'payments' => [
                 'data' => $payments->items(),

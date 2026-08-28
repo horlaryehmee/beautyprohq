@@ -30,12 +30,24 @@ const metaFrom = (value, key) => value?.[key]?.meta ?? value?.meta ?? {};
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : '—');
 const paidPlans = ['paid', 'pro', 'daily_test'];
 const isPaidActiveSubscription = (subscription) => paidPlans.includes(subscription?.plan) && subscription?.status === 'active';
+const fallbackSubscriptionCurrencies = [
+    { code: 'NGN', name: 'Nigerian Naira', rate: 1 },
+    { code: 'USD', name: 'US Dollar', rate: 0.00063 },
+];
+
+const convertedPrice = (amount, from, to, currencies) => {
+    const rates = Object.fromEntries(currencies.map((currency) => [currency.code, Number(currency.rate || 1)]));
+    const value = Number(amount ?? 0);
+    if (!Number.isFinite(value) || from === to) return value;
+    return Math.round(((value / (rates[from] ?? 1)) * (rates[to] ?? 1)) * 100) / 100;
+};
 
 export default function ProviderSubscriptionPage() {
     const [paymentPage, setPaymentPage] = useState(1);
     const resource = useApiResource('/provider/subscription', {}, { params: { payments_page: paymentPage, payments_per_page: 10 } });
     const [busy, setBusy] = useState('');
     const [paymentResult, setPaymentResult] = useState(null);
+    const [selectedCurrency, setSelectedCurrency] = useState('');
     const [searchParams, setSearchParams] = useSearchParams();
     const handledPaymentReturn = useRef('');
     const { refreshUser } = useAuth();
@@ -57,10 +69,18 @@ export default function ProviderSubscriptionPage() {
     const cancelAtPeriodEnd = Boolean(subscription?.metadata?.cancel_at_period_end);
     const pendingPaidSelection = Boolean(data.pending_paid_plan_selection);
     const subscriptionGateway = data.subscription_gateway ?? 'paystack';
+    const subscriptionCurrencies = data.subscription_currencies?.length ? data.subscription_currencies : fallbackSubscriptionCurrencies;
+    const displayCurrency = selectedCurrency || data.account_currency || data.detected_currency || 'NGN';
     const gatewayConfigured = subscriptionGateway === 'stripe' ? data.stripe_configured : data.paystack_configured;
     const gatewayLabel = subscriptionGateway === 'stripe' ? 'Stripe' : 'Paystack';
     const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
     const paymentSessionId = searchParams.get('session_id') || '';
+
+    useEffect(() => {
+        if (!selectedCurrency && (data.account_currency || data.detected_currency)) {
+            setSelectedCurrency(data.account_currency || data.detected_currency);
+        }
+    }, [data.account_currency, data.detected_currency, selectedCurrency]);
 
     useEffect(() => {
         if (!paymentReference) return;
@@ -120,7 +140,7 @@ export default function ProviderSubscriptionPage() {
     const checkout = async (planKey) => {
         setBusy(`checkout:${planKey}`);
         try {
-            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: planKey, gateway: subscriptionGateway, currency: data.account_currency || data.detected_currency });
+            const response = await apiRequest('post', '/provider/subscription/checkout', { plan: planKey, gateway: subscriptionGateway, currency: displayCurrency });
             if (response.authorization_url) {
                 window.location.href = response.authorization_url;
                 return;
@@ -151,6 +171,21 @@ export default function ProviderSubscriptionPage() {
     return (
         <div className="space-y-6">
             <PageHeader
+                actions={(
+                    <label className="flex min-w-48 flex-col gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Display currency
+                        <select
+                            aria-label="Display currency"
+                            className="min-h-11 rounded-xl border border-bphq-chrome bg-white px-3.5 text-sm font-semibold normal-case tracking-normal text-bphq-espresso outline-none transition focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60"
+                            onChange={(event) => setSelectedCurrency(event.target.value)}
+                            value={displayCurrency}
+                        >
+                            {subscriptionCurrencies.map((currency) => (
+                                <option key={currency.code} value={currency.code}>{currency.code} · {currency.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                )}
                 description="Choose the plan that matches how you want to use BeautyPro HQ."
                 eyebrow="Provider plan"
                 title="Subscription"
@@ -201,6 +236,9 @@ export default function ProviderSubscriptionPage() {
                         {plans.map((plan) => {
                             const isPaid = Number(plan.price ?? 0) > 0;
                             const isCurrent = (activePlanKey === plan.key || (!activePlanDefinition && activePlan === plan.key)) && subscription?.status === 'active';
+                            const price = plan.display_currency === displayCurrency && plan.display_price != null
+                                ? Number(plan.display_price)
+                                : convertedPrice(plan.billing_price ?? plan.price, plan.billing_currency ?? plan.currency ?? 'NGN', displayCurrency, subscriptionCurrencies);
                             return (
                                 <Card className={isPaid ? 'border-fuchsia-200 shadow-fuchsia-100/70' : ''} key={plan.key}>
                                     <CardHeader
@@ -209,7 +247,7 @@ export default function ProviderSubscriptionPage() {
                                         action={isCurrent ? <StatusBadge status="active" /> : null}
                                     />
                                     <p className="text-3xl font-semibold text-slate-950">
-                                        <Currency currency={plan.display_currency ?? plan.currency} value={plan.display_price ?? plan.price} />
+                                        <Currency currency={displayCurrency} value={price} />
                                         <span className="ml-1 text-sm font-bold text-slate-400">/{plan.billing_period}</span>
                                     </p>
                                     <ul className="mt-5 space-y-3">

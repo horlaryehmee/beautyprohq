@@ -402,6 +402,8 @@ class BackendMvpTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.detected_currency', 'NGN')
             ->assertJsonPath('data.account_currency', 'USD')
+            ->assertJsonPath('data.subscription_currencies.0.code', 'NGN')
+            ->assertJsonPath('data.subscription_currencies.1.code', 'USD')
             ->assertJsonPath('data.plans.1.display_currency', 'USD');
     }
 
