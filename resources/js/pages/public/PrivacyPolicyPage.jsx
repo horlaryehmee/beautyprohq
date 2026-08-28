@@ -204,7 +204,6 @@ const sections = [
         content: [
             'Questions, privacy requests, complaints, and data-protection concerns can be sent to hello@beautyprohq.com. Please include your name, account email, the right or issue you are raising, and enough detail for us to respond.',
             'If you are not satisfied with our response, you may have the right to contact the Nigeria Data Protection Commission or another competent data-protection authority. You may also have rights before a court or other lawful dispute-resolution body where applicable.',
-            'This policy is a practical privacy notice for the platform and is not a substitute for legal advice. BeautyPro HQ should have this page reviewed by a qualified privacy lawyer before relying on it as final compliance documentation.',
         ],
     },
 ];

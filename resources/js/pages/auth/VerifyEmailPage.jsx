@@ -70,7 +70,7 @@ export default function VerifyEmailPage() {
     }
 
     return (
-        <AuthShell eyebrow="Email verification" title={status === 'verified' ? 'You are verified' : status === 'verifying' ? 'Verifying your email...' : 'Check your inbox'} description={status === 'waiting' ? `We sent a verification link${user?.email ? ` to ${user.email}` : ''}. Open it to activate every part of your account.` : undefined}>
+        <AuthShell eyebrow="Email verification" title={status === 'verified' ? 'Your Email has Been Verified' : status === 'verifying' ? 'Verifying your email...' : 'Check your inbox'} description={status === 'waiting' ? `We sent a verification link${user?.email ? ` to ${user.email}` : ''}. Open it to activate every part of your account.` : undefined}>
             <div className="text-center">
                 <span className={`mx-auto grid size-16 place-items-center rounded-3xl ${status === 'verified' ? 'bg-emerald-100 text-emerald-700' : status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-rose-100 text-rose-700'}`}>
                     {status === 'verifying' ? <span className="loading-ring" /> : <Icon name={status === 'verified' ? 'check' : status === 'failed' ? 'alert' : 'mail'} size={28} />}
