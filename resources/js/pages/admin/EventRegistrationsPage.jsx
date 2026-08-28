@@ -143,8 +143,8 @@ export default function AdminEventRegistrationsPage() {
                 <ErrorState message={eventResource.error || registrationResource.error} onRetry={() => { eventResource.reload(); registrationResource.reload(); }} />
             )}
 
-            <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-                <Card className="xl:sticky xl:top-24 xl:h-fit">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
+                <Card className="min-w-0 overflow-hidden xl:sticky xl:top-24 xl:h-fit">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="font-display text-2xl font-medium text-bphq-espresso">Events</h2>
@@ -192,7 +192,7 @@ export default function AdminEventRegistrationsPage() {
                     <Pagination page={currentEventPage} pageCount={eventPageCount} onPageChange={setEventPage} />
                 </Card>
 
-                <Card>
+                <Card className="min-w-0 overflow-hidden">
                     {selectedEvent ? (
                         <>
                             <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
@@ -235,8 +235,8 @@ export default function AdminEventRegistrationsPage() {
 
                             {registrationResource.loading ? <LoadingBlock rows={8} /> : rows.length ? (
                                 <>
-                                    <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-100">
-                                        <table className="w-full min-w-[980px] text-left text-sm">
+                                    <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-slate-100 md:block">
+                                        <table className="w-full min-w-[860px] text-left text-sm">
                                             <thead>
                                                 <tr className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
                                                     <th className="px-4 py-3 font-bold">Attendee</th>
@@ -278,6 +278,31 @@ export default function AdminEventRegistrationsPage() {
                                                 ))}
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div className="mt-4 grid gap-3 md:hidden">
+                                        {rows.map((registration) => (
+                                            <article className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4" key={registration.id}>
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-bold text-slate-900">{registration.name}</p>
+                                                        <p className="mt-1 truncate text-xs text-slate-500">{registration.email}</p>
+                                                    </div>
+                                                    <span className="shrink-0 text-xs font-semibold text-slate-400">#{registration.id}</span>
+                                                </div>
+                                                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                                                    <div><dt className="font-bold uppercase tracking-wide text-slate-400">Phone</dt><dd className="mt-0.5 text-slate-700">{registration.phone || '—'}</dd></div>
+                                                    <div><dt className="font-bold uppercase tracking-wide text-slate-400">Registered</dt><dd className="mt-0.5 text-slate-700">{formatDate(registration.created_at)}</dd></div>
+                                                    <div className="col-span-2"><dt className="font-bold uppercase tracking-wide text-slate-400">Business</dt><dd className="mt-0.5 text-slate-700">{registration.business_name || 'No business name'}{registration.professional_role ? ` · ${registration.professional_role}` : ''}</dd></div>
+                                                </dl>
+                                                {registration.notes && <p className="mt-2 text-xs text-slate-500">{registration.notes}</p>}
+                                                <div className="mt-3 flex items-center gap-2">
+                                                    <select className={`${inputClass} min-w-0 flex-1`} onChange={(event) => changeStatus(registration, event.target.value)} value={registration.status}>
+                                                        {statuses.map((item) => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}
+                                                    </select>
+                                                    <Button onClick={() => remove(registration)} type="button" variant="danger">Remove</Button>
+                                                </div>
+                                            </article>
+                                        ))}
                                     </div>
                                     <Pagination page={currentRegistrationPage} pageCount={registrationPageCount} onPageChange={setRegistrationPage} />
                                 </>

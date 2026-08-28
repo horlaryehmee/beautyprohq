@@ -156,8 +156,10 @@ export default function AdminSubscriptionsPage() {
                 <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_180px_180px]">
                     <SearchInput onChange={(event) => setQuery(event.target.value)} placeholder="Search subscriber or plan" value={query} />
                     <select className={inputClass} onChange={(event) => setPlanFilter(event.target.value)} value={planFilter}>
-                        <option value="">All plans</option>
-                        {planOptions.map((plan) => <option key={plan} value={plan}>{String(plan).replaceAll('_', ' ')}</option>)}
+                        <option value="">All subscribers</option>
+                        <option value="pro">Pro subscribers</option>
+                        <option value="free">Free subscribers</option>
+                        {planOptions.filter((plan) => !['pro', 'free'].includes(String(plan))).map((plan) => <option key={plan} value={plan}>{String(plan).replaceAll('_', ' ')}</option>)}
                     </select>
                     <select className={inputClass} onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
                         <option value="">All statuses</option>

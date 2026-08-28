@@ -435,6 +435,25 @@ export default function ProviderProfilePage() {
         }
     };
     const removeVerificationLink = (key, index) => setForm((current) => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
+
+    const publicProfileUrl = profile.slug ? `${window.location.origin}/providers/${profile.slug}` : '';
+    const shareProfile = async () => {
+        if (!publicProfileUrl) {
+            notify('Save your profile first to generate a public profile link.', 'error');
+            return;
+        }
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: form.name || 'My BeautyPro HQ profile', url: publicProfileUrl });
+            } else {
+                if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable.');
+                await navigator.clipboard.writeText(publicProfileUrl);
+                notify('Public profile link copied.');
+            }
+        } catch (error) {
+            if (error?.name !== 'AbortError') notify('Profile link could not be shared.', 'error');
+        }
+    };
     const uploadVerificationFile = async (type, event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -481,7 +500,12 @@ export default function ProviderProfilePage() {
 
     return (
         <form className="space-y-6" onSubmit={saveProfile}>
-            <PageHeader description="Edit the same information you answered during provider setup." eyebrow="Your listing" title="Profile" />
+            <PageHeader
+                actions={<div className="flex flex-wrap gap-2"><Button disabled={!publicProfileUrl} onClick={() => window.open(publicProfileUrl, '_blank', 'noopener,noreferrer')} type="button" variant="secondary">View profile</Button><Button disabled={!publicProfileUrl} onClick={shareProfile} type="button" variant="secondary">Share profile</Button></div>}
+                description="Edit the same information you answered during provider setup."
+                eyebrow="Your listing"
+                title="Profile"
+            />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
 
             <div className="grid min-w-0 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_320px] xl:gap-5">
