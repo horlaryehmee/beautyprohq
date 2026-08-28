@@ -194,6 +194,13 @@ class BackendMvpTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.detected_currency', 'NGN')
             ->assertJsonPath('data.plans.1.display_currency', 'NGN');
+
+        $this->withHeader('X-BPHQ-Country', 'GB')
+            ->withHeader('X-BPHQ-Timezone', 'Europe/London')
+            ->getJson('/api/subscription-plans')
+            ->assertOk()
+            ->assertJsonPath('data.detected_currency', 'USD')
+            ->assertJsonPath('data.plans.1.display_currency', 'USD');
     }
 
     public function test_email_verification_resend_is_available_every_thirty_seconds(): void

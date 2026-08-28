@@ -17,22 +17,19 @@ const fallbackPlans = [
 const fallbackCurrencies = [
     { code: 'NGN', name: 'Nigerian Naira', rate: 1 },
     { code: 'USD', name: 'US Dollar', rate: 0.00063 },
-    { code: 'EUR', name: 'Euro', rate: 0.00054 },
-    { code: 'GBP', name: 'British Pound', rate: 0.00047 },
 ];
+
+const subscriptionCurrencyCodes = new Set(['NGN', 'USD']);
+const subscriptionCurrency = (currency) => currency === 'NGN' ? 'NGN' : 'USD';
 
 const currencyFlags = {
     NGN: 'https://flagcdn.com/w40/ng.png',
     USD: 'https://flagcdn.com/w40/us.png',
-    EUR: 'https://flagcdn.com/w40/eu.png',
-    GBP: 'https://flagcdn.com/w40/gb.png',
 };
 
 const currencySymbols = {
     NGN: '\u20A6',
     USD: '$',
-    EUR: '\u20AC',
-    GBP: '\u00A3',
 };
 
 function convertedPrice(amount, from, to, currencies) {
@@ -114,7 +111,7 @@ export default function RegisterPage() {
     const requestedRole = searchParams.get('role') === 'customer' ? 'customer' : 'provider';
     const requestedEmail = searchParams.get('email') ?? '';
     const [step, setStep] = useState(1);
-    const [displayCurrency, setDisplayCurrency] = useState(() => browserCurrency());
+    const [displayCurrency, setDisplayCurrency] = useState(() => subscriptionCurrency(browserCurrency()));
     const [currencyOpen, setCurrencyOpen] = useState(false);
     const [form, setForm] = useState({ name: '', email: requestedEmail, role: requestedRole, plan: requestedRole === 'customer' ? 'free' : 'paid', password: '', password_confirmation: '' });
     const [plans, setPlans] = useState([]);
@@ -127,19 +124,20 @@ export default function RegisterPage() {
     useEffect(() => {
         let cancelled = false;
         detectIpCurrency().then((currency) => {
-            if (!cancelled && currency) setDisplayCurrency(currency);
+            if (!cancelled && currency) setDisplayCurrency(subscriptionCurrency(currency));
         }).finally(() => {
             if (cancelled) return;
             api.get('/subscription-plans').then((response) => {
                 const payload = unwrap(response);
                 setPlans(Array.isArray(payload?.plans) ? payload.plans : []);
-                if (payload?.detected_currency) setDisplayCurrency(payload.detected_currency);
+                if (payload?.detected_currency) setDisplayCurrency(subscriptionCurrency(payload.detected_currency));
             }).catch(() => setPlans([]));
             api.get('/currencies').then((response) => {
                 const supported = response?.data?.data?.supported ?? response?.data?.supported ?? [];
                 const detected = response?.data?.data?.detected ?? response?.data?.detected;
-                if (supported.length) setCurrencies(supported);
-                if (detected) setDisplayCurrency(detected);
+                const subscriptionCurrencies = supported.filter((item) => subscriptionCurrencyCodes.has(item.code));
+                if (subscriptionCurrencies.length) setCurrencies(subscriptionCurrencies);
+                if (detected) setDisplayCurrency(subscriptionCurrency(detected));
             }).catch(() => {});
         });
         return () => { cancelled = true; };

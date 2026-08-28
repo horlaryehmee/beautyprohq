@@ -38,10 +38,12 @@ use Illuminate\Validation\Rule;
 
 class SubscriptionController extends Controller
 {
+    private const SUPPORTED_SUBSCRIPTION_CURRENCIES = ['NGN', 'USD'];
+
     public function plans(Request $request): JsonResponse
     {
         return $this->success([
-            'detected_currency' => CurrencyResolver::currencyForRequest($request),
+            'detected_currency' => $this->subscriptionCurrencyForRequest($request),
             'plans' => $this->subscriptionPlansForRequest($request),
         ]);
     }
@@ -56,7 +58,7 @@ class SubscriptionController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'price' => ['sometimes', 'numeric', 'min:0', 'max:999999999'],
-            'currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
+            'currency' => ['sometimes', Rule::in(self::SUPPORTED_SUBSCRIPTION_CURRENCIES)],
             'billing_period' => ['sometimes', Rule::in(['daily', 'monthly', 'yearly'])],
             'features' => ['sometimes', 'array'],
             'features.*' => ['string', 'max:180'],
@@ -95,7 +97,7 @@ class SubscriptionController extends Controller
                 ->limit(50)
                 ->get(),
             'pending_paid_plan_selection' => $this->hasPendingPaidPlanSelection($user),
-            'detected_currency' => CurrencyResolver::currencyForRequest($request),
+            'detected_currency' => $this->subscriptionCurrencyForRequest($request),
             'account_currency' => $accountCurrency,
             'plans' => $this->subscriptionPlansForRequest($request, $accountCurrency),
             'payments' => [
@@ -630,7 +632,7 @@ class SubscriptionController extends Controller
         $validated = $request->validate([
             'plan' => ['required', 'string', 'max:50'],
             'gateway' => ['nullable', Rule::in(['paystack', 'stripe'])],
-            'currency' => ['nullable', Rule::in(array_keys(config('currencies.supported', [])))],
+            'currency' => ['nullable', Rule::in(self::SUPPORTED_SUBSCRIPTION_CURRENCIES)],
         ]);
 
         $plan = SubscriptionPlan::where('key', $validated['plan'])->where('is_active', true)->firstOrFail();
@@ -834,7 +836,7 @@ class SubscriptionController extends Controller
 
     private function subscriptionPlansForRequest(Request $request, ?string $displayCurrency = null): array
     {
-        $displayCurrency ??= CurrencyResolver::currencyForRequest($request);
+        $displayCurrency ??= $this->subscriptionCurrencyForRequest($request);
 
         return SubscriptionPlan::where('is_active', true)
             ->orderBy('sort_order')
@@ -845,7 +847,7 @@ class SubscriptionController extends Controller
 
     private function accountCurrencyForRequest(Request $request): string
     {
-        $supported = array_keys(config('currencies.supported', []));
+        $supported = self::SUPPORTED_SUBSCRIPTION_CURRENCIES;
         $currency = strtoupper((string) (
             $request->user()?->providerProfile?->default_currency
             ?: $request->user()?->preferred_currency
@@ -854,7 +856,12 @@ class SubscriptionController extends Controller
 
         return in_array($currency, $supported, true)
             ? $currency
-            : CurrencyResolver::currencyForRequest($request);
+            : $this->subscriptionCurrencyForRequest($request);
+    }
+
+    private function subscriptionCurrencyForRequest(Request $request): string
+    {
+        return CurrencyResolver::currencyForRequest($request) === 'NGN' ? 'NGN' : 'USD';
     }
 
     private function paystackConfigured(): bool

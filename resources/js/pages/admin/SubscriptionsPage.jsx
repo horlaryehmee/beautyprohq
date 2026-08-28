@@ -26,6 +26,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 
 const normalize = (value) => Array.isArray(value) ? value : value?.subscriptions ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
+const subscriptionCurrencyCodes = new Set(['NGN', 'USD']);
 
 export default function AdminSubscriptionsPage() {
     const [query, setQuery] = useState('');
@@ -36,6 +37,7 @@ export default function AdminSubscriptionsPage() {
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const { supported } = useCurrency();
+    const subscriptionCurrencies = supported.filter((item) => subscriptionCurrencyCodes.has(item.code));
     const search = useDebouncedValue(query);
     const [page, setPage] = useState(1);
     const subscriptionsResource = useApiResource('/admin/subscriptions', [], {
@@ -191,7 +193,7 @@ export default function AdminSubscriptionsPage() {
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={savePlan}>
                             <Field label="Plan name"><input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required value={form.name} /></Field>
                             <Field label="Price"><input className={inputClass} disabled={editingPlan.key === 'free'} min="0" onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} required type="number" value={form.price} /></Field>
-                            <Field label="Currency"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} required value={form.currency}>{supported.map((item) => <option key={item.code} value={item.code}>{item.code} · {item.name}</option>)}</select></Field>
+                            <Field label="Currency"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))} required value={form.currency}>{subscriptionCurrencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {item.name}</option>)}</select></Field>
                             <Field label="Billing period"><select className={inputClass} onChange={(event) => setForm((current) => ({ ...current, billing_period: event.target.value }))} value={form.billing_period}><option value="daily">Daily</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></Field>
                             <Field className="sm:col-span-2" label="Features" hint="One feature per line."><textarea className={`${inputClass} min-h-44`} onChange={(event) => setForm((current) => ({ ...current, features: event.target.value }))} value={form.features} /></Field>
                             <div className="flex justify-end gap-2 sm:col-span-2"><Button onClick={() => setEditingPlan(null)} type="button" variant="secondary">Cancel</Button><Button busy={saving} type="submit">Save plan</Button></div>
