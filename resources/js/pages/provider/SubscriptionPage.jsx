@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import Icon from '../../components/ui/Icon';
 import {
     Button,
     Card,
@@ -31,9 +32,13 @@ const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : '�
 const paidPlans = ['paid', 'pro', 'daily_test'];
 const isPaidActiveSubscription = (subscription) => paidPlans.includes(subscription?.plan) && subscription?.status === 'active';
 const fallbackSubscriptionCurrencies = [
-    { code: 'NGN', name: 'Nigerian Naira', rate: 1 },
-    { code: 'USD', name: 'US Dollar', rate: 0.00063 },
+    { code: 'NGN', name: 'Nigerian Naira', symbol: '₦', rate: 1 },
+    { code: 'USD', name: 'US Dollar', symbol: '$', rate: 0.00063 },
 ];
+const currencyFlags = {
+    NGN: 'https://flagcdn.com/w40/ng.png',
+    USD: 'https://flagcdn.com/w40/us.png',
+};
 
 const convertedPrice = (amount, from, to, currencies) => {
     const rates = Object.fromEntries(currencies.map((currency) => [currency.code, Number(currency.rate || 1)]));
@@ -48,6 +53,7 @@ export default function ProviderSubscriptionPage() {
     const [busy, setBusy] = useState('');
     const [paymentResult, setPaymentResult] = useState(null);
     const [selectedCurrency, setSelectedCurrency] = useState('');
+    const [currencyOpen, setCurrencyOpen] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const handledPaymentReturn = useRef('');
     const { refreshUser } = useAuth();
@@ -172,19 +178,49 @@ export default function ProviderSubscriptionPage() {
         <div className="space-y-6">
             <PageHeader
                 actions={(
-                    <label className="flex min-w-48 flex-col gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Display currency
-                        <select
-                            aria-label="Display currency"
-                            className="min-h-11 rounded-xl border border-bphq-chrome bg-white px-3.5 text-sm font-semibold normal-case tracking-normal text-bphq-espresso outline-none transition focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60"
-                            onChange={(event) => setSelectedCurrency(event.target.value)}
-                            value={displayCurrency}
+                    <div className="relative min-w-48">
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Display currency</p>
+                        <button
+                            aria-expanded={currencyOpen}
+                            aria-haspopup="listbox"
+                            className="inline-flex min-h-11 w-full items-center gap-2 rounded-full border border-stone-200 bg-white px-3.5 text-sm font-semibold text-plum-950 shadow-sm transition hover:bg-cream-100"
+                            onClick={() => setCurrencyOpen((open) => !open)}
+                            type="button"
                         >
-                            {subscriptionCurrencies.map((currency) => (
-                                <option key={currency.code} value={currency.code}>{currency.code} · {currency.name}</option>
-                            ))}
-                        </select>
-                    </label>
+                            <img
+                                alt=""
+                                className="h-4 w-5 rounded-sm object-cover"
+                                onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                                src={currencyFlags[displayCurrency]}
+                            />
+                            {displayCurrency}
+                            <Icon className="ml-auto" name="chevronDown" size={14} />
+                        </button>
+
+                        {currencyOpen && (
+                            <div className="absolute right-0 top-full z-30 mt-2 w-52 overflow-hidden rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl" role="listbox">
+                                {subscriptionCurrencies.map((currency) => (
+                                    <button
+                                        aria-selected={displayCurrency === currency.code}
+                                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${displayCurrency === currency.code ? 'bg-plum-950 text-white' : 'text-plum-950 hover:bg-cream-100'}`}
+                                        key={currency.code}
+                                        onClick={() => { setSelectedCurrency(currency.code); setCurrencyOpen(false); }}
+                                        role="option"
+                                        type="button"
+                                    >
+                                        <img
+                                            alt=""
+                                            className="h-4 w-5 rounded-sm object-cover"
+                                            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                                            src={currencyFlags[currency.code]}
+                                        />
+                                        <span>{currency.code}</span>
+                                        <span className={`ml-auto text-xs font-bold ${displayCurrency === currency.code ? 'text-white/70' : 'text-stone-400'}`}>{currency.symbol ?? ''}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 )}
                 description="Choose the plan that matches how you want to use BeautyPro HQ."
                 eyebrow="Provider plan"
