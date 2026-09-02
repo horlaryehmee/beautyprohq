@@ -74,6 +74,8 @@ export default function LoginPage() {
         >
             <form onSubmit={submit} className="space-y-5">
                 {location.state?.message && <InlineAlert tone="success">{location.state.message}</InlineAlert>}
+                {searchParams.get('email_changed') === '1' && <InlineAlert tone="success">Your login email has been verified and updated. Sign in with the new address.</InlineAlert>}
+                {searchParams.get('email_change_error') && <InlineAlert>This email-change link is invalid, expired, or can no longer be used.</InlineAlert>}
                 {error && <InlineAlert>{error}</InlineAlert>}
 
                 {!twoFactorRequired ? (

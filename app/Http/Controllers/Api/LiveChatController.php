@@ -9,6 +9,7 @@ use App\Models\LiveChatConversation;
 use App\Models\ProviderProfile;
 use App\Models\User;
 use App\Notifications\LiveChatProviderMessageNotification;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -93,7 +94,7 @@ class LiveChatController extends Controller
 
             $conversation = LiveChatConversation::create([
                 'provider_id' => $provider->id,
-                'customer_id' => $customer->id,
+                'customer_id' => $customer?->id,
                 'visitor_name' => $validated['name'],
                 'visitor_email' => $email,
                 'visitor_token' => Str::random(64),
@@ -108,7 +109,9 @@ class LiveChatController extends Controller
                 'body' => $validated['message'],
             ]);
 
-            $this->recordLiveChatCrmActivity($provider, $customer, $validated['message'], 'Live chat started');
+            if ($customer) {
+                $this->recordLiveChatCrmActivity($provider, $customer, $validated['message'], 'Live chat started');
+            }
 
             return [$conversation, $message];
         });
@@ -204,32 +207,32 @@ class LiveChatController extends Controller
         }
     }
 
-    private function customerForLiveChat(Request $request, array $validated): User
+    private function customerForLiveChat(Request $request, array $validated): ?User
     {
         if ($request->user()?->isCustomer()) {
             return $request->user();
         }
 
-        $email = Str::lower($validated['email']);
-        $customer = User::where('email', $email)->first();
-
-        if ($customer) {
-            if (blank($customer->name)) {
-                $customer->forceFill(['name' => $validated['name']])->save();
-            }
-
-            return $customer;
+        $email = Str::lower(trim($validated['email']));
+        if (User::where('email', $email)->exists()) {
+            return null;
         }
 
-        return User::create([
-            'name' => $validated['name'],
-            'email' => $email,
-            'password' => Str::random(48),
-            'role' => 'customer',
-            'is_guest' => true,
-            'is_active' => true,
-            'email_verified_at' => now(),
-        ]);
+        try {
+            return User::create([
+                'name' => $validated['name'],
+                'email' => $email,
+                'password' => Str::random(48),
+                'role' => 'customer',
+                'is_guest' => true,
+                'is_active' => true,
+                'email_verified_at' => null,
+            ]);
+        } catch (QueryException) {
+            // A concurrent registration may have claimed the address. Never attach
+            // an anonymous conversation to an existing authenticated identity.
+            return null;
+        }
     }
 
     private function recordLiveChatCrmActivity(ProviderProfile $provider, User $customer, string $message, string $title): void

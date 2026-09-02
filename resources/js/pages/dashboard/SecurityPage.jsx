@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import LoginCredentialsCard from './LoginCredentialsCard';
 import {
     Button,
     Card,
@@ -125,6 +126,8 @@ export default function SecurityPage({ embedded = false }) {
         <div className="space-y-6">
             {!embedded && <PageHeader description="Protect your account with a second verification code during login." eyebrow="Account" title="Security" />}
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
+
+            <LoginCredentialsCard />
 
             <Card>
                 <CardHeader

@@ -94,6 +94,10 @@ class SecurityHeaders
         preg_match_all('/<script(?:\s[^>]*)?>(.*?)<\/script>/is', $content, $matches);
 
         return collect($matches[1] ?? [])
+            ->filter(fn (string $script): bool => str_starts_with(
+                trim($script),
+                "const form = document.getElementById('waitlist-form');"
+            ))
             ->map(fn (string $script): string => "'sha256-".base64_encode(hash('sha256', $script, true))."'")
             ->unique()
             ->values()

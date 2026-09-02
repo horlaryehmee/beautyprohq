@@ -2,15 +2,15 @@
 
 use App\Http\Controllers\Api\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Api\Admin\DeploymentController as AdminDeploymentController;
 use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController;
+use App\Http\Controllers\Api\Admin\DeploymentController as AdminDeploymentController;
 use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
-use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CurrencyController;
+use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LiveChatController;
 use App\Http\Controllers\Api\NotificationController;
@@ -40,6 +40,8 @@ Route::prefix('auth')->group(function (): void {
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->middleware(['throttle:sensitive'])->name('verification.verify');
+Route::get('/auth/email-change/{user}/{token}', [AuthController::class, 'verifyEmailChange'])
+    ->middleware(['signed', 'throttle:sensitive'])->name('email-change.verify');
 
 Route::get('/home', HomeController::class);
 Route::get('/currencies', [CurrencyController::class, 'index']);
@@ -78,6 +80,9 @@ Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatControl
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::put('/auth/password', [AuthController::class, 'updatePassword'])->middleware('throttle:sensitive');
+    Route::post('/auth/email-change', [AuthController::class, 'requestEmailChange'])->middleware('throttle:sensitive');
+    Route::delete('/auth/account', [AuthController::class, 'destroyAccount'])->middleware('throttle:sensitive');
     Route::post('/email/verification-notification', [AuthController::class, 'sendVerification'])->middleware('throttle:email-verification');
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::post('/auth/two-factor/enable', [AuthController::class, 'enableTwoFactor'])->middleware('throttle:sensitive');
@@ -88,11 +93,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'read']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
-    Route::post('/upload', UploadController::class)->middleware('throttle:upload');
+    Route::post('/upload', UploadController::class)->middleware(['verified', 'throttle:upload']);
     Route::post('/community-posts/{communityPost}/reactions', [PublicContentController::class, 'reactToCommunity'])->middleware('throttle:public-form');
     Route::post('/community-posts/{communityPost}/comments', [PublicContentController::class, 'commentOnCommunity'])->middleware('throttle:public-form');
 
-    Route::middleware('role:customer')->group(function (): void {
+    Route::middleware(['role:customer', 'verified'])->group(function (): void {
         Route::get('/bookings', [BookingController::class, 'index']);
         Route::post('/bookings', [BookingController::class, 'store']);
         Route::get('/bookings/{booking}', [BookingController::class, 'show']);
@@ -130,6 +135,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::post('/subscription/checkout', [SubscriptionController::class, 'checkout']);
             Route::post('/subscription/verify', [SubscriptionController::class, 'verify']);
             Route::post('/subscription/downgrade', [SubscriptionController::class, 'downgrade']);
+            Route::get('/settings', [ProviderBusinessController::class, 'settings']);
+            Route::put('/settings', [ProviderBusinessController::class, 'updateSettings']);
         });
 
         Route::middleware(['paid.provider', 'verified', 'verified.provider'])->group(function (): void {
@@ -151,8 +158,6 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::post('/live-chat/{conversation}/messages', [ProviderLiveChatController::class, 'reply'])->middleware('throttle:chat');
             Route::patch('/live-chat/{conversation}', [ProviderLiveChatController::class, 'update']);
             Route::get('/payments', [ProviderBusinessController::class, 'payments']);
-            Route::get('/settings', [ProviderBusinessController::class, 'settings']);
-            Route::put('/settings', [ProviderBusinessController::class, 'updateSettings']);
             Route::get('/payment-accounts', [ProviderBusinessController::class, 'paymentAccounts']);
             Route::put('/payment-accounts', [ProviderBusinessController::class, 'updatePaymentAccount']);
             Route::get('/digital-products', [ProviderBusinessController::class, 'products']);
@@ -178,7 +183,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         });
     });
 
-        Route::prefix('admin')->middleware('role:admin')->group(function (): void {
+    Route::prefix('admin')->middleware('role:admin')->group(function (): void {
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/activity', [AdminDashboardController::class, 'activity']);
         Route::get('/waitlist', [AdminDashboardController::class, 'waitlist']);
@@ -187,6 +192,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/users', [AdminDashboardController::class, 'users']);
         Route::get('/users/{user}', [AdminDashboardController::class, 'showUser']);
         Route::patch('/users/{user}', [AdminDashboardController::class, 'updateUser']);
+        Route::post('/users/{user}/email-change', [AuthController::class, 'requestManagedEmailChange'])->middleware('throttle:sensitive');
         Route::delete('/users/{user}', [AdminDashboardController::class, 'destroyUser']);
         Route::get('/directory', [AdminDashboardController::class, 'directory']);
         Route::get('/providers/{provider}/preview', [ProviderDirectoryController::class, 'adminPreview']);

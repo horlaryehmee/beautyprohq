@@ -101,6 +101,27 @@ class LiveChatTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_anonymous_chat_cannot_attach_itself_to_an_existing_identity(): void
+    {
+        Notification::fake();
+        [$provider] = $this->paidProvider();
+        $existing = User::factory()->admin()->create(['email' => 'owner@example.test']);
+
+        $response = $this->postJson("/api/providers/{$provider->id}/chat/conversations", [
+            'name' => 'Impersonated Owner',
+            'email' => 'owner@example.test',
+            'message' => 'This must not be associated with the administrator account.',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('live_chat_conversations', [
+            'id' => $response->json('data.id'),
+            'customer_id' => null,
+            'visitor_email' => 'owner@example.test',
+        ]);
+        $this->assertSame('admin', $existing->fresh()->role);
+        $this->assertFalse($existing->fresh()->is_guest);
+    }
+
     public function test_provider_thread_messages_are_paged_and_scoped_to_one_conversation(): void
     {
         [$provider, $providerUser] = $this->paidProvider();

@@ -26,7 +26,7 @@ export default function ProtectedRoute({ roles = [] }) {
         return <Navigate to={home} replace />;
     }
 
-    if (user.role === 'provider' && !user.email_verified_at) {
+    if (user.role !== 'admin' && !user.email_verified_at) {
         return <Navigate to="/verify-email" replace />;
     }
 

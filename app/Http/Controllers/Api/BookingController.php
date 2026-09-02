@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\LiveChatConversation;
+use App\Models\Loyalty;
+use App\Models\LoyaltyTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\ProviderProfile;
@@ -23,6 +25,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class BookingController extends Controller
 {
@@ -129,8 +132,11 @@ class BookingController extends Controller
         if ($customer && ! $customer->isCustomer()) {
             return response()->json(['message' => 'Please use a customer email address for this booking.'], 422);
         }
-        if ($customer && $createAccount && ! $customer->is_guest) {
-            return response()->json(['message' => 'An account already exists with this email. Please log in before booking or continue without creating a new account.'], 422);
+        if ($customer && ! $customer->is_guest) {
+            return response()->json(['message' => 'An account already exists with this email. Please log in before booking.'], 422);
+        }
+        if ($customer && ! $createAccount) {
+            return response()->json(['message' => 'This email already has a guest booking. Create and verify the account before making another booking.'], 422);
         }
 
         $customer ??= User::create([
@@ -148,6 +154,7 @@ class BookingController extends Controller
                 'phone' => $validated['customer']['phone'] ?? $customer->phone,
                 'password' => Hash::make($validated['customer']['password']),
                 'is_guest' => false,
+                'email_verified_at' => null,
             ]);
         }
 
@@ -157,7 +164,17 @@ class BookingController extends Controller
 
         unset($validated['customer']);
 
-        return $this->createBooking($request, $validated, $customer);
+        $response = $this->createBooking($request, $validated, $customer);
+
+        if ($createAccount && ! $customer->hasVerifiedEmail() && $response->isSuccessful()) {
+            try {
+                $customer->sendEmailVerificationNotification();
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $response;
     }
 
     private function createBooking(Request $request, array $validated, User $customer): JsonResponse
@@ -230,10 +247,10 @@ class BookingController extends Controller
             if ($redeemLoyalty) {
                 abort_unless($provider->loyalty_enabled, 422, 'This provider has not enabled loyalty rewards.');
                 $redeemedPoints = $this->requiredLoyaltyPointsForService($provider, $service);
-                $loyalty = \App\Models\Loyalty::lockForUpdate()->firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
+                $loyalty = Loyalty::lockForUpdate()->firstOrCreate(['provider_id' => $provider->id, 'customer_id' => $customer->id]);
                 abort_unless($loyalty->points >= $redeemedPoints, 422, 'You do not have enough loyalty points for this provider.');
                 $loyalty->decrement('points', $redeemedPoints);
-                \App\Models\LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => -$redeemedPoints, 'reason' => 'Redeemed for booking request']);
+                LoyaltyTransaction::create(['loyalty_id' => $loyalty->id, 'booking_id' => $booking->id, 'points' => -$redeemedPoints, 'reason' => 'Redeemed for booking request']);
             }
 
             Payment::create([
@@ -589,7 +606,7 @@ class BookingController extends Controller
                     'message' => $exception->getMessage(),
                 ]);
 
-                if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                if ($exception instanceof HttpExceptionInterface) {
                     throw $exception;
                 }
 

@@ -20,9 +20,9 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'preferred_currency', 'is_demo', 'is_guest', 'is_active', 'two_factor_enabled', 'two_factor_method', 'two_factor_confirmed_at', 'two_factor_code_hash', 'two_factor_code_expires_at', 'two_factor_totp_secret', 'two_factor_recovery_codes', 'email_verified_at', 'last_login_at'];
+    protected $fillable = ['name', 'email', 'pending_email', 'pending_email_token_hash', 'pending_email_expires_at', 'pending_email_change_context', 'login_email_changed_at', 'phone', 'password', 'role', 'preferred_currency', 'is_demo', 'is_guest', 'is_active', 'two_factor_enabled', 'two_factor_method', 'two_factor_confirmed_at', 'two_factor_code_hash', 'two_factor_code_expires_at', 'two_factor_totp_secret', 'two_factor_recovery_codes', 'email_verified_at', 'last_login_at'];
 
-    protected $hidden = ['password', 'remember_token', 'two_factor_code_hash', 'two_factor_totp_secret', 'two_factor_recovery_codes'];
+    protected $hidden = ['password', 'remember_token', 'pending_email_token_hash', 'two_factor_code_hash', 'two_factor_totp_secret', 'two_factor_recovery_codes'];
 
     /**
      * Get the attributes that should be cast.
@@ -33,6 +33,8 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'pending_email_expires_at' => 'datetime',
+            'login_email_changed_at' => 'datetime',
             'last_login_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_code_expires_at' => 'datetime',
@@ -240,6 +242,6 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new BeautyProVerifyEmailNotification());
+        $this->notify(new BeautyProVerifyEmailNotification);
     }
 }

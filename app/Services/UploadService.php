@@ -28,14 +28,16 @@ class UploadService
 
     public function store(UploadedFile $file, ?User $user = null, ?string $collection = null): array
     {
+        $user ??= Auth::user();
         $this->guardExecutableFile($file);
+        $this->guardStorageQuota($file, $user);
         $this->ensureUploadDirectoryIsHardened();
 
         $stored = str_starts_with((string) $file->getMimeType(), 'image/')
             ? $this->storeOptimizedImage($file)
             : $this->storeFile($file);
 
-        return $this->recordMedia($stored, $file, $user ?: Auth::user(), $collection);
+        return $this->recordMedia($stored, $file, $user, $collection);
     }
 
     public function list(): array
@@ -110,7 +112,7 @@ class UploadService
         $path = self::UPLOAD_DIRECTORY.'/'.$filename;
 
         try {
-            $manager = new ImageManager(new Driver());
+            $manager = new ImageManager(new Driver);
             $image = $manager->read($file->getRealPath())->scaleDown(width: 1600, height: 1600);
             $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
 
@@ -287,6 +289,28 @@ class UploadService
         if (in_array($extension, self::BLOCKED_EXTENSIONS, true)) {
             throw ValidationException::withMessages([
                 'file' => 'Executable files are not allowed.',
+            ]);
+        }
+    }
+
+    private function guardStorageQuota(UploadedFile $file, ?User $user): void
+    {
+        if (! $user || ! $this->mediaTableExists()) {
+            return;
+        }
+
+        $quota = (int) config($user->isAdmin()
+            ? 'security.uploads.admin_quota_bytes'
+            : 'security.uploads.user_quota_bytes');
+
+        if ($quota <= 0) {
+            return;
+        }
+
+        $used = (int) UploadedMedia::where('user_id', $user->id)->sum('size');
+        if ($used + (int) $file->getSize() > $quota) {
+            throw ValidationException::withMessages([
+                'file' => 'Your account has reached its secure upload storage limit. Remove unused files or contact support.',
             ]);
         }
     }

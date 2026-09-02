@@ -15,6 +15,7 @@ import {
     useDashboardToast,
 } from '../../components/dashboard';
 import SecurityPage from '../dashboard/SecurityPage';
+import AccountDeletionCard from '../dashboard/AccountDeletionCard';
 
 const gatewayLabels = {
     paystack: 'Paystack',
@@ -46,6 +47,7 @@ export default function ProviderSettingsPage() {
         ['general', 'General'],
         ...(data.whatsapp_feature_enabled ? [['notifications', 'Notifications']] : []),
         ['security', 'Security'],
+        ['delete-account', 'Delete account'],
     ];
 
     useEffect(() => {
@@ -88,7 +90,7 @@ export default function ProviderSettingsPage() {
 
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {providerTabs.map(([key, label]) => (
-                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500'}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
+                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? (key === 'delete-account' ? 'bg-red-700 text-white' : 'bg-slate-950 text-white') : (key === 'delete-account' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500')}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
                 ))}
             </div>
 
@@ -163,7 +165,8 @@ export default function ProviderSettingsPage() {
                     </div>
                 </form>
             </Card>
-            : <SecurityPage embedded />}
+            : tab === 'security' ? <SecurityPage embedded />
+            : <AccountDeletionCard />}
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, usePagination } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
+import { useAuth } from '../../context/AuthContext';
 import { mediaUrl } from '../../lib/utils';
 
 const socialKeys = ['instagram', 'tiktok', 'facebook', 'youtube', 'linkedin', 'whatsapp', 'website'];
@@ -145,6 +146,7 @@ export default function AdminUserDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { notify } = useDashboardToast();
+    const { user: authenticatedUser } = useAuth();
     const [user, setUser] = useState(null);
     const [form, setForm] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -152,6 +154,8 @@ export default function AdminUserDetailPage() {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState('');
+    const [emailChange, setEmailChange] = useState({ email: '', current_password: '' });
+    const [requestingEmailChange, setRequestingEmailChange] = useState(false);
     const [error, setError] = useState('');
     const [providerMedia, setProviderMedia] = useState([]);
     const [providerMediaMeta, setProviderMediaMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
@@ -275,6 +279,8 @@ export default function AdminUserDetailPage() {
         setSaving(true);
         try {
             const payload = { ...form };
+            delete payload.email;
+            delete payload.email_verified;
             if (payload.provider_profile) {
                 payload.provider_profile = {
                     ...payload.provider_profile,
@@ -317,6 +323,20 @@ export default function AdminUserDetailPage() {
         }
     };
 
+    const requestManagedEmailChange = async () => {
+        setRequestingEmailChange(true);
+        try {
+            await apiRequest('post', `/admin/users/${id}/email-change`, emailChange);
+            notify('Verification sent to the new email address.');
+            setEmailChange({ email: '', current_password: '' });
+            await load();
+        } catch (requestError) {
+            notify(apiErrorMessage(requestError), 'error');
+        } finally {
+            setRequestingEmailChange(false);
+        }
+    };
+
     const setVerification = (status) => {
         update({
             verification_status: status,
@@ -337,6 +357,9 @@ export default function AdminUserDetailPage() {
     const customerUsage = usage.customer ?? {};
     const subscriptionUsage = usage.subscription ?? {};
     const accountUsage = usage.account ?? {};
+    const isAdminAccount = form?.role === 'admin';
+    const isOwnAccount = Number(authenticatedUser?.id) === Number(user?.id ?? id);
+    const isEmailChangeLocked = isAdminAccount && Boolean(user?.login_email_changed_at);
 
     if (loading) return <Card><LoadingBlock rows={8} /></Card>;
     if (error || !form) return <ErrorState message={error || 'User not found.'} onRetry={load} />;
@@ -371,7 +394,9 @@ export default function AdminUserDetailPage() {
                         <h2 className="text-lg font-bold text-slate-950">Account details</h2>
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
                             <Field label="Name"><input className={inputClass} onChange={(event) => update({ name: event.target.value })} required value={form.name} /></Field>
-                            <Field label="Email"><input className={inputClass} onChange={(event) => update({ email: event.target.value })} required type="email" value={form.email} /></Field>
+                            <Field hint={isOwnAccount ? 'Use Settings → Security for your own one-time verified administrator email change.' : 'Use the secure email-change section below to send a verification link.'} label="Current login email">
+                                <input className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`} disabled readOnly type="email" value={form.email} />
+                            </Field>
                             <Field label="Phone"><input className={inputClass} onChange={(event) => update({ phone: event.target.value })} value={form.phone ?? ''} /></Field>
                             <Field label="Role">
                                 <select className={inputClass} onChange={(event) => update({ role: event.target.value })} value={form.role}>
@@ -386,11 +411,74 @@ export default function AdminUserDetailPage() {
                                     <option value="0">Suspended</option>
                                 </select>
                             </Field>
-                            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 text-sm font-bold text-slate-700">
-                                <input checked={form.email_verified} onChange={(event) => update({ email_verified: event.target.checked })} type="checkbox" />
-                                Email verified
-                            </label>
+                            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 text-sm font-bold text-slate-700">
+                                <span>Email verification</span>
+                                <StatusBadge status={form.email_verified ? 'confirmed' : 'pending'} />
+                            </div>
+                            {isAdminAccount && (
+                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 p-4 text-sm font-bold text-slate-700">
+                                    <span>One-time email change</span>
+                                    <StatusBadge status={user?.login_email_changed_at ? 'used' : 'available'} />
+                                </div>
+                            )}
                         </div>
+                    </Card>
+
+                    <Card>
+                        <h2 className="text-lg font-bold text-slate-950">Login email</h2>
+                        {isOwnAccount ? (
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                Manage your own one-time administrator email change from Settings → Security. Your current email remains active until the new address is verified.
+                            </p>
+                        ) : (
+                            <>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">
+                                    Enter the user’s new address and your administrator password. The address changes only after the user confirms the signed link sent to the new inbox.
+                                </p>
+                                {isEmailChangeLocked ? (
+                                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                                        This administrator’s one-time email change has already been used and is permanently locked.
+                                    </div>
+                                ) : (
+                                    <>
+                                        {user?.pending_email && (
+                                            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                                Verification pending for <span className="font-bold">{user.pending_email}</span>.
+                                            </div>
+                                        )}
+                                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                            <Field label="New login email">
+                                                <input
+                                                    autoComplete="off"
+                                                    className={inputClass}
+                                                    onChange={(event) => setEmailChange((current) => ({ ...current, email: event.target.value }))}
+                                                    type="email"
+                                                    value={emailChange.email}
+                                                />
+                                            </Field>
+                                            <Field hint="Confirms that you authorized this sensitive change." label="Your administrator password">
+                                                <input
+                                                    autoComplete="current-password"
+                                                    className={inputClass}
+                                                    onChange={(event) => setEmailChange((current) => ({ ...current, current_password: event.target.value }))}
+                                                    type="password"
+                                                    value={emailChange.current_password}
+                                                />
+                                            </Field>
+                                        </div>
+                                        <Button
+                                            busy={requestingEmailChange}
+                                            className="mt-4"
+                                            disabled={!emailChange.email || !emailChange.current_password || requestingEmailChange}
+                                            onClick={requestManagedEmailChange}
+                                            type="button"
+                                        >
+                                            Send verification email
+                                        </Button>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </Card>
 
                     {hasProviderControls && (
@@ -743,6 +831,7 @@ export default function AdminUserDetailPage() {
                             <p><span className="font-bold text-slate-900">Role:</span> {form.role}</p>
                             <p><span className="font-bold text-slate-900">Account:</span> {form.is_active ? 'Active' : 'Suspended'}</p>
                             <p><span className="font-bold text-slate-900">Email:</span> {form.email_verified ? 'Verified' : 'Not verified'}</p>
+                            {isAdminAccount && <p><span className="font-bold text-slate-900">Email change:</span> {user?.login_email_changed_at ? 'One-time change used and locked' : 'One-time verified change available in Settings → Security'}</p>}
                             {hasProviderControls && <p><span className="font-bold text-slate-900">Provider:</span> {profile.verified ? 'Verified' : 'Not verified'}</p>}
                             <p><span className="font-bold text-slate-900">Joined:</span> {formatDate(accountUsage.joined_at ?? user?.created_at)}</p>
                             <p><span className="font-bold text-slate-900">Last login:</span> {formatDate(accountUsage.last_login_at ?? user?.last_login_at)}</p>
@@ -776,7 +865,7 @@ export default function AdminUserDetailPage() {
                                     </div>
                                 </>
                             )}
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                            {!isAdminAccount && form.role === 'customer' && <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Customer activity</p>
                                 <div className="mt-2 grid grid-cols-2 gap-2 text-slate-600">
                                     <p><span className="font-bold text-slate-900">{usageValue(customerUsage.bookings)}</span> bookings</p>
@@ -785,8 +874,8 @@ export default function AdminUserDetailPage() {
                                     <p><span className="font-bold text-slate-900">{usageValue(customerUsage.loyalty_points)}</span> points</p>
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">Spend tracked: {money(customerUsage.paid_spend)}</p>
-                            </div>
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                            </div>}
+                            {hasProviderControls && <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Subscription</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     <StatusBadge status={subscriptionUsage.status ?? 'inactive'} />
@@ -794,11 +883,19 @@ export default function AdminUserDetailPage() {
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">Paid total: {money(subscriptionUsage.paid_total)}</p>
                                 <p className="mt-1 text-xs font-semibold text-slate-500">Renews: {formatDate(subscriptionUsage.renews_at)}</p>
-                            </div>
+                            </div>}
+                            {isAdminAccount && <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Administrative account</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <StatusBadge status={form.email_verified ? 'email confirmed' : 'email pending'} />
+                                    <StatusBadge status={accountUsage.two_factor_enabled ? '2FA enabled' : '2FA disabled'} />
+                                    <StatusBadge status={user?.login_email_changed_at ? 'email locked' : 'email change available'} />
+                                </div>
+                            </div>}
                         </div>
                     </Card>
 
-                    <Card className="border-[#FECDCA] bg-[#FEF3F2]">
+                    {!isOwnAccount && <Card className="border-[#FECDCA] bg-[#FEF3F2]">
                         <h2 className="text-lg font-bold text-[#B42318]">Delete user data</h2>
                         <p className="mt-2 text-sm leading-6 text-[#912018]">
                             Permanently deletes this user and related platform records, including provider profile data, bookings, payments, subscriptions, CRM, loyalty, saved providers, and verification records. This cannot be undone.
@@ -821,7 +918,7 @@ export default function AdminUserDetailPage() {
                         >
                             Delete user permanently
                         </Button>
-                    </Card>
+                    </Card>}
                 </div>
             </div>
         </form>

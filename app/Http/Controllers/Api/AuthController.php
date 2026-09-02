@@ -7,18 +7,23 @@ use App\Models\ProviderProfile;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
-use App\Notifications\TwoFactorCodeNotification;
+use App\Notifications\EmailChangeVerificationNotification;
 use App\Notifications\PlatformUpdateNotification;
+use App\Notifications\TwoFactorCodeNotification;
+use App\Services\AccountDeletionService;
 use App\Support\CurrencyResolver;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -64,6 +69,7 @@ class AuthController extends Controller
                     'password' => $validated['password'],
                     'is_guest' => false,
                     'is_active' => true,
+                    'email_verified_at' => null,
                     'preferred_currency' => $existingUser->preferred_currency ?: $detectedCurrency,
                 ]);
 
@@ -137,6 +143,7 @@ class AuthController extends Controller
                 'email_hash' => hash('sha256', Str::lower(trim($credentials['email']))),
                 'ip' => $request->ip(),
             ]);
+
             return response()->json(['message' => 'The provided credentials are incorrect.'], 422);
         }
 
@@ -145,6 +152,7 @@ class AuthController extends Controller
                 'user_id' => $user->id,
                 'ip' => $request->ip(),
             ]);
+
             return response()->json(['message' => 'This account has been disabled.'], 403);
         }
 
@@ -179,6 +187,7 @@ class AuthController extends Controller
                     'method' => $method,
                     'ip' => $request->ip(),
                 ]);
+
                 return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
             }
 
@@ -374,6 +383,254 @@ class AuthController extends Controller
         return $this->success(null, 'You have been logged out.');
     }
 
+    public function destroyAccount(Request $request, AccountDeletionService $accounts): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+            'confirmation' => ['required', 'string', Rule::in(['DELETE'])],
+        ]);
+        $user = $request->user();
+
+        abort_if($user->isAdmin(), 403, 'Administrator accounts cannot be deleted here.');
+        abort_unless(Hash::check($validated['password'], $user->password), 422, 'The password is incorrect.');
+
+        Log::channel('security')->notice('Account deletion requested.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+        ]);
+
+        $accounts->delete($user);
+
+        Auth::guard('web')->logout();
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
+        return $this->success(null, 'Your account has been permanently deleted.');
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
+        ]);
+        $user = $request->user();
+
+        abort_unless(Hash::check($validated['current_password'], $user->password), 422, 'The current password is incorrect.');
+        abort_if(Hash::check($validated['password'], $user->password), 422, 'Your new password must be different from your current password.');
+
+        DB::transaction(function () use ($request, $user, $validated): void {
+            $user->forceFill([
+                'password' => $validated['password'],
+                'remember_token' => Str::random(60),
+                'pending_email' => null,
+                'pending_email_token_hash' => null,
+                'pending_email_expires_at' => null,
+                'pending_email_change_context' => null,
+            ])->save();
+            $user->tokens()->delete();
+            $this->deleteOtherDatabaseSessions($user, $request->hasSession() ? $request->session()->getId() : null);
+        });
+
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+
+        Log::channel('security')->notice('Login password changed.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+        ]);
+        $this->sendSecurityNotice($user, 'Your BeautyPro HQ password was changed', 'Your login password was changed. If this was not you, reset your password immediately and contact support.');
+
+        return $this->success(null, 'Your password has been updated securely.');
+    }
+
+    public function requestEmailChange(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isAdmin(), 403, 'Only an administrator can change a login email.');
+        abort_if($user->login_email_changed_at, 422, 'The one-time administrator email change has already been used.');
+
+        $request->merge([
+            'email' => Str::lower(trim($request->string('email')->toString())),
+        ]);
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email'), Rule::unique('users', 'pending_email')->ignore($request->user()->id)],
+        ]);
+        $email = $validated['email'];
+
+        abort_unless(Hash::check($validated['current_password'], $user->password), 422, 'The current password is incorrect.');
+        abort_if(hash_equals(Str::lower($user->email), $email), 422, 'That is already your login email.');
+
+        $token = Str::random(64);
+        $user->forceFill([
+            'pending_email' => $email,
+            'pending_email_token_hash' => hash('sha256', $token),
+            'pending_email_expires_at' => now()->addMinutes(60),
+            'pending_email_change_context' => 'admin_self',
+        ])->save();
+
+        try {
+            Notification::route('mail', $email)->notify(new EmailChangeVerificationNotification($user->id, $user->name, $token));
+        } catch (\Throwable $exception) {
+            $user->forceFill([
+                'pending_email' => null,
+                'pending_email_token_hash' => null,
+                'pending_email_expires_at' => null,
+                'pending_email_change_context' => null,
+            ])->save();
+            report($exception);
+
+            return response()->json(['message' => 'The verification email could not be sent. Your login email was not changed.'], 422);
+        }
+
+        Log::channel('security')->notice('Login email change requested.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'pending_email_hash' => hash('sha256', $email),
+            'ip' => $request->ip(),
+        ]);
+        $this->sendSecurityNotice($user, 'Login email change requested', 'A request was made to change your BeautyPro HQ login email. The current email remains active until the new address is verified. If this was not you, change your password immediately.');
+
+        return $this->success([
+            'email' => $user->email,
+            'pending_email' => $email,
+            'pending_email_expires_at' => $user->pending_email_expires_at,
+        ], 'Check the new inbox and confirm the verification link within 60 minutes.');
+    }
+
+    public function requestManagedEmailChange(Request $request, User $user): JsonResponse
+    {
+        $admin = $request->user();
+        abort_unless($admin?->isAdmin(), 403);
+        abort_if($admin->is($user), 422, 'Use Settings → Security for your own one-time administrator email change.');
+        abort_if($user->isAdmin() && $user->login_email_changed_at, 422, 'This administrator’s one-time email change has already been used.');
+
+        $request->merge([
+            'email' => Str::lower(trim($request->string('email')->toString())),
+        ]);
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email'), Rule::unique('users', 'pending_email')->ignore($user->id)],
+        ]);
+        abort_unless(Hash::check($validated['current_password'], $admin->password), 422, 'Your administrator password is incorrect.');
+        abort_if(hash_equals(Str::lower($user->email), $validated['email']), 422, 'That is already this user’s login email.');
+
+        $token = Str::random(64);
+        $user->forceFill([
+            'pending_email' => $validated['email'],
+            'pending_email_token_hash' => hash('sha256', $token),
+            'pending_email_expires_at' => now()->addMinutes(60),
+            'pending_email_change_context' => 'admin_managed',
+        ])->save();
+
+        try {
+            Notification::route('mail', $validated['email'])->notify(new EmailChangeVerificationNotification($user->id, $user->name, $token));
+        } catch (\Throwable $exception) {
+            $user->forceFill([
+                'pending_email' => null,
+                'pending_email_token_hash' => null,
+                'pending_email_expires_at' => null,
+                'pending_email_change_context' => null,
+            ])->save();
+            report($exception);
+
+            return response()->json(['message' => 'The verification email could not be sent. The user’s login email was not changed.'], 422);
+        }
+
+        Log::channel('security')->notice('Administrator requested a user login email change.', [
+            'administrator_id' => $admin->id,
+            'user_id' => $user->id,
+            'pending_email_hash' => hash('sha256', $validated['email']),
+            'ip' => $request->ip(),
+        ]);
+        $this->sendSecurityNotice($user, 'Administrator requested a login email change', 'An administrator requested a change to your BeautyPro HQ login email. Your current email remains active until the new address is verified. Contact support if you did not expect this request.');
+
+        return $this->success([
+            'email' => $user->email,
+            'pending_email' => $user->pending_email,
+            'pending_email_expires_at' => $user->pending_email_expires_at,
+        ], 'Verification sent. The current login email remains active until the new address is confirmed.');
+    }
+
+    public function verifyEmailChange(Request $request, User $user, string $token): RedirectResponse
+    {
+        $result = DB::transaction(function () use ($user, $token): string {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            $context = $user->pending_email_change_context;
+            $validContext = $context === 'admin_managed'
+                || ($context === 'admin_self' && $user->isAdmin() && ! $user->login_email_changed_at);
+
+            if (
+                ! $validContext
+                || blank($user->pending_email)
+                || blank($user->pending_email_token_hash)
+                || ! $user->pending_email_expires_at?->isFuture()
+                || ! hash_equals($user->pending_email_token_hash, hash('sha256', $token))
+            ) {
+                return 'invalid';
+            }
+
+            if (User::where('email', $user->pending_email)->whereKeyNot($user->id)->exists()) {
+                return 'taken';
+            }
+
+            $oldEmail = $user->email;
+            $user->forceFill([
+                'email' => $user->pending_email,
+                'email_verified_at' => now(),
+                'pending_email' => null,
+                'pending_email_token_hash' => null,
+                'pending_email_expires_at' => null,
+                'pending_email_change_context' => null,
+                'login_email_changed_at' => $user->isAdmin() ? now() : $user->login_email_changed_at,
+                'remember_token' => Str::random(60),
+            ])->save();
+            $user->tokens()->delete();
+            $this->deleteOtherDatabaseSessions($user);
+
+            Log::channel('security')->notice('Login email changed.', [
+                'user_id' => $user->id,
+                'old_email_hash' => hash('sha256', Str::lower($oldEmail)),
+                'new_email_hash' => hash('sha256', Str::lower($user->email)),
+            ]);
+
+            return 'changed';
+        });
+
+        $frontend = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+
+        return redirect()->away($frontend.'/login?'.http_build_query([
+            $result === 'changed' ? 'email_changed' : 'email_change_error' => $result === 'changed' ? '1' : $result,
+        ]));
+    }
+
+    private function deleteOtherDatabaseSessions(User $user, ?string $exceptSessionId = null): void
+    {
+        if (config('session.driver') !== 'database' || ! Schema::hasTable((string) config('session.table', 'sessions'))) {
+            return;
+        }
+
+        DB::table((string) config('session.table', 'sessions'))
+            ->where('user_id', $user->id)
+            ->when($exceptSessionId, fn ($query) => $query->where('id', '!=', $exceptSessionId))
+            ->delete();
+    }
+
+    private function sendSecurityNotice(User $user, string $title, string $message): void
+    {
+        try {
+            $user->notify(new PlatformUpdateNotification($title, $message));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => ['required', 'email']]);
@@ -395,6 +652,10 @@ class AuthController extends Controller
             $user->forceFill([
                 'password' => Hash::make($password),
                 'remember_token' => Str::random(60),
+                'pending_email' => null,
+                'pending_email_token_hash' => null,
+                'pending_email_expires_at' => null,
+                'pending_email_change_context' => null,
             ])->save();
             $user->tokens()->delete();
             event(new PasswordReset($user));
@@ -629,8 +890,8 @@ class AuthController extends Controller
         $key = $this->base32Decode($secret);
         $binaryCounter = pack('N2', intdiv($counter, 0x100000000), $counter % 0x100000000);
         $hash = hash_hmac('sha1', $binaryCounter, $key, true);
-        $offset = ord(substr($hash, -1)) & 0x0f;
-        $value = unpack('N', substr($hash, $offset, 4))[1] & 0x7fffffff;
+        $offset = ord(substr($hash, -1)) & 0x0F;
+        $value = unpack('N', substr($hash, $offset, 4))[1] & 0x7FFFFFFF;
 
         return str_pad((string) ($value % 1000000), 6, '0', STR_PAD_LEFT);
     }

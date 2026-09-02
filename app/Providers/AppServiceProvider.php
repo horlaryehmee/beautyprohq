@@ -11,18 +11,18 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Events\DiagnosingHealth;
-use Illuminate\Http\Request;
 use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -113,9 +113,10 @@ class AppServiceProvider extends ServiceProvider
             $this->withRateLimitResponse(Limit::perHour(60)->by('payment-hour:'.$this->actorKey($request))),
         ]);
 
-        RateLimiter::for('upload', fn (Request $request): Limit => $this->withRateLimitResponse(
-            Limit::perMinute(30)->by('upload:'.$this->actorKey($request))
-        ));
+        RateLimiter::for('upload', fn (Request $request): array => [
+            $this->withRateLimitResponse(Limit::perMinute(10)->by('upload:'.$this->actorKey($request))),
+            $this->withRateLimitResponse(Limit::perHour(100)->by('upload-hour:'.$this->actorKey($request))),
+        ]);
 
         RateLimiter::for('sensitive', fn (Request $request): Limit => $this->withRateLimitResponse(
             Limit::perMinute(6)->by('sensitive:'.$this->actorKey($request))

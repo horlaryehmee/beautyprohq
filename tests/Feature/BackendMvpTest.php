@@ -1615,16 +1615,17 @@ class BackendMvpTest extends TestCase
         $returningCustomer = User::factory()->create();
         $samePeriodRepeatCustomer = User::factory()->create();
         $newCustomer = User::factory()->create();
+        $previousPeriod = now()->startOfMonth()->subDay();
 
         Booking::create([
             'provider_id' => $provider->id,
             'customer_id' => $returningCustomer->id,
             'service_id' => $service->id,
-            'date' => now()->subMonth()->toDateString(),
+            'date' => $previousPeriod->toDateString(),
             'time' => '10:00',
             'status' => 'completed',
-            'created_at' => now()->subMonth(),
-            'updated_at' => now()->subMonth(),
+            'created_at' => $previousPeriod,
+            'updated_at' => $previousPeriod,
         ]);
 
         foreach ([$returningCustomer, $samePeriodRepeatCustomer, $samePeriodRepeatCustomer, $newCustomer] as $index => $customer) {
@@ -1635,8 +1636,8 @@ class BackendMvpTest extends TestCase
                 'date' => now()->addDays($index + 1)->toDateString(),
                 'time' => sprintf('1%d:00', $index),
                 'status' => 'confirmed',
-                'created_at' => now()->subDays($index),
-                'updated_at' => now()->subDays($index),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
 

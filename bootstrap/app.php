@@ -1,15 +1,15 @@
 <?php
 
-use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsurePaidProvider;
+use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureVerifiedProvider;
 use App\Http\Middleware\RequestContext;
 use App\Http\Middleware\SecurityHeaders;
-use Illuminate\Http\Request;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,7 +24,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustHosts(at: fn (): array => config('app.trusted_hosts', []));
         $middleware->validateCsrfTokens(except: [
             'api/newsletter/subscribe',
-            'api/admin/*',
         ]);
 
         $middleware->append([
@@ -41,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReportDuplicates();
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request, \Throwable $exception): bool => $request->is('api/*') || $request->expectsJson()
+            fn (Request $request, Throwable $exception): bool => $request->is('api/*') || $request->expectsJson()
         );
         $exceptions->context(fn (): array => array_filter([
             'request_id' => request()?->attributes->get('request_id'),

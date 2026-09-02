@@ -3,32 +3,19 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Availability;
 use App\Models\Booking;
-use App\Models\CommunityPost;
-use App\Models\CrmCustomer;
-use App\Models\DigitalProduct;
-use App\Models\EventRegistration;
-use App\Models\Loyalty;
-use App\Models\LoyaltyTransaction;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
 use App\Models\Payment;
-use App\Models\PaymentAccount;
-use App\Models\PortfolioItem;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
-use App\Models\Review;
-use App\Models\Reward;
-use App\Models\SavedProvider;
-use App\Models\Service;
 use App\Models\Subscription;
-use App\Models\SubscriptionPayment;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\AccountDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -185,11 +172,11 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
-            'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
+            'email' => ['prohibited'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
             'role' => ['sometimes', Rule::in(['provider', 'customer', 'admin'])],
             'is_active' => ['sometimes', 'boolean'],
-            'email_verified' => ['sometimes', 'boolean'],
+            'email_verified' => ['prohibited'],
             'provider_profile' => ['sometimes', 'array'],
             'provider_profile.provider_category_id' => ['nullable', 'integer', 'exists:provider_categories,id'],
             'provider_profile.profession' => ['nullable', 'string', 'max:120'],
@@ -219,10 +206,7 @@ class DashboardController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $user, $validated): void {
-            $userData = collect($validated)->only(['name', 'email', 'phone', 'role', 'is_active'])->all();
-            if (array_key_exists('email_verified', $validated)) {
-                $userData['email_verified_at'] = $validated['email_verified'] ? ($user->email_verified_at ?? now()) : null;
-            }
+            $userData = collect($validated)->only(['name', 'phone', 'role', 'is_active'])->all();
 
             if ($user->is($request->user())) {
                 unset($userData['role'], $userData['is_active']);
@@ -295,7 +279,7 @@ class DashboardController extends Controller
         ]), 'User updated.');
     }
 
-    public function destroyUser(Request $request, User $user): JsonResponse
+    public function destroyUser(Request $request, User $user, AccountDeletionService $accounts): JsonResponse
     {
         $validated = $request->validate([
             'confirmation' => ['required', 'string', Rule::in(['DELETE'])],
@@ -305,52 +289,7 @@ class DashboardController extends Controller
             return response()->json(['message' => 'You cannot delete your own admin account.'], 422);
         }
 
-        DB::transaction(function () use ($user): void {
-            $user->tokens()->delete();
-            $profile = $user->providerProfile()->first();
-            $providerIds = $profile ? collect([$profile->id]) : collect();
-            $userIds = collect([$user->id]);
-            $bookingIds = Booking::whereIn('customer_id', $userIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->pluck('id');
-            $loyaltyIds = Loyalty::whereIn('customer_id', $userIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->pluck('id');
-
-            EventRegistration::whereIn('user_id', $userIds)->delete();
-            SubscriptionPayment::whereIn('user_id', $userIds)->delete();
-            Subscription::whereIn('user_id', $userIds)->delete();
-            Payment::whereIn('booking_id', $bookingIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->delete();
-            LoyaltyTransaction::whereIn('loyalty_id', $loyaltyIds)->orWhereIn('booking_id', $bookingIds)->delete();
-            Loyalty::whereIn('id', $loyaltyIds)->delete();
-            CrmCustomer::whereIn('customer_id', $userIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->delete();
-            SavedProvider::whereIn('customer_id', $userIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->delete();
-            Review::whereIn('customer_id', $userIds)
-                ->when($providerIds->isNotEmpty(), fn ($query) => $query->orWhereIn('provider_id', $providerIds))
-                ->delete();
-            Booking::whereIn('id', $bookingIds)->delete();
-
-            if ($providerIds->isNotEmpty()) {
-                PaymentAccount::whereIn('provider_id', $providerIds)->delete();
-                DigitalProduct::whereIn('provider_id', $providerIds)->delete();
-                Reward::whereIn('provider_id', $providerIds)->delete();
-                VerificationRequest::whereIn('provider_id', $providerIds)->delete();
-                PortfolioItem::whereIn('provider_id', $providerIds)->delete();
-                Availability::whereIn('provider_id', $providerIds)->delete();
-                Service::whereIn('provider_id', $providerIds)->delete();
-                CommunityPost::whereIn('provider_id', $providerIds)->update(['provider_id' => null]);
-                ProviderProfile::whereIn('id', $providerIds)->delete();
-                Cache::forget('public.home.payload.v5');
-            }
-
-            $user->delete();
-        });
+        $accounts->delete($user);
 
         return $this->success(null, 'User deleted.');
     }
