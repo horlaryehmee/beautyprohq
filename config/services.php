@@ -51,4 +51,8 @@ return [
         ],
     ],
 
+    'live_chat' => [
+        'inbound_secret' => env('LIVE_CHAT_INBOUND_SECRET'),
+    ],
+
 ];

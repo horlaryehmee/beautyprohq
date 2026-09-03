@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CurrencyController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LiveChatController;
+use App\Http\Controllers\Api\LiveChatInboundMailController;
 use App\Http\Controllers\Api\MediaDownloadController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Provider\BookingController as ProviderBookingController;
@@ -79,6 +80,7 @@ Route::post('/booking-payments/verify', [BookingController::class, 'verifyPaymen
 Route::post('/providers/{provider}/chat/conversations', [LiveChatController::class, 'start'])->middleware('throttle:public-form');
 Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class, 'show'])->middleware('throttle:chat');
 Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:chat');
+Route::post('/live-chat/mail/reply', LiveChatInboundMailController::class)->middleware('throttle:chat');
 
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     Route::get('/media/{media}/download', MediaDownloadController::class)->middleware('throttle:api');

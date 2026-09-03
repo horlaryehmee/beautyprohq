@@ -53,6 +53,7 @@ const ProviderBookingPage = lazyWithReload(() => import('./pages/public/Provider
 const CommunityPage = lazyWithReload(() => import('./pages/public/CommunityPage'));
 const ContentDetailPage = lazyWithReload(() => import('./pages/public/ContentDetailPage'));
 const ProviderProfilePage = lazyWithReload(() => import('./pages/public/ProviderProfilePage'));
+const PublicChatThreadPage = lazyWithReload(() => import('./pages/public/PublicChatThreadPage'));
 const PrivacyPolicyPage = lazyWithReload(() => import('./pages/public/PrivacyPolicyPage'));
 const TermsConditionsPage = lazyWithReload(() => import('./pages/public/TermsConditionsPage'));
 const ProviderLayout = lazyWithReload(() => import('./pages/provider/ProviderLayout'));
@@ -153,6 +154,7 @@ export default function App() {
                         <Route path="providers/:provider/book/:serviceId" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider/book" element={<ProviderBookingPage />} />
                         <Route path="providers/:provider" element={<ProviderProfilePage />} />
+                        <Route path="chat/:id" element={<PublicChatThreadPage />} />
                         <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
                         <Route path="terms-and-conditions" element={<TermsConditionsPage />} />
                     </Route>

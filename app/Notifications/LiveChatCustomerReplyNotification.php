@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Http\Controllers\Api\LiveChatInboundMailController;
 use App\Models\LiveChatConversation;
 use App\Models\LiveChatMessage;
 use Illuminate\Bus\Queueable;
@@ -19,20 +20,33 @@ class LiveChatCustomerReplyNotification extends Notification
         return ['mail'];
     }
 
+    public function replyTo(): string
+    {
+        return LiveChatInboundMailController::replyToAddress((int) $this->conversation->id);
+    }
+
     public function toMail(object $notifiable): MailMessage
     {
         $providerName = $this->conversation->provider?->user?->name ?? 'your beauty professional';
-        $url = $this->conversation->booking_id
-            ? rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/chats'
-            : rtrim(config('app.frontend_url', config('app.url')), '/').'/providers/'.$this->conversation->provider_id;
+        $frontendBase = rtrim(config('app.frontend_url', config('app.url')), '/');
+        $threadUrl = $frontendBase.'/chat/'.$this->conversation->id.'?token='.urlencode((string) $this->conversation->visitor_token);
+
         $mail = (new MailMessage)
             ->subject("New reply from {$providerName}")
+            ->replyTo($this->replyTo(), 'BeautyPro HQ live chat')
             ->greeting("Hi {$this->conversation->visitor_name},");
 
-        return $mail
+        $mail
             ->line("{$providerName} replied to your live chat message on BeautyPro HQ.")
-            ->line((string) str($this->message->body)->limit(240))
-            ->action($this->conversation->booking_id ? 'Open chat' : 'Open provider profile', $url)
-            ->line('Please open live chat in your dashboard to respond.');
+            ->line('')
+            ->line('Their reply:')
+            ->line('> '.(string) str($this->message->body)->limit(600))
+            ->line('')
+            ->line('Reply directly to this email, or tap below to continue the chat.')
+            ->action('Reply to this chat', $threadUrl)
+            ->line('If you no longer want chat updates, you can ignore this message.');
+
+        return $mail;
     }
 }
+
