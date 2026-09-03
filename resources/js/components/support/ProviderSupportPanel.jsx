@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useApiResource, useDashboardToast } from '../dashboard';
+import { Avatar, Button, Card, CardHeader, EmptyState, ErrorState, Field, LoadingBlock, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useDashboardToast } from '../dashboard';
 
 const categories = [
     ['general', 'General question'],
