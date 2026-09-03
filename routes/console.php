@@ -266,9 +266,9 @@ Artisan::command('deploy:from-git {--remote=origin} {--branch=main}', function (
         $this->info('Frontend assets: committed Vite build verified.');
 
         foreach ([
+            ['php artisan optimize:clear', $artisanCommand('optimize:clear'), 120, false],
             ['php artisan migrate --force', $artisanCommand('migrate', '--force'), 300, false],
             ['php artisan storage:link', $artisanCommand('storage:link'), 120, true],
-            ['php artisan optimize:clear', $artisanCommand('optimize:clear'), 120, false],
             ['php artisan optimize', $artisanCommand('optimize'), 120, false],
             ['php artisan queue:restart', $artisanCommand('queue:restart'), 120, true],
         ] as [$label, $command, $timeout, $optional]) {

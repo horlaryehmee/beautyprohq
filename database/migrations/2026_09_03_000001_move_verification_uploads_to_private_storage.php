@@ -8,6 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // A deployment can execute migrations while Laravel still has the previous
+        // release's cached configuration. Define the private disk here as a safe
+        // compatibility fallback so this data-protection migration never relies on
+        // cache-clearing order.
+        if (! array_key_exists('verification', config('filesystems.disks', []))) {
+            config()->set('filesystems.disks.verification', [
+                'driver' => 'local',
+                'root' => storage_path('app/private/verification'),
+                'visibility' => 'private',
+                'throw' => false,
+                'report' => false,
+            ]);
+        }
+
         DB::table('verification_requests')->orderBy('id')->chunkById(100, function ($requests): void {
             foreach ($requests as $request) {
                 $userId = DB::table('provider_profiles')->where('id', $request->provider_id)->value('user_id');
