@@ -200,6 +200,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/activity', [AdminDashboardController::class, 'activity']);
         Route::get('/waitlist', [AdminDashboardController::class, 'waitlist']);
         Route::patch('/subscribers/{subscriber}', [AdminDashboardController::class, 'updateSubscriber']);
+        Route::delete('/subscribers/{subscriber}', [AdminDashboardController::class, 'destroySubscriber']);
         Route::get('/waitlist/export', [AdminDashboardController::class, 'exportWaitlist']);
         Route::get('/users', [AdminDashboardController::class, 'users']);
         Route::get('/users/{user}', [AdminDashboardController::class, 'showUser']);
@@ -232,6 +233,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/settings/branding', [SubscriptionController::class, 'updateAdminBrandingSettings']);
         Route::get('/settings/currencies', [SubscriptionController::class, 'adminCurrencySettings']);
         Route::put('/settings/currencies', [SubscriptionController::class, 'updateAdminCurrencySettings']);
+        Route::post('/settings/currencies/fetch-rates', [SubscriptionController::class, 'fetchCurrencyRates'])->middleware('throttle:sensitive');
         Route::get('/settings/features', [SubscriptionController::class, 'adminFeatureSettings']);
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
         Route::get('/settings/hero-images', [SubscriptionController::class, 'adminHeroImages']);

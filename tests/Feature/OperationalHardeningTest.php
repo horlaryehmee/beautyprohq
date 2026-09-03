@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AppSetting;
 use App\Models\NewsletterSubscriber;
+use App\Models\NewsletterUnsubscribe;
 use App\Models\Payment;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
@@ -206,7 +207,7 @@ class OperationalHardeningTest extends TestCase
         ]);
     }
 
-    public function test_signed_newsletter_unsubscribe_link_marks_subscriber_unsubscribed(): void
+    public function test_signed_newsletter_unsubscribe_link_removes_subscriber_and_records_history(): void
     {
         $subscriber = NewsletterSubscriber::create([
             'name' => 'Reader',
@@ -217,7 +218,9 @@ class OperationalHardeningTest extends TestCase
         $this->get("/newsletter/unsubscribe/{$subscriber->id}")->assertForbidden();
         $this->get(URL::signedRoute('newsletter.unsubscribe', ['subscriber' => $subscriber->id]))->assertOk();
 
-        $this->assertNotNull($subscriber->fresh()->unsubscribed_at);
+        // The subscriber row is removed from the active list, but the unsubscribe is counted in history.
+        $this->assertDatabaseMissing('newsletter_subscribers', ['email' => 'reader@example.test']);
+        $this->assertNotNull(NewsletterUnsubscribe::where('email_hash', hash('sha256', 'reader@example.test'))->first()?->unsubscribed_at);
     }
 
     public function test_register_page_serves_spa_assets(): void

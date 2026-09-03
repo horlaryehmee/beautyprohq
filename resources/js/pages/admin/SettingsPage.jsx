@@ -25,7 +25,6 @@ const platformSettingTabs = [
     { key: 'security', label: 'Security', icon: 'shield', description: 'Password, sessions and two-factor authentication.' },
     { key: 'email', label: 'Email', icon: 'mail', description: 'SMTP and active notification tests.' },
     { key: 'communications', label: 'Communications', icon: 'bell', description: 'WhatsApp and non-email messaging channels.' },
-    { key: 'marketing', label: 'Marketing', icon: 'users', description: 'Mailchimp audience sync and tags.' },
     { key: 'payments', label: 'Payments', icon: 'briefcase', description: 'Gateway, Paystack and Stripe settings.' },
     { key: 'currency', label: 'Currency', icon: 'chart', description: 'Default currency and exchange rates.' },
 ];
@@ -40,7 +39,6 @@ export default function AdminSettingsPage() {
     const featuresResource = useApiResource('/admin/settings/features', {});
     const twilioResource = useApiResource('/admin/settings/twilio', {});
     const smtpResource = useApiResource('/admin/settings/smtp', {});
-    const mailchimpResource = useApiResource('/admin/settings/mailchimp', {});
     const demoResource = useApiResource('/admin/demo-data', {});
     const deploymentResource = useApiResource('/admin/settings/deployment', {});
     const { notify } = useDashboardToast();
@@ -53,7 +51,6 @@ export default function AdminSettingsPage() {
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
-    const [mailchimpForm, setMailchimpForm] = useState({ enabled: false, api_key: '', server_prefix: '', list_id: '', webhook_secret: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
     const [twilioTestPhone, setTwilioTestPhone] = useState('');
     const [twilioTestMessage, setTwilioTestMessage] = useState('BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.');
@@ -64,15 +61,13 @@ export default function AdminSettingsPage() {
     const [savingStripe, setSavingStripe] = useState(false);
     const [savingBranding, setSavingBranding] = useState(false);
     const [savingCurrency, setSavingCurrency] = useState(false);
+    const [fetchingRates, setFetchingRates] = useState(false);
     const [savingFeatures, setSavingFeatures] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
     const [savingSmtp, setSavingSmtp] = useState(false);
-    const [savingMailchimp, setSavingMailchimp] = useState(false);
     const [testingTwilio, setTestingTwilio] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
     const [testingEmailNotification, setTestingEmailNotification] = useState(false);
-    const [testingMailchimp, setTestingMailchimp] = useState(false);
-    const [syncingMailchimp, setSyncingMailchimp] = useState(false);
     const [populatingDemo, setPopulatingDemo] = useState(false);
     const [clearingDemo, setClearingDemo] = useState(false);
     const [deploying, setDeploying] = useState(false);
@@ -168,18 +163,6 @@ export default function AdminSettingsPage() {
         });
         setSmtpTestEmail((current) => current || data.from_address || '');
     }, [smtpResource.data]);
-
-    useEffect(() => {
-        const data = mailchimpResource.data;
-        if (!data || !Object.keys(data).length) return;
-        setMailchimpForm({
-            enabled: Boolean(data.enabled),
-            api_key: '',
-            server_prefix: data.server_prefix ?? '',
-            list_id: data.list_id ?? '',
-            webhook_secret: '',
-        });
-    }, [mailchimpResource.data]);
 
     useEffect(() => {
         apiRequest('get', '/admin/settings/hero-images').then((data) => {
@@ -283,6 +266,24 @@ export default function AdminSettingsPage() {
             notify(apiErrorMessage(error), 'error');
         } finally {
             setSavingCurrency(false);
+        }
+    };
+
+    const fetchRates = async () => {
+        setFetchingRates(true);
+        try {
+            const result = await apiRequest('post', '/admin/settings/currencies/fetch-rates', { default: currencyForm.default });
+            const rates = result?.rates ?? {};
+            if (!Object.keys(rates).length) {
+                notify('No exchange rates were returned.', 'error');
+                return;
+            }
+            setCurrencyForm((current) => ({ ...current, default: result?.base ?? current.default, rates }));
+            notify(`Live rates fetched from ${result?.source ?? 'exchange rate API'}. Review and save to apply.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setFetchingRates(false);
         }
     };
 
@@ -393,45 +394,6 @@ export default function AdminSettingsPage() {
         }
     };
 
-    const saveMailchimp = async (event) => {
-        event.preventDefault();
-        setSavingMailchimp(true);
-        try {
-            const saved = await apiRequest('put', '/admin/settings/mailchimp', mailchimpForm);
-            mailchimpResource.setData(saved);
-            setMailchimpForm((current) => ({ ...current, api_key: '', webhook_secret: '' }));
-            notify('Mailchimp settings saved.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        } finally {
-            setSavingMailchimp(false);
-        }
-    };
-
-    const testMailchimp = async () => {
-        setTestingMailchimp(true);
-        try {
-            const result = await apiRequest('post', '/admin/settings/mailchimp/test');
-            notify(`Mailchimp connected to ${result.name ?? 'audience'}.`);
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        } finally {
-            setTestingMailchimp(false);
-        }
-    };
-
-    const syncMailchimp = async () => {
-        setSyncingMailchimp(true);
-        try {
-            const result = await apiRequest('post', '/admin/settings/mailchimp/sync');
-            notify(`Mailchimp sync complete. ${result.synced ?? 0} synced, ${result.failed ?? 0} failed.`);
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
-        } finally {
-            setSyncingMailchimp(false);
-        }
-    };
-
     const populateDemoData = async () => {
         setPopulatingDemo(true);
         try {
@@ -523,12 +485,12 @@ export default function AdminSettingsPage() {
     const dailyTestPlan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
     const deploymentLog = deploymentResource.data?.artisan_output || deploymentResource.data?.log || '';
     const deploymentStatus = deploymentResource.data?.status ?? 'never_run';
-    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || mailchimpResource.error || demoResource.error || deploymentResource.error;
+    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || demoResource.error || deploymentResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); mailchimpResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -976,70 +938,6 @@ export default function AdminSettingsPage() {
                 )}
             </Card>
 
-            <Card className={sectionTab === 'marketing' ? '' : 'hidden'}>
-                <CardHeader
-                    title="Mailchimp audience sync"
-                    description="Connect Mailchimp and automatically tag subscribers, providers, customers and admins inside one audience."
-                    action={mailchimpResource.data?.configured ? <StatusBadge status="Mailchimp connected" /> : <StatusBadge status="Mailchimp not connected" />}
-                />
-                {mailchimpResource.loading ? <LoadingBlock rows={5} /> : (
-                    <form className="mt-5 space-y-5" onSubmit={saveMailchimp}>
-                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-                            <input
-                                checked={mailchimpForm.enabled}
-                                className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-                                onChange={(event) => setMailchimpForm((current) => ({ ...current, enabled: event.target.checked }))}
-                                type="checkbox"
-                            />
-                            <span>
-                                <span className="block text-sm font-bold text-slate-900">Auto-sync platform contacts to Mailchimp</span>
-                                <span className="block text-sm text-slate-500">When enabled, new and updated users or newsletter subscribers are synced with Mailchimp tags for subscriber, provider, customer and admin categories.</span>
-                            </span>
-                        </label>
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                            <Field hint="Leave blank to keep the saved API key." label="API key">
-                                <input className={inputClass} onChange={(event) => setMailchimpForm((current) => ({ ...current, api_key: event.target.value }))} placeholder="xxxxxxxxxxxxxxxx-us21" type="password" value={mailchimpForm.api_key} />
-                            </Field>
-                            <Field hint="Usually the part after the dash in your API key, for example us21." label="Server prefix">
-                                <input className={inputClass} onChange={(event) => setMailchimpForm((current) => ({ ...current, server_prefix: event.target.value }))} placeholder="us21" value={mailchimpForm.server_prefix} />
-                            </Field>
-                            <Field label="Audience list ID">
-                                <input className={inputClass} onChange={(event) => setMailchimpForm((current) => ({ ...current, list_id: event.target.value }))} placeholder="Audience ID" value={mailchimpForm.list_id} />
-                            </Field>
-                            <Field hint="Optional. Paste the signing secret Mailchimp shows when creating the webhook." label="Webhook signing secret">
-                                <input className={inputClass} onChange={(event) => setMailchimpForm((current) => ({ ...current, webhook_secret: event.target.value }))} placeholder="Webhook signing secret" type="password" value={mailchimpForm.webhook_secret} />
-                            </Field>
-                            <div className="flex flex-wrap items-end gap-2 lg:col-span-2">
-                                {mailchimpResource.data?.api_key_configured && <StatusBadge status={`API key ends ${mailchimpResource.data.api_key_last4}`} />}
-                                {mailchimpResource.data?.webhook_secret_configured && <StatusBadge status="Webhook secret saved" />}
-                                {mailchimpResource.data?.server_prefix && <StatusBadge status={`Server ${mailchimpResource.data.server_prefix}`} />}
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                            Mailchimp webhook URL: <span className="font-bold text-slate-950">{`${window.location.origin}/api/mailchimp/webhook`}</span>
-                        </div>
-
-                        <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 lg:grid-cols-2">
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-950">Mailchimp tags used</h3>
-                                <p className="mt-1 text-sm text-slate-500">Contacts are grouped with tags so campaigns can target each audience cleanly.</p>
-                            </div>
-                            <div className="flex flex-wrap gap-2 lg:justify-end">
-                                {Object.values(mailchimpResource.data?.tags ?? {}).map((tag) => <StatusBadge key={tag} status={tag} />)}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                            <Button busy={syncingMailchimp} disabled={savingMailchimp || testingMailchimp} onClick={syncMailchimp} type="button" variant="secondary">Sync all contacts</Button>
-                            <Button busy={testingMailchimp} disabled={savingMailchimp || syncingMailchimp} onClick={testMailchimp} type="button" variant="secondary">Test connection</Button>
-                            <Button busy={savingMailchimp} disabled={testingMailchimp || syncingMailchimp} type="submit">Save Mailchimp settings</Button>
-                        </div>
-                    </form>
-                )}
-            </Card>
-
             <Card className={sectionTab === 'payments' ? '' : 'hidden'}>
                 <CardHeader title="Provider plan checkout gateway" description="Choose which gateway providers use when they pay for a paid plan." action={<StatusBadge status={gatewayForm.subscription_gateway} />} />
                 {gatewayResource.loading ? <LoadingBlock rows={2} /> : (
@@ -1191,7 +1089,15 @@ export default function AdminSettingsPage() {
                         <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                             Example: if NGN is the base and USD is 0.00063, ₦100,000 displays as about $63 when a user switches to USD.
                         </div>
-                        <div className="flex justify-end"><Button busy={savingCurrency} type="submit">Save currency rates</Button></div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs font-semibold text-slate-400">
+                                Fetch live rates from a published exchange rate source, then review and save to apply.
+                            </p>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <Button busy={fetchingRates} disabled={savingCurrency} onClick={fetchRates} type="button" variant="secondary">Fetch latest rates</Button>
+                                <Button busy={savingCurrency} disabled={fetchingRates} type="submit">Save currency rates</Button>
+                            </div>
+                        </div>
                     </form>
                 )}
             </Card>

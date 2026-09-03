@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, usePagination } from '../../components/dashboard';
+import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, useDebouncedValue, usePagination } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -153,6 +153,7 @@ export default function AdminUserDetailPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [suspending, setSuspending] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState('');
     const [emailChange, setEmailChange] = useState({ email: '', current_password: '' });
     const [requestingEmailChange, setRequestingEmailChange] = useState(false);
@@ -241,15 +242,36 @@ export default function AdminUserDetailPage() {
     const profile = form?.provider_profile ?? {};
     const hasProviderControls = form?.role === 'provider' || Boolean(user?.provider_profile ?? user?.providerProfile);
     const providerBookings = (user?.provider_profile ?? user?.providerProfile)?.bookings ?? [];
+    const [bookingQuery, setBookingQuery] = useState('');
+    const [bookingStatus, setBookingStatus] = useState('all');
+    const bookingSearch = useDebouncedValue(bookingQuery);
+    const filteredBookings = useMemo(() => {
+        const search = bookingSearch.trim().toLowerCase();
+        const status = bookingStatus;
+        return providerBookings.filter((booking) => {
+            if (status !== 'all' && (booking.status ?? 'pending') !== status) return false;
+            if (!search) return true;
+            const customer = booking.customer ?? {};
+            const haystack = [
+                customer.name,
+                customer.email,
+                customer.phone,
+                booking.service?.name,
+                booking.service_name,
+                booking.notes,
+            ].filter(Boolean).join(' ').toLowerCase();
+            return haystack.includes(search);
+        });
+    }, [providerBookings, bookingSearch, bookingStatus]);
     const {
         page: providerBookingsPage,
         setPage: setProviderBookingsPage,
         pageCount: providerBookingsPageCount,
         pagedItems: pagedProviderBookings,
-    } = usePagination(providerBookings, 5);
+    } = usePagination(filteredBookings, 5);
     const bookedCustomers = useMemo(() => {
         const seen = new Set();
-        return providerBookings
+        return filteredBookings
             .filter((booking) => booking.customer)
             .filter((booking) => {
                 const key = booking.customer?.id ?? booking.customer?.email;
@@ -257,7 +279,7 @@ export default function AdminUserDetailPage() {
                 seen.add(key);
                 return true;
             });
-    }, [providerBookings]);
+    }, [filteredBookings]);
 
     const update = (patch) => setForm((current) => ({ ...current, ...patch }));
     const updateProfile = (patch) => setForm((current) => ({ ...current, provider_profile: { ...current.provider_profile, ...patch } }));
@@ -323,6 +345,20 @@ export default function AdminUserDetailPage() {
         }
     };
 
+    const toggleAccountStatus = async () => {
+        const next = !form.is_active;
+        setSuspending(true);
+        try {
+            await apiRequest('patch', `/admin/users/${id}`, { is_active: next });
+            notify(`User ${next ? 'reactivated' : 'suspended'}.`);
+            await load();
+        } catch (requestError) {
+            notify(apiErrorMessage(requestError), 'error');
+        } finally {
+            setSuspending(false);
+        }
+    };
+
     const requestManagedEmailChange = async () => {
         setRequestingEmailChange(true);
         try {
@@ -384,6 +420,11 @@ export default function AdminUserDetailPage() {
                     <StatusBadge status={form.is_active ? 'active' : 'suspended'} />
                     <StatusBadge status={form.email_verified ? 'confirmed' : 'pending'} />
                     {hasProviderControls && <StatusBadge status={profile.verified ? 'verified' : 'unverified'} />}
+                    {!isOwnAccount && (
+                        form.is_active
+                            ? <Button busy={suspending} onClick={toggleAccountStatus} type="button" variant="danger">Suspend user</Button>
+                            : <Button busy={suspending} onClick={toggleAccountStatus} type="button" variant="secondary">Reactivate user</Button>
+                    )}
                     <Button busy={saving} type="submit">Save changes</Button>
                 </div>
             </div>
@@ -717,7 +758,18 @@ export default function AdminUserDetailPage() {
                                 </div>
                                 <StatusBadge status={`${bookedCustomers.length} customers`} />
                             </div>
-                            {providerBookings.length ? (
+                            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px]">
+                                <SearchInput onChange={(event) => setBookingQuery(event.target.value)} placeholder="Search customer, email, service or note" value={bookingQuery} />
+                                <select aria-label="Booking status" className={inputClass} onChange={(event) => setBookingStatus(event.target.value)} value={bookingStatus}>
+                                    <option value="all">Any status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="confirmed">Confirmed</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                            </div>
+                            {filteredBookings.length ? (
                                 <>
                                 <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-100">
                                     <table className="w-full min-w-[920px] text-left text-sm">
@@ -770,7 +822,9 @@ export default function AdminUserDetailPage() {
                                 <Pagination page={providerBookingsPage} pageCount={providerBookingsPageCount} onPageChange={setProviderBookingsPage} />
                                 </>
                             ) : (
-                                <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No customer bookings have been recorded for this provider yet.</p>
+                                <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+                                    {providerBookings.length ? 'No customer bookings match your filters.' : 'No customer bookings have been recorded for this provider yet.'}
+                                </p>
                             )}
                         </Card>
                     )}

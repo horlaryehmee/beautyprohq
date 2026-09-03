@@ -51,7 +51,7 @@ export default function AdminSubscriptionsPage() {
     });
     const plansResource = useApiResource('/admin/subscription-plans', []);
     const subscriptions = normalize(subscriptionsResource.data);
-    const plans = normalize(plansResource.data);
+    const plans = normalize(plansResource.data).filter((plan) => plan.is_active !== false);
     const meta = metaFrom(subscriptionsResource.data);
     const planOptions = meta.filters?.plans?.length ? meta.filters.plans : ['free', 'paid', 'pro'];
     const statusOptions = meta.filters?.statuses?.length ? meta.filters.statuses : ['active', 'expired', 'cancelled', 'pending'];

@@ -9,6 +9,7 @@ use App\Models\CommunityReport;
 use App\Models\CommunityPost;
 use App\Models\Event;
 use App\Models\News;
+use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
 use App\Models\OpportunityEnquiry;
 use App\Models\User;
@@ -315,7 +316,7 @@ class ContentController extends Controller
         return $request->validate([
             'title' => [$p, 'string', 'max:180'],
             'message' => [$p, 'string', 'max:5000'],
-            'audience' => [$p, Rule::in(['all', 'provider', 'customer'])],
+            'audience' => [$p, Rule::in(['all', 'provider', 'customer', 'subscribers'])],
             'published_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date'],
         ]);
@@ -323,6 +324,14 @@ class ContentController extends Controller
 
     private function notifyAnnouncementAudience(Announcement $announcement): void
     {
+        if ($announcement->audience === 'subscribers') {
+            NewsletterSubscriber::query()
+                ->whereNull('unsubscribed_at')
+                ->chunkById(500, fn ($subscribers) => $subscribers->each->notify(new AnnouncementNotification($announcement)));
+
+            return;
+        }
+
         User::where('is_active', true)
             ->when($announcement->audience !== 'all', fn ($query) => $query->where('role', $announcement->audience))
             ->chunkById(500, fn ($users) => $users->each->notify(new AnnouncementNotification($announcement)));

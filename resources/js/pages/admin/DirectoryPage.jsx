@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Avatar, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
+import { Avatar, Button, Card, EmptyState, ErrorState, Field, IconButton, LoadingBlock, PageHeader, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useAsyncAction, useDashboardToast, useDebouncedValue } from '../../components/dashboard';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { mediaUrl } from '../../lib/utils';
 
@@ -20,9 +20,17 @@ export default function AdminDirectoryPage() {
     const [categoryForm, setCategoryForm] = useState({ id: null, name: '', description: '', cover_image: '', sort_order: 0, is_active: true });
     const [saving, setSaving] = useState(false);
     const [categorySaving, setCategorySaving] = useState(false);
+    const [verifiedFilter, setVerifiedFilter] = useState('all');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortDir, setSortDir] = useState('desc');
+    const [perPage, setPerPage] = useState(12);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
     const search = useDebouncedValue(query);
     const proOfWeekSearch = useDebouncedValue(proOfWeekQuery);
-    const resource = useApiResource('/admin/directory', [], { params: { page, per_page: 12, account_approval: 'approved', search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined } });
+    const resource = useApiResource('/admin/directory', [], { params: { page, per_page: perPage, account_approval: 'approved', search: search || undefined, is_listed: filter === 'all' ? undefined : filter === 'listed' ? 1 : 0, category_id: categoryFilter || undefined, verified: verifiedFilter === 'all' ? undefined : verifiedFilter === 'verified' ? 1 : 0, date_from: dateFrom || undefined, date_to: dateTo || undefined, sort: sortBy || undefined, direction: sortDir || undefined } });
     const approvalResource = useApiResource('/admin/directory', [], { params: { page: approvalPage, per_page: 12, account_approval: 'pending' } });
     const proOfWeekResource = useApiResource('/admin/directory', [], { params: { search: proOfWeekSearch || undefined, account_approval: 'approved', is_listed: 1, per_page: 8 } });
     const categoriesResource = useApiResource('/admin/provider-categories', []);
@@ -43,12 +51,32 @@ export default function AdminDirectoryPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [search, filter, categoryFilter]);
+    }, [search, filter, categoryFilter, verifiedFilter, dateFrom, dateTo, sortBy, sortDir, perPage]);
 
     const reloadProviderLists = () => {
         resource.reload(true);
         approvalResource.reload(true);
         proOfWeekResource.reload(true);
+    };
+
+    const resetListingFilters = () => {
+        setQuery('');
+        setFilter('all');
+        setCategoryFilter('');
+        setVerifiedFilter('all');
+        setDateFrom('');
+        setDateTo('');
+        setSortBy('created_at');
+        setSortDir('desc');
+        setPerPage(12);
+        setPage(1);
+        setAdvancedOpen(false);
+        setMobileFiltersOpen(false);
+    };
+
+    const toggleSortDir = () => {
+        setPage(1);
+        setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
     };
 
     const toggle = (provider) => run(provider.id, async () => {
@@ -174,7 +202,12 @@ export default function AdminDirectoryPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader description="Approve listings, manage provider categories, and track the total providers in each category." eyebrow="Marketplace" title="Directory listings" />
+            <PageHeader
+                actions={activeTab === 'list' && <Button className="md:hidden" onClick={() => setMobileFiltersOpen(true)} type="button" variant="secondary">Filter</Button>}
+                description="Approve listings, manage provider categories, and track the total providers in each category."
+                eyebrow="Marketplace"
+                title="Directory listings"
+            />
             {resource.error && <ErrorState message={resource.error} onRetry={resource.reload} />}
             {approvalResource.error && <ErrorState message={approvalResource.error} onRetry={approvalResource.reload} />}
             {categoriesResource.error && <ErrorState message={categoriesResource.error} onRetry={categoriesResource.reload} />}
@@ -345,18 +378,160 @@ export default function AdminDirectoryPage() {
                 </div>
             </Card>}
             {activeTab === 'list' && <Card>
-                <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
-                    <SearchInput onChange={(event) => setQuery(event.target.value)} placeholder="Search provider, profession or location" value={query} />
-                    <select className={inputClass} onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
-                        <option value="">All categories</option>
-                        {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                    </select>
-                    <select className={inputClass} onChange={(event) => setFilter(event.target.value)} value={filter}>
-                        <option value="all">All profiles</option>
-                        <option value="listed">Listed</option>
-                        <option value="unlisted">Removed</option>
-                    </select>
+                <div className="hidden md:block">
+                    <div className="mb-5 space-y-3">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                            <SearchInput
+                                className="min-w-0 flex-1"
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder="Search provider, profession or location"
+                                value={query}
+                            />
+                            <Button className="w-full whitespace-nowrap lg:w-auto" onClick={() => setAdvancedOpen((open) => !open)} type="button" variant="ghost">
+                                {advancedOpen ? 'Hide advanced' : 'Advanced'}
+                            </Button>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Category</span>
+                                <select aria-label="Category" className={inputClass} onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+                                    <option value="">All categories</option>
+                                    {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                                </select>
+                            </label>
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+                                <select aria-label="Status" className={inputClass} onChange={(event) => setFilter(event.target.value)} value={filter}>
+                                    <option value="all">All profiles</option>
+                                    <option value="listed">Listed</option>
+                                    <option value="unlisted">Removed</option>
+                                </select>
+                            </label>
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Verification</span>
+                                <select aria-label="Verification" className={inputClass} onChange={(event) => setVerifiedFilter(event.target.value)} value={verifiedFilter}>
+                                    <option value="all">Any verification status</option>
+                                    <option value="verified">Verified</option>
+                                    <option value="unverified">Unverified</option>
+                                </select>
+                            </label>
+                        </div>
+                        {advancedOpen && (
+                            <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:grid-cols-2 lg:grid-cols-5">
+                                <label className="block">
+                                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Joined from</span>
+                                    <input aria-label="Joined from" className={inputClass} onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
+                                </label>
+                                <label className="block">
+                                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Joined to</span>
+                                    <input aria-label="Joined to" className={inputClass} onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
+                                </label>
+                                <label className="block">
+                                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Sort by</span>
+                                    <select aria-label="Sort by" className={inputClass} onChange={(event) => setSortBy(event.target.value)} value={sortBy}>
+                                        <option value="created_at">Date joined</option>
+                                        <option value="profession">Profession</option>
+                                        <option value="location">Location</option>
+                                        <option value="rating">Rating</option>
+                                    </select>
+                                </label>
+                                <label className="block">
+                                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Order</span>
+                                    <Button aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'} className="w-full" onClick={toggleSortDir} type="button" variant="secondary">
+                                        <span className="inline-flex items-center justify-center gap-2">
+                                            {sortDir === 'asc' ? <span aria-hidden="true">&#8593;</span> : <span aria-hidden="true">&#8595;</span>}
+                                            {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+                                        </span>
+                                    </Button>
+                                </label>
+                                <label className="block">
+                                    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Rows per page</span>
+                                    <select aria-label="Rows per page" className={inputClass} onChange={(event) => setPerPage(Number(event.target.value))} value={perPage}>
+                                        {[12, 24, 50, 100].map((count) => <option key={count} value={count}>{count}</option>)}
+                                    </select>
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                        <p className="text-xs font-semibold text-slate-400">
+                            {Number(meta.total ?? providers.length)} listing{Number(meta.total ?? providers.length) === 1 ? '' : 's'}
+                        </p>
+                        <Button onClick={resetListingFilters} type="button" variant="ghost">Clear filters</Button>
+                    </div>
                 </div>
+
+                {mobileFiltersOpen && (
+                    <div className="fixed inset-0 z-[120] md:hidden">
+                        <button aria-label="Close filters" className="absolute inset-0 bg-slate-950/45" onClick={() => setMobileFiltersOpen(false)} type="button" />
+                        <div className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl">
+                            <div className="mb-5 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-bphq-coffee">Directory list</p>
+                                    <h2 className="mt-1 text-xl font-bold text-slate-950">Filters</h2>
+                                </div>
+                                <IconButton icon="close" label="Close filters" onClick={() => setMobileFiltersOpen(false)} />
+                            </div>
+                            <div className="space-y-4">
+                                <SearchInput onChange={(event) => setQuery(event.target.value)} placeholder="Search provider, profession or location" value={query} />
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Category</span>
+                                        <select aria-label="Category" className={inputClass} onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+                                            <option value="">All categories</option>
+                                            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                                        </select>
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+                                        <select aria-label="Status" className={inputClass} onChange={(event) => setFilter(event.target.value)} value={filter}>
+                                            <option value="all">All profiles</option>
+                                            <option value="listed">Listed</option>
+                                            <option value="unlisted">Removed</option>
+                                        </select>
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Verification</span>
+                                        <select aria-label="Verification" className={inputClass} onChange={(event) => setVerifiedFilter(event.target.value)} value={verifiedFilter}>
+                                            <option value="all">Any verification status</option>
+                                            <option value="verified">Verified</option>
+                                            <option value="unverified">Unverified</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Joined from</span>
+                                        <input aria-label="Joined from" className={inputClass} onChange={(event) => setDateFrom(event.target.value)} type="date" value={dateFrom} />
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Joined to</span>
+                                        <input aria-label="Joined to" className={inputClass} onChange={(event) => setDateTo(event.target.value)} type="date" value={dateTo} />
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Sort by</span>
+                                        <select aria-label="Sort by" className={inputClass} onChange={(event) => setSortBy(event.target.value)} value={sortBy}>
+                                            <option value="created_at">Date joined</option>
+                                            <option value="profession">Profession</option>
+                                            <option value="location">Location</option>
+                                            <option value="rating">Rating</option>
+                                        </select>
+                                    </label>
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">Rows per page</span>
+                                        <select aria-label="Rows per page" className={inputClass} onChange={(event) => setPerPage(Number(event.target.value))} value={perPage}>
+                                            {[12, 24, 50, 100].map((count) => <option key={count} value={count}>{count}</option>)}
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="mt-5 grid grid-cols-2 gap-3">
+                                <Button onClick={resetListingFilters} type="button" variant="ghost">Clear</Button>
+                                <Button onClick={() => setMobileFiltersOpen(false)} type="button">Apply</Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {resource.loading ? (
                     <div className="mt-5"><LoadingBlock rows={5} /></div>

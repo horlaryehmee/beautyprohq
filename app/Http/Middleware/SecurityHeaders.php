@@ -55,9 +55,10 @@ class SecurityHeaders
 
         $connectSources = ["'self'"];
         if (app()->isLocal()) {
-            $scriptSources = [...$scriptSources, "'unsafe-eval'", 'http://localhost:5173', 'http://127.0.0.1:5173'];
-            $styleSources = [...$styleSources, 'http://localhost:5173', 'http://127.0.0.1:5173'];
-            $connectSources = [...$connectSources, 'http://localhost:5173', 'http://127.0.0.1:5173', 'ws://localhost:5173', 'ws://127.0.0.1:5173'];
+            $viteOrigins = $this->localViteOrigins();
+            $scriptSources = [...$scriptSources, "'unsafe-eval'", ...$viteOrigins['http']];
+            $styleSources = [...$styleSources, ...$viteOrigins['http']];
+            $connectSources = [...$connectSources, ...$viteOrigins['http'], ...$viteOrigins['ws']];
         }
 
         $directives = [
@@ -102,6 +103,33 @@ class SecurityHeaders
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function localViteOrigins(): array
+    {
+        $origins = [
+            'http' => ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'],
+            'ws' => ['ws://localhost:5173', 'ws://127.0.0.1:5173', 'ws://localhost:5174', 'ws://127.0.0.1:5174'],
+        ];
+
+        $hotPath = public_path('hot');
+        if (is_file($hotPath)) {
+            $hotUrl = trim((string) file_get_contents($hotPath));
+            $scheme = parse_url($hotUrl, PHP_URL_SCHEME);
+            $host = parse_url($hotUrl, PHP_URL_HOST);
+            $port = parse_url($hotUrl, PHP_URL_PORT);
+
+            if ($scheme && $host) {
+                $origin = $scheme.'://'.$host.($port ? ':'.$port : '');
+                $origins['http'][] = $origin;
+                $origins['ws'][] = ($scheme === 'https' ? 'wss' : 'ws').'://'.$host.($port ? ':'.$port : '');
+            }
+        }
+
+        return [
+            'http' => array_values(array_unique($origins['http'])),
+            'ws' => array_values(array_unique($origins['ws'])),
+        ];
     }
 
     private function isPrivateResponse(Request $request): bool

@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notifiable;
 
 class NewsletterSubscriber extends Model
 {
+    use Notifiable;
+
     protected $guarded = [];
 
     protected function casts(): array

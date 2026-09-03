@@ -9,6 +9,7 @@ use App\Models\CommunityPost;
 use App\Models\ContactEnquiry;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
+use App\Models\NewsletterUnsubscribe;
 use App\Models\Opportunity;
 use App\Models\Payment;
 use App\Models\ProviderCategory;
@@ -1358,7 +1359,7 @@ class BackendMvpTest extends TestCase
         $service = $provider->services()->create(['name' => 'Referral Facial', 'category' => 'Skincare', 'price' => 18000, 'duration_minutes' => 60]);
         $referrer = User::factory()->create();
         $newCustomer = User::factory()->create();
-        Booking::create([
+        $booking = Booking::create([
             'provider_id' => $provider->id,
             'customer_id' => $referrer->id,
             'service_id' => $service->id,
@@ -1614,7 +1615,7 @@ class BackendMvpTest extends TestCase
         $newCustomer = User::factory()->create();
         $previousPeriod = now()->startOfMonth()->subDay();
 
-        Booking::create([
+        $booking = Booking::create([
             'provider_id' => $provider->id,
             'customer_id' => $returningCustomer->id,
             'service_id' => $service->id,
@@ -1856,31 +1857,106 @@ class BackendMvpTest extends TestCase
         $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
             'name' => 'Updated Reader',
             'email' => 'updated@example.test',
-            'status' => 'unsubscribed',
+            'status' => 'active',
         ])->assertOk()
             ->assertJsonPath('data.name', 'Updated Reader')
             ->assertJsonPath('data.email', 'updated@example.test')
-            ->assertJsonPath('data.unsubscribed_at', fn ($value) => filled($value));
+            ->assertJsonPath('data.unsubscribed_at', null);
 
         $this->assertDatabaseHas('newsletter_subscribers', [
             'id' => $subscriber->id,
             'name' => 'Updated Reader',
             'email' => 'updated@example.test',
         ]);
-        $this->assertNotNull($subscriber->fresh()->unsubscribed_at);
-
-        $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
-            'name' => 'Updated Reader',
-            'email' => 'updated@example.test',
-            'status' => 'active',
-        ])->assertOk()
-            ->assertJsonPath('data.unsubscribed_at', null);
 
         $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
             'name' => 'Duplicate Reader',
             'email' => 'other@example.test',
             'status' => 'active',
         ])->assertUnprocessable();
+
+        $this->patchJson("/api/admin/subscribers/{$subscriber->id}", [
+            'name' => 'Updated Reader',
+            'email' => 'updated@example.test',
+            'status' => 'unsubscribed',
+        ])->assertOk()
+            ->assertJsonPath('data', null);
+
+        $this->assertDatabaseMissing('newsletter_subscribers', [
+            'id' => $subscriber->id,
+        ]);
+        $this->assertSame(1, NewsletterUnsubscribe::count());
+    }
+
+    public function test_admin_can_delete_newsletter_subscriber(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Delete Me',
+            'email' => 'delete-me@example.test',
+            'subscribed_at' => now(),
+        ]);
+
+        $this->deleteJson("/api/admin/subscribers/{$subscriber->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('newsletter_subscribers', [
+            'email' => 'delete-me@example.test',
+        ]);
+    }
+
+    public function test_newsletter_unsubscribe_removes_email_from_list_but_keeps_count(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Leaving Reader',
+            'email' => 'leaving@example.test',
+            'subscribed_at' => now(),
+        ]);
+        $url = URL::signedRoute('newsletter.unsubscribe', ['subscriber' => $subscriber->id]);
+
+        $this->get($url)->assertOk();
+
+        $this->assertDatabaseMissing('newsletter_subscribers', [
+            'email' => 'leaving@example.test',
+        ]);
+        $this->assertSame(1, NewsletterUnsubscribe::count());
+
+        $this->getJson('/api/admin/waitlist')
+            ->assertOk()
+            ->assertJsonPath('data.stats.active', 0)
+            ->assertJsonPath('data.stats.unsubscribed', 1)
+            ->assertJsonCount(0, 'data.subscribers');
+    }
+
+    public function test_admin_can_email_announcement_to_active_newsletter_subscribers(): void
+    {
+        Notification::fake();
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $active = NewsletterSubscriber::create([
+            'name' => 'Active Reader',
+            'email' => 'active-reader@example.test',
+            'subscribed_at' => now(),
+        ]);
+        NewsletterSubscriber::create([
+            'name' => 'Left Reader',
+            'email' => 'left-reader@example.test',
+            'subscribed_at' => now()->subDay(),
+            'unsubscribed_at' => now(),
+        ]);
+
+        $this->postJson('/api/admin/announcements', [
+            'title' => 'Subscriber Notice',
+            'message' => 'A direct update for newsletter subscribers.',
+            'audience' => 'subscribers',
+        ])->assertCreated()
+            ->assertJsonPath('data.audience', 'subscribers');
+
+        Notification::assertSentTo($active, \App\Notifications\AnnouncementNotification::class);
+        Notification::assertCount(1);
     }
 
     public function test_admin_can_choose_to_email_subscribers_when_news_is_published(): void
@@ -1983,6 +2059,48 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.0.user.name', 'Media Provider')
             ->assertJsonPath('data.0.user.provider_profile.slug', 'media-provider')
             ->assertJsonMissingPath('data.0.user.provider_profile.name');
+    }
+
+    public function test_admin_activity_supports_server_side_table_filters(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create(['role' => 'customer', 'name' => 'Activity Customer', 'email' => 'activity-customer@example.test']);
+        [$provider] = $this->provider('Activity Provider', true);
+        $service = $provider->services()->create(['name' => 'Activity Makeup', 'price' => 45000, 'duration_minutes' => 90]);
+
+        $booking = Booking::create([
+            'provider_id' => $provider->id,
+            'customer_id' => $customer->id,
+            'service_id' => $service->id,
+            'date' => now()->addDay()->toDateString(),
+            'time' => '12:00',
+            'status' => 'confirmed',
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+
+        Payment::create([
+            'provider_id' => $provider->id,
+            'booking_id' => $booking->id,
+            'amount' => 45000,
+            'currency' => 'NGN',
+            'status' => 'paid',
+            'gateway' => 'manual',
+            'reference' => 'ACTIVITY-PAID-001',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/activity?type=payments&status=paid&search=manual&sort=created_at&direction=desc&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.has_more_pages', false)
+            ->assertJsonPath('meta.filters.statuses.0', 'active')
+            ->assertJsonPath('data.0.type', 'payments')
+            ->assertJsonPath('data.0.status', 'paid');
     }
 
     public function test_admin_session_can_load_main_dashboard_sections(): void

@@ -72,7 +72,7 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->text('message');
-            $table->enum('audience', ['all', 'provider', 'customer'])->default('all')->index();
+            $table->enum('audience', ['all', 'provider', 'customer', 'subscribers'])->default('all')->index();
             $table->timestamp('published_at')->nullable()->index();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();

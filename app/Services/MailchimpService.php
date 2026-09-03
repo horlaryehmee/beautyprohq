@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\ContactEnquiry;
 use App\Models\EventRegistration;
 use App\Models\NewsletterSubscriber;
+use App\Models\NewsletterUnsubscribe;
 use App\Models\OpportunityEnquiry;
 use App\Models\User;
 use Illuminate\Http\Client\Response;
@@ -241,7 +242,8 @@ class MailchimpService
         }
 
         if ($type === 'unsubscribe') {
-            NewsletterSubscriber::where('email', $email)->update(['unsubscribed_at' => now()]);
+            NewsletterUnsubscribe::record($email);
+            NewsletterSubscriber::where('email', $email)->delete();
             return;
         }
 

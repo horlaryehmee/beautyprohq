@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\News;
 use App\Models\NewsletterSubscriber;
+use App\Models\NewsletterUnsubscribe;
 use App\Models\Payment;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
@@ -18,7 +19,6 @@ use App\Notifications\PlatformUpdateNotification;
 use App\Services\AccountDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,42 +49,95 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'type' => ['nullable', Rule::in(['all', 'users', 'bookings', 'payments', 'subscriptions', 'listings', 'content', 'announcements'])],
+            'search' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', 'string', 'max:80'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'sort' => ['nullable', Rule::in(['created_at', 'type', 'status', 'actor'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'per_page' => ['nullable', 'integer', 'between:5,100'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $perPage = $validated['per_page'] ?? 20;
         $page = $validated['page'] ?? 1;
-        $items = collect($this->activityFeed(500, $validated['type'] ?? 'all'));
-        $paginator = new LengthAwarePaginator(
-            $items->forPage($page, $perPage)->values(),
-            $items->count(),
-            $perPage,
-            $page
-        );
+        $query = DB::query()->fromSub($this->activityQuery($validated['type'] ?? 'all'), 'activity');
 
-        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator));
+        if (filled($validated['search'] ?? null)) {
+            $search = '%'.str_replace(['%', '_'], ['\%', '\_'], $validated['search']).'%';
+            $query->where(function ($nested) use ($search): void {
+                $nested->where('title', 'like', $search)
+                    ->orWhere('description', 'like', $search)
+                    ->orWhere('actor', 'like', $search)
+                    ->orWhere('actor_email', 'like', $search)
+                    ->orWhere('status', 'like', $search);
+            });
+        }
+
+        $query
+            ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($validated['date_from'] ?? null, fn ($query, $date) => $query->where('created_at', '>=', $date.' 00:00:00'))
+            ->when($validated['date_to'] ?? null, fn ($query, $date) => $query->where('created_at', '<=', $date.' 23:59:59'));
+
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
+        $paginator = $query
+            ->orderBy($sort, $direction)
+            ->orderBy('sort_id', $direction)
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return $this->success($paginator->items(), meta: $this->paginationMeta($paginator) + [
+            'has_more_pages' => $paginator->hasMorePages(),
+            'next_page' => $paginator->hasMorePages() ? $paginator->currentPage() + 1 : null,
+            'filters' => [
+                'statuses' => $this->activityStatuses(),
+            ],
+        ]);
     }
 
     public function waitlist(Request $request): JsonResponse
     {
-        $subscribers = NewsletterSubscriber::query()
-            ->when($request->search, fn ($query, $search) => $query->where(fn ($nested) => $nested
-                ->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")))
-            ->latest('subscribed_at')
-            ->paginate($this->perPage($request, 20, 100));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'sort' => ['nullable', Rule::in(['subscribed_at', 'name', 'email', 'id'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'per_page' => ['nullable', 'integer', 'between:10,100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $perPage = $validated['per_page'] ?? 20;
+
+        $subscribers = $this->subscriberQuery($validated)
+            ->orderBy($validated['sort'] ?? 'subscribed_at', $validated['direction'] ?? 'desc')
+            ->orderBy('id', $validated['direction'] ?? 'desc')
+            ->paginate($perPage, ['*'], 'page', $validated['page'] ?? 1);
 
         return $this->success([
             'subscribers' => $subscribers->items(),
             'stats' => [
-                'total' => NewsletterSubscriber::count(),
+                'total' => NewsletterSubscriber::whereNull('unsubscribed_at')->count(),
                 'active' => NewsletterSubscriber::whereNull('unsubscribed_at')->count(),
-                'unsubscribed' => NewsletterSubscriber::whereNotNull('unsubscribed_at')->count(),
-                'today' => NewsletterSubscriber::whereDate('subscribed_at', today())->count(),
+                'unsubscribed' => NewsletterUnsubscribe::count(),
+                'today' => NewsletterSubscriber::whereNull('unsubscribed_at')->whereDate('subscribed_at', today())->count(),
             ],
             'pagination' => $this->paginationMeta($subscribers),
         ], meta: $this->paginationMeta($subscribers));
+    }
+
+    private function subscriberQuery(array $filters)
+    {
+        return NewsletterSubscriber::query()
+            ->whereNull('unsubscribed_at')
+            ->when($filters['search'] ?? null, function ($query, $search): void {
+                $search = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
+                $query->where(fn ($nested) => $nested
+                ->where('name', 'like', $search)
+                ->orWhere('email', 'like', $search));
+            })
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('subscribed_at', '>=', $date.' 00:00:00'))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('subscribed_at', '<=', $date.' 23:59:59'));
     }
 
     public function updateSubscriber(Request $request, NewsletterSubscriber $subscriber): JsonResponse
@@ -95,24 +148,43 @@ class DashboardController extends Controller
             'status' => ['required', Rule::in(['active', 'unsubscribed'])],
         ]);
 
+        if ($data['status'] === 'unsubscribed') {
+            NewsletterUnsubscribe::record($subscriber->email);
+            $subscriber->delete();
+
+            return $this->success(null, 'Subscriber unsubscribed and removed from the active list.');
+        }
+
         $subscriber->forceFill([
             'name' => $data['name'] ?? null,
             'email' => Str::lower(trim($data['email'])),
             'subscribed_at' => $subscriber->subscribed_at ?: now(),
-            'unsubscribed_at' => $data['status'] === 'unsubscribed' ? ($subscriber->unsubscribed_at ?: now()) : null,
+            'unsubscribed_at' => null,
         ])->save();
 
         return $this->success($subscriber->fresh(), 'Subscriber updated.');
     }
 
+    public function destroySubscriber(NewsletterSubscriber $subscriber): JsonResponse
+    {
+        $subscriber->delete();
+
+        return $this->success(null, 'Subscriber deleted.');
+    }
+
     public function exportWaitlist(Request $request)
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'sort' => ['nullable', Rule::in(['subscribed_at', 'name', 'email'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
         $filename = 'beautyprohq-waitlist-'.now()->format('Y-m-d-His').'.csv';
-        $subscribers = NewsletterSubscriber::query()
-            ->when($request->search, fn ($query, $search) => $query->where(fn ($nested) => $nested
-                ->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")))
-            ->latest('subscribed_at')
+        $subscribers = $this->subscriberQuery($validated)
+            ->orderBy($validated['sort'] ?? 'subscribed_at', $validated['direction'] ?? 'desc')
+            ->orderBy('id', $validated['direction'] ?? 'desc')
             ->get();
 
         return response()->streamDownload(function () use ($subscribers): void {
@@ -135,11 +207,36 @@ class DashboardController extends Controller
 
     public function users(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'role' => ['nullable', Rule::in(['provider', 'customer', 'admin'])],
+            'is_active' => ['nullable', 'boolean'],
+            'verification' => ['nullable', Rule::in(['verified', 'unverified'])],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'sort' => ['nullable', Rule::in(['created_at', 'name', 'email', 'id'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+
         $users = User::with('providerProfile')
-            ->when($request->role, fn ($q, $role) => $q->where('role', $role))
+            ->when($validated['role'] ?? null, fn ($q, $role) => $q->where('role', $role))
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
-            ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
-            ->latest()->paginate($this->perPage($request, 20, 100));
+            ->when($validated['search'] ?? null, fn ($q, $search) => $q->where(fn ($x) => $x->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
+            ->when($validated['verification'] ?? null, function ($query, $verification): void {
+                if ($verification === 'verified') {
+                    $query->whereHas('providerProfile', fn ($q) => $q->where('verified', true));
+                } else {
+                    $query->where(function ($q): void {
+                        $q->whereDoesntHave('providerProfile')
+                            ->orWhereHas('providerProfile', fn ($nested) => $nested->where('verified', false));
+                    });
+                }
+            })
+            ->when($validated['date_from'] ?? null, fn ($q, $date) => $q->where('users.created_at', '>=', $date.' 00:00:00'))
+            ->when($validated['date_to'] ?? null, fn ($q, $date) => $q->where('users.created_at', '<=', $date.' 23:59:59'))
+            ->orderBy($validated['sort'] ?? 'created_at', $validated['direction'] ?? 'desc')
+            ->orderBy('id', $validated['direction'] ?? 'desc')
+            ->paginate($this->perPage($request, 20, 100));
 
         return $this->success($users->items(), meta: $this->paginationMeta($users));
     }
@@ -355,22 +452,38 @@ class DashboardController extends Controller
 
     public function directory(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'verified' => ['nullable', 'boolean'],
+            'account_approval' => ['nullable', Rule::in(['pending', 'approved', 'declined'])],
+            'is_listed' => ['nullable', 'boolean'],
+            'category_id' => ['nullable', 'integer', 'exists:provider_categories,id'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'sort' => ['nullable', Rule::in(['created_at', 'profession', 'location', 'rating', 'id'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+
         $providers = ProviderProfile::with(['user:id,name,email,is_active', 'category:id,name,slug', 'services'])
-            ->when($request->filled('verified'), fn ($q) => $q->where('verified', $request->boolean('verified')))
-            ->when($request->account_approval === 'pending', fn ($q) => $q
+            ->when(array_key_exists('verified', $validated) && $validated['verified'] !== null, fn ($q) => $q->where('verified', $request->boolean('verified')))
+            ->when(($validated['account_approval'] ?? null) === 'pending', fn ($q) => $q
                 ->whereNotNull('onboarding_completed_at')
                 ->whereNull('account_approved_at')
                 ->whereNull('account_declined_at'))
-            ->when($request->account_approval === 'approved', fn ($q) => $q->whereNotNull('account_approved_at'))
-            ->when($request->account_approval === 'declined', fn ($q) => $q->whereNotNull('account_declined_at')->whereNull('account_approved_at'))
-            ->when($request->filled('is_listed'), fn ($q) => $q->where('is_listed', $request->boolean('is_listed')))
-            ->when($request->filled('category_id'), fn ($q) => $q->where('provider_category_id', $request->integer('category_id')))
-            ->when($request->search, fn ($q, $search) => $q->where(fn ($x) => $x
+            ->when(($validated['account_approval'] ?? null) === 'approved', fn ($q) => $q->whereNotNull('account_approved_at'))
+            ->when(($validated['account_approval'] ?? null) === 'declined', fn ($q) => $q->whereNotNull('account_declined_at')->whereNull('account_approved_at'))
+            ->when(array_key_exists('is_listed', $validated) && $validated['is_listed'] !== null, fn ($q) => $q->where('is_listed', $request->boolean('is_listed')))
+            ->when($validated['category_id'] ?? null, fn ($q) => $q->where('provider_category_id', $validated['category_id']))
+            ->when($validated['search'] ?? null, fn ($q, $search) => $q->where(fn ($x) => $x
                 ->where('profession', 'like', "%{$search}%")
                 ->orWhere('location', 'like', "%{$search}%")
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
             ))
-            ->latest()->paginate($this->perPage($request, 20, 100));
+            ->when($validated['date_from'] ?? null, fn ($q, $date) => $q->where('created_at', '>=', $date.' 00:00:00'))
+            ->when($validated['date_to'] ?? null, fn ($q, $date) => $q->where('created_at', '<=', $date.' 23:59:59'))
+            ->orderBy($validated['sort'] ?? 'created_at', $validated['direction'] ?? 'desc')
+            ->orderBy('id', $validated['direction'] ?? 'desc')
+            ->paginate($this->perPage($request, 20, 100));
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'categories' => $this->categoryTotals(),
@@ -551,6 +664,14 @@ class DashboardController extends Controller
 
     private function activityFeed(int $limit = 50, string $type = 'all'): array
     {
+        return $this->activityQuery($type)
+            ->orderByDesc('created_at')
+            ->orderByDesc('sort_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($item): array => (array) $item)
+            ->all();
+
         $items = collect();
         $allow = fn (string $key): bool => $type === 'all' || $type === $key;
 
@@ -632,6 +753,182 @@ class DashboardController extends Controller
         }
 
         return $items->sortByDesc('created_at')->take($limit)->values()->all();
+    }
+
+    private function activityQuery(string $type = 'all')
+    {
+        $queries = [];
+        $allow = fn (string $key): bool => $type === 'all' || $type === $key;
+
+        if ($allow('users')) {
+            $queries[] = DB::table('users')
+                ->selectRaw($this->sqlConcat(["'user-'", 'users.id']).' as id')
+                ->selectRaw("'users' as type")
+                ->selectRaw('users.id as record_id')
+                ->selectRaw($this->sqlConcat(["'New '", 'users.role', "' account'"]).' as title')
+                ->selectRaw($this->sqlConcat(['users.name', "' ('", 'users.email', "') joined BeautyPro HQ.'"]).' as description')
+                ->selectRaw('users.name as actor')
+                ->selectRaw('users.email as actor_email')
+                ->selectRaw('users.role as status')
+                ->selectRaw('null as amount')
+                ->selectRaw('null as currency')
+                ->selectRaw('users.created_at as created_at')
+                ->selectRaw('users.id as sort_id');
+        }
+
+        if ($allow('bookings')) {
+            $queries[] = DB::table('bookings')
+                ->leftJoin('users as customers', 'customers.id', '=', 'bookings.customer_id')
+                ->leftJoin('provider_profiles', 'provider_profiles.id', '=', 'bookings.provider_id')
+                ->leftJoin('users as providers', 'providers.id', '=', 'provider_profiles.user_id')
+                ->leftJoin('services', 'services.id', '=', 'bookings.service_id')
+                ->selectRaw($this->sqlConcat(["'booking-'", 'bookings.id']).' as id')
+                ->selectRaw("'bookings' as type")
+                ->selectRaw('bookings.id as record_id')
+                ->selectRaw($this->sqlConcat(["'Booking '", 'bookings.status']).' as title')
+                ->selectRaw($this->sqlConcat(["coalesce(customers.name, 'Customer')", "' booked '", "coalesce(services.name, 'a service')", "' with '", "coalesce(providers.name, 'a provider')", "'.'"]).' as description')
+                ->selectRaw('customers.name as actor')
+                ->selectRaw('customers.email as actor_email')
+                ->selectRaw('bookings.status as status')
+                ->selectRaw('null as amount')
+                ->selectRaw('null as currency')
+                ->selectRaw('bookings.created_at as created_at')
+                ->selectRaw('bookings.id as sort_id');
+        }
+
+        if ($allow('payments')) {
+            $queries[] = DB::table('payments')
+                ->leftJoin('provider_profiles', 'provider_profiles.id', '=', 'payments.provider_id')
+                ->leftJoin('users as providers', 'providers.id', '=', 'provider_profiles.user_id')
+                ->selectRaw($this->sqlConcat(["'payment-'", 'payments.id']).' as id')
+                ->selectRaw("'payments' as type")
+                ->selectRaw('payments.id as record_id')
+                ->selectRaw($this->sqlConcat(["'Payment '", 'payments.status']).' as title')
+                ->selectRaw($this->sqlConcat(['payments.currency', "' '", 'cast(payments.amount as char)', "' via '", "coalesce(payments.gateway, 'pending gateway')", "'.'"]).' as description')
+                ->selectRaw('providers.name as actor')
+                ->selectRaw('providers.email as actor_email')
+                ->selectRaw('payments.status as status')
+                ->selectRaw('payments.amount as amount')
+                ->selectRaw('payments.currency as currency')
+                ->selectRaw('payments.created_at as created_at')
+                ->selectRaw('payments.id as sort_id');
+        }
+
+        if ($allow('subscriptions')) {
+            $queries[] = DB::table('subscriptions')
+                ->leftJoin('users', 'users.id', '=', 'subscriptions.user_id')
+                ->selectRaw($this->sqlConcat(["'subscription-'", 'subscriptions.id']).' as id')
+                ->selectRaw("'subscriptions' as type")
+                ->selectRaw('subscriptions.id as record_id')
+                ->selectRaw($this->sqlConcat(['subscriptions.plan', "' plan '", 'subscriptions.status']).' as title')
+                ->selectRaw($this->sqlConcat(["coalesce(users.name, 'A member')", "' is on the '", 'subscriptions.plan', "' plan.'"]).' as description')
+                ->selectRaw('users.name as actor')
+                ->selectRaw('users.email as actor_email')
+                ->selectRaw('subscriptions.status as status')
+                ->selectRaw('subscriptions.amount as amount')
+                ->selectRaw('subscriptions.currency as currency')
+                ->selectRaw('subscriptions.created_at as created_at')
+                ->selectRaw('subscriptions.id as sort_id');
+        }
+
+        if ($allow('listings')) {
+            $queries[] = DB::table('provider_profiles')
+                ->leftJoin('users', 'users.id', '=', 'provider_profiles.user_id')
+                ->selectRaw($this->sqlConcat(["'listing-'", 'provider_profiles.id']).' as id')
+                ->selectRaw("'listings' as type")
+                ->selectRaw('provider_profiles.id as record_id')
+                ->selectRaw("case when provider_profiles.is_listed = 1 then 'Provider listing active' else 'Provider listing hidden' end as title")
+                ->selectRaw($this->sqlConcat(["coalesce(users.name, 'Provider')", "' listing: '", "coalesce(provider_profiles.profession, 'Beauty Professional')"]).' as description')
+                ->selectRaw('users.name as actor')
+                ->selectRaw('users.email as actor_email')
+                ->selectRaw("case when provider_profiles.is_listed = 1 then 'active' else 'hidden' end as status")
+                ->selectRaw('null as amount')
+                ->selectRaw('provider_profiles.default_currency as currency')
+                ->selectRaw('provider_profiles.updated_at as created_at')
+                ->selectRaw('provider_profiles.id as sort_id');
+        }
+
+        if ($allow('content')) {
+            $queries[] = DB::table('news')
+                ->selectRaw($this->sqlConcat(["'news-'", 'news.id']).' as id')
+                ->selectRaw("'content' as type")
+                ->selectRaw('news.id as record_id')
+                ->selectRaw("case when news.published_at is null then 'News draft' else 'News published' end as title")
+                ->selectRaw('news.title as description')
+                ->selectRaw("'News' as actor")
+                ->selectRaw('null as actor_email')
+                ->selectRaw("case when news.published_at is null then 'draft' else 'published' end as status")
+                ->selectRaw('null as amount')
+                ->selectRaw('null as currency')
+                ->selectRaw('news.created_at as created_at')
+                ->selectRaw('news.id as sort_id');
+
+            $queries[] = DB::table('events')
+                ->selectRaw($this->sqlConcat(["'event-'", 'events.id']).' as id')
+                ->selectRaw("'content' as type")
+                ->selectRaw('events.id as record_id')
+                ->selectRaw("case when events.published_at is null then 'Event draft' else 'Event published' end as title")
+                ->selectRaw('events.title as description')
+                ->selectRaw("'Event' as actor")
+                ->selectRaw('null as actor_email')
+                ->selectRaw("case when events.published_at is null then 'draft' else 'published' end as status")
+                ->selectRaw('null as amount')
+                ->selectRaw('null as currency')
+                ->selectRaw('events.created_at as created_at')
+                ->selectRaw('events.id as sort_id');
+        }
+
+        if ($allow('announcements')) {
+            $queries[] = DB::table('announcements')
+                ->selectRaw($this->sqlConcat(["'announcement-'", 'announcements.id']).' as id')
+                ->selectRaw("'announcements' as type")
+                ->selectRaw('announcements.id as record_id')
+                ->selectRaw("'Announcement sent' as title")
+                ->selectRaw($this->sqlConcat(['announcements.title', "' - '", 'announcements.audience']).' as description')
+                ->selectRaw('announcements.audience as actor')
+                ->selectRaw('null as actor_email')
+                ->selectRaw('announcements.audience as status')
+                ->selectRaw('null as amount')
+                ->selectRaw('null as currency')
+                ->selectRaw('announcements.created_at as created_at')
+                ->selectRaw('announcements.id as sort_id');
+        }
+
+        return collect($queries)->skip(1)->reduce(
+            fn ($union, $query) => $union->unionAll($query),
+            $queries[0]
+        );
+    }
+
+    private function sqlConcat(array $parts): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return implode(' || ', $parts);
+        }
+
+        return 'concat('.implode(', ', $parts).')';
+    }
+
+    private function activityStatuses(): array
+    {
+        return [
+            'active',
+            'admin',
+            'all',
+            'cancelled',
+            'confirmed',
+            'customer',
+            'draft',
+            'expired',
+            'failed',
+            'hidden',
+            'paid',
+            'pending',
+            'processing',
+            'provider',
+            'published',
+            'refunded',
+        ];
     }
 
     private function categoryTotals()

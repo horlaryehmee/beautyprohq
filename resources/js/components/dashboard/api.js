@@ -34,7 +34,7 @@ dashboardApi.interceptors.request.use((config) => ({
 dashboardApi.interceptors.response.use(
     (response) => response,
     async (error) => {
-        if (error.response?.status === 401 && error.config?.url === '/auth/me') {
+        if (error.response?.status === 401) {
             window.dispatchEvent(new CustomEvent('bphq:unauthenticated'));
         }
 

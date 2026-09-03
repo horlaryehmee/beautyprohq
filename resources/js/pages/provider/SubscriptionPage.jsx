@@ -60,7 +60,7 @@ export default function ProviderSubscriptionPage() {
     const { notify } = useDashboardToast();
     const { data: resourceData, setData: setSubscriptionData, loading, error, reload } = resource;
     const data = resourceData ?? {};
-    const plans = normalize(data, 'plans');
+    const plans = normalize(data, 'plans').filter((plan) => plan.is_active !== false);
     const payments = normalize(data, 'payments');
     const paymentsMeta = metaFrom(data, 'payments');
     const paymentPageCount = Number(paymentsMeta.last_page ?? paymentsMeta.lastPage ?? 1);

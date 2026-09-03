@@ -165,6 +165,7 @@ export default function AdminAnnouncementsPage() {
                         <option value="all">All audiences</option>
                         <option value="provider">Providers</option>
                         <option value="customer">Customers</option>
+                        <option value="subscribers">Newsletter subscribers</option>
                     </select>
                 </div>
 
@@ -190,7 +191,7 @@ export default function AdminAnnouncementsPage() {
                                             </div>
                                             <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{item.message}</p>
                                         </td>
-                                        <td className="py-4 font-semibold capitalize text-slate-700">{item.audience === 'all' ? 'All members' : item.audience}</td>
+                                        <td className="py-4 font-semibold capitalize text-slate-700">{item.audience === 'all' ? 'All members' : item.audience === 'subscribers' ? 'Newsletter subscribers' : item.audience}</td>
                                         <td className="py-4 text-slate-500">{formatDate(item.published_at ?? item.created_at)}</td>
                                         <td className="py-4 text-slate-500">{item.expires_at ? formatDate(item.expires_at) : 'No expiry'}</td>
                                         <td className="py-4">
@@ -223,6 +224,7 @@ export default function AdminAnnouncementsPage() {
                                     <option value="all">All members</option>
                                     <option value="provider">Providers only</option>
                                     <option value="customer">Customers only</option>
+                                    <option value="subscribers">Newsletter subscribers only</option>
                                 </select>
                             </Field>
                             <Field label="Publish date" hint="Leave empty to publish now.">

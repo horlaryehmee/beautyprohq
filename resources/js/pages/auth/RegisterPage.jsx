@@ -143,7 +143,7 @@ export default function RegisterPage() {
         return () => { cancelled = true; };
     }, []);
 
-    const visiblePlans = plans.length ? plans : fallbackPlans;
+    const visiblePlans = (plans.length ? plans.filter((plan) => plan.is_active !== false) : fallbackPlans);
     const selectedPlan = useMemo(() => visiblePlans.find((plan) => plan.key === form.plan) ?? visiblePlans.find((plan) => plan.key === 'paid') ?? visiblePlans[0], [form.plan, visiblePlans]);
     const isCustomerSignup = form.role === 'customer';
     const steps = isCustomerSignup ? ['Account', 'Confirm'] : ['Plan', 'Account', 'Confirm'];

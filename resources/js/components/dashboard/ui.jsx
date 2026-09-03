@@ -194,9 +194,8 @@ export function formatDate(value, options = {}) {
 }
 
 export function Pagination({ page, pageCount, onPageChange }) {
-    if (pageCount <= 1) return null;
     const currentPage = Number(page) || 1;
-    const totalPages = Number(pageCount) || 1;
+    const totalPages = Math.max(1, Number(pageCount) || 1);
     const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
     const end = Math.min(totalPages, start + 4);
     const pages = Array.from({ length: end - start + 1 }, (_, index) => start + index);

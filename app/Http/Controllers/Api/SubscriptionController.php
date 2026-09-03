@@ -31,6 +31,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -584,6 +585,54 @@ class SubscriptionController extends Controller
         AppSetting::setValue('currency.rates', json_encode($rates));
 
         return $this->success($this->currencyPayload(), 'Currency settings saved.');
+    }
+
+    public function fetchCurrencyRates(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'default' => ['nullable', Rule::in(array_keys(config('currencies.supported', [])))],
+        ]);
+
+        $base = $validated['default'] ?? (AppSetting::getValue('currency.default') ?: config('currencies.default', 'NGN'));
+        $supported = collect(config('currencies.supported', []));
+
+        try {
+            $response = Http::external()
+                ->timeout(15)
+                ->get('https://open.er-api.com/v6/latest/'.$base);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException('Exchange rate API returned '.$response->status());
+            }
+
+            $rates = $response->json('rates') ?: [];
+            $fetched = $supported->mapWithKeys(fn (array $currency, string $code) => [
+                $code => (float) ($rates[$code] ?? 0),
+            ])->all();
+
+            // The API returns rates relative to `$base`; the platform expects the
+            // base currency's own rate to be exactly 1.
+            $fetched[$base] = 1.0;
+
+            if (collect($fetched)->filter(fn ($rate) => $rate > 0)->isEmpty()) {
+                throw new \RuntimeException('No exchange rates returned.');
+            }
+
+            return $this->success([
+                'base' => $base,
+                'rates' => $fetched,
+                'source' => 'open.er-api.com (ECB/published rates)',
+            ], 'Live exchange rates fetched.');
+        } catch (\Throwable $exception) {
+            Log::warning('Currency rate fetch failed.', [
+                'message' => $exception->getMessage(),
+                'base' => $base,
+            ]);
+
+            return response()->json([
+                'message' => 'Could not fetch live exchange rates. Check the server internet connection and try again.',
+            ], 502);
+        }
     }
 
     public function adminHeroImages(): JsonResponse

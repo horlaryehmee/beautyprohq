@@ -15,6 +15,8 @@
 /node_modules
 /public/hot
 /public/storage
+/routes.json
+/tmp
 /storage/*.key
 /storage/pail
 /vendor
