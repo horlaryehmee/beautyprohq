@@ -34,6 +34,13 @@ QUEUE_CONNECTION=database
 MAIL_SCHEME=smtp
 MAIL_PORT=587
 MAIL_REQUIRE_TLS=true
+
+SECURITY_MALWARE_SCAN_ENABLED=true
+SECURITY_MALWARE_SCAN_REQUIRED=true
+SECURITY_CLAMD_HOST=127.0.0.1
+SECURITY_CLAMD_PORT=3310
+SECURITY_ORPHAN_UPLOAD_RETENTION_DAYS=7
+SECURITY_ADMIN_REQUIRE_TWO_FACTOR=true
 ```
 
 Generate `APP_KEY` once with `php artisan key:generate`. Do not rotate it without a migration plan because encrypted settings, cookies, and other encrypted data depend on it.
@@ -48,7 +55,9 @@ php artisan optimize
 php artisan ops:check --production
 ```
 
-The operational check intentionally fails on insecure settings, missing database tables, unwritable storage, absent frontend assets, missing required PHP extensions, or unavailable database/cache connectivity.
+The operational check intentionally fails on insecure settings, missing database tables, unwritable public or private storage, absent frontend assets, missing required PHP extensions, unavailable database/cache connectivity, or an unreachable malware scanner.
+
+Install and continuously run ClamAV's `clamd` service before enabling production uploads. The application streams uploads to `clamd` before saving them and production is configured to fail closed: if scanning is disabled or unavailable, the upload is rejected. Ask the host to expose `clamd` only on loopback or a private network; never publish port 3310 to the internet. If the shared host cannot provide ClamAV, use a private managed scanning service before launch rather than setting `SECURITY_MALWARE_SCAN_REQUIRED=false`.
 
 ## 3. Deployment
 
@@ -86,7 +95,7 @@ Do not use `/api/status` as a public diagnostics dump. It intentionally returns 
 
 ## 6. Security Controls
 
-The application enforces trusted hosts, secure browser sessions, active-account checks, email verification for paid provider operations, CSRF-protected Sanctum cookies, a nonce-based Content Security Policy, HSTS on HTTPS, restrictive browser headers, sanitized published HTML, bounded uploads, generic production errors, and outbound HTTP timeouts.
+The application enforces trusted hosts, secure browser sessions, active-account checks, email verification for paid provider operations, CSRF-protected Sanctum cookies, a nonce-based Content Security Policy, HSTS on HTTPS, restrictive browser headers, sanitized published HTML, bounded and malware-scanned uploads, generic production errors, and outbound HTTP timeouts. Provider verification documents live on a private disk and are streamed only to their owner or an administrator. Sensitive gateway responses and Paystack renewal tokens are encrypted with `APP_KEY`; only sanitized operational metadata remains queryable. Destructive and credential-changing admin actions require a recent password confirmation, and production policy additionally requires 2FA.
 
 Operational requirements:
 
@@ -98,6 +107,10 @@ Operational requirements:
 - Keep writable permissions limited to `storage`, `bootstrap/cache`, and the configured local upload directory.
 - Configure Mailchimp webhook signing; unsigned webhooks are rejected.
 - Restrict upload MIME types and sizes at both Laravel and PHP (`upload_max_filesize` and `post_max_size`).
+- Keep `storage/app/private/verification` outside the public web root, writable only by the application account, and include it in encrypted backups with restricted restore access.
+- The daily scheduler removes private verification uploads that were never submitted after seven days. Adjust `SECURITY_ORPHAN_UPLOAD_RETENTION_DAYS` only to match a documented retention policy.
+- Require every admin to enable 2FA before launch. Test the step-up prompt for deployments, cache clearing, demo-data removal, user deletion, gateway credentials, SMTP, Twilio, and Mailchimp.
+- Back up `APP_KEY` in a secrets manager. Losing or casually rotating it makes encrypted gateway fields and application settings unreadable.
 
 ## 7. Rate Limits
 

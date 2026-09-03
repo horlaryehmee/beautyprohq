@@ -40,6 +40,14 @@ return [
             'report' => false,
         ],
 
+        'verification' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/verification'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

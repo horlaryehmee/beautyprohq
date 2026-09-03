@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\PortfolioItem;
 use App\Models\ProfileView;
 use App\Models\Subscription;
+use App\Models\UploadedMedia;
 use App\Models\VerificationRequest;
 use App\Models\User;
 use App\Notifications\PlatformUpdateNotification;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DashboardController extends Controller
 {
@@ -270,6 +272,15 @@ class DashboardController extends Controller
                 $fail('The selected upload is invalid.');
             }
         };
+        $storedVerificationUploadRule = function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value instanceof \Illuminate\Http\UploadedFile) {
+                return;
+            }
+
+            if (! is_string($value) || (! preg_match('/^media:\d+$/', $value) && ! str_starts_with($value, 'uploads/')) || str_contains($value, '..')) {
+                $fail('The selected verification upload is invalid.');
+            }
+        };
         $profilePhotoRules = $request->hasFile('profile_photo')
             ? ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']
             : ['required', 'string', 'max:1000', $storedUploadRule];
@@ -277,7 +288,7 @@ class DashboardController extends Controller
             ? ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192']
             : ['required', 'string', 'max:1000', $storedUploadRule];
         $storedOrImageRule = ['nullable', $storedUploadRule];
-        $storedOrDocumentRule = ['nullable', $storedUploadRule];
+        $storedOrDocumentRule = ['nullable', $storedVerificationUploadRule];
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
@@ -391,13 +402,13 @@ class DashboardController extends Controller
                 ->all();
             $certificationFiles = [];
             $certificationFiles = $request->hasFile('certification_documents')
-                ? array_map(fn ($document) => $uploads->store($document, $request->user(), 'provider_verification_certification')['path'], array_slice($request->file('certification_documents', []), 0, 5))
-                : array_slice($validated['certification_documents'] ?? [], 0, 5);
+                ? array_map(fn ($document) => $uploads->storeVerificationDocument($document, $request->user(), 'provider_verification_certification')['path'], array_slice($request->file('certification_documents', []), 0, 5))
+                : $this->validateVerificationReferences(array_slice($validated['certification_documents'] ?? [], 0, 5), $request->user(), 'provider_verification_certification');
 
             $licenseFiles = [];
             $licenseFiles = $request->hasFile('license_documents')
-                ? array_map(fn ($document) => $uploads->store($document, $request->user(), 'provider_verification_license')['path'], array_slice($request->file('license_documents', []), 0, 5))
-                : array_slice($validated['license_documents'] ?? [], 0, 5);
+                ? array_map(fn ($document) => $uploads->storeVerificationDocument($document, $request->user(), 'provider_verification_license')['path'], array_slice($request->file('license_documents', []), 0, 5))
+                : $this->validateVerificationReferences(array_slice($validated['license_documents'] ?? [], 0, 5), $request->user(), 'provider_verification_license');
 
             $professionalInfo = implode("\n\n", array_filter([
                 "Professional title: {$validated['profession']}",
@@ -550,7 +561,11 @@ class DashboardController extends Controller
             'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx', 'max:10240'],
         ]);
 
-        $stored = $uploads->store($validated['file']);
+        $stored = $uploads->storeVerificationDocument(
+            $validated['file'],
+            $request->user(),
+            'provider_verification_'.$validated['type'],
+        );
 
         return $this->success([
             ...$stored,
@@ -569,9 +584,9 @@ class DashboardController extends Controller
             'social_links' => ['nullable', 'array'],
             'social_links.*' => ['nullable', 'url', 'max:500'],
             'professional_info' => ['required', 'string', 'max:5000'],
-            'certification_files' => ['nullable', 'array'],
+            'certification_files' => ['nullable', 'array', 'max:5'],
             'certification_files.*' => ['required', 'string', 'max:1000'],
-            'license_files' => ['nullable', 'array'],
+            'license_files' => ['nullable', 'array', 'max:5'],
             'license_files.*' => ['required', 'string', 'max:1000'],
         ]);
 
@@ -580,8 +595,8 @@ class DashboardController extends Controller
             'portfolio_links' => $validated['portfolio_links'],
             'social_links' => array_filter($validated['social_links'] ?? $provider->social_links ?? []),
             'professional_info' => $validated['professional_info'],
-            'certification_files' => array_values($validated['certification_files'] ?? []),
-            'license_files' => array_values($validated['license_files'] ?? []),
+            'certification_files' => $this->validateVerificationReferences($validated['certification_files'] ?? [], $request->user(), 'provider_verification_certification'),
+            'license_files' => $this->validateVerificationReferences($validated['license_files'] ?? [], $request->user(), 'provider_verification_license'),
         ]);
 
         User::where('role', 'admin')->where('is_active', true)->get()->each->notify(new PlatformUpdateNotification(
@@ -600,6 +615,28 @@ class DashboardController extends Controller
         $checks = [$provider->profession, $provider->bio, $provider->location, $provider->profile_photo, $provider->services()->exists()];
 
         return (int) round(collect($checks)->filter()->count() / count($checks) * 100);
+    }
+
+    private function validateVerificationReferences(array $references, User $user, string $collection): array
+    {
+        return collect($references)->map(function (mixed $reference) use ($user, $collection): string {
+            $reference = trim((string) $reference);
+            $query = UploadedMedia::query()
+                ->where('user_id', $user->id)
+                ->where('collection', $collection);
+
+            $media = preg_match('/^media:(\d+)$/', $reference, $match)
+                ? $query->whereKey((int) $match[1])->where('disk', 'verification')->first()
+                : $query->where('path', $reference)->first();
+
+            if (! $media) {
+                throw ValidationException::withMessages([
+                    'verification_files' => ['A verification document is missing, expired, or does not belong to your account.'],
+                ]);
+            }
+
+            return $media->disk === 'verification' ? 'media:'.$media->id : $media->path;
+        })->values()->all();
     }
 
     private function deleteStoredUpload(?string $path): void

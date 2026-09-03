@@ -28,6 +28,10 @@ class UploadedMedia extends Model
 
     public function getUrlAttribute(): string
     {
+        if ($this->disk === 'verification') {
+            return '/api/media/'.$this->getKey().'/download';
+        }
+
         $url = Storage::disk($this->disk)->url($this->path);
 
         return preg_replace('/^http:\/\//i', 'https://', $url);

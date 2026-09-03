@@ -26,18 +26,35 @@ class UploadService
         'py', 'rb', 'sh', 'vbs',
     ];
 
+    public function __construct(private readonly MalwareScanner $malwareScanner)
+    {
+    }
+
     public function store(UploadedFile $file, ?User $user = null, ?string $collection = null): array
     {
         $user ??= Auth::user();
+        $this->malwareScanner->scan($file);
         $this->guardExecutableFile($file);
         $this->guardStorageQuota($file, $user);
-        $this->ensureUploadDirectoryIsHardened();
+        $disk = $this->diskName();
+        $this->ensureUploadDirectoryIsHardened($disk);
 
         $stored = str_starts_with((string) $file->getMimeType(), 'image/')
-            ? $this->storeOptimizedImage($file)
-            : $this->storeFile($file);
+            ? $this->storeOptimizedImage($file, $disk)
+            : $this->storeFile($file, $disk);
 
         return $this->recordMedia($stored, $file, $user, $collection);
+    }
+
+    public function storeVerificationDocument(UploadedFile $file, User $user, string $collection): array
+    {
+        $this->malwareScanner->scan($file);
+        $this->guardExecutableFile($file);
+        $this->guardStorageQuota($file, $user);
+        $disk = 'verification';
+        $this->ensureUploadDirectoryIsHardened($disk);
+
+        return $this->recordMedia($this->storeFile($file, $disk, 'private'), $file, $user, $collection);
     }
 
     public function list(): array
@@ -67,6 +84,14 @@ class UploadService
 
     public function delete(string $path): void
     {
+        if (preg_match('/^media:(\d+)$/', $path, $match)) {
+            $media = UploadedMedia::findOrFail((int) $match[1]);
+            Storage::disk($media->disk)->delete($media->path);
+            $media->delete();
+
+            return;
+        }
+
         $path = $this->sanitizeUploadPath($path);
         $disk = Storage::disk($this->diskName());
 
@@ -100,10 +125,10 @@ class UploadService
             ->all();
     }
 
-    private function storeOptimizedImage(UploadedFile $file): array
+    private function storeOptimizedImage(UploadedFile $file, string $disk): array
     {
         if (! class_exists(ImageManager::class)) {
-            return $this->storeFile($file);
+            return $this->storeFile($file, $disk);
         }
 
         $useWebp = function_exists('imagewebp');
@@ -116,38 +141,39 @@ class UploadService
             $image = $manager->read($file->getRealPath())->scaleDown(width: 1600, height: 1600);
             $encoded = $image->encode($useWebp ? new WebpEncoder(quality: 75) : new JpegEncoder(quality: 75));
 
-            Storage::disk($this->diskName())->put($path, (string) $encoded, ['visibility' => 'public']);
+            Storage::disk($disk)->put($path, (string) $encoded, ['visibility' => 'public']);
 
-            return $this->storedPayload($path, $filename, (string) Storage::disk($this->diskName())->mimeType($path));
+            return $this->storedPayload($path, $filename, (string) Storage::disk($disk)->mimeType($path), $disk);
         } catch (\Throwable) {
             // Shared hosting may have Intervention installed without an available image driver.
-            return $this->storeFile($file);
+            return $this->storeFile($file, $disk);
         }
     }
 
-    private function storeFile(UploadedFile $file): array
+    private function storeFile(UploadedFile $file, string $disk, string $visibility = 'public'): array
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'bin');
         $filename = $this->uniqueFilename($extension);
-        $path = Storage::disk($this->diskName())->putFileAs(
+        $path = Storage::disk($disk)->putFileAs(
             self::UPLOAD_DIRECTORY,
             $file,
             $filename,
-            ['visibility' => 'public']
+            ['visibility' => $visibility]
         );
 
-        return $this->storedPayload($path, $filename, (string) $file->getMimeType());
+        return $this->storedPayload($path, $filename, (string) $file->getMimeType(), $disk);
     }
 
-    private function storedPayload(string $path, string $filename, string $mimeType): array
+    private function storedPayload(string $path, string $filename, string $mimeType, string $disk): array
     {
         return [
             'success' => true,
-            'url' => Storage::disk($this->diskName())->url($path),
+            'url' => $disk === 'verification' ? null : Storage::disk($disk)->url($path),
             'path' => $path,
+            'disk' => $disk,
             'filename' => $filename,
             'mime_type' => $mimeType,
-            'size' => Storage::disk($this->diskName())->size($path),
+            'size' => Storage::disk($disk)->size($path),
         ];
     }
 
@@ -161,7 +187,7 @@ class UploadService
             ['path' => $stored['path']],
             [
                 'user_id' => $user?->id,
-                'disk' => $this->diskName(),
+                'disk' => $stored['disk'],
                 'filename' => $stored['filename'],
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $stored['mime_type'] ?: $file->getMimeType(),
@@ -222,12 +248,14 @@ class UploadService
 
     private function mediaPayload(UploadedMedia $media): array
     {
+        $private = $media->disk === 'verification';
+
         return [
             'id' => $media->id,
             'name' => $media->original_name ?: $media->filename,
             'filename' => $media->filename,
             'original_name' => $media->original_name,
-            'path' => $media->path,
+            'path' => $private ? 'media:'.$media->id : $media->path,
             'url' => $media->url,
             'mime_type' => $media->mime_type,
             'type' => $media->type,
@@ -334,9 +362,9 @@ class UploadService
         return $path;
     }
 
-    private function ensureUploadDirectoryIsHardened(): void
+    private function ensureUploadDirectoryIsHardened(?string $disk = null): void
     {
-        $disk = $this->diskName();
+        $disk ??= $this->diskName();
         Storage::disk($disk)->makeDirectory(self::UPLOAD_DIRECTORY);
 
         if (config("filesystems.disks.{$disk}.driver") !== 'local') {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\EnsureRecentAdminAuthentication;
 use App\Models\AppSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +16,7 @@ class AdminTwilioSettingsTest extends TestCase
 
     public function test_admin_can_send_twilio_whatsapp_test_message(): void
     {
+        $this->withoutMiddleware(EnsureRecentAdminAuthentication::class);
         Http::fake([
             'api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201),
         ]);
@@ -22,7 +24,8 @@ class AdminTwilioSettingsTest extends TestCase
         AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
 
-        Sanctum::actingAs(User::factory()->admin()->create());
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin);
 
         $this->postJson('/api/admin/settings/twilio/test', [
             'phone' => '+2348012345678',

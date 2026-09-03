@@ -347,7 +347,7 @@ class BackendMvpTest extends TestCase
 
         $subscription = Subscription::where('user_id', $user->id)->where('status', 'active')->firstOrFail();
         $this->assertSame('SUB_race', data_get($subscription->metadata, 'paystack_subscription_code'));
-        $this->assertSame('token_race', data_get($subscription->metadata, 'paystack_email_token'));
+        $this->assertSame('token_race', $subscription->gatewaySecret('paystack_email_token'));
     }
 
     public function test_paystack_invoice_failure_marks_subscription_attention(): void
@@ -814,7 +814,7 @@ class BackendMvpTest extends TestCase
         ]);
         $category = ProviderCategory::firstOrFail();
         $this->mock(UploadService::class, function ($mock): void {
-            $mock->shouldReceive('store')->times(4)->andReturn(
+            $mock->shouldReceive('store')->times(2)->andReturn(
                 [
                     'success' => true,
                     'url' => '/storage/uploads/profile.webp',
@@ -831,18 +831,20 @@ class BackendMvpTest extends TestCase
                     'mime_type' => 'image/webp',
                     'size' => 2400,
                 ],
+            );
+            $mock->shouldReceive('storeVerificationDocument')->times(2)->andReturn(
                 [
                     'success' => true,
-                    'url' => '/storage/uploads/certificate.pdf',
-                    'path' => 'uploads/certificate.pdf',
+                    'url' => '/api/media/501/download',
+                    'path' => 'media:501',
                     'filename' => 'certificate.pdf',
                     'mime_type' => 'application/pdf',
                     'size' => 8000,
                 ],
                 [
                     'success' => true,
-                    'url' => '/storage/uploads/license.pdf',
-                    'path' => 'uploads/license.pdf',
+                    'url' => '/api/media/502/download',
+                    'path' => 'media:502',
                     'filename' => 'license.pdf',
                     'mime_type' => 'application/pdf',
                     'size' => 7000,
@@ -888,8 +890,8 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('message', 'This feature is available to approved providers.');
 
         $verification = $profile->verificationRequests()->latest()->firstOrFail();
-        $this->assertSame(['uploads/certificate.pdf'], $verification->certification_files);
-        $this->assertSame(['uploads/license.pdf'], $verification->license_files);
+        $this->assertSame(['media:501'], $verification->certification_files);
+        $this->assertSame(['media:502'], $verification->license_files);
         $this->assertStringContainsString('Years of experience: 5', $verification->professional_info);
         $admin = User::factory()->admin()->create();
         Sanctum::actingAs($admin);
@@ -1013,33 +1015,28 @@ class BackendMvpTest extends TestCase
     public function test_provider_verification_accepts_uploaded_file_paths(): void
     {
         [$provider, $providerUser] = $this->provider('Verification Upload Studio', true);
-        $this->mock(UploadService::class, function ($mock): void {
-            $mock->shouldReceive('store')->once()->andReturn([
-                'success' => true,
-                'url' => '/storage/uploads/certificate.pdf',
-                'path' => 'uploads/certificate.pdf',
-                'filename' => 'certificate.pdf',
-                'mime_type' => 'application/pdf',
-                'size' => 8000,
-            ]);
-        });
+        Storage::fake('verification');
 
         Sanctum::actingAs($providerUser);
         $certificate = $this->post('/api/provider/verification/files', [
             'type' => 'certification',
             'file' => UploadedFile::fake()->create('certificate.pdf', 20, 'application/pdf'),
-        ], ['Accept' => 'application/json'])->assertCreated()
-            ->assertJsonPath('data.path', 'uploads/certificate.pdf')
-            ->json('data.path');
+        ], ['Accept' => 'application/json'])->assertCreated()->json('data.path');
+        $license = $this->post('/api/provider/verification/files', [
+            'type' => 'license',
+            'file' => UploadedFile::fake()->create('license.pdf', 20, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertCreated()->json('data.path');
+        $this->assertMatchesRegularExpression('/^media:\d+$/', $certificate);
+        $this->assertMatchesRegularExpression('/^media:\d+$/', $license);
 
         $this->postJson('/api/provider/verification', [
             'portfolio_links' => ['uploads/portfolio-proof.webp'],
             'professional_info' => 'Licensed provider with documented training and a completed professional portfolio.',
             'certification_files' => [$certificate],
-            'license_files' => ['uploads/license.pdf'],
+            'license_files' => [$license],
         ])->assertCreated()
-            ->assertJsonPath('data.certification_files.0', 'uploads/certificate.pdf')
-            ->assertJsonPath('data.license_files.0', 'uploads/license.pdf');
+            ->assertJsonPath('data.certification_files.0', $certificate)
+            ->assertJsonPath('data.license_files.0', $license);
 
         $this->assertDatabaseHas('verification_requests', [
             'provider_id' => $provider->id,
@@ -2051,7 +2048,9 @@ class BackendMvpTest extends TestCase
 
     public function test_admin_can_use_cpanel_php_mail_for_platform_email(): void
     {
-        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureRecentAdminAuthentication::class);
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin);
 
         $this->putJson('/api/admin/settings/smtp', [
             'enabled' => true,

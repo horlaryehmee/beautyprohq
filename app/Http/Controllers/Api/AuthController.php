@@ -258,6 +258,91 @@ class AuthController extends Controller
         ]);
     }
 
+    public function requestAdminStepUpCode(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user?->isAdmin(), 403);
+
+        if (! $user->two_factor_enabled) {
+            return $this->success([
+                'two_factor_enabled' => false,
+                'two_factor_method' => null,
+            ], 'Enter your current password to confirm this action.');
+        }
+
+        $method = $user->two_factor_method ?: 'email';
+        if ($method === 'email') {
+            $this->sendTwoFactorCode($user, 'admin-step-up');
+        }
+
+        return $this->success([
+            'two_factor_enabled' => true,
+            'two_factor_method' => $method,
+        ], $method === 'email'
+            ? 'A security code has been sent to your email.'
+            : 'Enter the current code from your authenticator app.');
+    }
+
+    public function confirmAdminStepUp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+            'code' => ['nullable', 'string', 'max:100'],
+        ]);
+        $user = $request->user();
+        abort_unless($user?->isAdmin(), 403);
+        abort_unless($request->hasSession(), 419, 'A browser session is required for this action.');
+
+        if ((bool) config('security.admin_step_up.require_two_factor', false) && ! $user->two_factor_enabled) {
+            return response()->json([
+                'message' => 'Enable two-factor authentication before performing production-critical admin actions.',
+                'code' => 'ADMIN_TWO_FACTOR_REQUIRED',
+            ], 422);
+        }
+
+        abort_unless(Hash::check($validated['password'], $user->password), 422, 'The password is incorrect.');
+
+        if ($user->two_factor_enabled) {
+            $code = trim((string) ($validated['code'] ?? ''));
+            abort_if($code === '', 422, 'Enter your two-factor authentication code.');
+            $method = $user->two_factor_method ?: 'email';
+            $usedRecoveryCode = false;
+            $validCode = $method === 'totp'
+                ? $this->validTotpCode($user, $code)
+                : $this->validTwoFactorCode($user, $code);
+
+            if (! $validCode) {
+                $validCode = $this->useRecoveryCode($user, $code);
+                $usedRecoveryCode = $validCode;
+            }
+
+            abort_unless($validCode, 422, 'The verification code is invalid or expired.');
+
+            if ($method === 'email' && ! $usedRecoveryCode) {
+                $user->forceFill([
+                    'two_factor_code_hash' => null,
+                    'two_factor_code_expires_at' => null,
+                ])->save();
+            }
+        }
+
+        $confirmedAt = now()->timestamp;
+        $request->session()->put([
+            'security.admin_step_up.user_id' => $user->id,
+            'security.admin_step_up.confirmed_at' => $confirmedAt,
+        ]);
+
+        Log::channel('security')->notice('Admin identity re-confirmed for a sensitive action.', [
+            'user_id' => $user->id,
+            'two_factor' => (bool) $user->two_factor_enabled,
+            'ip' => $request->ip(),
+        ]);
+
+        return $this->success([
+            'expires_at' => now()->addSeconds(max(60, (int) config('security.admin_step_up.lifetime_seconds', 600))),
+        ], 'Identity confirmed. You may continue.');
+    }
+
     public function enableTwoFactor(Request $request): JsonResponse
     {
         $validated = $request->validate([

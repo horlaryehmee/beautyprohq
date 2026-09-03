@@ -928,7 +928,7 @@ class SubscriptionController extends Controller
         }
 
         $code = $metadata['paystack_subscription_code'] ?? null;
-        $token = $metadata['paystack_email_token'] ?? null;
+        $token = $subscription->gatewaySecret('paystack_email_token');
         if (blank($code) || blank($token)) {
             $payment = SubscriptionPayment::where('subscription_id', $subscription->id)
                 ->where('gateway', 'paystack')
@@ -936,10 +936,11 @@ class SubscriptionController extends Controller
                 ->latest()
                 ->first();
 
-            $code ??= data_get($payment?->raw_response, 'data.subscription.subscription_code')
-                ?: data_get($payment?->raw_response, 'data.subscription_code');
-            $token ??= data_get($payment?->raw_response, 'data.subscription.email_token')
-                ?: data_get($payment?->raw_response, 'data.email_token');
+            $payload = $payment?->gatewayPayload() ?? [];
+            $code ??= data_get($payload, 'data.subscription.subscription_code')
+                ?: data_get($payload, 'data.subscription_code');
+            $token ??= data_get($payload, 'data.subscription.email_token')
+                ?: data_get($payload, 'data.email_token');
         }
 
         abort_if(blank($code) || blank($token), 422, 'Paystack subscription details are incomplete. Wait for Paystack to finish creating the subscription, then try again.');
@@ -987,7 +988,7 @@ class SubscriptionController extends Controller
             ->first();
 
         if ($payment) {
-            $rawResponse = $payment->raw_response ?? [];
+            $rawResponse = $payment->gatewayPayload();
             data_set($rawResponse, 'data.subscription_code', $code);
             data_set($rawResponse, 'data.email_token', $token);
             data_set($rawResponse, 'data.plan.plan_code', $planCode);
@@ -1075,7 +1076,7 @@ class SubscriptionController extends Controller
             'cancelled_at' => null,
             'metadata' => array_merge($subscription->metadata ?? [], [
                 'gateway' => 'paystack',
-                'paystack_email_token' => data_get($data, 'subscription.email_token') ?: data_get($subscription->metadata, 'paystack_email_token'),
+                'paystack_email_token' => data_get($data, 'subscription.email_token') ?: $subscription->gatewaySecret('paystack_email_token'),
             ]),
         ]);
 
@@ -1264,6 +1265,7 @@ class SubscriptionController extends Controller
                 'ends_at' => now(),
             ]);
 
+            $lockedPayload = $locked->gatewayPayload();
             $subscription = Subscription::create([
                 'user_id' => $locked->user_id,
                 'subscription_plan_id' => $locked->subscription_plan_id,
@@ -1275,9 +1277,9 @@ class SubscriptionController extends Controller
                 'renews_at' => $this->nextRenewalDate($locked->plan),
                 'metadata' => array_filter([
                     'gateway' => $locked->gateway,
-                    'paystack_plan_code' => data_get($rawResponse, 'data.plan.plan_code') ?: data_get($rawResponse, 'data.plan') ?: data_get($locked->raw_response, 'data.metadata.paystack_plan_code'),
-                    'paystack_subscription_code' => data_get($rawResponse, 'data.subscription.subscription_code') ?: data_get($rawResponse, 'data.subscription_code') ?: data_get($locked->raw_response, 'data.subscription_code') ?: data_get($locked->raw_response, 'data.subscription.subscription_code'),
-                    'paystack_email_token' => data_get($rawResponse, 'data.subscription.email_token') ?: data_get($rawResponse, 'data.email_token') ?: data_get($locked->raw_response, 'data.email_token') ?: data_get($locked->raw_response, 'data.subscription.email_token'),
+                    'paystack_plan_code' => data_get($rawResponse, 'data.plan.plan_code') ?: data_get($rawResponse, 'data.plan') ?: data_get($lockedPayload, 'data.metadata.paystack_plan_code'),
+                    'paystack_subscription_code' => data_get($rawResponse, 'data.subscription.subscription_code') ?: data_get($rawResponse, 'data.subscription_code') ?: data_get($lockedPayload, 'data.subscription_code') ?: data_get($lockedPayload, 'data.subscription.subscription_code'),
+                    'paystack_email_token' => data_get($rawResponse, 'data.subscription.email_token') ?: data_get($rawResponse, 'data.email_token') ?: data_get($lockedPayload, 'data.email_token') ?: data_get($lockedPayload, 'data.subscription.email_token'),
                 ]),
             ]);
 
@@ -1345,7 +1347,7 @@ class SubscriptionController extends Controller
 
     private function mergePaystackSubscriptionPayload(SubscriptionPayment $payment, array $rawPayload): array
     {
-        $paymentPayload = $payment->raw_response ?? [];
+        $paymentPayload = $payment->gatewayPayload();
         foreach ([
             'subscription_code',
             'email_token',

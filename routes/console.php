@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ContentNewsletterService;
 use App\Models\Subscription;
+use App\Models\UploadedMedia;
+use App\Models\VerificationRequest;
 use App\Models\User;
 use Symfony\Component\Process\Process;
 
@@ -321,6 +323,8 @@ Artisan::command('ops:check {--production : Enforce production-only safety check
             && is_array(json_decode((string) file_get_contents(public_path('build/manifest.json')), true)),
         'Configured upload disk exists' => array_key_exists(config('filesystems.upload_disk'), config('filesystems.disks', [])),
         'Configured upload disk is writable' => false,
+        'Private verification disk exists' => array_key_exists('verification', config('filesystems.disks', [])),
+        'Private verification disk is writable' => false,
     ];
 
     try {
@@ -337,6 +341,24 @@ Artisan::command('ops:check {--production : Enforce production-only safety check
         }
     } catch (\Throwable) {
         // Reported as failed below without leaking connection details.
+    }
+
+    try {
+        $privateDisk = Storage::disk('verification');
+        $privatePath = '.ops-check-'.bin2hex(random_bytes(8));
+        $privateProbe = bin2hex(random_bytes(12));
+        $privateWritten = $privateDisk->put($privatePath, $privateProbe, ['visibility' => 'private']);
+        $checks['Private verification disk is writable'] = $privateWritten
+            && hash_equals($privateProbe, (string) $privateDisk->get($privatePath));
+        $privateDisk->delete($privatePath);
+    } catch (\Throwable) {
+        if (isset($privateDisk, $privatePath)) {
+            try {
+                $privateDisk->delete($privatePath);
+            } catch (\Throwable) {
+                // The failed readiness check below is sufficient.
+            }
+        }
     }
 
     try {
@@ -375,6 +397,23 @@ Artisan::command('ops:check {--production : Enforce production-only safety check
         $mailUsesTls = config('mail.default') !== 'smtp'
             || config('mail.mailers.smtp.scheme') === 'smtps'
             || (config('mail.mailers.smtp.scheme') === 'smtp' && (bool) config('mail.mailers.smtp.require_tls'));
+        $clamdReady = false;
+        try {
+            $clamd = @stream_socket_client(
+                'tcp://'.config('security.uploads.malware_scan.host').':'.config('security.uploads.malware_scan.port'),
+                $clamdError,
+                $clamdMessage,
+                2,
+            );
+            if (is_resource($clamd)) {
+                fwrite($clamd, "zPING\0");
+                stream_set_timeout($clamd, 2);
+                $clamdReady = str_contains((string) fread($clamd, 16), 'PONG');
+                fclose($clamd);
+            }
+        } catch (\Throwable) {
+            $clamdReady = false;
+        }
 
         $checks = [
             'APP_ENV is production' => app()->environment('production'),
@@ -397,6 +436,10 @@ Artisan::command('ops:check {--production : Enforce production-only safety check
             'Production application logs exclude debug level' => config('logging.channels.daily.level') !== 'debug',
             'CSP is enabled' => (bool) config('security.csp.enabled'),
             'HSTS is enabled' => (bool) config('security.hsts.enabled'),
+            'Malware scanning is enabled and fail-closed' => (bool) config('security.uploads.malware_scan.enabled')
+                && (bool) config('security.uploads.malware_scan.required'),
+            'ClamAV daemon is reachable' => $clamdReady,
+            'Admin production actions require two-factor authentication' => (bool) config('security.admin_step_up.require_two_factor'),
             'Real mail transport is configured' => ! in_array(config('mail.default'), ['array', 'log'], true),
             'SMTP transport requires TLS' => $mailUsesTls,
             'Configuration is cached' => app()->configurationIsCached(),
@@ -435,6 +478,40 @@ Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3 --timeou
 Schedule::command('auth:clear-resets')->dailyAt('02:10');
 Schedule::command('sanctum:prune-expired --hours=24')->dailyAt('02:20');
 Schedule::command('queue:prune-failed --hours=168')->dailyAt('02:30');
+Artisan::command('media:prune-orphaned-verification', function (): int {
+    if (! Schema::hasTable('uploaded_media') || ! Schema::hasTable('verification_requests')) {
+        return 0;
+    }
+
+    $referencedIds = VerificationRequest::query()
+        ->get(['certification_files', 'license_files'])
+        ->flatMap(fn (VerificationRequest $request) => array_merge(
+            $request->certification_files ?? [],
+            $request->license_files ?? [],
+        ))
+        ->filter(fn (mixed $reference): bool => is_string($reference) && preg_match('/^media:\d+$/', $reference) === 1)
+        ->map(fn (string $reference): int => (int) substr($reference, 6))
+        ->unique();
+    $cutoff = now()->subDays(max(1, (int) config('security.uploads.orphan_retention_days', 7)));
+    $deleted = 0;
+
+    UploadedMedia::query()
+        ->where('disk', 'verification')
+        ->where('created_at', '<', $cutoff)
+        ->when($referencedIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $referencedIds))
+        ->cursor()
+        ->each(function (UploadedMedia $media) use (&$deleted): void {
+            Storage::disk($media->disk)->delete($media->path);
+            $media->delete();
+            $deleted++;
+        });
+
+    $this->info("Orphaned verification uploads removed: {$deleted}");
+
+    return 0;
+})->purpose('Remove unsubmitted private verification documents after the retention window');
+
+Schedule::command('media:prune-orphaned-verification')->dailyAt('02:35')->withoutOverlapping(10);
 Artisan::command('newsletter:send-due-content', function (ContentNewsletterService $newsletter): int {
     $result = $newsletter->sendDue();
     $this->info("Newsletter content sends checked. {$result['content']} content items queued for {$result['sent']} subscribers.");

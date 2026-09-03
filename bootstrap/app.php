@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsurePaidProvider;
+use App\Http\Middleware\EnsureRecentAdminAuthentication;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureVerifiedProvider;
 use App\Http\Middleware\RequestContext;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'active' => EnsureActiveAccount::class,
+            'admin.step-up' => EnsureRecentAdminAuthentication::class,
             'role' => EnsureRole::class,
             'paid.provider' => EnsurePaidProvider::class,
             'verified.provider' => EnsureVerifiedProvider::class,

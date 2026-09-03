@@ -127,7 +127,7 @@ class AccountDeletionService
         }
 
         $code = data_get($subscription->metadata, 'paystack_subscription_code');
-        $token = data_get($subscription->metadata, 'paystack_email_token');
+        $token = $subscription->gatewaySecret('paystack_email_token');
 
         if (blank($code) || blank($token)) {
             $payment = SubscriptionPayment::where('subscription_id', $subscription->id)
@@ -135,10 +135,11 @@ class AccountDeletionService
                 ->where('status', 'paid')
                 ->latest()
                 ->first();
-            $code ??= data_get($payment?->raw_response, 'data.subscription.subscription_code')
-                ?: data_get($payment?->raw_response, 'data.subscription_code');
-            $token ??= data_get($payment?->raw_response, 'data.subscription.email_token')
-                ?: data_get($payment?->raw_response, 'data.email_token');
+            $payload = $payment?->gatewayPayload() ?? [];
+            $code ??= data_get($payload, 'data.subscription.subscription_code')
+                ?: data_get($payload, 'data.subscription_code');
+            $token ??= data_get($payload, 'data.subscription.email_token')
+                ?: data_get($payload, 'data.email_token');
         }
 
         $secret = $this->paystackSecretKey();

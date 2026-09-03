@@ -12,6 +12,17 @@ export const dashboardApi = axios.create({
     },
 });
 
+let adminStepUpHandler = null;
+let activeAdminStepUp = null;
+
+export function registerAdminStepUpHandler(handler) {
+    adminStepUpHandler = handler;
+
+    return () => {
+        if (adminStepUpHandler === handler) adminStepUpHandler = null;
+    };
+}
+
 dashboardApi.interceptors.request.use((config) => ({
     ...config,
     headers: {
@@ -22,9 +33,31 @@ dashboardApi.interceptors.request.use((config) => ({
 
 dashboardApi.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
         if (error.response?.status === 401 && error.config?.url === '/auth/me') {
             window.dispatchEvent(new CustomEvent('bphq:unauthenticated'));
+        }
+
+        const code = error.response?.data?.code;
+        const config = error.config;
+        if (
+            error.response?.status === 428
+            && ['ADMIN_STEP_UP_REQUIRED', 'ADMIN_TWO_FACTOR_REQUIRED'].includes(code)
+            && adminStepUpHandler
+            && !config?._adminStepUpRetried
+        ) {
+            if (!activeAdminStepUp) {
+                activeAdminStepUp = Promise.resolve(adminStepUpHandler(error.response.data))
+                    .finally(() => { activeAdminStepUp = null; });
+            }
+
+            try {
+                await activeAdminStepUp;
+                config._adminStepUpRetried = true;
+                return dashboardApi.request(config);
+            } catch {
+                return Promise.reject(error);
+            }
         }
 
         return Promise.reject(error);

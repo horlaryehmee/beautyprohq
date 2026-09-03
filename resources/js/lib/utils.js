@@ -49,6 +49,8 @@ export function initials(name = '') {
 }
 
 export function mediaUrl(value) {
+    const privateMedia = String(value || '').match(/^media:(\d+)$/);
+    if (privateMedia) return `/api/media/${privateMedia[1]}/download`;
     if (!value) return null;
     if (/^(https?:)?\/\//i.test(value) || /^(data|blob):/i.test(value) || String(value).startsWith('/')) return value;
     return `/storage/${String(value).replace(/^storage\//, '')}`;

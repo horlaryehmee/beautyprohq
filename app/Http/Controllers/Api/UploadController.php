@@ -16,6 +16,16 @@ class UploadController extends Controller
             'collection' => ['nullable', 'string', 'max:80'],
         ]);
 
-        return response()->json($uploads->store($data['file'], $request->user(), $data['collection'] ?? 'user_upload'), 201);
+        $collection = $data['collection'] ?? 'user_upload';
+        if (in_array($collection, ['provider_verification_certification', 'provider_verification_license'], true)) {
+            abort_unless($request->user()->isProvider(), 403, 'Only providers may upload verification documents.');
+
+            return response()->json(
+                $uploads->storeVerificationDocument($data['file'], $request->user(), $collection),
+                201,
+            );
+        }
+
+        return response()->json($uploads->store($data['file'], $request->user(), $collection), 201);
     }
 }

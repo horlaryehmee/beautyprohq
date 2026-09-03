@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { apiRequest, ensureSanctumCookie } from './api';
+import { apiErrorMessage, apiRequest, ensureSanctumCookie, registerAdminStepUpHandler } from './api';
 import Icon from './Icon';
 import { DashboardToastProvider, useDashboardToast } from './ToastProvider';
 import { Avatar, Button, cx } from './ui';
@@ -100,6 +100,11 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [dashboardSearch, setDashboardSearch] = useState('');
     const [searchFocused, setSearchFocused] = useState(false);
+    const [stepUp, setStepUp] = useState(null);
+    const [stepUpPassword, setStepUpPassword] = useState('');
+    const [stepUpCode, setStepUpCode] = useState('');
+    const [stepUpBusy, setStepUpBusy] = useState(false);
+    const [stepUpError, setStepUpError] = useState('');
     const location = useLocation();
     const navigate = useNavigate();
     const { notify } = useDashboardToast();
@@ -116,6 +121,48 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
         window.addEventListener('bphq:unauthenticated', handleUnauthenticated);
         return () => window.removeEventListener('bphq:unauthenticated', handleUnauthenticated);
     }, [navigate]);
+
+    useEffect(() => {
+        if (role !== 'admin') return undefined;
+
+        return registerAdminStepUpHandler((details) => new Promise((resolve, reject) => {
+            setStepUpPassword('');
+            setStepUpCode('');
+            setStepUpError('');
+            setStepUp({ details, resolve, reject });
+
+            if (details?.code === 'ADMIN_STEP_UP_REQUIRED' && details?.data?.two_factor_method === 'email') {
+                apiRequest('post', '/admin/security/step-up/code')
+                    .then(() => notify('A security code was sent to your admin email.'))
+                    .catch((error) => setStepUpError(apiErrorMessage(error)));
+            }
+        }));
+    }, [notify, role]);
+
+    const closeStepUp = () => {
+        stepUp?.reject?.(new Error('Admin identity confirmation cancelled.'));
+        setStepUp(null);
+    };
+
+    const confirmStepUp = async (event) => {
+        event.preventDefault();
+        setStepUpBusy(true);
+        setStepUpError('');
+        try {
+            await apiRequest('post', '/admin/security/step-up', {
+                password: stepUpPassword,
+                code: stepUpCode || undefined,
+            });
+            const resolve = stepUp?.resolve;
+            setStepUp(null);
+            resolve?.();
+            notify('Identity confirmed. The admin action will continue.');
+        } catch (error) {
+            setStepUpError(apiErrorMessage(error));
+        } finally {
+            setStepUpBusy(false);
+        }
+    };
 
     const visibleNavigation = useMemo(
         () => navigation.filter((item) => (!item.verifiedOnly || verified) && (!item.paidOnly || paid)),
@@ -311,6 +358,49 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                     </button>
                 </div>
             </nav>
+
+            {stepUp && (
+                <div aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog">
+                    <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-bphq-coffee">Sensitive admin action</p>
+                                <h2 className="mt-1 font-display text-2xl font-semibold text-bphq-espresso">Confirm your identity</h2>
+                            </div>
+                            <button aria-label="Cancel identity confirmation" className="grid size-10 place-items-center rounded-xl text-slate-500 hover:bg-slate-100" onClick={closeStepUp} type="button"><Icon name="close" /></button>
+                        </div>
+
+                        {stepUp.details?.code === 'ADMIN_TWO_FACTOR_REQUIRED' ? (
+                            <div className="mt-5 space-y-4">
+                                <p className="text-sm leading-6 text-slate-600">Production-critical actions require two-factor authentication. Open Admin Settings, choose Security, and enable 2FA first.</p>
+                                <div className="flex justify-end gap-2">
+                                    <Button onClick={closeStepUp} type="button" variant="secondary">Cancel</Button>
+                                    <Button onClick={() => { closeStepUp(); navigate('/admin/settings'); }} type="button">Open settings</Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <form className="mt-5 space-y-4" onSubmit={confirmStepUp}>
+                                <p className="text-sm leading-6 text-slate-600">Re-enter your current password{stepUp.details?.data?.two_factor_enabled ? ' and your two-factor code' : ''}. Confirmation lasts for a short, session-bound window.</p>
+                                <label className="block">
+                                    <span className="mb-1.5 block text-sm font-bold text-slate-700">Current password</span>
+                                    <input autoComplete="current-password" className="w-full rounded-xl border border-bphq-chrome px-3.5 py-2.5 text-sm outline-none focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60" onChange={(event) => setStepUpPassword(event.target.value)} required type="password" value={stepUpPassword} />
+                                </label>
+                                {stepUp.details?.data?.two_factor_enabled && (
+                                    <label className="block">
+                                        <span className="mb-1.5 block text-sm font-bold text-slate-700">Two-factor or backup code</span>
+                                        <input autoComplete="one-time-code" className="w-full rounded-xl border border-bphq-chrome px-3.5 py-2.5 text-sm outline-none focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60" inputMode="numeric" onChange={(event) => setStepUpCode(event.target.value)} required value={stepUpCode} />
+                                    </label>
+                                )}
+                                {stepUpError && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{stepUpError}</p>}
+                                <div className="flex justify-end gap-2">
+                                    <Button onClick={closeStepUp} type="button" variant="secondary">Cancel</Button>
+                                    <Button busy={stepUpBusy} type="submit">Confirm and continue</Button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

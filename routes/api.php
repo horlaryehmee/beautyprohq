@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CurrencyController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LiveChatController;
+use App\Http\Controllers\Api\MediaDownloadController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Provider\BookingController as ProviderBookingController;
 use App\Http\Controllers\Api\Provider\BusinessController as ProviderBusinessController;
@@ -78,6 +79,7 @@ Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class
 Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:chat');
 
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
+    Route::get('/media/{media}/download', MediaDownloadController::class)->middleware('throttle:api');
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::put('/auth/password', [AuthController::class, 'updatePassword'])->middleware('throttle:sensitive');
@@ -184,6 +186,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
     });
 
     Route::prefix('admin')->middleware('role:admin')->group(function (): void {
+        Route::post('/security/step-up/code', [AuthController::class, 'requestAdminStepUpCode'])->middleware('throttle:sensitive');
+        Route::post('/security/step-up', [AuthController::class, 'confirmAdminStepUp'])->middleware('throttle:sensitive');
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/activity', [AdminDashboardController::class, 'activity']);
         Route::get('/waitlist', [AdminDashboardController::class, 'waitlist']);
@@ -193,7 +197,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/users/{user}', [AdminDashboardController::class, 'showUser']);
         Route::patch('/users/{user}', [AdminDashboardController::class, 'updateUser']);
         Route::post('/users/{user}/email-change', [AuthController::class, 'requestManagedEmailChange'])->middleware('throttle:sensitive');
-        Route::delete('/users/{user}', [AdminDashboardController::class, 'destroyUser']);
+        Route::delete('/users/{user}', [AdminDashboardController::class, 'destroyUser'])->middleware('admin.step-up');
         Route::get('/directory', [AdminDashboardController::class, 'directory']);
         Route::get('/providers/{provider}/preview', [ProviderDirectoryController::class, 'adminPreview']);
         Route::patch('/providers/{provider}', [AdminDashboardController::class, 'updateProvider']);
@@ -207,11 +211,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/subscription-plans', [SubscriptionController::class, 'adminPlans']);
         Route::put('/subscription-plans/{plan}', [SubscriptionController::class, 'updateAdminPlan']);
         Route::get('/payment-settings/paystack', [SubscriptionController::class, 'adminPaystackSettings']);
-        Route::put('/payment-settings/paystack', [SubscriptionController::class, 'updateAdminPaystackSettings']);
+        Route::put('/payment-settings/paystack', [SubscriptionController::class, 'updateAdminPaystackSettings'])->middleware('admin.step-up');
         Route::get('/payment-settings/stripe', [SubscriptionController::class, 'adminStripeSettings']);
-        Route::put('/payment-settings/stripe', [SubscriptionController::class, 'updateAdminStripeSettings']);
+        Route::put('/payment-settings/stripe', [SubscriptionController::class, 'updateAdminStripeSettings'])->middleware('admin.step-up');
         Route::get('/payment-settings/gateway', [SubscriptionController::class, 'adminPaymentGatewaySettings']);
-        Route::put('/payment-settings/gateway', [SubscriptionController::class, 'updateAdminPaymentGatewaySettings']);
+        Route::put('/payment-settings/gateway', [SubscriptionController::class, 'updateAdminPaymentGatewaySettings'])->middleware('admin.step-up');
         Route::get('/settings/branding', [SubscriptionController::class, 'adminBrandingSettings']);
         Route::put('/settings/branding', [SubscriptionController::class, 'updateAdminBrandingSettings']);
         Route::get('/settings/currencies', [SubscriptionController::class, 'adminCurrencySettings']);
@@ -222,22 +226,22 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::post('/settings/hero-images/upload', [SubscriptionController::class, 'uploadAdminHeroImage']);
         Route::put('/settings/hero-images', [SubscriptionController::class, 'updateAdminHeroImages']);
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
-        Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings']);
-        Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware('throttle:sensitive');
+        Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings'])->middleware('admin.step-up');
+        Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
-        Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings']);
-        Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware('throttle:sensitive');
+        Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings'])->middleware('admin.step-up');
+        Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::post('/settings/email-notifications/test', [SubscriptionController::class, 'testAdminEmailNotification'])->middleware('throttle:sensitive');
         Route::get('/settings/mailchimp', [SubscriptionController::class, 'adminMailchimpSettings']);
-        Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings']);
-        Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware('throttle:sensitive');
-        Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware('throttle:sensitive');
+        Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings'])->middleware('admin.step-up');
+        Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware(['throttle:sensitive', 'admin.step-up']);
+        Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::get('/settings/deployment', [AdminDeploymentController::class, 'status']);
-        Route::post('/settings/deployment/run', [AdminDeploymentController::class, 'run'])->middleware('throttle:sensitive');
-        Route::post('/settings/cache/clear', [AdminDeploymentController::class, 'clearCache'])->middleware('throttle:sensitive');
+        Route::post('/settings/deployment/run', [AdminDeploymentController::class, 'run'])->middleware(['throttle:sensitive', 'admin.step-up']);
+        Route::post('/settings/cache/clear', [AdminDeploymentController::class, 'clearCache'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::get('/demo-data', [AdminDemoDataController::class, 'status']);
-        Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate']);
-        Route::delete('/demo-data', [AdminDemoDataController::class, 'clear']);
+        Route::post('/demo-data/populate', [AdminDemoDataController::class, 'populate'])->middleware('admin.step-up');
+        Route::delete('/demo-data', [AdminDemoDataController::class, 'clear'])->middleware('admin.step-up');
 
         Route::get('/media', [AdminMediaController::class, 'index']);
         Route::post('/media', [AdminMediaController::class, 'store'])->middleware('throttle:upload');
