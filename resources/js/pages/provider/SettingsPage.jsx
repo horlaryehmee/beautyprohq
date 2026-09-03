@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     Button,
     Card,
@@ -16,6 +17,7 @@ import {
 } from '../../components/dashboard';
 import SecurityPage from '../dashboard/SecurityPage';
 import AccountDeletionCard from '../dashboard/AccountDeletionCard';
+import ProviderSupportPanel from '../../components/support/ProviderSupportPanel';
 
 const gatewayLabels = {
     paystack: 'Paystack',
@@ -29,6 +31,7 @@ const timezoneOptions = typeof Intl.supportedValuesOf === 'function'
     : ['Africa/Lagos', 'UTC', 'Europe/London', 'America/New_York'];
 
 export default function ProviderSettingsPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const resource = useApiResource('/provider/settings', {});
     const [form, setForm] = useState({
         default_currency: 'NGN',
@@ -37,7 +40,7 @@ export default function ProviderSettingsPage() {
         whatsapp_number: '',
         whatsapp_notifications_enabled: false,
     });
-    const [tab, setTab] = useState('general');
+    const [tab, setTab] = useState(searchParams.get('tab') === 'support' ? 'support' : 'general');
     const [saving, setSaving] = useState(false);
     const { notify } = useDashboardToast();
     const data = resource.data ?? {};
@@ -47,6 +50,7 @@ export default function ProviderSettingsPage() {
         ['general', 'General'],
         ...(data.whatsapp_feature_enabled ? [['notifications', 'Notifications']] : []),
         ['security', 'Security'],
+        ['support', 'Support'],
         ['delete-account', 'Delete account'],
     ];
 
@@ -90,7 +94,7 @@ export default function ProviderSettingsPage() {
 
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {providerTabs.map(([key, label]) => (
-                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? (key === 'delete-account' ? 'bg-red-700 text-white' : 'bg-slate-950 text-white') : (key === 'delete-account' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500')}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>
+                    <button className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold ${tab === key ? (key === 'delete-account' ? 'bg-red-700 text-white' : 'bg-slate-950 text-white') : (key === 'delete-account' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500')}`} key={key} onClick={() => { setTab(key); setSearchParams(key === 'support' ? { tab: 'support' } : {}); }} type="button">{label}</button>
                 ))}
             </div>
 
@@ -166,6 +170,7 @@ export default function ProviderSettingsPage() {
                 </form>
             </Card>
             : tab === 'security' ? <SecurityPage embedded />
+            : tab === 'support' ? <ProviderSupportPanel />
             : <AccountDeletionCard />}
         </div>
     );

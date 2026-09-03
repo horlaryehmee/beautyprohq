@@ -94,6 +94,7 @@ const AdminOpportunitiesPage = lazyWithReload(() => import('./pages/admin/Opport
 const AdminOpportunityEditorPage = lazyWithReload(() => import('./pages/admin/OpportunityEditorPage'));
 const AdminAnnouncementsPage = lazyWithReload(() => import('./pages/admin/AnnouncementsPage'));
 const AdminSubscriptionsPage = lazyWithReload(() => import('./pages/admin/SubscriptionsPage'));
+const AdminSupportPage = lazyWithReload(() => import('./pages/admin/SupportPage'));
 const AdminSettingsPage = lazyWithReload(() => import('./pages/admin/SettingsPage'));
 const AdminDocumentationPage = lazyWithReload(() => import('./pages/admin/DocumentationPage'));
 
@@ -225,6 +226,7 @@ export default function App() {
                                 <Route path="opportunities/:id/edit" element={<AdminOpportunityEditorPage />} />
                                 <Route path="announcements" element={<AdminAnnouncementsPage />} />
                                 <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+                                <Route path="support" element={<AdminSupportPage />} />
                                 <Route path="settings" element={<AdminSettingsPage />} />
                                 <Route path="documentation" element={<AdminDocumentationPage />} />
                             </Route>

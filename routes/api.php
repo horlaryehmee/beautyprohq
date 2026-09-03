@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController
 use App\Http\Controllers\Api\Admin\DeploymentController as AdminDeploymentController;
 use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
+use App\Http\Controllers\Api\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\Provider\DashboardController as ProviderDashboardCo
 use App\Http\Controllers\Api\Provider\LiveChatController as ProviderLiveChatController;
 use App\Http\Controllers\Api\Provider\ScheduleController as ProviderScheduleController;
 use App\Http\Controllers\Api\Provider\ServiceController as ProviderServiceController;
+use App\Http\Controllers\Api\Provider\SupportController as ProviderSupportController;
 use App\Http\Controllers\Api\ProviderDirectoryController;
 use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\StatusController;
@@ -122,6 +124,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
 
     Route::prefix('provider')->middleware('role:provider')->group(function (): void {
         Route::post('/onboarding', [ProviderDashboardController::class, 'completeOnboarding'])->middleware('verified');
+        Route::middleware('verified')->group(function (): void {
+            Route::get('/support', [ProviderSupportController::class, 'index']);
+            Route::post('/support', [ProviderSupportController::class, 'store'])->middleware('throttle:public-form');
+            Route::get('/support/{ticket}', [ProviderSupportController::class, 'show']);
+            Route::post('/support/{ticket}/messages', [ProviderSupportController::class, 'reply'])->middleware('throttle:chat');
+        });
 
         Route::middleware(['verified', 'verified.provider'])->group(function (): void {
             Route::get('/dashboard', [ProviderDashboardController::class, 'index']);
@@ -208,6 +216,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/verifications', [AdminVerificationController::class, 'index']);
         Route::patch('/verifications/{verification}', [AdminVerificationController::class, 'update']);
         Route::get('/subscriptions', [AdminDashboardController::class, 'subscriptions']);
+        Route::get('/support', [AdminSupportController::class, 'index']);
+        Route::get('/support/{ticket}', [AdminSupportController::class, 'show']);
+        Route::post('/support/{ticket}/messages', [AdminSupportController::class, 'reply'])->middleware('throttle:chat');
+        Route::patch('/support/{ticket}', [AdminSupportController::class, 'update']);
         Route::get('/subscription-plans', [SubscriptionController::class, 'adminPlans']);
         Route::put('/subscription-plans/{plan}', [SubscriptionController::class, 'updateAdminPlan']);
         Route::get('/payment-settings/paystack', [SubscriptionController::class, 'adminPaystackSettings']);

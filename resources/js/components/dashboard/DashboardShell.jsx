@@ -47,6 +47,7 @@ export const adminNavigation = [
     { label: 'Opportunities', to: '/admin/opportunities', icon: 'opportunity' },
     { label: 'Announcements', to: '/admin/announcements', icon: 'megaphone' },
     { label: 'Subscriptions', to: '/admin/subscriptions', icon: 'subscription' },
+    { label: 'Support', to: '/admin/support', icon: 'chat' },
     { label: 'Settings', to: '/admin/settings', icon: 'settings' },
     { label: 'Documentation', to: '/admin/documentation', icon: 'docs' },
 ];
@@ -91,6 +92,7 @@ const searchKeywords = {
         Opportunities: 'jobs grants partnerships applications',
         Announcements: 'broadcast messages notifications email users',
         Subscriptions: 'plans billing payments renewals providers revenue',
+        Support: 'provider care support inbox tickets replies billing technical account verification',
         Settings: 'configuration currencies demo data populate clear integrations',
         Documentation: 'help guide docs support setup instructions',
     },
