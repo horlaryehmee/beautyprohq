@@ -119,6 +119,7 @@ class SupportController extends Controller
             'Open support inbox',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/admin/support',
             ['support_ticket_id' => $ticket->id, 'provider_id' => $ticket->provider_id],
+            mail: false,
         ));
     }
 }

@@ -78,6 +78,7 @@ class SupportController extends Controller
             'Open support',
             rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/settings?tab=support',
             ['support_ticket_id' => $ticket->id],
+            mail: false,
         ));
 
         return $this->success($ticket->fresh()->load(['provider.user:id,name,email', 'assignedAdmin:id,name', 'messages.sender:id,name,role']), 'Support reply sent.');

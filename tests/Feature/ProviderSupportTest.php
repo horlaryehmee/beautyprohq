@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ProviderProfile;
 use App\Models\SupportTicket;
 use App\Models\User;
+use App\Notifications\PlatformUpdateNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
@@ -17,6 +18,7 @@ class ProviderSupportTest extends TestCase
     public function test_provider_can_open_and_follow_a_private_support_request(): void
     {
         Notification::fake();
+        $admin = User::factory()->admin()->create(['is_active' => true]);
         [$provider] = $this->provider('Supported Provider');
         Sanctum::actingAs($provider);
 
@@ -37,6 +39,9 @@ class ProviderSupportTest extends TestCase
             'sender_id' => $provider->id,
             'sender_role' => 'provider',
         ]);
+        Notification::assertSentTo($admin, PlatformUpdateNotification::class, function (PlatformUpdateNotification $notification) use ($admin) {
+            return $notification->via($admin) === ['database'];
+        });
     }
 
     public function test_provider_cannot_read_or_reply_to_another_providers_request(): void
