@@ -465,8 +465,12 @@ class SubscriptionController extends Controller
         } catch (\Throwable $exception) {
             report($exception);
 
+            $message = AppSetting::getValue('smtp.mailer', 'smtp') === 'google_workspace'
+                ? $exception->getMessage()
+                : 'Email test failed. Check the saved provider connection and server logs.';
+
             return response()->json([
-                'message' => 'Email test failed. Check the saved provider connection and server logs.',
+                'message' => $message,
             ], 422);
         }
 

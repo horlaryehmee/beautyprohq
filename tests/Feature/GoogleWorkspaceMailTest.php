@@ -54,7 +54,26 @@ class GoogleWorkspaceMailTest extends TestCase
         $this->assertSame('sent-after-refresh', app(GoogleWorkspaceMailService::class)->send('Raw email'));
         $this->assertSame('permanent-refresh-token', AppSetting::getValue('google_workspace.refresh_token'));
         Http::assertSent(fn (Request $request): bool => $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
-            && $request->hasHeader('Authorization', 'Bearer refreshed-token'));
+                && $request->hasHeader('Authorization', 'Bearer refreshed-token'));
+    }
+
+    public function test_gmail_api_setup_errors_are_actionable(): void
+    {
+        AppSetting::setValue('google_workspace.email', 'hello@beautyprohq.com');
+        AppSetting::setValue('google_workspace.access_token', 'access-token', true);
+        AppSetting::setValue('google_workspace.refresh_token', 'refresh-token', true);
+        AppSetting::setValue('google_workspace.access_token_expires_at', now()->addHour()->toIso8601String());
+        Http::fake([
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send' => Http::response([
+                'error' => [
+                    'message' => 'Gmail API has not been used in project 123 before or it is disabled.',
+                    'errors' => [['reason' => 'accessNotConfigured']],
+                ],
+            ], 403),
+        ]);
+
+        $this->expectExceptionMessage('The Gmail API is not enabled for this Google Cloud project.');
+        app(GoogleWorkspaceMailService::class)->send('Raw email');
     }
 
     public function test_laravel_notifications_can_use_google_workspace_transport(): void

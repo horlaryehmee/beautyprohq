@@ -109,7 +109,9 @@ class GoogleWorkspaceMailService
                 ->post(self::GMAIL_SEND_URL, ['raw' => rtrim(strtr(base64_encode($rawMessage), '+/', '-_'), '=')]);
         }
 
-        $response->throw();
+        if ($response->failed()) {
+            throw new \RuntimeException($this->gmailErrorMessage($response->status(), $response->json()));
+        }
 
         return (string) $response->json('id');
     }
@@ -153,5 +155,29 @@ class GoogleWorkspaceMailService
         AppSetting::setValue('google_workspace.access_token_expires_at', now()->addSeconds(max(60, (int) ($token['expires_in'] ?? 3600)))->toIso8601String());
 
         return $token['access_token'];
+    }
+
+    private function gmailErrorMessage(int $status, array $payload): string
+    {
+        $reason = (string) data_get($payload, 'error.errors.0.reason');
+        $message = (string) data_get($payload, 'error.message');
+
+        if ($status === 401) {
+            return 'Google Workspace authorization expired. Reconnect the mailbox from Admin settings.';
+        }
+
+        if ($reason === 'accessNotConfigured' || str_contains(strtolower($message), 'gmail api has not been used')) {
+            return 'The Gmail API is not enabled for this Google Cloud project. Enable it, wait a few minutes, then reconnect the mailbox.';
+        }
+
+        if (in_array($reason, ['insufficientPermissions', 'forbidden'], true) || str_contains(strtolower($message), 'insufficient permission')) {
+            return 'Google did not grant permission to send email. Disconnect and reconnect the mailbox, then approve the Gmail sending permission.';
+        }
+
+        if (str_contains(strtolower($message), 'from header')) {
+            return 'The From email must match the connected Google Workspace account or one of its configured Gmail aliases.';
+        }
+
+        return 'Google Workspace could not send the email. Confirm the Gmail API is enabled and reconnect the mailbox if the issue continues.';
     }
 }
