@@ -30,6 +30,13 @@ class GoogleWorkspaceMailService
             && filled(AppSetting::getValue('google_workspace.email'));
     }
 
+    public function email(): ?string
+    {
+        $email = AppSetting::getValue('google_workspace.email');
+
+        return filled($email) ? (string) $email : null;
+    }
+
     public function redirectUri(): string
     {
         return route('auth.google.mail.callback');
@@ -121,7 +128,7 @@ class GoogleWorkspaceMailService
         return [
             'available' => $this->available(),
             'connected' => $this->connected(),
-            'email' => AppSetting::getValue('google_workspace.email'),
+            'email' => $this->email(),
             'connected_at' => AppSetting::getValue('google_workspace.connected_at'),
             'connect_url' => route('auth.google.mail.redirect'),
             'redirect_uri' => $this->redirectUri(),

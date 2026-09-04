@@ -189,7 +189,7 @@ export default function AdminSettingsPage() {
             from_address: data.from_address ?? '',
             from_name: data.from_name ?? '',
         });
-        setSmtpTestEmail((current) => current || data.from_address || '');
+        setSmtpTestEmail((current) => current || data.google_workspace?.email || data.from_address || '');
     }, [smtpResource.data]);
 
     useEffect(() => {
@@ -1158,9 +1158,15 @@ export default function AdminSettingsPage() {
                                     <option value="php_mail">cPanel / PHP mail</option>
                                 </select>
                             </Field>
-                            <Field label="From email address">
-                                <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_address: event.target.value }))} placeholder="hello@beautyprohq.com" type="email" value={smtpForm.from_address} />
-                            </Field>
+                            {smtpForm.mailer === 'google_workspace' ? (
+                                <Field hint="Google Workspace always sends from the account selected through Google." label="Connected sender email">
+                                    <input className={`${inputClass} bg-slate-50`} disabled placeholder="Select a Google account below" type="email" value={smtpResource.data?.google_workspace?.email || ''} />
+                                </Field>
+                            ) : (
+                                <Field label="From email address">
+                                    <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_address: event.target.value }))} placeholder="hello@beautyprohq.com" type="email" value={smtpForm.from_address} />
+                                </Field>
+                            )}
                             <Field label="From name">
                                 <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, from_name: event.target.value }))} placeholder="BeautyPro HQ" value={smtpForm.from_name} />
                             </Field>
@@ -1218,8 +1224,8 @@ export default function AdminSettingsPage() {
                                     : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
                         </div>
                         <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-                            <Field hint="Save and connect the selected email provider before sending a test." label="Test recipient email">
-                                <input className={inputClass} onChange={(event) => setSmtpTestEmail(event.target.value)} placeholder="you@example.com" type="email" value={smtpTestEmail} />
+                            <Field hint={smtpForm.mailer === 'google_workspace' && smtpResource.data?.google_workspace?.email ? `Sent from ${smtpResource.data.google_workspace.email}. The connected mailbox is selected as the test recipient by default.` : 'Save and connect the selected email provider before sending a test.'} label="Test recipient email">
+                                <input className={inputClass} onChange={(event) => setSmtpTestEmail(event.target.value)} placeholder={smtpResource.data?.google_workspace?.email || 'you@example.com'} type="email" value={smtpTestEmail} />
                             </Field>
                             <Button busy={testingSmtp} disabled={!smtpTestEmail || savingSmtp} onClick={testSmtp} type="button" variant="secondary">Send test email</Button>
                             <Button busy={savingSmtp} disabled={testingSmtp} type="submit">{smtpForm.mailer === 'google_workspace' && !smtpResource.data?.google_workspace?.connected ? 'Save & connect Google' : 'Save email settings'}</Button>

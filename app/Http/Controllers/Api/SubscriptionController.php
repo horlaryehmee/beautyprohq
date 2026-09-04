@@ -426,7 +426,12 @@ class SubscriptionController extends Controller
         AppSetting::setValue('smtp.port', $port);
         AppSetting::setValue('smtp.username', $username);
         AppSetting::setValue('smtp.encryption', $encryption);
-        AppSetting::setValue('smtp.from_address', $validated['from_address'] ?? null);
+        $workspace = app(GoogleWorkspaceMailService::class);
+        $fromAddress = $mailer === 'google_workspace' && $workspace->connected()
+            ? $workspace->email()
+            : ($validated['from_address'] ?? null);
+
+        AppSetting::setValue('smtp.from_address', $fromAddress);
         AppSetting::setValue('smtp.from_name', $validated['from_name'] ?? null);
         if ($mailer !== 'google_workspace' && filled($validated['password'] ?? null)) {
             AppSetting::setValue('smtp.password', $validated['password'], true);
