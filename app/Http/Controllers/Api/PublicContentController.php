@@ -273,7 +273,7 @@ class PublicContentController extends Controller
             ['email' => strtolower($validated['email'])],
             ['name' => $validated['name'], 'subscribed_at' => now(), 'unsubscribed_at' => null]
         );
-        $this->sendPublicConfirmation($subscriber->email, new NewsletterSubscriptionConfirmation());
+        $this->sendPublicConfirmation($subscriber->email, new NewsletterSubscriptionConfirmation($subscriber->id));
 
         return $this->success($subscriber, 'You are subscribed to BeautyPro HQ updates.', 201);
     }

@@ -3,11 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\AppSetting;
+use App\Models\Announcement;
 use App\Models\NewsletterSubscriber;
 use App\Models\NewsletterUnsubscribe;
 use App\Models\Payment;
 use App\Models\SubscriptionPayment;
 use App\Models\User;
+use App\Notifications\AnnouncementNotification;
+use App\Notifications\ContentPublishedNewsletterNotification;
+use App\Notifications\NewsletterSubscriptionConfirmation;
 use App\Support\SafeHtml;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
@@ -221,6 +225,39 @@ class OperationalHardeningTest extends TestCase
         // The subscriber row is removed from the active list, but the unsubscribe is counted in history.
         $this->assertDatabaseMissing('newsletter_subscribers', ['email' => 'reader@example.test']);
         $this->assertNotNull(NewsletterUnsubscribe::where('email_hash', hash('sha256', 'reader@example.test'))->first()?->unsubscribed_at);
+    }
+
+    public function test_every_newsletter_email_has_an_unsubscribe_footer(): void
+    {
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Reader',
+            'email' => 'reader@example.test',
+            'subscribed_at' => now(),
+        ]);
+        $announcement = new Announcement([
+            'title' => 'BeautyPro HQ update',
+            'message' => 'A subscriber announcement.',
+        ]);
+
+        $messages = [
+            (new NewsletterSubscriptionConfirmation($subscriber->id))->toMail($subscriber),
+            (new AnnouncementNotification($announcement))->toMail($subscriber),
+            (new ContentPublishedNewsletterNotification(
+                $subscriber->id,
+                $subscriber->name,
+                'event',
+                'Beauty Business Summit',
+                'A useful event for beauty professionals.',
+                'https://beautyprohq.example.test/news-events/events/beauty-business-summit',
+            ))->toMail($subscriber),
+        ];
+
+        foreach ($messages as $message) {
+            $html = $message->render();
+
+            $this->assertStringContainsString('Unsubscribe from BeautyPro HQ emails', $html);
+            $this->assertStringContainsString("/newsletter/unsubscribe/{$subscriber->id}", $html);
+        }
     }
 
     public function test_register_page_serves_spa_assets(): void

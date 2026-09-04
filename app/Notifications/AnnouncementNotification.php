@@ -4,15 +4,14 @@ namespace App\Notifications;
 
 use App\Models\Announcement;
 use App\Models\NewsletterSubscriber;
+use App\Notifications\Concerns\AddsNewsletterUnsubscribeFooter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\URL;
-use Symfony\Component\Mime\Email;
 
 class AnnouncementNotification extends Notification
 {
-    use Queueable;
+    use AddsNewsletterUnsubscribeFooter, Queueable;
 
     public function __construct(public Announcement $announcement) {}
 
@@ -33,22 +32,9 @@ class AnnouncementNotification extends Notification
             ->line($this->announcement->message);
 
         if ($notifiable instanceof NewsletterSubscriber) {
-            $unsubscribeUrl = URL::signedRoute('newsletter.unsubscribe', ['subscriber' => $notifiable->id]);
+            $message->action('Visit BeautyPro HQ', rtrim(config('app.frontend_url', config('app.url')), '/'));
 
-            return $message
-                ->action('Visit BeautyPro HQ', rtrim(config('app.frontend_url', config('app.url')), '/'))
-                ->line('You are receiving this because you subscribed to BeautyPro HQ updates.')
-                ->line('To stop receiving these emails, use the unsubscribe link below.')
-                ->line($unsubscribeUrl)
-                ->withSymfonyMessage(function (Email $email) use ($unsubscribeUrl): void {
-                    $from = (string) config('mail.from.address');
-                    $values = ['<'.$unsubscribeUrl.'>'];
-                    if ($from !== '') {
-                        $values[] = '<mailto:'.$from.'?subject=unsubscribe>';
-                    }
-                    $email->getHeaders()->addTextHeader('List-Unsubscribe', implode(', ', $values));
-                    $email->getHeaders()->addTextHeader('Precedence', 'bulk');
-                });
+            return $this->addNewsletterUnsubscribeFooter($message, (int) $notifiable->id);
         }
 
         return $message
