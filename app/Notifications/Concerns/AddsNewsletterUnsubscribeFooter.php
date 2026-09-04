@@ -13,8 +13,7 @@ trait AddsNewsletterUnsubscribeFooter
         $unsubscribeUrl = URL::signedRoute('newsletter.unsubscribe', ['subscriber' => $subscriberId]);
 
         return $message
-            ->line('You are receiving this email because you subscribed to BeautyPro HQ updates.')
-            ->line("[Unsubscribe from BeautyPro HQ emails]({$unsubscribeUrl})")
+            ->markdown('notifications::email', ['unsubscribeUrl' => $unsubscribeUrl])
             ->withSymfonyMessage(function (Email $email) use ($unsubscribeUrl): void {
                 $from = (string) config('mail.from.address');
                 $values = ['<'.$unsubscribeUrl.'>'];

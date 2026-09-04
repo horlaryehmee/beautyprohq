@@ -254,9 +254,15 @@ class OperationalHardeningTest extends TestCase
 
         foreach ($messages as $message) {
             $html = $message->render();
+            $visibleText = html_entity_decode(strip_tags($html));
 
-            $this->assertStringContainsString('Unsubscribe from BeautyPro HQ emails', $html);
+            $this->assertStringContainsString('Unsubscribe from these emails', $html);
             $this->assertStringContainsString("/newsletter/unsubscribe/{$subscriber->id}", $html);
+            $this->assertStringNotContainsString("/newsletter/unsubscribe/{$subscriber->id}", $visibleText);
+            $this->assertGreaterThan(
+                strpos($html, 'All rights reserved.'),
+                strpos($html, 'Unsubscribe from these emails'),
+            );
         }
     }
 

@@ -95,6 +95,12 @@
                         <td style="padding:20px;text-align:center;">
                             <p style="margin:0;font-size:12px;line-height:1.7;color:#7D7168;">{{ $appName }} &middot; trusted beauty professionals, bookings, payments and growth tools.</p>
                             <p style="margin:8px 0 0;font-size:12px;color:#7D7168;">&copy; {{ date('Y') }} {{ $appName }}. All rights reserved.</p>
+                            @if (! empty($unsubscribeUrl))
+                                <p style="margin:10px 0 0;font-size:12px;line-height:1.7;color:#7D7168;">
+                                    You received this because you subscribed to {{ $appName }} updates.
+                                    <a href="{{ $unsubscribeUrl }}" style="color:#7D7168;text-decoration:underline;">Unsubscribe from these emails</a>.
+                                </p>
+                            @endif
                         </td>
                     </tr>
                 </table>
