@@ -368,6 +368,17 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const copyGoogleJavascriptOrigin = async () => {
+        const origin = googleAuthResource.data?.javascript_origin;
+        if (!origin) return;
+        try {
+            await navigator.clipboard.writeText(origin);
+            notify('Google JavaScript origin copied.');
+        } catch {
+            window.prompt('Copy Google JavaScript origin', origin);
+        }
+    };
+
     const copyComingSoonBypassUrl = async () => {
         const url = featuresResource.data?.coming_soon_bypass_url;
         if (!url) return;
@@ -596,7 +607,7 @@ export default function AdminSettingsPage() {
                             <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-sky-900">
                                 <li>Create an OAuth client with application type <strong>Web application</strong>.</li>
                                 <li>Configure the OAuth consent screen and request only the openid, email and profile scopes.</li>
-                                <li>Add the exact redirect URI shown below to Authorized redirect URIs.</li>
+                                <li>Add the exact origin and redirect URI shown below to their matching Authorized fields.</li>
                                 <li>Paste the client ID and secret here, save, then enable Google authentication.</li>
                             </ol>
                         </div>
@@ -628,6 +639,12 @@ export default function AdminSettingsPage() {
                                 type="password"
                                 value={googleAuthForm.client_secret}
                             />
+                        </Field>
+                        <Field hint="Add this value under Authorized JavaScript origins in Google Cloud. Do not include a trailing slash or path." label="Authorized JavaScript origin">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.javascript_origin ?? ''} />
+                                <Button onClick={copyGoogleJavascriptOrigin} type="button" variant="secondary">Copy origin</Button>
+                            </div>
                         </Field>
                         <Field hint="Google requires an exact match, including HTTPS, host and path." label="Authorized redirect URI">
                             <div className="flex flex-col gap-2 sm:flex-row">

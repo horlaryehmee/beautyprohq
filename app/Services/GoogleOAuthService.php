@@ -40,6 +40,19 @@ class GoogleOAuthService
         return route('auth.google.callback');
     }
 
+    public function javascriptOrigin(): string
+    {
+        $parts = parse_url($this->redirectUri());
+
+        if (! is_array($parts) || blank($parts['scheme'] ?? null) || blank($parts['host'] ?? null)) {
+            return rtrim((string) config('app.url'), '/');
+        }
+
+        $origin = $parts['scheme'].'://'.$parts['host'];
+
+        return isset($parts['port']) ? $origin.':'.$parts['port'] : $origin;
+    }
+
     public function authorizationUrl(string $state, string $codeChallenge): string
     {
         return self::AUTHORIZE_URL.'?'.http_build_query([

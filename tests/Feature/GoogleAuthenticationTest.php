@@ -31,6 +31,10 @@ class GoogleAuthenticationTest extends TestCase
 
         $this->assertSame('google-client-secret', AppSetting::getValue('google.client_secret'));
         $this->assertNotSame('google-client-secret', AppSetting::where('key', 'google.client_secret')->value('value'));
+        $this->assertSame(
+            $response->json('data.javascript_origin').'/auth/google/callback',
+            $response->json('data.redirect_uri'),
+        );
         $this->assertStringEndsWith('/auth/google/callback', $response->json('data.redirect_uri'));
     }
 
