@@ -53,7 +53,7 @@ Route::get('/coming-soon', fn () => response()
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.redirect');
-Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
+Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.callback');
 

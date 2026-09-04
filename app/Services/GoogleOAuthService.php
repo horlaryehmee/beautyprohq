@@ -59,6 +59,7 @@ class GoogleOAuthService
             'client_id' => $this->clientId(),
             'redirect_uri' => $this->redirectUri(),
             'response_type' => 'code',
+            'response_mode' => 'form_post',
             'scope' => 'openid email profile',
             'state' => $state,
             'code_challenge' => $codeChallenge,

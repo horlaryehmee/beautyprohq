@@ -45,13 +45,15 @@ class GoogleAuthenticationTest extends TestCase
         $redirect = $this->get('/auth/google/redirect?intent=register&role=customer&plan=free')
             ->assertRedirect();
         $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $redirect->headers->get('Location'));
+        $this->assertStringContainsString('response_mode=form_post', $redirect->headers->get('Location'));
         $pending = session('google_oauth');
         $this->assertNotEmpty($pending['state']);
         $this->assertNotEmpty($pending['code_verifier']);
 
         $this->fakeGoogleProfile('google-customer-123', 'google.customer@example.com', 'Google Customer');
+        session()->forget('google_oauth');
 
-        $this->get('/auth/google/callback?'.http_build_query(['state' => $pending['state'], 'code' => 'customer-code']))
+        $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'customer-code'])
             ->assertRedirect('/customer');
 
         $user = User::where('email', 'google.customer@example.com')->firstOrFail();
@@ -68,7 +70,7 @@ class GoogleAuthenticationTest extends TestCase
         $pending = session('google_oauth');
         $this->fakeGoogleProfile('google-provider-123', 'google.provider@example.com', 'Google Provider');
 
-        $this->get('/auth/google/callback?'.http_build_query(['state' => $pending['state'], 'code' => 'provider-code']))
+        $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'provider-code'])
             ->assertRedirect('/provider/onboarding');
 
         $user = User::where('email', 'google.provider@example.com')->firstOrFail();
@@ -89,7 +91,7 @@ class GoogleAuthenticationTest extends TestCase
         $pending = session('google_oauth');
         $this->fakeGoogleProfile('existing-google-id', 'existing@example.com', 'Different Google Name');
 
-        $this->get('/auth/google/callback?'.http_build_query(['state' => $pending['state'], 'code' => 'login-code']))
+        $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'login-code'])
             ->assertRedirect('/provider');
 
         $this->assertAuthenticatedAs($existing);
@@ -103,7 +105,7 @@ class GoogleAuthenticationTest extends TestCase
         Http::fake();
         $this->get('/auth/google/redirect?intent=register&role=customer')->assertRedirect();
 
-        $this->get('/auth/google/callback?state=wrong-state&code=code')
+        $this->post('/auth/google/callback', ['state' => 'wrong-state', 'code' => 'code'])
             ->assertRedirectContains('/register?google_error=');
 
         Http::assertNothingSent();
@@ -124,7 +126,7 @@ class GoogleAuthenticationTest extends TestCase
         $pending = session('google_oauth');
         $this->fakeGoogleProfile('secured-google-id', 'secured@example.com', 'Secured Customer');
 
-        $this->get('/auth/google/callback?'.http_build_query(['state' => $pending['state'], 'code' => 'secured-code']))
+        $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'secured-code'])
             ->assertRedirectContains('/login?google_2fa=1');
 
         $this->assertGuest();

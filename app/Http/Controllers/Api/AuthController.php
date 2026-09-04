@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +58,7 @@ class AuthController extends Controller
 
         $state = Str::random(64);
         $codeVerifier = Str::random(96);
-        $request->session()->put('google_oauth', [
+        $pending = [
             'state' => $state,
             'code_verifier' => $codeVerifier,
             'intent' => $intent,
@@ -66,7 +67,9 @@ class AuthController extends Controller
             'redirect' => $this->safeFrontendRedirect($validated['redirect'] ?? null),
             'currency' => CurrencyResolver::currencyForRequest($request),
             'started_at' => now()->timestamp,
-        ]);
+        ];
+        $request->session()->put('google_oauth', $pending);
+        Cache::put($this->googleOAuthCacheKey($state), $pending, now()->addMinutes(10));
 
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
 
@@ -75,24 +78,27 @@ class AuthController extends Controller
 
     public function handleGoogleCallback(Request $request, GoogleOAuthService $google): RedirectResponse
     {
-        $pending = $request->session()->pull('google_oauth');
+        $state = (string) $request->input('state');
+        $sessionPending = $request->session()->pull('google_oauth');
+        $pending = filled($state) ? Cache::pull($this->googleOAuthCacheKey($state)) : null;
+        $pending = is_array($pending) ? $pending : $sessionPending;
         $errorPath = ($pending['intent'] ?? 'login') === 'register' ? '/register' : '/login';
 
         if (! is_array($pending)
             || now()->timestamp - (int) ($pending['started_at'] ?? 0) > 600
-            || blank($request->query('state'))
-            || ! hash_equals((string) ($pending['state'] ?? ''), (string) $request->query('state'))) {
+            || blank($state)
+            || ! hash_equals((string) ($pending['state'] ?? ''), $state)) {
             return $this->googleErrorRedirect('The Google sign-in request expired or could not be verified. Please try again.', $errorPath);
         }
         if ($request->filled('error')) {
             return $this->googleErrorRedirect('Google sign-in was cancelled.', $errorPath);
         }
-        if (blank($request->query('code'))) {
+        if (blank($request->input('code'))) {
             return $this->googleErrorRedirect('Google did not return an authorization code.', $errorPath);
         }
 
         try {
-            $googleProfile = $google->userFromCode((string) $request->query('code'), (string) $pending['code_verifier']);
+            $googleProfile = $google->userFromCode((string) $request->input('code'), (string) $pending['code_verifier']);
             $email = Str::lower(trim((string) $googleProfile['email']));
             $googleId = (string) $googleProfile['sub'];
             $userByGoogle = User::where('google_id', $googleId)->first();
@@ -452,6 +458,11 @@ class AuthController extends Controller
             'role' => $user->role,
             'ip' => $request->ip(),
         ]);
+    }
+
+    private function googleOAuthCacheKey(string $state): string
+    {
+        return 'google_oauth:'.hash('sha256', $state);
     }
 
     private function safeFrontendRedirect(?string $redirect): ?string

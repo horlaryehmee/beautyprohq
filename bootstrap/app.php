@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustHosts(at: fn (): array => config('app.trusted_hosts', []));
         $middleware->validateCsrfTokens(except: [
             'api/newsletter/subscribe',
+            'auth/google/callback',
         ]);
 
         $middleware->append([
