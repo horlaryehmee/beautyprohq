@@ -13,20 +13,20 @@ class SmtpConnectionTestMail extends Mailable
     use Queueable, SerializesModels;
 
     public function __construct(
-        public readonly string $sentBy,
+        public readonly string $deliveryMethod,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'BeautyPro HQ SMTP test email',
+            subject: 'BeautyPro HQ email connection test',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            htmlString: '<p>This is a test email from BeautyPro HQ.</p><p>Your SMTP connection is working.</p><p>Sent by: '.e($this->sentBy).'</p>',
+            htmlString: '<p>This is a test email from BeautyPro HQ.</p><p>Your email connection is working.</p><p>Delivery method: <strong>'.e($this->deliveryMethod).'</strong></p>',
         );
     }
 }

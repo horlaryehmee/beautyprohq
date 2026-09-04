@@ -464,9 +464,14 @@ class SubscriptionController extends Controller
         $this->assertSmtpConfigured();
 
         app('mail.manager')->forgetMailers();
+        $deliveryMethod = match (AppSetting::getValue('smtp.mailer', 'smtp')) {
+            'google_workspace' => 'Google Workspace',
+            'php_mail' => 'cPanel / PHP mail',
+            default => 'Custom SMTP',
+        };
 
         try {
-            Mail::to($validated['email'])->send(new SmtpConnectionTestMail($request->user()->email));
+            Mail::to($validated['email'])->send(new SmtpConnectionTestMail($deliveryMethod));
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -481,6 +486,7 @@ class SubscriptionController extends Controller
 
         return $this->success([
             'email' => $validated['email'],
+            'delivery_method' => $deliveryMethod,
         ], 'Test email sent.');
     }
 
