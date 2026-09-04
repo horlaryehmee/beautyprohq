@@ -266,6 +266,39 @@ class OperationalHardeningTest extends TestCase
         }
     }
 
+    public function test_announcement_tags_are_personalized_for_each_recipient(): void
+    {
+        AppSetting::setValue('branding.site_name', 'BeautyPro Test');
+        $announcement = new Announcement([
+            'title' => 'Hello {{ first_name }} from {{site_name}}',
+            'message' => 'Hi {{name}}. Your email is {{email}} and your role is {{role}}.',
+        ]);
+        $subscriber = NewsletterSubscriber::create([
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.test',
+            'subscribed_at' => now(),
+        ]);
+        $provider = User::factory()->provider()->create([
+            'name' => 'Grace Hopper',
+            'email' => 'grace@example.test',
+        ]);
+
+        $subscriberNotification = new AnnouncementNotification($announcement);
+        $subscriberMail = $subscriberNotification->toMail($subscriber);
+        $providerPayload = (new AnnouncementNotification($announcement))->toArray($provider);
+
+        $this->assertSame('Hello Ada from BeautyPro Test', $subscriberMail->subject);
+        $this->assertStringContainsString(
+            'Hi Ada Lovelace. Your email is ada@example.test and your role is Subscriber.',
+            $subscriberMail->render(),
+        );
+        $this->assertSame('Hello Grace from BeautyPro Test', $providerPayload['title']);
+        $this->assertSame(
+            'Hi Grace Hopper. Your email is grace@example.test and your role is Provider.',
+            $providerPayload['message'],
+        );
+    }
+
     public function test_register_page_serves_spa_assets(): void
     {
         AppSetting::setValue('features.coming_soon', '0');

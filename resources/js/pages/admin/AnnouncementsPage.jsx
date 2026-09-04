@@ -28,6 +28,14 @@ const emptyForm = {
     expires_at: '',
 };
 
+const personalizationTags = [
+    ['{{name}}', 'Full name'],
+    ['{{first_name}}', 'First name'],
+    ['{{email}}', 'Email'],
+    ['{{role}}', 'Role'],
+    ['{{site_name}}', 'Site name'],
+];
+
 const normalize = (value) => Array.isArray(value) ? value : value?.announcements ?? value?.data ?? [];
 const metaFrom = (value) => value?.meta ?? {};
 const updateResourceData = (current, nextItems) => Array.isArray(current) ? nextItems : { ...current, data: nextItems };
@@ -132,6 +140,13 @@ export default function AdminAnnouncementsPage() {
         }
     };
 
+    const addMessageTag = (tag) => {
+        setForm((current) => ({
+            ...current,
+            message: `${current.message}${current.message && !current.message.endsWith(' ') ? ' ' : ''}${tag}`,
+        }));
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -216,7 +231,7 @@ export default function AdminAnnouncementsPage() {
                     <Card className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
                         <h2 className="text-lg font-bold text-slate-950">{editing ? 'Edit announcement' : 'Create announcement'}</h2>
                         <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={save}>
-                            <Field className="sm:col-span-2" label="Title">
+                            <Field className="sm:col-span-2" label="Title" hint="Personalization tags can also be typed here.">
                                 <input className={inputClass} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required value={form.title} />
                             </Field>
                             <Field label="Audience">
@@ -236,6 +251,17 @@ export default function AdminAnnouncementsPage() {
                             <Field className="sm:col-span-2" label="Message">
                                 <textarea className={`${inputClass} min-h-40`} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} required value={form.message} />
                             </Field>
+                            <div className="sm:col-span-2">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Personalization tags</p>
+                                <p className="mt-1 text-xs leading-5 text-slate-500">Click a tag to add it to the message. Each recipient receives their own value.</p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {personalizationTags.map(([tag, label]) => (
+                                        <button className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-white" key={tag} onClick={() => addMessageTag(tag)} title={label} type="button">
+                                            {tag} <span className="font-medium text-slate-400">{label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="flex justify-end gap-2 sm:col-span-2">
                                 <Button onClick={() => setOpen(false)} type="button" variant="secondary">Cancel</Button>
                                 <Button busy={saving} type="submit">{editing ? 'Save changes' : 'Create announcement'}</Button>
