@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Provider\BusinessController as ProviderBusinessCont
 use App\Http\Controllers\Api\Provider\CommunityPostController as ProviderCommunityPostController;
 use App\Http\Controllers\Api\Provider\ContentCalendarController as ProviderContentCalendarController;
 use App\Http\Controllers\Api\Provider\DashboardController as ProviderDashboardController;
+use App\Http\Controllers\Api\Provider\GoogleCalendarController as ProviderGoogleCalendarController;
 use App\Http\Controllers\Api\Provider\LiveChatController as ProviderLiveChatController;
 use App\Http\Controllers\Api\Provider\ScheduleController as ProviderScheduleController;
 use App\Http\Controllers\Api\Provider\ServiceController as ProviderServiceController;
@@ -165,6 +166,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::get('/blocked-dates', [ProviderScheduleController::class, 'blocks']);
             Route::post('/blocked-dates', [ProviderScheduleController::class, 'storeBlock']);
             Route::delete('/blocked-dates/{blockedDate}', [ProviderScheduleController::class, 'destroyBlock']);
+            Route::get('/calendar-integration', [ProviderGoogleCalendarController::class, 'show']);
+            Route::post('/calendar-integration/sync', [ProviderGoogleCalendarController::class, 'sync']);
+            Route::delete('/calendar-integration', [ProviderGoogleCalendarController::class, 'destroy']);
             Route::get('/bookings', [ProviderBookingController::class, 'index']);
             Route::post('/bookings/{booking}/chat', [ProviderBookingController::class, 'chat']);
             Route::patch('/bookings/{booking}/status', [ProviderBookingController::class, 'updateStatus']);

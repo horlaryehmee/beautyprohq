@@ -52,6 +52,7 @@ class GoogleAuthSettingsController extends Controller
             'client_secret_configured' => filled($google->clientSecret()),
             'javascript_origin' => $google->javascriptOrigin(),
             'redirect_uri' => $google->redirectUri(),
+            'calendar_redirect_uri' => $google->calendarRedirectUri(),
             'client_id_source' => filled(AppSetting::getValue('google.client_id')) ? 'admin_settings' : (filled(config('services.google.client_id')) ? 'env' : null),
             'client_secret_source' => filled(AppSetting::getValue('google.client_secret')) ? 'admin_settings' : (filled(config('services.google.client_secret')) ? 'env' : null),
         ];

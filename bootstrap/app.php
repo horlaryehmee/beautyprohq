@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/newsletter/subscribe',
             'auth/google/callback',
+            'auth/google/calendar/callback',
         ]);
 
         $middleware->append([

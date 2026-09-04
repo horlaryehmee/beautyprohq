@@ -368,6 +368,17 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const copyGoogleCalendarRedirectUri = async () => {
+        const uri = googleAuthResource.data?.calendar_redirect_uri;
+        if (!uri) return;
+        try {
+            await navigator.clipboard.writeText(uri);
+            notify('Google Calendar redirect URI copied.');
+        } catch {
+            notify('Copy failed. Select the URI and copy it manually.', 'error');
+        }
+    };
+
     const copyGoogleJavascriptOrigin = async () => {
         const origin = googleAuthResource.data?.javascript_origin;
         if (!origin) return;
@@ -606,8 +617,9 @@ export default function AdminSettingsPage() {
                             <p className="font-bold">Google Cloud setup</p>
                             <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-sky-900">
                                 <li>Create an OAuth client with application type <strong>Web application</strong>.</li>
-                                <li>Configure the OAuth consent screen and request only the openid, email and profile scopes.</li>
-                                <li>Add the exact origin and redirect URI shown below to their matching Authorized fields.</li>
+                                <li>Configure the OAuth consent screen for sign-in and Google Calendar event access.</li>
+                                <li>Enable the Google Calendar API in the same Google Cloud project.</li>
+                                <li>Add the exact origin and both redirect URIs shown below to their matching Authorized fields.</li>
                                 <li>Paste the client ID and secret here, save, then enable Google authentication.</li>
                             </ol>
                         </div>
@@ -650,6 +662,12 @@ export default function AdminSettingsPage() {
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.redirect_uri ?? ''} />
                                 <Button onClick={copyGoogleRedirectUri} type="button" variant="secondary">Copy URI</Button>
+                            </div>
+                        </Field>
+                        <Field hint="Add this as a second Authorized redirect URI so providers can connect their own calendars." label="Google Calendar redirect URI">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.calendar_redirect_uri ?? ''} />
+                                <Button onClick={copyGoogleCalendarRedirectUri} type="button" variant="secondary">Copy URI</Button>
                             </div>
                         </Field>
 

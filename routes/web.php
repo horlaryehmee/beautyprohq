@@ -1,23 +1,26 @@
 <?php
 
-use App\Models\NewsletterSubscriber;
-use App\Models\NewsletterUnsubscribe;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\GoogleCalendarOAuthController;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
-use App\Http\Controllers\Api\AuthController;
+use App\Models\AppSetting;
+use App\Models\NewsletterSubscriber;
+use App\Models\NewsletterUnsubscribe;
 use App\Support\HomepageShell;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 $comingSoonEnabled = static function (): bool {
-    if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+    if (! Schema::hasTable('app_settings')) {
         return app()->environment('production');
     }
 
-    $value = \App\Models\AppSetting::getValue('features.coming_soon');
+    $value = AppSetting::getValue('features.coming_soon');
 
     return $value === null
         ? app()->environment('production')
@@ -25,11 +28,11 @@ $comingSoonEnabled = static function (): bool {
 };
 
 $comingSoonBypassToken = static function (): ?string {
-    if (! \Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+    if (! Schema::hasTable('app_settings')) {
         return null;
     }
 
-    return \App\Models\AppSetting::getValue('features.coming_soon_bypass_token');
+    return AppSetting::getValue('features.coming_soon_bypass_token');
 };
 
 $requestHasComingSoonBypass = static function (Request $request) use ($comingSoonBypassToken): bool {
@@ -56,6 +59,12 @@ Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
 Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.callback');
+Route::get('/auth/google/calendar/redirect', [GoogleCalendarOAuthController::class, 'redirect'])
+    ->middleware(['auth', 'active', 'throttle:sensitive'])
+    ->name('auth.google.calendar.redirect');
+Route::match(['get', 'post'], '/auth/google/calendar/callback', [GoogleCalendarOAuthController::class, 'callback'])
+    ->middleware('throttle:sensitive')
+    ->name('auth.google.calendar.callback');
 
 Route::get('/coming-soon/bypass/{token}', function (Request $request, string $token) use ($comingSoonBypassToken) {
     $savedToken = $comingSoonBypassToken();

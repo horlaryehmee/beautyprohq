@@ -40,6 +40,11 @@ class GoogleOAuthService
         return route('auth.google.callback');
     }
 
+    public function calendarRedirectUri(): string
+    {
+        return route('auth.google.calendar.callback');
+    }
+
     public function javascriptOrigin(): string
     {
         $parts = parse_url($this->redirectUri());

@@ -10,9 +10,11 @@ use App\Models\Loyalty;
 use App\Models\LoyaltyTransaction;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\GoogleCalendarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
@@ -109,6 +111,7 @@ class BookingController extends Controller
         });
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
+        app(GoogleCalendarService::class)->syncBookingSafely($booking);
         $booking->customer->notify(new BookingStatusNotification($booking, $validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual'
             ? "Your manual payment has been confirmed and your booking was accepted by {$booking->provider->user->name}."
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
@@ -130,7 +133,7 @@ class BookingController extends Controller
                 'customer_id' => $booking->customer_id,
                 'visitor_name' => $booking->customer?->name ?? 'Customer',
                 'visitor_email' => $booking->customer?->email ?? '',
-                'visitor_token' => \Illuminate\Support\Str::random(64),
+                'visitor_token' => Str::random(64),
                 'status' => 'open',
                 'last_message_at' => now(),
             ],

@@ -16,7 +16,13 @@ class Booking extends Model
 
     protected function casts(): array
     {
-        return ['date' => 'date:Y-m-d', 'cancelled_at' => 'datetime', 'custom_fields' => 'array', 'is_demo' => 'boolean'];
+        return [
+            'date' => 'date:Y-m-d',
+            'cancelled_at' => 'datetime',
+            'google_calendar_synced_at' => 'datetime',
+            'custom_fields' => 'array',
+            'is_demo' => 'boolean',
+        ];
     }
 
     public function scopeUpcoming(Builder $query): Builder
