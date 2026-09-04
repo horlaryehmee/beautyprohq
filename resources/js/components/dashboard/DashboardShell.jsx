@@ -22,6 +22,7 @@ export const providerNavigation = [
     { label: 'Digital products', to: '/provider/digital-products', icon: 'product', paidOnly: true },
     { label: 'Community posts', to: '/provider/community-posts', icon: 'content', paidOnly: true },
     { label: 'Analytics', to: '/provider/analytics', icon: 'analytics', paidOnly: true },
+    { label: 'Notifications', to: '/provider/notifications', icon: 'bell' },
     { label: 'Settings', to: '/provider/settings', icon: 'settings' },
     { label: 'Documentation', to: '/provider/documentation', icon: 'docs' },
 ];
@@ -69,6 +70,7 @@ const searchKeywords = {
         'Digital products': 'ebooks downloads products shop files digital sales',
         'Community posts': 'community posts stories questions approval publishing',
         Analytics: 'reports metrics growth performance revenue bookings customers',
+        Notifications: 'alerts announcements bookings reviews enquiries messages activity unread',
         Settings: 'account password security currency notifications preferences',
         Documentation: 'help guide docs support setup instructions',
     },
@@ -115,8 +117,23 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
     const verified = Boolean(user.provider_profile?.verified ?? user.providerProfile?.verified ?? user.verified);
     const activeSubscription = user.active_subscription ?? user.activeSubscription;
     const paid = hasPaidSubscription(activeSubscription);
+    const notificationPath = ['customer', 'provider'].includes(role) ? `/${role}/notifications` : `/${role}`;
+    const headerNotifications = useApiResource('/notifications', [], {
+        enabled: ['customer', 'provider'].includes(role),
+        params: { per_page: 1 },
+        refreshInterval: 30000,
+    });
+    const unreadCount = Number(headerNotifications.data?.meta?.unread_count ?? 0);
 
     useEffect(() => setMobileOpen(false), [location.pathname]);
+
+    useEffect(() => {
+        if (!['customer', 'provider'].includes(role)) return undefined;
+
+        const refreshNotifications = () => headerNotifications.reload(true);
+        window.addEventListener('bphq:notifications-changed', refreshNotifications);
+        return () => window.removeEventListener('bphq:notifications-changed', refreshNotifications);
+    }, [headerNotifications.reload, role]);
 
     useEffect(() => {
         const handleUnauthenticated = () => navigate('/login', { replace: true });
@@ -229,6 +246,22 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
         }
     };
 
+    const notificationBell = () => (
+        <NavLink
+            aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
+            className="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-bphq-coffee"
+            title={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
+            to={notificationPath}
+        >
+            <Icon className="size-[18px]" name="bell" />
+            {unreadCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-fuchsia-600 px-1.5 text-[10px] font-bold leading-5 text-white ring-2 ring-[#F7F3ED]">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+            )}
+        </NavLink>
+    );
+
     const sidebar = (
         <div className="flex h-full flex-col">
             <div className="flex min-h-28 items-start justify-between px-5 py-5">
@@ -283,7 +316,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                             <button className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 lg:hidden" onClick={() => setMobileOpen(true)} type="button"><Icon name="menu" /></button>
                             <p className="min-w-0 truncate text-sm font-semibold text-slate-500">Welcome back, <span className="text-slate-900">{user.name?.split(' ')[0] || 'there'}</span></p>
                             <div className="flex items-center gap-2 lg:hidden">
-                                <NavLink className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-bphq-coffee" to={role === 'customer' ? '/customer/notifications' : `/${role}`}><Icon className="size-[18px]" name="bell" /></NavLink>
+                                {notificationBell()}
                                 <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
                             </div>
                         </div>
@@ -325,7 +358,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                         </form>
 
                         <div className="ml-auto hidden items-center gap-2 lg:flex">
-                            <NavLink className="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:text-bphq-coffee" to={role === 'customer' ? '/customer/notifications' : `/${role}`}><Icon className="size-[18px]" name="bell" /></NavLink>
+                            {notificationBell()}
                             <Avatar name={user.name} size="sm" src={user.profile_photo ?? user.provider_profile?.profile_photo ?? user.avatar_url} />
                         </div>
                     </div>

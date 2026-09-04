@@ -300,6 +300,10 @@ class BookingController extends Controller
                 $booking,
                 "Your booking request with {$provider->user->name} has been created. You will receive updates by email."
             ));
+            $this->safeNotify($provider->user, new BookingStatusNotification(
+                $booking,
+                "{$booking->customer->name} requested a new booking for {$booking->service->name}."
+            ));
         }
 
         return $this->success($booking, 'Booking request created.', 201);
@@ -1077,6 +1081,15 @@ class BookingController extends Controller
             'rating' => $validated['rating'],
             'comment' => $validated['comment'] ?? null,
         ]);
+
+        $this->safeNotify($provider->user, new PlatformUpdateNotification(
+            'New profile review',
+            "{$request->user()->name} left a {$review->rating}-star review on your profile.",
+            'View provider dashboard',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
+            ['review_id' => $review->id, 'booking_id' => $booking->id, 'rating' => $review->rating],
+            false,
+        ));
 
         return $this->success($review->load('customer:id,name'), 'Thank you for your review.', 201);
     }

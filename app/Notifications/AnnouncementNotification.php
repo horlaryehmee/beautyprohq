@@ -48,6 +48,7 @@ class AnnouncementNotification extends Notification
             'title' => AnnouncementTemplate::render($this->announcement->title, $notifiable),
             'message' => AnnouncementTemplate::render($this->announcement->message, $notifiable),
             'announcement_id' => $this->announcement->id,
+            'action_url' => '/'.($notifiable->role ?? 'customer'),
         ];
     }
 }

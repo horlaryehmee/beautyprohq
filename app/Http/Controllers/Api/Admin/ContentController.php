@@ -9,15 +9,14 @@ use App\Models\CommunityReport;
 use App\Models\CommunityPost;
 use App\Models\Event;
 use App\Models\News;
-use App\Models\NewsletterSubscriber;
 use App\Models\Opportunity;
 use App\Models\OpportunityEnquiry;
-use App\Models\User;
-use App\Notifications\AnnouncementNotification;
+use App\Services\AnnouncementDeliveryService;
 use App\Services\ContentNewsletterService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -203,27 +202,31 @@ class ContentController extends Controller
         return $this->listing(Announcement::query()->latest(), $request, ['title', 'message'], ['audience']);
     }
 
-    public function storeAnnouncement(Request $request): JsonResponse
+    public function storeAnnouncement(Request $request, AnnouncementDeliveryService $delivery): JsonResponse
     {
         $data = $this->announcementData($request);
         $data['published_at'] ??= now();
         $announcement = Announcement::create($data);
-        if ($announcement->published_at && $announcement->published_at->lte(now())) {
-            $this->notifyAnnouncementAudience($announcement);
-        }
+        $delivery->send($announcement);
 
         return $this->created($announcement, 'Announcement sent.');
     }
 
-    public function updateAnnouncement(Request $request, Announcement $announcement): JsonResponse
+    public function updateAnnouncement(Request $request, Announcement $announcement, AnnouncementDeliveryService $delivery): JsonResponse
     {
         $announcement->update($this->announcementData($request, true));
+        $delivery->send($announcement);
 
         return $this->updated($announcement, 'Announcement updated.');
     }
 
     public function destroyAnnouncement(Announcement $announcement): JsonResponse
     {
+        DB::table('notifications')
+            ->where('type', \App\Notifications\AnnouncementNotification::class)
+            ->where('data->announcement_id', $announcement->id)
+            ->delete();
+
         return $this->removed($announcement, 'Announcement removed.');
     }
 
@@ -320,21 +323,6 @@ class ContentController extends Controller
             'published_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date'],
         ]);
-    }
-
-    private function notifyAnnouncementAudience(Announcement $announcement): void
-    {
-        if ($announcement->audience === 'subscribers') {
-            NewsletterSubscriber::query()
-                ->whereNull('unsubscribed_at')
-                ->chunkById(500, fn ($subscribers) => $subscribers->each->notify(new AnnouncementNotification($announcement)));
-
-            return;
-        }
-
-        User::where('is_active', true)
-            ->when($announcement->audience !== 'all', fn ($query) => $query->where('role', $announcement->audience))
-            ->chunkById(500, fn ($users) => $users->each->notify(new AnnouncementNotification($announcement)));
     }
 
     private function listing($query, Request $request, array $searchColumns = [], array $filterColumns = []): JsonResponse

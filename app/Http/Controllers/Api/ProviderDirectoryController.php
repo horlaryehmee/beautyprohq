@@ -8,6 +8,7 @@ use App\Models\ProfileView;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Service;
+use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -216,6 +217,23 @@ class ProviderDirectoryController extends Controller
         ]);
 
         $recipient = $provider->contact_email ?: $provider->user->email;
+
+        try {
+            $provider->user->notify(new PlatformUpdateNotification(
+                'New profile enquiry',
+                "{$enquiry->name} sent an enquiry from your public profile.",
+                'Open provider dashboard',
+                rtrim(config('app.frontend_url', config('app.url')), '/').'/provider',
+                ['contact_enquiry_id' => $enquiry->id, 'provider_id' => $provider->id],
+                false,
+            ));
+        } catch (\Throwable $exception) {
+            Log::warning('Provider contact enquiry in-app notification failed.', [
+                'provider_id' => $provider->id,
+                'contact_enquiry_id' => $enquiry->id,
+                'exception' => $exception::class,
+            ]);
+        }
 
         try {
             Notification::route('mail', $recipient)->notify(new ProviderContactEnquiryNotification($provider->loadMissing('user:id,name,email'), $enquiry));

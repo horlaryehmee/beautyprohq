@@ -11,7 +11,7 @@ class Announcement extends Model
 
     protected function casts(): array
     {
-        return ['published_at' => 'datetime', 'expires_at' => 'datetime'];
+        return ['published_at' => 'datetime', 'expires_at' => 'datetime', 'notified_at' => 'datetime'];
     }
 
     public function scopeActive(Builder $query): Builder

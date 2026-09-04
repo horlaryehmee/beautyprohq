@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\ContentNewsletterService;
+use App\Services\AnnouncementDeliveryService;
+use App\Notifications\AnnouncementNotification;
+use App\Models\Announcement;
 use App\Models\Subscription;
 use App\Models\UploadedMedia;
 use App\Models\VerificationRequest;
@@ -478,6 +481,35 @@ Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3 --timeou
 Schedule::command('auth:clear-resets')->dailyAt('02:10');
 Schedule::command('sanctum:prune-expired --hours=24')->dailyAt('02:20');
 Schedule::command('queue:prune-failed --hours=168')->dailyAt('02:30');
+Artisan::command('notifications:prune {--days=30}', function (): int {
+    $days = max(1, (int) $this->option('days'));
+    $deleted = DB::table('notifications')
+        ->where('type', '!=', AnnouncementNotification::class)
+        ->where('created_at', '<', now()->subDays($days))
+        ->delete();
+    $expiredAnnouncementIds = Announcement::query()
+        ->whereNotNull('expires_at')
+        ->where('expires_at', '<=', now())
+        ->pluck('id');
+    $deleted += DB::table('notifications')
+        ->where('type', AnnouncementNotification::class)
+        ->whereIn('data->announcement_id', $expiredAnnouncementIds)
+        ->delete();
+
+    $this->info("Expired notifications removed: {$deleted}");
+
+    return 0;
+})->purpose('Remove database notifications beyond the retention period');
+
+Schedule::command('notifications:prune --days=30')->dailyAt('02:32')->withoutOverlapping(10);
+Artisan::command('announcements:send-due', function (AnnouncementDeliveryService $delivery): int {
+    $sent = $delivery->sendDue();
+    $this->info("Due announcements sent: {$sent}");
+
+    return 0;
+})->purpose('Send announcements when their scheduled start time arrives');
+
+Schedule::command('announcements:send-due')->everyMinute()->withoutOverlapping(10);
 Artisan::command('media:prune-orphaned-verification', function (): int {
     if (! Schema::hasTable('uploaded_media') || ! Schema::hasTable('verification_requests')) {
         return 0;

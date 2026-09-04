@@ -62,11 +62,14 @@ class BookingStatusNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
+        $path = $notifiable->role === 'provider' ? '/provider/bookings' : '/customer/bookings';
+
         return [
             'title' => 'Booking update',
             'message' => $this->message,
             'booking_id' => $this->booking->id,
             'status' => $this->booking->status,
+            'action_url' => $path,
         ];
     }
 }

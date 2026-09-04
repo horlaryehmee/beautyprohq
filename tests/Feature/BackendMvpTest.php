@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureRecentAdminAuthentication;
 use App\Models\AppSetting;
+use App\Models\Announcement;
 use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\CommunityPost;
@@ -1227,6 +1228,11 @@ class BackendMvpTest extends TestCase
         Notification::assertSentOnDemand(ProviderContactEnquiryNotification::class, function ($notification, $channels, $notifiable) {
             return ($notifiable->routes['mail'] ?? null) === 'studio@example.test';
         });
+        Notification::assertSentTo(
+            $provider->user,
+            PlatformUpdateNotification::class,
+            fn (PlatformUpdateNotification $notification): bool => $notification->title === 'New profile enquiry' && ! $notification->mail,
+        );
 
         $this->postJson('/api/providers/'.$provider->slug.'/contact', [
             'name' => 'Bot',
@@ -1271,6 +1277,11 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
         $this->assertSame('No known allergies', Booking::find($bookingId)->custom_fields[0]['answer']);
         $this->assertSame(['Natural', 'Glam'], Booking::find($bookingId)->custom_fields[1]['answer']);
+        Notification::assertSentTo(
+            $providerUser,
+            BookingStatusNotification::class,
+            fn (BookingStatusNotification $notification): bool => str_contains($notification->message, 'requested a new booking'),
+        );
 
         Sanctum::actingAs($providerUser);
         $this->getJson('/api/provider/bookings')->assertOk()->assertJsonPath('data.0.custom_fields.0.label', 'Do you have allergies?')->assertJsonPath('data.0.custom_fields.0.answer', 'No known allergies');
@@ -1278,6 +1289,53 @@ class BackendMvpTest extends TestCase
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
         $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'points' => 10]);
         $this->assertDatabaseHas('crm_customers', ['provider_id' => $provider->id, 'customer_id' => $customer->id]);
+
+        Sanctum::actingAs($customer);
+        $this->postJson("/api/providers/{$provider->id}/reviews", [
+            'booking_id' => $bookingId,
+            'rating' => 5,
+            'comment' => 'Excellent service.',
+        ])->assertCreated();
+        Notification::assertSentTo(
+            $providerUser,
+            PlatformUpdateNotification::class,
+            fn (PlatformUpdateNotification $notification): bool => $notification->title === 'New profile review'
+                && ($notification->data['rating'] ?? null) === 5
+                && ! $notification->mail,
+        );
+    }
+
+    public function test_notifications_endpoint_returns_unread_count_and_action_url(): void
+    {
+        $customer = User::factory()->create();
+        $customer->notify(new PlatformUpdateNotification(
+            'Booking reminder',
+            'Your appointment is tomorrow.',
+            'View bookings',
+            rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
+            [],
+            false,
+        ));
+        $expiredNotification = $customer->notifications()->latest()->first()->replicate();
+        $expiredNotification->id = (string) str()->uuid();
+        $expiredNotification->created_at = now()->subDays(31);
+        $expiredNotification->save();
+        $expiredNotificationId = $expiredNotification->id;
+        Sanctum::actingAs($customer);
+
+        $this->getJson('/api/notifications?per_page=1')
+            ->assertOk()
+            ->assertJsonPath('meta.unread_count', 1)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.data.title', 'Booking reminder')
+            ->assertJsonPath('data.0.data.action_url', rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings');
+
+        Artisan::call('notifications:prune', ['--days' => 30]);
+        $this->assertDatabaseMissing('notifications', ['id' => $expiredNotificationId]);
+        $this->assertDatabaseCount('notifications', 1);
+
+        $this->deleteJson('/api/notifications')->assertOk()->assertJsonPath('message', 'Notifications cleared.');
+        $this->assertDatabaseMissing('notifications', ['notifiable_id' => $customer->id]);
     }
 
     public function test_customer_paystack_return_confirms_booking_with_stable_response(): void
@@ -2165,6 +2223,73 @@ class BackendMvpTest extends TestCase
 
         Notification::assertSentTo($active, AnnouncementNotification::class);
         Notification::assertCount(1);
+    }
+
+    public function test_member_announcement_reaches_customer_and_provider_notification_sections(): void
+    {
+        Notification::fake();
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $customer = User::factory()->create(['name' => 'Customer One']);
+        $provider = User::factory()->provider()->create(['name' => 'Provider One']);
+
+        $this->postJson('/api/admin/announcements', [
+            'title' => 'Hello {{first_name}}',
+            'message' => 'A platform update for every member.',
+            'audience' => 'all',
+        ])->assertCreated();
+
+        Notification::assertSentTo([$customer, $provider], AnnouncementNotification::class, function (AnnouncementNotification $notification, array $channels, User $notifiable): bool {
+            $payload = $notification->toArray($notifiable);
+
+            return in_array('database', $channels, true)
+                && $payload['title'] === 'Hello '.str($notifiable->name)->before(' ')
+                && $payload['action_url'] === '/'.$notifiable->role;
+        });
+    }
+
+    public function test_scheduled_announcement_visibility_follows_start_and_expiry_dates(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $customer = User::factory()->create();
+        $startsAt = now()->addHour();
+        $announcement = Announcement::create([
+            'title' => 'Scheduled platform update',
+            'message' => 'This should only be visible during its scheduled window.',
+            'audience' => 'customer',
+            'published_at' => $startsAt,
+            'expires_at' => $startsAt->copy()->addHour(),
+        ]);
+
+        Artisan::call('announcements:send-due');
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $customer->id,
+            'type' => AnnouncementNotification::class,
+        ]);
+
+        $this->travelTo($startsAt->copy()->addMinute());
+        Artisan::call('announcements:send-due');
+        $this->assertNotNull($announcement->fresh()->notified_at);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $customer->id,
+            'type' => AnnouncementNotification::class,
+        ]);
+
+        Sanctum::actingAs($customer);
+        $this->getJson('/api/notifications')->assertOk()->assertJsonPath('meta.total', 1);
+
+        $this->travelTo($startsAt->copy()->addHour()->addMinute());
+        $this->getJson('/api/notifications')->assertOk()->assertJsonPath('meta.total', 0);
+
+        $persistent = Announcement::create([
+            'title' => 'Persistent platform update',
+            'message' => 'This announcement has no expiry.',
+            'audience' => 'customer',
+            'published_at' => now()->subDays(40),
+        ]);
+        $customer->notify(new AnnouncementNotification($persistent));
+        $customer->notifications()->latest()->first()->update(['created_at' => now()->subDays(40)]);
+
+        $this->getJson('/api/notifications')->assertOk()->assertJsonPath('meta.total', 1);
     }
 
     public function test_admin_can_choose_to_email_subscribers_when_news_is_published(): void

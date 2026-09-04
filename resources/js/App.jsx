@@ -183,6 +183,7 @@ export default function App() {
                                 <Route path="digital-products" element={<ProviderDigitalProductsPage />} />
                                 <Route path="community-posts" element={<ProviderCommunityPostsPage />} />
                                 <Route path="analytics" element={<ProviderAnalyticsPage />} />
+                                <Route path="notifications" element={<CustomerNotificationsPage />} />
                                 <Route path="settings" element={<ProviderSettingsPage />} />
                                 <Route path="documentation" element={<ProviderDocumentationPage />} />
                             </Route>

@@ -36,6 +36,7 @@ class LiveChatProviderMessageNotification extends Notification
             'message' => "{$this->conversation->visitor_name}: ".((string) str($this->message->body)->limit(120)),
             'conversation_id' => $this->conversation->id,
             'provider_id' => $this->conversation->provider_id,
+            'action_url' => '/provider/live-chat',
         ];
     }
 }

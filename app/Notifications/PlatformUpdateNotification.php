@@ -50,6 +50,7 @@ class PlatformUpdateNotification extends Notification
         return [
             'title' => $this->title,
             'message' => $this->message,
+            'action_url' => $this->actionUrl,
             ...$this->data,
         ];
     }
