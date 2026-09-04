@@ -30,6 +30,7 @@ class ProviderDirectoryController extends Controller
             'rating' => ['nullable', 'numeric', 'between:0,5'],
             'service_type' => ['nullable', 'string', 'max:50'],
             'sort' => ['nullable', 'in:rating,newest,name'],
+            'shuffle_seed' => ['nullable', 'integer', 'between:1,2147483646'],
             'per_page' => ['nullable', 'integer', 'between:1,48'],
         ]);
 
@@ -52,16 +53,32 @@ class ProviderDirectoryController extends Controller
         $query->when(array_key_exists('verified', $validated), fn (Builder $q) => $q->where('verified', $validated['verified']));
         $query->when($validated['rating'] ?? null, fn (Builder $q, $v) => $q->where('rating', '>=', $v));
 
-        match ($validated['sort'] ?? 'rating') {
-            'newest' => $query->latest(),
-            'name' => $query->join('users', 'users.id', '=', 'provider_profiles.user_id')->orderBy('users.name')->select('provider_profiles.*'),
-            default => $query->orderByDesc('verified')->orderByDesc('rating'),
-        };
+        $hasFilters = filled($validated['search'] ?? null)
+            || filled($validated['category'] ?? null)
+            || filled($validated['location'] ?? null)
+            || array_key_exists('verified', $validated)
+            || array_key_exists('rating', $validated)
+            || filled($validated['service_type'] ?? null)
+            || filled($validated['sort'] ?? null);
+        $randomized = ! $hasFilters;
+        $shuffleSeed = (int) ($validated['shuffle_seed'] ?? random_int(1, 2147483646));
+
+        if ($randomized) {
+            $query->inRandomOrder((string) $shuffleSeed);
+        } else {
+            match ($validated['sort'] ?? 'rating') {
+                'newest' => $query->latest()->orderByDesc('provider_profiles.id'),
+                'name' => $query->join('users', 'users.id', '=', 'provider_profiles.user_id')->orderBy('users.name')->orderBy('provider_profiles.id')->select('provider_profiles.*'),
+                default => $query->orderByDesc('verified')->orderByDesc('rating')->orderBy('provider_profiles.id'),
+            };
+        }
 
         $providers = $query->paginate($validated['per_page'] ?? 12);
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'filters' => $this->directoryFilters(),
+            'randomized' => $randomized,
+            'shuffle_seed' => $randomized ? $shuffleSeed : null,
         ])->header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
     }
 

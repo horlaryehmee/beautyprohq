@@ -1137,6 +1137,23 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.referral_rewards_available', true);
     }
 
+    public function test_unfiltered_directory_is_randomized_but_filtered_results_use_ranked_order(): void
+    {
+        $this->provider('Random Directory One', true, 'Lagos');
+        $this->provider('Random Directory Two', true, 'Abuja');
+
+        $this->getJson('/api/providers?shuffle_seed=24680')
+            ->assertOk()
+            ->assertJsonPath('meta.randomized', true)
+            ->assertJsonPath('meta.shuffle_seed', 24680);
+
+        $this->getJson('/api/providers?location=Lagos&shuffle_seed=24680')
+            ->assertOk()
+            ->assertJsonPath('meta.randomized', false)
+            ->assertJsonPath('meta.shuffle_seed', null)
+            ->assertJsonPath('meta.total', 1);
+    }
+
     public function test_unapproved_provider_is_hidden_from_public_directory_even_when_listed(): void
     {
         $user = User::factory()->provider()->create(['name' => 'Hidden Pending Artist']);

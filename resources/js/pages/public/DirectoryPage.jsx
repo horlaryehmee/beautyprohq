@@ -40,13 +40,14 @@ export default function DirectoryPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
+    const [shuffleSeed] = useState(() => Math.floor(Math.random() * 2147483646) + 1);
     const query = searchParams.toString();
 
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get('/providers', { params: Object.fromEntries(searchParams.entries()) });
+            const response = await api.get('/providers', { params: { ...Object.fromEntries(searchParams.entries()), shuffle_seed: shuffleSeed } });
             setProviders(collectionFrom(response));
             setMeta(metaFrom(response));
             setFilters(response?.data?.filters ?? response?.data?.meta?.filters ?? {});
@@ -55,7 +56,7 @@ export default function DirectoryPage() {
         } finally {
             setLoading(false);
         }
-    }, [query]);
+    }, [query, shuffleSeed]);
 
     useEffect(() => {
         setForm(paramsToForm(searchParams));
