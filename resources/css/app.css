@@ -274,6 +274,21 @@
         font: inherit;
     }
 
+    /* Keep the disclosure indicator comfortably inside every native select. */
+    select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2335281C' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right 1rem center;
+        background-repeat: no-repeat;
+        background-size: 1rem;
+        padding-right: 3rem;
+    }
+
+    /* Controls that render their own chevron keep that dedicated icon. */
+    select.appearance-none {
+        background-image: none;
+    }
+
     button,
     a {
         -webkit-tap-highlight-color: transparent;

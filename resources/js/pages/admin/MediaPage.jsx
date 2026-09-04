@@ -36,6 +36,30 @@ function fileAllowed(file) {
     return acceptedTypes.includes(file?.type) || acceptedExtensions.includes(extension);
 }
 
+async function optimizeImageForUpload(file) {
+    if (!file?.type?.startsWith('image/') || !('createImageBitmap' in window)) return { file, optimized: false };
+
+    try {
+        const source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+        const width = Math.max(1, Math.round(source.width * scale));
+        const height = Math.max(1, Math.round(source.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')?.drawImage(source, 0, 0, width, height);
+        source.close();
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.75));
+        if (!blob || blob.size >= file.size) return { file, optimized: false };
+
+        const name = `${file.name.replace(/\.[^.]+$/, '') || 'image'}.webp`;
+        return { file: new File([blob], name, { type: 'image/webp', lastModified: Date.now() }), optimized: true };
+    } catch {
+        return { file, optimized: false };
+    }
+}
+
 function absoluteUrl(value) {
     if (!value) return '';
     try {
@@ -74,6 +98,8 @@ export default function AdminMediaPage() {
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [optimizing, setOptimizing] = useState(false);
+    const [uploadOpen, setUploadOpen] = useState(false);
     const [deletingPath, setDeletingPath] = useState('');
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState('');
@@ -130,15 +156,26 @@ export default function AdminMediaPage() {
     const selectedCount = selectedPaths.size;
     const allVisibleSelected = items.length > 0 && items.every((item) => selectedPaths.has(item.path));
 
-    const chooseFile = (event) => {
-        const file = event.target.files?.[0] ?? null;
+    const chooseFile = async (event) => {
+        const sourceFile = event.target.files?.[0] ?? null;
+        event.target.value = '';
         setUploaded(null);
-        setSelectedFile(file);
         setProgress(0);
         setError('');
 
+        if (!sourceFile) {
+            setSelectedFile(null);
+            return;
+        }
+
+        setOptimizing(true);
+        const { file, optimized } = await optimizeImageForUpload(sourceFile);
+        setOptimizing(false);
+        setSelectedFile(file);
+
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         setPreviewUrl(file && file.type.startsWith('image/') ? URL.createObjectURL(file) : '');
+        if (optimized) notify(`Image optimized before upload (${formatBytes(sourceFile.size)} → ${formatBytes(file.size)}).`, 'success');
     };
 
     const upload = async () => {
@@ -174,6 +211,7 @@ export default function AdminMediaPage() {
             setPreviewUrl('');
             await loadMedia(1);
             notify('File uploaded and optimized.', 'success');
+            setUploadOpen(false);
         } catch (requestError) {
             setError(apiErrorMessage(requestError, 'Upload failed.'));
         } finally {
@@ -258,7 +296,7 @@ export default function AdminMediaPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                actions={<Button onClick={() => loadMedia(page)} type="button" variant="secondary">Refresh</Button>}
+                actions={<div className="flex flex-wrap gap-2"><Button onClick={() => setUploadOpen(true)} type="button">Upload media</Button><Button onClick={() => loadMedia(page)} type="button" variant="secondary">Refresh</Button></div>}
                 description="Upload, review, copy, download, and delete files stored in the media library."
                 eyebrow="Admin"
                 title="Media library"
@@ -306,58 +344,27 @@ export default function AdminMediaPage() {
                 </div>
             </Card>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_1fr]">
-                <Card>
-                    <h2 className="text-lg font-bold text-slate-950">Upload file</h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">JPG, PNG, WEBP, PDF, DOC, or DOCX. Maximum file size is 12MB.</p>
-
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                        {preview && isImage(preview) && preview.url ? (
-                            <img alt="" className="aspect-[16/10] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={preview.url} />
-                        ) : (
-                            <div className="grid aspect-[16/10] place-items-center px-5 text-center">
-                                <div>
-                                    <p className="text-sm font-bold text-slate-700">{preview?.name ?? 'No file selected'}</p>
-                                    {preview?.size ? <p className="mt-1 text-xs text-slate-500">{formatBytes(preview.size)}</p> : null}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="mt-5 space-y-3">
-                        <label className="block">
-                            <span className="sr-only">Choose file</span>
-                            <input
-                                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                className="block w-full cursor-pointer rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:min-h-10 file:border-0 file:bg-slate-950 file:px-4 file:text-sm file:font-bold file:text-white"
-                                disabled={uploading}
-                                onChange={chooseFile}
-                                type="file"
-                            />
-                        </label>
-
-                        {uploading && (
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                                <div className="h-full rounded-full bg-fuchsia-600 transition-all" style={{ width: `${progress}%` }} />
-                            </div>
-                        )}
-
-                        {error && <ErrorState message={error} />}
-
-                        <Button busy={uploading} className="w-full" disabled={!selectedFile} onClick={upload} type="button">
-                            {uploading ? `Uploading ${progress}%` : 'Upload'}
-                        </Button>
-                    </div>
-
-                    {uploaded && (
-                        <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800">
-                            <p className="font-bold">Uploaded successfully</p>
-                            <a className="mt-1 block break-all text-emerald-700 underline" href={uploaded.url} rel="noreferrer" target="_blank">{absoluteUrl(uploaded.url)}</a>
+            {uploadOpen && (
+                <div aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm" onMouseDown={() => { if (!uploading && !optimizing) setUploadOpen(false); }} role="dialog">
+                    <Card className="max-h-[92dvh] w-full max-w-xl overflow-y-auto" onMouseDown={(event) => event.stopPropagation()}>
+                        <div className="flex items-start justify-between gap-4">
+                            <div><h2 className="text-lg font-bold text-slate-950">Upload media</h2><p className="mt-1 text-sm leading-6 text-slate-500">JPG, PNG, WEBP, PDF, DOC, or DOCX. Maximum size: 12MB. Images are optimized before upload and again on the server.</p></div>
+                            <IconButton disabled={uploading || optimizing} icon="x" label="Close upload dialog" onClick={() => setUploadOpen(false)} />
                         </div>
-                    )}
-                </Card>
+                        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                            {preview && isImage(preview) && preview.url ? <img alt="" className="aspect-[16/10] w-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} src={preview.url} /> : <div className="grid aspect-[16/10] place-items-center px-5 text-center"><div><p className="text-sm font-bold text-slate-700">{optimizing ? 'Optimizing image…' : preview?.name ?? 'No file selected'}</p>{preview?.size ? <p className="mt-1 text-xs text-slate-500">{formatBytes(preview.size)}</p> : null}</div></div>}
+                        </div>
+                        <div className="mt-5 space-y-3">
+                            <label className="block"><span className="sr-only">Choose file</span><input accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="block w-full cursor-pointer rounded-xl border border-slate-200 bg-white text-sm text-slate-600 file:mr-4 file:min-h-10 file:border-0 file:bg-slate-950 file:px-4 file:text-sm file:font-bold file:text-white" disabled={uploading || optimizing} onChange={chooseFile} type="file" /></label>
+                            {uploading && <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-fuchsia-600 transition-all" style={{ width: `${progress}%` }} /></div>}
+                            {error && <ErrorState message={error} />}
+                            <Button busy={uploading || optimizing} className="w-full" disabled={!selectedFile || optimizing} onClick={upload} type="button">{optimizing ? 'Optimizing image…' : uploading ? `Uploading ${progress}%` : 'Upload file'}</Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
 
-                <Card>
+            <Card>
                     <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <h2 className="text-lg font-bold text-slate-950">Uploaded files</h2>
@@ -464,8 +471,7 @@ export default function AdminMediaPage() {
                             <Pagination page={meta.current_page} pageCount={meta.last_page} onPageChange={(nextPage) => loadMedia(nextPage)} />
                         </>
                     )}
-                </Card>
-            </div>
+            </Card>
         </div>
     );
 }
