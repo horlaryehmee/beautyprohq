@@ -33,6 +33,8 @@ export default function LoginPage() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const googleTwoFactor = searchParams.get('google_2fa') === '1';
+    const googleIntent = searchParams.get('google_intent') === 'register' ? 'register' : 'login';
+    const googleRole = searchParams.get('role') === 'customer' ? 'customer' : 'provider';
     const [form, setForm] = useState({ email: '', password: '', two_factor_code: '', remember: false });
     const [twoFactorRequired, setTwoFactorRequired] = useState(googleTwoFactor);
     const [twoFactorMethod, setTwoFactorMethod] = useState(searchParams.get('method') || 'email');
@@ -88,7 +90,14 @@ export default function LoginPage() {
 
                 {!twoFactorRequired ? (
                     <>
-                        <GoogleAuthButton href={`/auth/google/redirect?${new URLSearchParams({ intent: 'login', ...(searchParams.get('redirect') ? { redirect: searchParams.get('redirect') } : {}) })}`} label="Log in with Google" />
+                        <GoogleAuthButton
+                            href={`/auth/google/redirect?${new URLSearchParams({
+                                intent: googleIntent,
+                                ...(googleIntent === 'register' ? { role: googleRole, plan: 'free' } : {}),
+                                ...(searchParams.get('redirect') ? { redirect: searchParams.get('redirect') } : {}),
+                            })}`}
+                            label={googleIntent === 'register' ? 'Continue as a customer with Google' : 'Log in with Google'}
+                        />
                         <FormField label="Email address" type="email" icon="mail" autoComplete="email" value={form.email} onChange={(event) => update('email', event.target.value)} error={errors.email} placeholder="you@example.com" required autoFocus />
                         <FormField label="Password" type="password" icon="lock" autoComplete="current-password" value={form.password} onChange={(event) => update('password', event.target.value)} error={errors.password} placeholder="Enter your password" required />
                         <div className="flex items-center justify-between gap-4">

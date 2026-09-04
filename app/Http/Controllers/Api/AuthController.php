@@ -109,6 +109,7 @@ class AuthController extends Controller
             }
 
             $user = $userByGoogle ?? $userByEmail;
+            $requestedRole = ($pending['intent'] ?? 'login') === 'register' ? ($pending['role'] ?? null) : null;
             if (! $user && ($pending['intent'] ?? 'login') !== 'register') {
                 return $this->googleErrorRedirect('No BeautyPro HQ account uses this Google email. Create an account first.', '/login');
             }
@@ -118,14 +119,21 @@ class AuthController extends Controller
             if ($user && filled($user->google_id) && ! hash_equals((string) $user->google_id, $googleId)) {
                 return $this->googleErrorRedirect('This email is already linked to another Google identity.', $errorPath);
             }
+            if ($user && $requestedRole === 'customer' && ! $user->isCustomer()) {
+                return $this->googleErrorRedirect('This Google email belongs to a provider or administrator account. Log in from the account login page instead.', $errorPath);
+            }
 
             $isNew = ! $user;
-            $user = DB::transaction(function () use ($user, $googleProfile, $googleId, $email, $pending): User {
+            $promoteToProvider = $user && $requestedRole === 'provider' && $user->isCustomer();
+            $user = DB::transaction(function () use ($user, $googleProfile, $googleId, $email, $pending, $promoteToProvider): User {
                 if ($user) {
                     $updates = [
                         'google_id' => $googleId,
                         'email_verified_at' => $user->email_verified_at ?: now(),
                     ];
+                    if ($promoteToProvider) {
+                        $updates['role'] = 'provider';
+                    }
                     if ($user->is_guest && $user->isCustomer()) {
                         $updates += [
                             'name' => $googleProfile['name'] ?? $user->name,
@@ -135,6 +143,10 @@ class AuthController extends Controller
                         ];
                     }
                     $user->update($updates);
+
+                    if ($promoteToProvider) {
+                        $this->createGoogleProviderProfileAndPlan($user, $pending);
+                    }
 
                     return $user->fresh();
                 }
@@ -154,27 +166,7 @@ class AuthController extends Controller
                 ]);
 
                 if ($created->isProvider()) {
-                    ProviderProfile::create([
-                        'user_id' => $created->id,
-                        'slug' => $this->uniqueSlug($created->name),
-                        'profession' => 'Beauty Professional',
-                        'default_currency' => $currency,
-                    ]);
-                    $selectedPlan = $pending['plan'] ?? 'free';
-                    $plan = SubscriptionPlan::where('key', $selectedPlan)->first()
-                        ?? SubscriptionPlan::where('key', 'free')->first();
-                    if ($plan) {
-                        Subscription::create([
-                            'user_id' => $created->id,
-                            'subscription_plan_id' => $plan->id,
-                            'plan' => $plan->key,
-                            'status' => $plan->key === 'paid' ? 'expired' : 'active',
-                            'amount' => $plan->key === 'paid' ? CurrencyResolver::convert((float) $plan->price, $plan->currency, $currency) : 0,
-                            'currency' => $plan->key === 'paid' ? $currency : $plan->currency,
-                            'starts_at' => $plan->key === 'paid' ? null : now(),
-                            'metadata' => $plan->key === 'paid' ? ['selected_at_registration' => true] : null,
-                        ]);
-                    }
+                    $this->createGoogleProviderProfileAndPlan($created, $pending);
                 }
 
                 return $created;
@@ -184,7 +176,7 @@ class AuthController extends Controller
                 $this->sendAdminRegistrationNoticeAfterResponse($user);
             }
 
-            $redirect = $pending['redirect'] ?: ($user->isProvider() ? ($isNew ? '/provider/onboarding' : '/provider') : ($user->isAdmin() ? '/admin' : '/customer'));
+            $redirect = $pending['redirect'] ?: ($user->isProvider() ? (($isNew || $promoteToProvider) ? '/provider/onboarding' : '/provider') : ($user->isAdmin() ? '/admin' : '/customer'));
             if ($user->two_factor_enabled) {
                 $request->session()->put('google_2fa', [
                     'user_id' => $user->id,
@@ -463,6 +455,41 @@ class AuthController extends Controller
     private function googleOAuthCacheKey(string $state): string
     {
         return 'google_oauth:'.hash('sha256', $state);
+    }
+
+    private function createGoogleProviderProfileAndPlan(User $user, array $pending): void
+    {
+        $currency = $pending['currency'] ?? config('currencies.default', 'NGN');
+        ProviderProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'slug' => $this->uniqueSlug($user->name),
+                'profession' => 'Beauty Professional',
+                'default_currency' => $currency,
+            ],
+        );
+
+        if (Subscription::where('user_id', $user->id)->exists()) {
+            return;
+        }
+
+        $selectedPlan = $pending['plan'] ?? 'free';
+        $plan = SubscriptionPlan::where('key', $selectedPlan)->first()
+            ?? SubscriptionPlan::where('key', 'free')->first();
+        if (! $plan) {
+            return;
+        }
+
+        Subscription::create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'plan' => $plan->key,
+            'status' => $plan->key === 'paid' ? 'expired' : 'active',
+            'amount' => $plan->key === 'paid' ? CurrencyResolver::convert((float) $plan->price, $plan->currency, $currency) : 0,
+            'currency' => $plan->key === 'paid' ? $currency : $plan->currency,
+            'starts_at' => $plan->key === 'paid' ? null : now(),
+            'metadata' => $plan->key === 'paid' ? ['selected_at_registration' => true] : null,
+        ]);
     }
 
     private function safeFrontendRedirect(?string $redirect): ?string

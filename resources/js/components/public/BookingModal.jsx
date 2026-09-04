@@ -8,6 +8,7 @@ import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Icon from '../ui/Icon';
 import { InlineAlert } from '../ui/Feedback';
+import GoogleAuthButton from '../auth/GoogleAuthButton';
 
 function toMinutes(time) {
     const [hour, minute] = String(time).slice(0, 5).split(':').map(Number);
@@ -729,6 +730,17 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                             <main className={`flex min-h-0 min-w-0 flex-col overflow-y-auto ${standalone ? 'px-3 py-3 pb-28 lg:bg-white lg:px-6 lg:py-6' : 'px-4 py-4 pb-28 lg:p-6'}`}>
                                 {step === 1 && (
                                     <div className="space-y-5">
+                                        {!user && (
+                                            <div className="rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4">
+                                                <p className="mb-3 text-sm font-semibold text-[#2A1D14]">Create or access your customer account before booking.</p>
+                                                <GoogleAuthButton
+                                                    dividerLabel={null}
+                                                    href={`/auth/google/redirect?${new URLSearchParams({ intent: 'register', role: 'customer', plan: 'free', redirect: `${window.location.pathname}${window.location.search}` })}`}
+                                                    label="Continue as a customer with Google"
+                                                    note="You will return here after Google authentication."
+                                                />
+                                            </div>
+                                        )}
                                         <section className={`${standalone ? 'block lg:hidden' : 'hidden'}`}>
                                             <div className="px-0 pb-4 pt-1">
                                                 <h1 className="font-display text-[24px] font-semibold leading-tight text-bphq-espresso">{selectedService?.name ?? 'Consultation'}</h1>

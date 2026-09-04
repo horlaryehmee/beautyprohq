@@ -42,7 +42,7 @@ class GoogleAuthenticationTest extends TestCase
     {
         $this->enableGoogle();
 
-        $redirect = $this->get('/auth/google/redirect?intent=register&role=customer&plan=free')
+        $redirect = $this->get('/auth/google/redirect?intent=register&role=customer&plan=free&redirect=%2Fproviders%2Fglam-studio')
             ->assertRedirect();
         $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $redirect->headers->get('Location'));
         $this->assertStringContainsString('response_mode=form_post', $redirect->headers->get('Location'));
@@ -54,7 +54,7 @@ class GoogleAuthenticationTest extends TestCase
         session()->forget('google_oauth');
 
         $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'customer-code'])
-            ->assertRedirect('/customer');
+            ->assertRedirect('/providers/glam-studio');
 
         $user = User::where('email', 'google.customer@example.com')->firstOrFail();
         $this->assertAuthenticatedAs($user);
@@ -97,6 +97,29 @@ class GoogleAuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($existing);
         $this->assertSame('provider', $existing->fresh()->role);
         $this->assertSame('existing-google-id', $existing->fresh()->google_id);
+    }
+
+    public function test_provider_registration_promotes_an_existing_customer_and_provisions_provider_account(): void
+    {
+        $this->enableGoogle();
+        $customer = User::factory()->create(['email' => 'future.provider@example.com', 'role' => 'customer']);
+
+        $this->get('/auth/google/redirect?intent=register&role=provider&plan=paid')->assertRedirect();
+        $pending = session('google_oauth');
+        $this->fakeGoogleProfile('future-provider-google-id', $customer->email, 'Future Provider');
+
+        $this->post('/auth/google/callback', ['state' => $pending['state'], 'code' => 'provider-upgrade-code'])
+            ->assertRedirect('/provider/onboarding');
+
+        $customer->refresh();
+        $this->assertSame('provider', $customer->role);
+        $this->assertSame('future-provider-google-id', $customer->google_id);
+        $this->assertDatabaseHas('provider_profiles', ['user_id' => $customer->id]);
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $customer->id,
+            'plan' => 'paid',
+            'status' => 'expired',
+        ]);
     }
 
     public function test_google_callback_rejects_an_invalid_state_without_contacting_google(): void

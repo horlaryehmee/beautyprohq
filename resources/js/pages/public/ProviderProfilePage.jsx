@@ -480,7 +480,12 @@ export default function ProviderProfilePage({ adminPreview = false }) {
 
     function openReview() {
         if (!user) {
-            navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+            const query = new URLSearchParams({
+                google_intent: 'register',
+                role: 'customer',
+                redirect: window.location.pathname,
+            });
+            navigate(`/login?${query}`);
             return;
         }
         if (user.role !== 'customer') {
