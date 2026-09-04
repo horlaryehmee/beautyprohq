@@ -11,6 +11,7 @@ use App\Notifications\EmailChangeVerificationNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\TwoFactorCodeNotification;
 use App\Services\AccountDeletionService;
+use App\Services\GoogleOAuthService;
 use App\Support\CurrencyResolver;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Verified;
@@ -32,6 +33,215 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+    public function googleStatus(GoogleOAuthService $google): JsonResponse
+    {
+        return $this->success(['enabled' => $google->enabled()]);
+    }
+
+    public function redirectToGoogle(Request $request, GoogleOAuthService $google): RedirectResponse
+    {
+        if (! $google->enabled()) {
+            return $this->googleErrorRedirect('Google sign-in is not available yet.', '/login');
+        }
+
+        $validated = $request->validate([
+            'intent' => ['nullable', Rule::in(['login', 'register'])],
+            'role' => ['nullable', Rule::in(['provider', 'customer'])],
+            'plan' => ['nullable', Rule::in(['free', 'paid'])],
+            'redirect' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $intent = $validated['intent'] ?? 'login';
+        if ($intent === 'register' && empty($validated['role'])) {
+            return $this->googleErrorRedirect('Choose whether you are registering as a customer or provider.', '/register');
+        }
+
+        $state = Str::random(64);
+        $codeVerifier = Str::random(96);
+        $request->session()->put('google_oauth', [
+            'state' => $state,
+            'code_verifier' => $codeVerifier,
+            'intent' => $intent,
+            'role' => $validated['role'] ?? null,
+            'plan' => $validated['plan'] ?? 'free',
+            'redirect' => $this->safeFrontendRedirect($validated['redirect'] ?? null),
+            'currency' => CurrencyResolver::currencyForRequest($request),
+            'started_at' => now()->timestamp,
+        ]);
+
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+
+        return redirect()->away($google->authorizationUrl($state, $challenge));
+    }
+
+    public function handleGoogleCallback(Request $request, GoogleOAuthService $google): RedirectResponse
+    {
+        $pending = $request->session()->pull('google_oauth');
+        $errorPath = ($pending['intent'] ?? 'login') === 'register' ? '/register' : '/login';
+
+        if (! is_array($pending)
+            || now()->timestamp - (int) ($pending['started_at'] ?? 0) > 600
+            || blank($request->query('state'))
+            || ! hash_equals((string) ($pending['state'] ?? ''), (string) $request->query('state'))) {
+            return $this->googleErrorRedirect('The Google sign-in request expired or could not be verified. Please try again.', $errorPath);
+        }
+        if ($request->filled('error')) {
+            return $this->googleErrorRedirect('Google sign-in was cancelled.', $errorPath);
+        }
+        if (blank($request->query('code'))) {
+            return $this->googleErrorRedirect('Google did not return an authorization code.', $errorPath);
+        }
+
+        try {
+            $googleProfile = $google->userFromCode((string) $request->query('code'), (string) $pending['code_verifier']);
+            $email = Str::lower(trim((string) $googleProfile['email']));
+            $googleId = (string) $googleProfile['sub'];
+            $userByGoogle = User::where('google_id', $googleId)->first();
+            $userByEmail = User::where('email', $email)->first();
+
+            if ($userByGoogle && $userByEmail && $userByGoogle->id !== $userByEmail->id) {
+                return $this->googleErrorRedirect('This Google identity conflicts with an existing account. Contact support.', $errorPath);
+            }
+
+            $user = $userByGoogle ?? $userByEmail;
+            if (! $user && ($pending['intent'] ?? 'login') !== 'register') {
+                return $this->googleErrorRedirect('No BeautyPro HQ account uses this Google email. Create an account first.', '/login');
+            }
+            if ($user && ! $user->is_active) {
+                return $this->googleErrorRedirect('This account has been disabled.', '/login');
+            }
+            if ($user && filled($user->google_id) && ! hash_equals((string) $user->google_id, $googleId)) {
+                return $this->googleErrorRedirect('This email is already linked to another Google identity.', $errorPath);
+            }
+
+            $isNew = ! $user;
+            $user = DB::transaction(function () use ($user, $googleProfile, $googleId, $email, $pending): User {
+                if ($user) {
+                    $updates = [
+                        'google_id' => $googleId,
+                        'email_verified_at' => $user->email_verified_at ?: now(),
+                    ];
+                    if ($user->is_guest && $user->isCustomer()) {
+                        $updates += [
+                            'name' => $googleProfile['name'] ?? $user->name,
+                            'password' => Str::random(64),
+                            'is_guest' => false,
+                            'is_active' => true,
+                        ];
+                    }
+                    $user->update($updates);
+
+                    return $user->fresh();
+                }
+
+                $role = $pending['role'];
+                $currency = $pending['currency'] ?? config('currencies.default', 'NGN');
+                $created = User::create([
+                    'name' => $googleProfile['name'] ?? Str::before($email, '@'),
+                    'email' => $email,
+                    'google_id' => $googleId,
+                    'password' => Str::random(64),
+                    'role' => $role,
+                    'preferred_currency' => $currency,
+                    'email_verified_at' => now(),
+                    'is_active' => true,
+                    'is_guest' => false,
+                ]);
+
+                if ($created->isProvider()) {
+                    ProviderProfile::create([
+                        'user_id' => $created->id,
+                        'slug' => $this->uniqueSlug($created->name),
+                        'profession' => 'Beauty Professional',
+                        'default_currency' => $currency,
+                    ]);
+                    $selectedPlan = $pending['plan'] ?? 'free';
+                    $plan = SubscriptionPlan::where('key', $selectedPlan)->first()
+                        ?? SubscriptionPlan::where('key', 'free')->first();
+                    if ($plan) {
+                        Subscription::create([
+                            'user_id' => $created->id,
+                            'subscription_plan_id' => $plan->id,
+                            'plan' => $plan->key,
+                            'status' => $plan->key === 'paid' ? 'expired' : 'active',
+                            'amount' => $plan->key === 'paid' ? CurrencyResolver::convert((float) $plan->price, $plan->currency, $currency) : 0,
+                            'currency' => $plan->key === 'paid' ? $currency : $plan->currency,
+                            'starts_at' => $plan->key === 'paid' ? null : now(),
+                            'metadata' => $plan->key === 'paid' ? ['selected_at_registration' => true] : null,
+                        ]);
+                    }
+                }
+
+                return $created;
+            });
+
+            if ($isNew) {
+                $this->sendAdminRegistrationNoticeAfterResponse($user);
+            }
+
+            $redirect = $pending['redirect'] ?: ($user->isProvider() ? ($isNew ? '/provider/onboarding' : '/provider') : ($user->isAdmin() ? '/admin' : '/customer'));
+            if ($user->two_factor_enabled) {
+                $request->session()->put('google_2fa', [
+                    'user_id' => $user->id,
+                    'redirect' => $redirect,
+                    'started_at' => now()->timestamp,
+                ]);
+                if (($user->two_factor_method ?: 'email') === 'email') {
+                    $this->sendTwoFactorCode($user, 'login');
+                }
+
+                return redirect('/login?'.http_build_query([
+                    'google_2fa' => '1',
+                    'method' => $user->two_factor_method ?: 'email',
+                ]));
+            }
+
+            $this->completeGoogleLogin($request, $user);
+
+            return redirect($redirect);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $this->googleErrorRedirect('Google sign-in could not be completed. Check the configuration and try again.', $errorPath);
+        }
+    }
+
+    public function completeGoogleTwoFactor(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['two_factor_code' => ['required', 'string', 'max:30']]);
+        $pending = $request->session()->get('google_2fa');
+        if (! is_array($pending) || now()->timestamp - (int) ($pending['started_at'] ?? 0) > 600) {
+            $request->session()->forget('google_2fa');
+
+            return response()->json(['message' => 'The Google login verification session expired. Please try again.'], 422);
+        }
+
+        $user = User::find($pending['user_id']);
+        if (! $user || ! $user->is_active) {
+            $request->session()->forget('google_2fa');
+
+            return response()->json(['message' => 'The account is unavailable.'], 403);
+        }
+
+        $code = $validated['two_factor_code'];
+        $valid = ($user->two_factor_method ?: 'email') === 'totp'
+            ? $this->validTotpCode($user, $code)
+            : $this->validTwoFactorCode($user, $code);
+        if (! $valid) {
+            $valid = $this->useRecoveryCode($user, $code);
+        }
+        if (! $valid) {
+            return response()->json(['message' => 'The verification code is invalid or expired.'], 422);
+        }
+
+        $request->session()->forget('google_2fa');
+        $this->completeGoogleLogin($request, $user);
+
+        return $this->success([
+            'user' => $this->authUserPayload($user),
+            'redirect' => $pending['redirect'] ?? null,
+        ], 'Welcome back.');
+    }
+
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -230,6 +440,36 @@ class AuthController extends Controller
         $user->setAttribute('pending_paid_plan_selection', $this->hasPendingPaidPlanSelection($user));
 
         return $user;
+    }
+
+    private function completeGoogleLogin(Request $request, User $user): void
+    {
+        Auth::login($user, true);
+        $request->session()->regenerate();
+        $user->forceFill(['last_login_at' => now()])->save();
+        Log::channel('security')->notice('Google authentication succeeded.', [
+            'user_id' => $user->id,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+        ]);
+    }
+
+    private function safeFrontendRedirect(?string $redirect): ?string
+    {
+        if (! $redirect || ! str_starts_with($redirect, '/') || str_starts_with($redirect, '//')) {
+            return null;
+        }
+
+        $path = explode('?', $redirect, 2)[0];
+
+        return in_array($path, ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'], true)
+            ? null
+            : $redirect;
+    }
+
+    private function googleErrorRedirect(string $message, string $path): RedirectResponse
+    {
+        return redirect($path.'?'.http_build_query(['google_error' => $message]));
     }
 
     private function hasPendingPaidPlanSelection(User $user): bool

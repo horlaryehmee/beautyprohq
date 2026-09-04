@@ -5,8 +5,9 @@ import Button from '../../components/ui/Button';
 import FormField from '../../components/ui/FormField';
 import Icon from '../../components/ui/Icon';
 import { InlineAlert } from '../../components/ui/Feedback';
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton';
 import { useAuth } from '../../context/AuthContext';
-import { apiError } from '../../lib/api';
+import api, { apiError, unwrap } from '../../lib/api';
 
 function dashboardFor(role) {
     if (role === 'admin') return '/admin';
@@ -31,9 +32,10 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
+    const googleTwoFactor = searchParams.get('google_2fa') === '1';
     const [form, setForm] = useState({ email: '', password: '', two_factor_code: '', remember: false });
-    const [twoFactorRequired, setTwoFactorRequired] = useState(false);
-    const [twoFactorMethod, setTwoFactorMethod] = useState('email');
+    const [twoFactorRequired, setTwoFactorRequired] = useState(googleTwoFactor);
+    const [twoFactorMethod, setTwoFactorMethod] = useState(searchParams.get('method') || 'email');
     const [errors, setErrors] = useState({});
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -48,6 +50,11 @@ export default function LoginPage() {
         setSubmitting(true);
         setError('');
         try {
+            if (googleTwoFactor) {
+                const payload = unwrap(await api.post('/auth/google/2fa', { two_factor_code: form.two_factor_code }));
+                navigate(payload.redirect || dashboardFor(payload.user?.role), { replace: true });
+                return;
+            }
             const user = await login(form);
             if (user?.two_factor_required) {
                 setTwoFactorRequired(true);
@@ -76,10 +83,12 @@ export default function LoginPage() {
                 {location.state?.message && <InlineAlert tone="success">{location.state.message}</InlineAlert>}
                 {searchParams.get('email_changed') === '1' && <InlineAlert tone="success">Your login email has been verified and updated. Sign in with the new address.</InlineAlert>}
                 {searchParams.get('email_change_error') && <InlineAlert>This email-change link is invalid, expired, or can no longer be used.</InlineAlert>}
+                {searchParams.get('google_error') && <InlineAlert>{searchParams.get('google_error')}</InlineAlert>}
                 {error && <InlineAlert>{error}</InlineAlert>}
 
                 {!twoFactorRequired ? (
                     <>
+                        <GoogleAuthButton href={`/auth/google/redirect?${new URLSearchParams({ intent: 'login', ...(searchParams.get('redirect') ? { redirect: searchParams.get('redirect') } : {}) })}`} label="Log in with Google" />
                         <FormField label="Email address" type="email" icon="mail" autoComplete="email" value={form.email} onChange={(event) => update('email', event.target.value)} error={errors.email} placeholder="you@example.com" required autoFocus />
                         <FormField label="Password" type="password" icon="lock" autoComplete="current-password" value={form.password} onChange={(event) => update('password', event.target.value)} error={errors.password} placeholder="Enter your password" required />
                         <div className="flex items-center justify-between gap-4">
@@ -96,7 +105,7 @@ export default function LoginPage() {
                             {twoFactorMethod === 'totp' ? 'Enter the 6-digit code from your authenticator app, or use a backup code.' : 'A verification code has been sent to your email. You can also use a backup code.'}
                         </InlineAlert>
                         <FormField label="Verification or backup code" type="text" icon="lock" autoComplete="one-time-code" value={form.two_factor_code} onChange={(event) => update('two_factor_code', event.target.value)} error={errors.two_factor_code} placeholder="6-digit code or backup code" required autoFocus />
-                        <button className="text-xs font-semibold text-rose-700 hover:text-rose-900" onClick={() => { setTwoFactorRequired(false); update('two_factor_code', ''); }} type="button">Use another account</button>
+                        {!googleTwoFactor && <button className="text-xs font-semibold text-rose-700 hover:text-rose-900" onClick={() => { setTwoFactorRequired(false); update('two_factor_code', ''); }} type="button">Use another account</button>}
                     </>
                 )}
 

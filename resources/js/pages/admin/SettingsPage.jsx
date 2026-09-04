@@ -22,6 +22,7 @@ const normalizePlans = (value) => Array.isArray(value) ? value : value?.plans ??
 
 const platformSettingTabs = [
     { key: 'general', label: 'General', icon: 'settings', description: 'Launch mode, provider features and demo data.' },
+    { key: 'authentication', label: 'Authentication', icon: 'shield', description: 'Google registration and login.' },
     { key: 'security', label: 'Security', icon: 'shield', description: 'Password, sessions and two-factor authentication.' },
     { key: 'email', label: 'Email', icon: 'mail', description: 'SMTP and active notification tests.' },
     { key: 'communications', label: 'Communications', icon: 'bell', description: 'WhatsApp and non-email messaging channels.' },
@@ -37,6 +38,7 @@ export default function AdminSettingsPage() {
     const brandingResource = useApiResource('/admin/settings/branding', {});
     const currencyResource = useApiResource('/admin/settings/currencies', {});
     const featuresResource = useApiResource('/admin/settings/features', {});
+    const googleAuthResource = useApiResource('/admin/settings/google-auth', {});
     const twilioResource = useApiResource('/admin/settings/twilio', {});
     const smtpResource = useApiResource('/admin/settings/smtp', {});
     const liveChatResource = useApiResource('/admin/settings/live-chat', {});
@@ -50,6 +52,7 @@ export default function AdminSettingsPage() {
     const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg', desktop_header_height: 112, mobile_header_height: 96 });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
+    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, client_id: '', client_secret: '' });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [liveChatForm, setLiveChatForm] = useState({ inbound_secret: '', reply_domain: '' });
@@ -65,6 +68,7 @@ export default function AdminSettingsPage() {
     const [savingCurrency, setSavingCurrency] = useState(false);
     const [fetchingRates, setFetchingRates] = useState(false);
     const [savingFeatures, setSavingFeatures] = useState(false);
+    const [savingGoogleAuth, setSavingGoogleAuth] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
     const [savingSmtp, setSavingSmtp] = useState(false);
     const [savingLiveChat, setSavingLiveChat] = useState(false);
@@ -139,6 +143,16 @@ export default function AdminSettingsPage() {
             coming_soon: Boolean(data.coming_soon),
         });
     }, [featuresResource.data]);
+
+    useEffect(() => {
+        const data = googleAuthResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setGoogleAuthForm({
+            enabled: Boolean(data.enabled),
+            client_id: data.client_id ?? '',
+            client_secret: '',
+        });
+    }, [googleAuthResource.data]);
 
     useEffect(() => {
         const data = twilioResource.data;
@@ -328,6 +342,32 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const saveGoogleAuth = async (event) => {
+        event.preventDefault();
+        setSavingGoogleAuth(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/google-auth', googleAuthForm);
+            googleAuthResource.setData(saved);
+            setGoogleAuthForm((current) => ({ ...current, enabled: Boolean(saved.enabled), client_secret: '' }));
+            notify('Google registration and login settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingGoogleAuth(false);
+        }
+    };
+
+    const copyGoogleRedirectUri = async () => {
+        const uri = googleAuthResource.data?.redirect_uri;
+        if (!uri) return;
+        try {
+            await navigator.clipboard.writeText(uri);
+            notify('Google redirect URI copied.');
+        } catch {
+            window.prompt('Copy Google redirect URI', uri);
+        }
+    };
+
     const copyComingSoonBypassUrl = async () => {
         const url = featuresResource.data?.coming_soon_bypass_url;
         if (!url) return;
@@ -512,12 +552,12 @@ export default function AdminSettingsPage() {
     const dailyTestPlan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
     const deploymentLog = deploymentResource.data?.artisan_output || deploymentResource.data?.log || '';
     const deploymentStatus = deploymentResource.data?.status ?? 'never_run';
-    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || liveChatResource.error || demoResource.error || deploymentResource.error;
+    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || googleAuthResource.error || twilioResource.error || smtpResource.error || liveChatResource.error || demoResource.error || deploymentResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); liveChatResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); googleAuthResource.reload(); twilioResource.reload(); smtpResource.reload(); liveChatResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -543,6 +583,68 @@ export default function AdminSettingsPage() {
                 </aside>
                 <div className="min-w-0 space-y-6">
             {sectionTab === 'security' && <SecurityPage embedded />}
+            <Card className={sectionTab === 'authentication' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Google registration and login"
+                    description="Let customers, providers and existing administrators authenticate with their Google account."
+                    action={googleAuthResource.data?.enabled ? <StatusBadge status="enabled" /> : googleAuthResource.data?.configured ? <StatusBadge status="configured" /> : <StatusBadge status="not configured" />}
+                />
+                {googleAuthResource.loading ? <LoadingBlock rows={5} /> : (
+                    <form className="space-y-5" onSubmit={saveGoogleAuth}>
+                        <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
+                            <p className="font-bold">Google Cloud setup</p>
+                            <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-sky-900">
+                                <li>Create an OAuth client with application type <strong>Web application</strong>.</li>
+                                <li>Configure the OAuth consent screen and request only the openid, email and profile scopes.</li>
+                                <li>Add the exact redirect URI shown below to Authorized redirect URIs.</li>
+                                <li>Paste the client ID and secret here, save, then enable Google authentication.</li>
+                            </ol>
+                        </div>
+
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <input
+                                checked={googleAuthForm.enabled}
+                                className="mt-0.5 size-4 accent-fuchsia-700"
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, enabled: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span><span className="block text-sm font-bold text-slate-800">Enable Google authentication</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">Shows Google buttons on both registration and login pages.</span></span>
+                        </label>
+
+                        <Field label="Google OAuth client ID">
+                            <input
+                                className={inputClass}
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, client_id: event.target.value }))}
+                                placeholder="123456789-abc.apps.googleusercontent.com"
+                                value={googleAuthForm.client_id}
+                            />
+                        </Field>
+                        <Field hint={googleAuthResource.data?.client_secret_configured ? 'A secret is saved securely. Leave this blank to keep it.' : 'Stored encrypted and never returned to the browser after saving.'} label="Google OAuth client secret">
+                            <input
+                                autoComplete="new-password"
+                                className={inputClass}
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, client_secret: event.target.value }))}
+                                placeholder={googleAuthResource.data?.client_secret_configured ? 'Saved — leave blank to keep current secret' : 'Paste Google client secret'}
+                                type="password"
+                                value={googleAuthForm.client_secret}
+                            />
+                        </Field>
+                        <Field hint="Google requires an exact match, including HTTPS, host and path." label="Authorized redirect URI">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.redirect_uri ?? ''} />
+                                <Button onClick={copyGoogleRedirectUri} type="button" variant="secondary">Copy URI</Button>
+                            </div>
+                        </Field>
+
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            {googleAuthResource.data?.enabled && (
+                                <Button onClick={() => { window.location.href = '/auth/google/redirect?intent=login&redirect=/admin/settings'; }} type="button" variant="secondary">Test Google login</Button>
+                            )}
+                            <Button busy={savingGoogleAuth} type="submit">Save Google settings</Button>
+                        </div>
+                    </form>
+                )}
+            </Card>
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Branding"

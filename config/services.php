@@ -27,6 +27,11 @@ return [
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+    ],
+
     'http' => [
         'connect_timeout' => (int) env('HTTP_CONNECT_TIMEOUT', 5),
         'timeout' => (int) env('HTTP_TIMEOUT', 15),

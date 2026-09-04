@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import FormField from '../../components/ui/FormField';
 import Icon from '../../components/ui/Icon';
 import { InlineAlert } from '../../components/ui/Feedback';
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton';
 import { useAuth } from '../../context/AuthContext';
 import api, { apiError, unwrap } from '../../lib/api';
 import { browserCurrency, detectIpCurrency } from '../../lib/browserCurrency';
@@ -204,6 +205,7 @@ export default function RegisterPage() {
             </div>
 
             {error && <InlineAlert>{error}</InlineAlert>}
+            {searchParams.get('google_error') && <InlineAlert>{searchParams.get('google_error')}</InlineAlert>}
 
             {!isCustomerSignup && step === 1 && (
                 <div className="space-y-4">
@@ -254,6 +256,11 @@ export default function RegisterPage() {
 
             {(isCustomerSignup ? step === 1 : step === 2) && (
                 <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); setStep(isCustomerSignup ? 2 : 3); }}>
+                    <GoogleAuthButton
+                        href={`/auth/google/redirect?${new URLSearchParams({ intent: 'register', role: form.role, plan: form.plan })}`}
+                        label="Register with Google"
+                        note="By registering with Google, you accept the platform terms and privacy notice."
+                    />
                     <FormField label="Full name" icon="user" autoComplete="name" value={form.name} onChange={(event) => update('name', event.target.value)} error={errors.name} placeholder="Your full name" required autoFocus />
                     <FormField label="Email address" type="email" icon="mail" autoComplete="email" value={form.email} onChange={(event) => update('email', event.target.value)} error={errors.email} placeholder="you@example.com" required />
                     <div className="grid gap-4 sm:grid-cols-2">

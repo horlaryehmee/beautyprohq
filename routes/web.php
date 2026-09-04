@@ -4,6 +4,7 @@ use App\Models\NewsletterSubscriber;
 use App\Models\NewsletterUnsubscribe;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
+use App\Http\Controllers\Api\AuthController;
 use App\Support\HomepageShell;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
@@ -48,6 +49,13 @@ $noStore = static function ($response) {
 Route::get('/coming-soon', fn () => response()
     ->view('coming-soon')
     ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'));
+
+Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
+    ->middleware('throttle:sensitive')
+    ->name('auth.google.redirect');
+Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
+    ->middleware('throttle:sensitive')
+    ->name('auth.google.callback');
 
 Route::get('/coming-soon/bypass/{token}', function (Request $request, string $token) use ($comingSoonBypassToken) {
     $savedToken = $comingSoonBypassToken();

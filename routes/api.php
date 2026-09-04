@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardControll
 use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController;
 use App\Http\Controllers\Api\Admin\DeploymentController as AdminDeploymentController;
 use App\Http\Controllers\Api\Admin\EventRegistrationController as AdminEventRegistrationController;
+use App\Http\Controllers\Api\Admin\GoogleAuthSettingsController as AdminGoogleAuthSettingsController;
 use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
 use App\Http\Controllers\Api\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
@@ -36,8 +37,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/status', StatusController::class);
 
 Route::prefix('auth')->group(function (): void {
+    Route::get('/google/status', [AuthController::class, 'googleStatus']);
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/google/2fa', [AuthController::class, 'completeGoogleTwoFactor'])->middleware('throttle:login');
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 });
@@ -238,6 +241,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::post('/settings/currencies/fetch-rates', [SubscriptionController::class, 'fetchCurrencyRates'])->middleware('throttle:sensitive');
         Route::get('/settings/features', [SubscriptionController::class, 'adminFeatureSettings']);
         Route::put('/settings/features', [SubscriptionController::class, 'updateAdminFeatureSettings']);
+        Route::get('/settings/google-auth', [AdminGoogleAuthSettingsController::class, 'show']);
+        Route::put('/settings/google-auth', [AdminGoogleAuthSettingsController::class, 'update'])->middleware('admin.step-up');
         Route::get('/settings/hero-images', [SubscriptionController::class, 'adminHeroImages']);
         Route::post('/settings/hero-images/upload', [SubscriptionController::class, 'uploadAdminHeroImage']);
         Route::put('/settings/hero-images', [SubscriptionController::class, 'updateAdminHeroImages']);
