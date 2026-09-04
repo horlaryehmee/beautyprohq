@@ -31,7 +31,6 @@ class ProviderSettingsAccessTest extends TestCase
 
         $this->putJson('/api/provider/settings', [
             'default_currency' => 'USD',
-            'default_payment_gateway' => null,
             'timezone' => 'Africa/Lagos',
             'whatsapp_number' => null,
             'whatsapp_notifications_enabled' => false,

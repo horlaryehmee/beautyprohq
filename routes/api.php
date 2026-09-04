@@ -244,6 +244,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/settings/twilio', [SubscriptionController::class, 'adminTwilioSettings']);
         Route::put('/settings/twilio', [SubscriptionController::class, 'updateAdminTwilioSettings'])->middleware('admin.step-up');
         Route::post('/settings/twilio/test', [SubscriptionController::class, 'testAdminTwilio'])->middleware(['throttle:sensitive', 'admin.step-up']);
+        Route::get('/settings/live-chat', [SubscriptionController::class, 'adminLiveChatSettings']);
+        Route::put('/settings/live-chat', [SubscriptionController::class, 'updateAdminLiveChatSettings'])->middleware('admin.step-up');
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings'])->middleware('admin.step-up');
         Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware(['throttle:sensitive', 'admin.step-up']);

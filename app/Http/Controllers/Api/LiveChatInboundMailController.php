@@ -56,7 +56,7 @@ class LiveChatInboundMailController extends Controller
 
     private function authorizeInbound(Request $request): void
     {
-        $secret = $this->inboundSecret();
+        $secret = self::inboundSecret();
         if ($secret === '' || $secret === null) {
             Log::warning('Live chat inbound mail rejected: no secret configured.');
             abort(403, 'Inbound live chat mail is not configured.');
@@ -97,7 +97,7 @@ class LiveChatInboundMailController extends Controller
 
     public static function replyToAddress(int $conversationId): string
     {
-        $domain = preg_replace('#^https?://#', '', (string) config('app.mail_reply_domain', config('app.url')));
+        $domain = preg_replace('#^https?://#', '', (string) static::replyDomain());
         $domain = rtrim((string) $domain, '/');
 
         $address = self::RECIPIENT_PREFIX.'-'.$conversationId.'-'.self::signature($conversationId);
@@ -107,12 +107,22 @@ class LiveChatInboundMailController extends Controller
 
     private static function signature(int $conversationId): string
     {
-        return hash_hmac('sha256', (string) $conversationId, (string) config('services.live_chat.inbound_secret'));
+        return hash_hmac('sha256', (string) $conversationId, (string) static::inboundSecret());
     }
 
-    private function inboundSecret(): ?string
+    private static function inboundSecret(): ?string
     {
-        return config('services.live_chat.inbound_secret');
+        return static::appSetting('live_chat.inbound_secret') ?: config('services.live_chat.inbound_secret');
+    }
+
+    private static function replyDomain(): string
+    {
+        return rtrim((string) (static::appSetting('live_chat.reply_domain') ?: config('app.mail_reply_domain', config('app.url'))), '/');
+    }
+
+    private static function appSetting(string $key): ?string
+    {
+        return \App\Models\AppSetting::getValue($key);
     }
 
     private function messageBody(Request $request): string

@@ -178,11 +178,40 @@ class BusinessController extends Controller
 
     public function payments(Request $request): JsonResponse
     {
-        $payments = Payment::where('provider_id', $request->user()->providerProfile->id)
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::in(['pending', 'processing', 'paid', 'failed', 'refunded'])],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $providerId = $request->user()->providerProfile->id;
+        $payments = Payment::where('provider_id', $providerId)
             ->with(['booking.customer:id,name,email', 'booking.service'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('reference', 'like', "%{$search}%")
+                        ->orWhereHas('booking.service', fn ($service) => $service->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('booking.customer', function ($customer) use ($search) {
+                            $customer->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($validated['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($validated['date_from'] ?? null, fn ($query, $date) => $query->whereDate('created_at', '>=', $date))
+            ->when($validated['date_to'] ?? null, fn ($query, $date) => $query->whereDate('created_at', '<=', $date))
             ->latest()->paginate($this->perPage($request, 20, 50));
 
-        return $this->success($payments->items(), meta: $this->paginationMeta($payments));
+        $providerPayments = Payment::where('provider_id', $providerId);
+        $summary = [
+            'paid' => (float) (clone $providerPayments)->where('status', 'paid')->sum('amount'),
+            'pending' => (float) (clone $providerPayments)->whereIn('status', ['pending', 'processing'])->sum('amount'),
+            'transactions' => (clone $providerPayments)->count(),
+        ];
+
+        return $this->success($payments->items(), meta: $this->paginationMeta($payments) + ['summary' => $summary]);
     }
 
     public function settings(Request $request): JsonResponse
@@ -191,14 +220,10 @@ class BusinessController extends Controller
 
         return $this->success([
             'default_currency' => $provider->default_currency ?? config('currencies.default', 'NGN'),
-            'default_payment_gateway' => in_array($provider->default_payment_gateway, self::PROVIDER_PAYMENT_GATEWAYS, true) ? $provider->default_payment_gateway : null,
             'timezone' => $provider->timezone ?? 'Africa/Lagos',
             'whatsapp_feature_enabled' => $this->providerWhatsappFeatureEnabled(),
             'whatsapp_number' => $this->providerWhatsappFeatureEnabled() ? $provider->whatsapp_number : null,
             'whatsapp_notifications_enabled' => $this->providerWhatsappFeatureEnabled() && (bool) $provider->whatsapp_notifications_enabled,
-            'payment_gateways' => $provider->paymentAccounts()->where(function ($query): void {
-                $query->where('enabled', true)->orWhere('is_connected', true);
-            })->whereIn('gateway', self::PROVIDER_PAYMENT_GATEWAYS)->pluck('gateway')->values(),
             'supported_currencies' => array_keys(config('currencies.supported', [])),
         ]);
     }
@@ -206,23 +231,13 @@ class BusinessController extends Controller
     public function updateSettings(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'default_currency' => ['required', Rule::in(array_keys(config('currencies.supported', [])))],
-            'default_payment_gateway' => ['nullable', Rule::in(self::PROVIDER_PAYMENT_GATEWAYS)],
+            'default_currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
             'timezone' => ['nullable', 'timezone'],
             'whatsapp_number' => ['nullable', 'string', 'max:40'],
             'whatsapp_notifications_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $provider = $request->user()->providerProfile;
-        if ($validated['default_payment_gateway']) {
-            $hasGateway = $provider->paymentAccounts()
-                ->where('gateway', $validated['default_payment_gateway'])
-                ->where(function ($query): void {
-                    $query->where('enabled', true)->orWhere('is_connected', true);
-                })->exists();
-            abort_unless($hasGateway, 422, 'Connect and enable this payment gateway before making it your default.');
-        }
-
         if (! $this->providerWhatsappFeatureEnabled()) {
             unset($validated['whatsapp_number'], $validated['whatsapp_notifications_enabled']);
         }

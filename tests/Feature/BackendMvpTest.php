@@ -14,6 +14,7 @@ use App\Models\Opportunity;
 use App\Models\Payment;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
+use App\Models\ProfileView;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
@@ -1315,6 +1316,56 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'status' => 'confirmed']);
     }
 
+    public function test_provider_paystack_checkout_accepts_usd_booking_payments(): void
+    {
+        Notification::fake();
+        [$provider] = $this->provider('Dollar Gateway Beauty', true);
+        $provider->paymentAccounts()->create([
+            'gateway' => 'paystack',
+            'public_key' => 'pk_test_provider_usd',
+            'settings' => ['secret_key' => 'sk_test_provider_usd'],
+            'is_connected' => true,
+            'enabled' => true,
+        ]);
+        $service = $provider->services()->create([
+            'name' => 'Virtual consultation',
+            'category' => 'Consultation',
+            'service_type' => 'virtual',
+            'price' => 25,
+            'currency' => 'USD',
+            'duration_minutes' => 60,
+        ]);
+        $date = Carbon::tomorrow();
+        Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
+        $customer = User::factory()->create();
+
+        Sanctum::actingAs($customer);
+        $bookingId = $this->postJson('/api/bookings', [
+            'provider_id' => $provider->id,
+            'service_id' => $service->id,
+            'date' => $date->toDateString(),
+            'time' => '11:00',
+            'payment_method' => 'paystack',
+        ])->assertCreated()->json('data.id');
+        $payment = Payment::where('booking_id', $bookingId)->firstOrFail();
+
+        Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true,
+            'data' => ['authorization_url' => 'https://checkout.paystack.com/provider-usd', 'access_code' => 'usd-access'],
+        ])]);
+
+        $this->postJson("/api/booking-payments/{$payment->id}/checkout", [
+            'gateway' => 'paystack',
+            'payment_token' => $payment->metadata['payment_token'],
+        ])->assertOk()
+            ->assertJsonPath('data.gateway', 'paystack')
+            ->assertJsonPath('data.authorization_url', 'https://checkout.paystack.com/provider-usd');
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.paystack.co/transaction/initialize'
+            && $request['currency'] === 'USD'
+            && $request['amount'] === 2500);
+    }
+
     public function test_guest_booking_account_creation_requires_matching_password_confirmation(): void
     {
         Notification::fake();
@@ -1533,15 +1584,78 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('message', 'This feature is available to approved providers.');
     }
 
+    public function test_provider_can_filter_and_paginate_transactions(): void
+    {
+        [$provider, $user] = $this->provider('Filtered Payments Studio', true);
+        $service = $provider->services()->create([
+            'name' => 'Signature Facial',
+            'price' => 25000,
+            'duration_minutes' => 60,
+        ]);
+        $customer = User::factory()->create(['name' => 'Ada Payment Customer']);
+
+        foreach ([
+            ['reference' => 'BPHQ-AUG-001', 'status' => 'paid', 'created_at' => '2026-08-05 10:00:00'],
+            ['reference' => 'BPHQ-AUG-002', 'status' => 'paid', 'created_at' => '2026-08-20 10:00:00'],
+            ['reference' => 'BPHQ-SEP-001', 'status' => 'pending', 'created_at' => '2026-09-02 10:00:00'],
+        ] as $index => $attributes) {
+            $booking = Booking::create([
+                'provider_id' => $provider->id,
+                'customer_id' => $customer->id,
+                'service_id' => $service->id,
+                'date' => '2026-09-10',
+                'time' => sprintf('%02d:00', 10 + $index),
+                'status' => 'confirmed',
+            ]);
+            Payment::create($attributes + [
+                'provider_id' => $provider->id,
+                'booking_id' => $booking->id,
+                'amount' => 25000,
+                'currency' => 'NGN',
+                'updated_at' => $attributes['created_at'],
+            ]);
+        }
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/provider/payments?status=paid&date_from=2026-08-01&date_to=2026-08-31&per_page=1&page=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.reference', 'BPHQ-AUG-002')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.summary.paid', 50000)
+            ->assertJsonPath('meta.summary.pending', 25000)
+            ->assertJsonPath('meta.summary.transactions', 3);
+
+        $this->getJson('/api/provider/payments?search=Signature%20Facial&status=pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.reference', 'BPHQ-SEP-001');
+
+        $this->getJson('/api/provider/payments?search=Ada%20Payment')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+
+        $this->getJson('/api/provider/payments?date_from=2026-09-10&date_to=2026-09-01')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('date_to');
+    }
+
     public function test_provider_can_manage_services_schedule_and_payment_account(): void
     {
         [$provider, $user] = $this->provider('Studio Owner', true);
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/provider/services', [
+        $serviceId = $this->postJson('/api/provider/services', [
             'name' => 'Braiding', 'category' => 'Hair',
             'price' => 30000, 'duration_minutes' => 120,
-        ])->assertCreated()->assertJsonPath('data.name', 'Braiding')->assertJsonPath('data.service_type', 'in_person');
+        ])->assertCreated()->assertJsonPath('data.name', 'Braiding')->assertJsonPath('data.service_type', 'in_person')->json('data.id');
+
+        $this->putJson('/api/provider/profile', ['default_currency' => 'USD'])->assertOk();
+        $this->assertDatabaseHas('services', ['id' => $serviceId, 'currency' => 'USD', 'price' => 18.90]);
 
         $this->putJson('/api/provider/availability', ['slots' => [
             ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
@@ -1645,6 +1759,80 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.period_customers', 3)
             ->assertJsonPath('data.returning_customers', 2)
             ->assertJsonPath('data.customer_retention_rate', 66.7);
+
+        $query = http_build_query([
+            'date_from' => now()->startOfMonth()->toDateString(),
+            'date_to' => now()->toDateString(),
+            'compare_date_from' => $previousPeriod->toDateString(),
+            'compare_date_to' => $previousPeriod->toDateString(),
+        ]);
+        $this->getJson('/api/provider/analytics?'.$query)
+            ->assertOk()
+            ->assertJsonPath('data.current.booking_count', 4)
+            ->assertJsonPath('data.current.unique_customers', 3)
+            ->assertJsonPath('data.comparison.booking_count', 1)
+            ->assertJsonPath('data.comparison.range.from', $previousPeriod->toDateString());
+    }
+
+    public function test_provider_analytics_returns_zero_points_and_excludes_other_provider_data(): void
+    {
+        [$provider, $user] = $this->provider('Isolated Analytics Studio', true);
+        [$otherProvider] = $this->provider('Other Analytics Studio', true);
+        $otherService = $otherProvider->services()->create([
+            'name' => 'Other Provider Service',
+            'price' => 30000,
+            'duration_minutes' => 60,
+        ]);
+        $otherBooking = Booking::create([
+            'provider_id' => $otherProvider->id,
+            'customer_id' => User::factory()->create()->id,
+            'service_id' => $otherService->id,
+            'date' => now()->addDay()->toDateString(),
+            'time' => '10:00',
+            'status' => 'completed',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        Payment::create([
+            'provider_id' => $otherProvider->id,
+            'booking_id' => $otherBooking->id,
+            'reference' => 'OTHER-PROVIDER-PAYMENT',
+            'amount' => 30000,
+            'currency' => 'NGN',
+            'status' => 'paid',
+            'paid_at' => now(),
+        ]);
+        ProfileView::create([
+            'provider_id' => $otherProvider->id,
+            'session_id' => 'other-provider-viewer',
+            'viewed_on' => today(),
+        ]);
+
+        Sanctum::actingAs($user);
+        $from = today()->subDays(2)->toDateString();
+        $to = today()->toDateString();
+        $response = $this->getJson("/api/provider/analytics?date_from={$from}&date_to={$to}")
+            ->assertOk()
+            ->assertJsonCount(3, 'data.current.trend')
+            ->assertJsonPath('data.current.profile_view_count', 0)
+            ->assertJsonPath('data.current.booking_count', 0)
+            ->assertJsonPath('data.current.revenue', 0)
+            ->assertJsonCount(0, 'data.current.service_popularity')
+            ->assertJsonCount(0, 'data.current.status_breakdown');
+
+        $this->assertSame([0, 0, 0], collect($response->json('data.current.trend'))->pluck('views')->all());
+        $this->assertSame([0, 0, 0], collect($response->json('data.current.trend'))->pluck('bookings')->all());
+
+        ProfileView::create([
+            'provider_id' => $provider->id,
+            'session_id' => 'this-provider-viewer',
+            'viewed_on' => today(),
+        ]);
+
+        $this->getJson("/api/provider/analytics?date_from={$from}&date_to={$to}")
+            ->assertOk()
+            ->assertJsonPath('data.current.profile_view_count', 1)
+            ->assertJsonPath('data.current.trend.2.views', 1);
     }
 
     public function test_customer_saved_provider_actions_are_idempotent(): void

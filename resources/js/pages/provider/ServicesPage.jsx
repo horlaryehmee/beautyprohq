@@ -144,7 +144,8 @@ export default function ProviderServicesPage() {
         try {
             const updated = await apiRequest('put', '/provider/profile', { default_currency });
             profileResource.setData((current) => ({ ...current, ...(updated ?? {}), default_currency }));
-            notify('Pricing currency updated. New services and products will use this currency.');
+            await resource.reload(true);
+            notify(`Pricing currency updated to ${default_currency} across all services and products.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -165,7 +166,7 @@ export default function ProviderServicesPage() {
             <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Pricing currency</p>
-                    <p className="mt-1 text-sm text-slate-500">Used for new services, digital products, bookings, and provider payments.</p>
+                    <p className="mt-1 text-sm text-slate-500">One currency is used across all services and products. Existing prices are converted using the current platform exchange rates.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {currencySaving && <span className="text-xs font-bold text-slate-400">Saving...</span>}

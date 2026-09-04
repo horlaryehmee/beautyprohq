@@ -29,6 +29,8 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class BookingController extends Controller
 {
+    private const PAYSTACK_BOOKING_CURRENCIES = ['NGN', 'USD'];
+
     public function providerPaystackWebhook(Request $request, PaymentAccount $paymentAccount, string $token): JsonResponse
     {
         abort_unless($paymentAccount->gateway === 'paystack', 404);
@@ -323,11 +325,6 @@ class BookingController extends Controller
         $methods = $this->connectedPaymentGateways($provider);
         if ($requested && in_array($requested, $methods, true)) {
             return $requested;
-        }
-
-        $preferred = $provider->default_payment_gateway;
-        if ($preferred && in_array($preferred, $methods, true)) {
-            return $preferred;
         }
 
         abort_if(! count($methods), 422, 'This provider has not connected a payment method yet.');
@@ -634,7 +631,7 @@ class BookingController extends Controller
 
     private function preferredProviderGateway(Payment $payment): string
     {
-        $preferred = $payment->metadata['selected_gateway'] ?? $payment->provider->default_payment_gateway;
+        $preferred = $payment->metadata['selected_gateway'] ?? null;
         if (in_array($preferred, ['paystack', 'stripe', 'paypal'], true)) {
             $account = $payment->provider->paymentAccounts
                 ->first(fn ($item) => $item->gateway === $preferred && ($item->enabled || $item->is_connected));
@@ -659,11 +656,17 @@ class BookingController extends Controller
         $secret = $this->providerPaystackSecretKey($account);
         abort_unless($secret, 422, 'This provider has not added a Paystack secret key.');
         abort_unless($account->public_key, 422, 'This provider has not added a Paystack public key.');
+        $currency = strtoupper((string) $payment->currency);
+        abort_unless(
+            in_array($currency, self::PAYSTACK_BOOKING_CURRENCIES, true),
+            422,
+            'Paystack booking payments are available in NGN and USD only. Change the service pricing currency to continue.'
+        );
 
         $response = Http::external()->withToken($secret)->post('https://api.paystack.co/transaction/initialize', [
             'email' => $payment->booking->customer->email,
             'amount' => (int) round((float) $payment->amount * 100),
-            'currency' => $payment->currency,
+            'currency' => $currency,
             'reference' => $reference,
             'callback_url' => rtrim(config('app.frontend_url', config('app.url')), '/').'/booking-confirmation?reference='.$reference.'&payment_token='.($payment->metadata['payment_token'] ?? ''),
             'metadata' => $metadata,

@@ -13,6 +13,7 @@ use App\Models\VerificationRequest;
 use App\Models\User;
 use App\Notifications\PlatformUpdateNotification;
 use App\Services\UploadService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -123,6 +124,7 @@ class DashboardController extends Controller
             'website' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
             'base_price' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999'],
             'default_currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
+            'timezone' => ['sometimes', 'timezone'],
             'profile_photo' => ['sometimes', 'nullable', ...$photoRules],
             'cover_image' => ['sometimes', 'nullable', ...$coverRules],
             'social_links' => ['sometimes', 'nullable', 'array'],
@@ -482,41 +484,110 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'period' => ['nullable', Rule::in(['day', 'week', 'month'])],
+            'date_from' => ['nullable', 'date_format:Y-m-d', 'required_with:date_to'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', 'required_with:date_from', 'after_or_equal:date_from'],
+            'compare_date_from' => ['nullable', 'date_format:Y-m-d', 'required_with:compare_date_to'],
+            'compare_date_to' => ['nullable', 'date_format:Y-m-d', 'required_with:compare_date_from', 'after_or_equal:compare_date_from'],
         ]);
         $provider = $request->user()->providerProfile;
         $period = $validated['period'] ?? 'month';
-        $from = match ($period) {
-            'day' => now()->startOfDay(),
-            'week' => now()->startOfWeek(),
-            default => now()->startOfMonth(),
-        };
-        $views = ProfileView::where('provider_id', $provider->id)->where('viewed_on', '>=', $from)->select('viewed_on', DB::raw('count(*) as total'))->groupBy('viewed_on')->orderBy('viewed_on')->get();
-        $bookings = Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from);
-        $viewCount = $views->sum('total');
-        $bookingCount = (clone $bookings)->count();
-        $retention = $this->customerRetention($provider->id, $from);
+        $from = isset($validated['date_from'])
+            ? Carbon::createFromFormat('Y-m-d', $validated['date_from'])->startOfDay()
+            : match ($period) {
+                'day' => now()->startOfDay(),
+                'week' => now()->startOfWeek(),
+                default => now()->startOfMonth(),
+            };
+        $to = isset($validated['date_to'])
+            ? Carbon::createFromFormat('Y-m-d', $validated['date_to'])->endOfDay()
+            : now()->endOfDay();
+        abort_if($from->diffInDays($to) > 366, 422, 'Analytics ranges cannot exceed 367 days.');
+
+        $current = $this->analyticsRange($provider, $from, $to);
+        $comparison = null;
+        if (isset($validated['compare_date_from'], $validated['compare_date_to'])) {
+            $compareFrom = Carbon::createFromFormat('Y-m-d', $validated['compare_date_from'])->startOfDay();
+            $compareTo = Carbon::createFromFormat('Y-m-d', $validated['compare_date_to'])->endOfDay();
+            abort_if($compareFrom->diffInDays($compareTo) > 366, 422, 'Comparison ranges cannot exceed 367 days.');
+            $comparison = $this->analyticsRange($provider, $compareFrom, $compareTo);
+        }
 
         return $this->success([
             'period' => $period,
             'from' => $from->toDateString(),
-            'to' => now()->toDateString(),
-            'profile_views' => $views,
-            'booking_count' => $bookingCount,
-            'conversion_rate' => $viewCount > 0 ? round($bookingCount / $viewCount * 100, 1) : 0,
-            'customer_retention_rate' => $retention['rate'],
-            'returning_customers' => $retention['returning_customers'],
-            'period_customers' => $retention['period_customers'],
-            'service_popularity' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('service_id', DB::raw('count(*) as bookings_count'))->with('service:id,name')->groupBy('service_id')->orderByDesc('bookings_count')->get(),
-            'status_breakdown' => Booking::where('provider_id', $provider->id)->where('created_at', '>=', $from)->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
+            'to' => $to->toDateString(),
+            ...$current,
+            'current' => $current,
+            'comparison' => $comparison,
         ]);
     }
 
-    private function customerRetention(int $providerId, $from): array
+    private function analyticsRange($provider, Carbon $from, Carbon $to): array
+    {
+        $providerId = (int) $provider->id;
+        $views = ProfileView::where('provider_id', $providerId)
+            ->whereDate('viewed_on', '>=', $from->toDateString())
+            ->whereDate('viewed_on', '<=', $to->toDateString())
+            ->select('viewed_on', DB::raw('count(*) as total'))
+            ->groupBy('viewed_on')
+            ->orderBy('viewed_on')
+            ->get();
+        $bookings = Booking::where('provider_id', $providerId)->whereBetween('created_at', [$from, $to]);
+        $payments = Payment::where('provider_id', $providerId)->where('status', 'paid')->whereBetween('paid_at', [$from, $to]);
+        $viewCount = (int) $views->sum('total');
+        $bookingCount = (clone $bookings)->count();
+        $completedCount = (clone $bookings)->where('status', 'completed')->count();
+        $cancelledCount = (clone $bookings)->whereIn('status', ['cancelled', 'rejected'])->count();
+        $retention = $this->customerRetention($providerId, $from, $to);
+        $primaryCurrency = strtoupper((string) ($provider->default_currency ?? config('currencies.default', 'NGN')));
+        $revenue = (float) (clone $payments)->where('currency', $primaryCurrency)->sum('amount');
+        $paidPaymentCount = (clone $payments)->where('currency', $primaryCurrency)->count();
+        $viewsByDate = $views->mapWithKeys(fn ($row) => [$row->viewed_on->toDateString() => (int) $row->total]);
+        $bookingsByDate = (clone $bookings)
+            ->selectRaw('DATE(created_at) as analytics_date, count(*) as total')
+            ->groupBy('analytics_date')
+            ->pluck('total', 'analytics_date');
+        $trend = collect();
+        for ($date = $from->copy()->startOfDay(); $date->lte($to); $date->addDay()) {
+            $key = $date->toDateString();
+            $trend->push([
+                'date' => $key,
+                'label' => $date->format($from->diffInDays($to) > 60 ? 'M j' : 'D, M j'),
+                'views' => (int) ($viewsByDate[$key] ?? 0),
+                'bookings' => (int) ($bookingsByDate[$key] ?? 0),
+            ]);
+        }
+
+        return [
+            'range' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'days' => $from->diffInDays($to) + 1],
+            'profile_views' => $views,
+            'profile_view_count' => $viewCount,
+            'booking_count' => $bookingCount,
+            'completed_booking_count' => $completedCount,
+            'cancelled_booking_count' => $cancelledCount,
+            'unique_customers' => $retention['period_customers'],
+            'conversion_rate' => $viewCount > 0 ? round($bookingCount / $viewCount * 100, 1) : 0,
+            'completion_rate' => $bookingCount > 0 ? round($completedCount / $bookingCount * 100, 1) : 0,
+            'cancellation_rate' => $bookingCount > 0 ? round($cancelledCount / $bookingCount * 100, 1) : 0,
+            'customer_retention_rate' => $retention['rate'],
+            'returning_customers' => $retention['returning_customers'],
+            'period_customers' => $retention['period_customers'],
+            'revenue' => $revenue,
+            'revenue_currency' => $primaryCurrency,
+            'average_booking_value' => $paidPaymentCount > 0 ? round($revenue / $paidPaymentCount, 2) : 0,
+            'trend' => $trend,
+            'service_popularity' => (clone $bookings)->select('service_id', DB::raw('count(*) as bookings_count'))->with('service:id,name')->groupBy('service_id')->orderByDesc('bookings_count')->get(),
+            'status_breakdown' => (clone $bookings)->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
+        ];
+    }
+
+    private function customerRetention(int $providerId, $from, $to = null): array
     {
         $retentionStatuses = ['pending', 'confirmed', 'completed'];
         $periodCustomers = Booking::where('provider_id', $providerId)
             ->whereIn('status', $retentionStatuses)
             ->where('created_at', '>=', $from)
+            ->when($to, fn ($query) => $query->where('created_at', '<=', $to))
             ->select('customer_id', DB::raw('count(*) as period_bookings'))
             ->groupBy('customer_id')
             ->get();

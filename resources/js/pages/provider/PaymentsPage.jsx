@@ -9,6 +9,7 @@ import {
     Field,
     LoadingBlock,
     PageHeader,
+    Pagination,
     StatCard,
     StatusBadge,
     apiErrorMessage,
@@ -20,7 +21,7 @@ import {
 } from '../../components/dashboard';
 
 const gateways = [
-    { id: 'paystack', name: 'Paystack', description: 'Connect your own Paystack integration keys for booking payments.' },
+    { id: 'paystack', name: 'Paystack', description: 'Connect your own Paystack integration keys for NGN and USD booking payments.' },
     { id: 'manual', name: 'Manual payment', description: 'Add account details for bank transfer, cash, POS or other offline payment confirmation.' },
 ];
 
@@ -31,7 +32,19 @@ function savedAccount(accounts, gatewayId) {
 }
 
 export default function ProviderPaymentsPage() {
-    const resource = useApiResource('/provider/payments', {});
+    const [page, setPage] = useState(1);
+    const [filterForm, setFilterForm] = useState({ search: '', status: 'all', date_from: '', date_to: '' });
+    const [filters, setFilters] = useState(filterForm);
+    const resource = useApiResource('/provider/payments', {}, {
+        params: {
+            page,
+            per_page: 15,
+            search: filters.search || undefined,
+            status: filters.status === 'all' ? undefined : filters.status,
+            date_from: filters.date_from || undefined,
+            date_to: filters.date_to || undefined,
+        },
+    });
     const accountsResource = useApiResource('/provider/payment-accounts', {});
     const [activeGateway, setActiveGateway] = useState(null);
     const [account, setAccount] = useState({ public_key: '', secret_key: '', account_name: '', account_reference: '', instructions: '', enabled: true });
@@ -40,7 +53,9 @@ export default function ProviderPaymentsPage() {
     const dashboard = resource.data ?? {};
     const paymentRows = normalize(dashboard, 'payments').length ? normalize(dashboard, 'payments') : normalize(dashboard, 'transactions');
     const accounts = accountsResource.data?.accounts ?? accountsResource.data ?? {};
-    const totals = dashboard.stats ?? dashboard.summary ?? {};
+    const totals = dashboard.stats ?? dashboard.summary ?? dashboard.meta?.summary ?? {};
+    const pagination = dashboard.meta ?? {};
+    const hasFilters = Boolean(filters.search || filters.status !== 'all' || filters.date_from || filters.date_to);
 
     const transactions = paymentRows.map((row) => row.payment ? {
         ...row.payment,
@@ -95,6 +110,23 @@ export default function ProviderPaymentsPage() {
     };
     const activeSavedAccount = activeGateway ? savedAccount(accounts, activeGateway.id) : null;
 
+    const applyFilters = (event) => {
+        event.preventDefault();
+        if (filterForm.date_from && filterForm.date_to && filterForm.date_from > filterForm.date_to) {
+            notify('The start date must be before or equal to the end date.', 'error');
+            return;
+        }
+        setPage(1);
+        setFilters({ ...filterForm, search: filterForm.search.trim() });
+    };
+
+    const clearFilters = () => {
+        const emptyFilters = { search: '', status: 'all', date_from: '', date_to: '' };
+        setFilterForm(emptyFilters);
+        setFilters(emptyFilters);
+        setPage(1);
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader description="Connect your own account so customer payments can settle directly to you." eyebrow="Money" title="Payments" />
@@ -102,7 +134,7 @@ export default function ProviderPaymentsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
                 <StatCard icon="wallet" label="Paid out" tone="emerald" value={<Currency value={totals.paid ?? totals.total_paid ?? paidTotal} />} />
                 <StatCard icon="booking" label="Pending" tone="amber" value={<Currency value={totals.pending ?? totals.pending_amount ?? 0} />} />
-                <StatCard icon="analytics" label="Transactions" tone="sky" value={totals.transactions ?? transactions.length} />
+                <StatCard icon="analytics" label="Transactions" tone="sky" value={totals.transactions ?? pagination.total ?? transactions.length} />
             </div>
 
             {(resource.error || accountsResource.error) && (
@@ -126,6 +158,13 @@ export default function ProviderPaymentsPage() {
                                 </div>
                                 <h2 className="mt-4 font-bold text-slate-950">{gateway.name}</h2>
                                 <p className="mt-1 min-h-10 text-sm leading-5 text-slate-500">{gateway.description}</p>
+                                {gateway.id === 'paystack' && (
+                                    <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-700">
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-1">NGN</span>
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-1">USD</span>
+                                        <span className="font-semibold text-slate-500">supported</span>
+                                    </div>
+                                )}
                                 <Button className="mt-4 w-full" onClick={() => setActiveGateway(gateway)} type="button" variant={saved ? 'secondary' : 'primary'}>
                                     {saved ? 'Manage' : 'Connect'}
                                 </Button>
@@ -136,36 +175,80 @@ export default function ProviderPaymentsPage() {
             </Card>
 
             <Card>
-                <CardHeader title="Transactions" />
+                <CardHeader description="Search the full payment history or narrow it by status and payment date." title="Transactions" />
+                <form className="mb-6 rounded-2xl border border-slate-100 bg-slate-50/70 p-4" onSubmit={applyFilters}>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_minmax(150px,.7fr)_minmax(150px,.8fr)_minmax(150px,.8fr)_auto] xl:items-end">
+                        <Field label="Search">
+                            <input
+                                className={inputClass}
+                                onChange={(event) => setFilterForm((current) => ({ ...current, search: event.target.value }))}
+                                placeholder="Reference, service or customer"
+                                type="search"
+                                value={filterForm.search}
+                            />
+                        </Field>
+                        <Field label="Status">
+                            <select className={inputClass} onChange={(event) => setFilterForm((current) => ({ ...current, status: event.target.value }))} value={filterForm.status}>
+                                <option value="all">All statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="paid">Paid</option>
+                                <option value="failed">Failed</option>
+                                <option value="refunded">Refunded</option>
+                            </select>
+                        </Field>
+                        <Field label="From">
+                            <input className={inputClass} onChange={(event) => setFilterForm((current) => ({ ...current, date_from: event.target.value }))} type="date" value={filterForm.date_from} />
+                        </Field>
+                        <Field label="To">
+                            <input className={inputClass} min={filterForm.date_from || undefined} onChange={(event) => setFilterForm((current) => ({ ...current, date_to: event.target.value }))} type="date" value={filterForm.date_to} />
+                        </Field>
+                        <div className="flex gap-2">
+                            <Button className="flex-1 xl:flex-none" type="submit">Apply</Button>
+                            {(hasFilters || filterForm.search || filterForm.status !== 'all' || filterForm.date_from || filterForm.date_to) && (
+                                <Button onClick={clearFilters} type="button" variant="secondary">Clear</Button>
+                            )}
+                        </div>
+                    </div>
+                </form>
                 {resource.loading ? (
                     <LoadingBlock rows={5} />
                 ) : transactions.length ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[680px] text-left text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-                                    <th className="pb-3 font-bold">Reference</th>
-                                    <th className="pb-3 font-bold">Booking</th>
-                                    <th className="pb-3 font-bold">Date</th>
-                                    <th className="pb-3 font-bold">Amount</th>
-                                    <th className="pb-3 text-right font-bold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {transactions.map((payment) => (
-                                    <tr className="border-b border-slate-50 last:border-0" key={payment.id}>
-                                        <td className="py-4 font-semibold text-slate-800">{payment.reference ?? `BPHQ-${payment.id}`}</td>
-                                        <td className="py-4 text-slate-500">{payment.booking?.service?.name ?? payment.service_name ?? `#${payment.booking_id}`}</td>
-                                        <td className="py-4 text-slate-500">{formatDate(payment.created_at)}</td>
-                                        <td className="py-4 font-bold text-slate-900"><Currency currency={payment.currency ?? 'NGN'} value={payment.amount} /></td>
-                                        <td className="py-4 text-right"><StatusBadge status={payment.status} /></td>
+                    <div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[680px] text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                                        <th className="pb-3 font-bold">Reference</th>
+                                        <th className="pb-3 font-bold">Booking</th>
+                                        <th className="pb-3 font-bold">Date</th>
+                                        <th className="pb-3 font-bold">Amount</th>
+                                        <th className="pb-3 text-right font-bold">Status</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {transactions.map((payment) => (
+                                        <tr className="border-b border-slate-50 last:border-0" key={payment.id}>
+                                            <td className="py-4 font-semibold text-slate-800">{payment.reference ?? `BPHQ-${payment.id}`}</td>
+                                            <td className="py-4 text-slate-500">{payment.booking?.service?.name ?? payment.service_name ?? `#${payment.booking_id}`}</td>
+                                            <td className="py-4 text-slate-500">{formatDate(payment.created_at)}</td>
+                                            <td className="py-4 font-bold text-slate-900"><Currency currency={payment.currency ?? 'NGN'} value={payment.amount} /></td>
+                                            <td className="py-4 text-right"><StatusBadge status={payment.status} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {Number(pagination.last_page ?? 1) > 1 && (
+                            <Pagination page={pagination.current_page ?? page} pageCount={pagination.last_page} onPageChange={setPage} />
+                        )}
                     </div>
                 ) : (
-                    <EmptyState description="Completed booking payments will appear here." icon="wallet" title="No transactions yet" />
+                    <EmptyState
+                        description={hasFilters ? 'Try changing or clearing the filters to see more results.' : 'Completed booking payments will appear here.'}
+                        icon="wallet"
+                        title={hasFilters ? 'No matching transactions' : 'No transactions yet'}
+                    />
                 )}
             </Card>
 
@@ -194,11 +277,17 @@ export default function ProviderPaymentsPage() {
                             ) : (
                                 <>
                                     {activeGateway.id === 'paystack' && (
-                                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-                                            <p className="font-semibold text-slate-950">Paystack webhook URL</p>
-                                            <p className="mt-2 break-all font-mono text-xs text-slate-700">{activeSavedAccount?.webhook_url ?? 'Save this Paystack account to generate its unique webhook URL.'}</p>
-                                            <p className="mt-2 text-xs leading-5">Use this in the Paystack dashboard for this provider account so booking payments can be confirmed automatically.</p>
-                                        </div>
+                                        <>
+                                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                                                <p className="font-bold">Supported currencies: NGN and USD</p>
+                                                <p className="mt-1 text-xs leading-5 text-emerald-800">NGN is available by default for Nigerian Paystack businesses. To charge customers in USD, first enable USD payments and add an eligible USD settlement account in your Paystack dashboard.</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                                                <p className="font-semibold text-slate-950">Paystack webhook URL</p>
+                                                <p className="mt-2 break-all font-mono text-xs text-slate-700">{activeSavedAccount?.webhook_url ?? 'Save this Paystack account to generate its unique webhook URL.'}</p>
+                                                <p className="mt-2 text-xs leading-5">Use this in the Paystack dashboard for this provider account so booking payments can be confirmed automatically.</p>
+                                            </div>
+                                        </>
                                     )}
                                     <Field label={activeGateway.id === 'paypal' ? 'PayPal client ID' : `${activeGateway.name} public key`}>
                                         <input

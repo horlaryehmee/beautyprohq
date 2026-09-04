@@ -20,6 +20,7 @@ const sections = [
     ]],
     ['Services', [
         'Create each service with a clear name, category, price, duration, description and active state.',
+        'One business currency applies to every service and product; changing it converts existing prices using the current platform rates.',
         'Customers can only book active services attached to the provider profile.',
         'Keep service descriptions practical: what is included, expected duration, preparation and limits.',
         'If a service should not appear publicly, deactivate it instead of deleting it.',
@@ -44,9 +45,10 @@ const sections = [
     ]],
     ['Payments and gateways', [
         'Payment gateway settings are scoped to the provider account.',
-        'Paystack, Stripe or PayPal can be connected where supported, then selected as the default gateway in Settings.',
+        'Provider Paystack booking payments support NGN and USD. USD must also be enabled on the provider’s Paystack account.',
+        'Paystack, Stripe or PayPal can be connected where supported, and customers choose from the available methods when booking.',
         'Customer booking payments are routed through the connected account for the booking provider.',
-        'If payment fails, public key/client ID, secret key, account reference, enabled state and default gateway should be checked.',
+        'If payment fails, public key/client ID, secret key, account reference and enabled state should be checked.',
     ]],
     ['Subscription and plan access', [
         'Free accounts have limited access. Paid/pro accounts unlock full business features.',
@@ -74,6 +76,7 @@ const sections = [
     ]],
     ['Analytics', [
         'Analytics shows profile views, bookings, revenue and customer activity.',
+        'Use custom start and end dates to report on any period, or compare it with another date range.',
         'Use analytics to decide which services, profile updates and promotions are working.',
         'If analytics data is empty, confirm that bookings/views exist and that the selected date range includes activity.',
     ]],
@@ -90,7 +93,7 @@ const sections = [
         'Approved verification displays the verification tag on public provider profiles and cards.',
     ]],
     ['Settings and security', [
-        'Settings controls default currency, default payment gateway, optional notifications and account security.',
+        'Profile controls service currency and work-hour timezone; Calendar also provides direct access to timezone and availability.',
         'Two-factor authentication is available for account protection.',
         'Email and phone details are used for notifications, bookings and account recovery.',
         'Gateway secret keys are stored for provider payment processing and should be kept accurate.',
@@ -98,7 +101,7 @@ const sections = [
     ['Troubleshooting', [
         'Cannot access dashboard: check login email, password, two-factor code, account status and subscription.',
         'Bookings not showing: confirm services are active, availability is set and the profile is listed.',
-        'Payments not working: confirm gateway credentials, default gateway and account enabled state.',
+        'Payments not working: confirm gateway credentials and the account enabled state.',
         'WhatsApp not working: confirm the tab is visible, the number is saved, alerts are enabled and Twilio is connected by admin.',
         'Profile data wrong on public site: update Profile, then refresh the public page and clear browser cache if needed.',
     ]],

@@ -39,6 +39,7 @@ export default function AdminSettingsPage() {
     const featuresResource = useApiResource('/admin/settings/features', {});
     const twilioResource = useApiResource('/admin/settings/twilio', {});
     const smtpResource = useApiResource('/admin/settings/smtp', {});
+    const liveChatResource = useApiResource('/admin/settings/live-chat', {});
     const demoResource = useApiResource('/admin/demo-data', {});
     const deploymentResource = useApiResource('/admin/settings/deployment', {});
     const { notify } = useDashboardToast();
@@ -51,6 +52,7 @@ export default function AdminSettingsPage() {
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
+    const [liveChatForm, setLiveChatForm] = useState({ inbound_secret: '', reply_domain: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
     const [twilioTestPhone, setTwilioTestPhone] = useState('');
     const [twilioTestMessage, setTwilioTestMessage] = useState('BeautyPro HQ WhatsApp test message. Your Twilio WhatsApp connection is working.');
@@ -65,6 +67,7 @@ export default function AdminSettingsPage() {
     const [savingFeatures, setSavingFeatures] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
     const [savingSmtp, setSavingSmtp] = useState(false);
+    const [savingLiveChat, setSavingLiveChat] = useState(false);
     const [testingTwilio, setTestingTwilio] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
     const [testingEmailNotification, setTestingEmailNotification] = useState(false);
@@ -146,6 +149,15 @@ export default function AdminSettingsPage() {
             whatsapp_from: data.whatsapp_from ?? '',
         });
     }, [twilioResource.data]);
+
+    useEffect(() => {
+        const data = liveChatResource.data;
+        if (!data || !Object.keys(data).length) return;
+        setLiveChatForm({
+            inbound_secret: '',
+            reply_domain: data.reply_domain ?? '',
+        });
+    }, [liveChatResource.data]);
 
     useEffect(() => {
         const data = smtpResource.data;
@@ -358,6 +370,21 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const saveLiveChat = async (event) => {
+        event.preventDefault();
+        setSavingLiveChat(true);
+        try {
+            const saved = await apiRequest('put', '/admin/settings/live-chat', liveChatForm);
+            liveChatResource.setData(saved);
+            setLiveChatForm((current) => ({ ...current, inbound_secret: '' }));
+            notify('Live chat email reply settings saved.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setSavingLiveChat(false);
+        }
+    };
+
     const testTwilio = async () => {
         setTestingTwilio(true);
         try {
@@ -485,12 +512,12 @@ export default function AdminSettingsPage() {
     const dailyTestPlan = normalizePlans(plansResource.data).find((item) => item.key === 'daily_test');
     const deploymentLog = deploymentResource.data?.artisan_output || deploymentResource.data?.log || '';
     const deploymentStatus = deploymentResource.data?.status ?? 'never_run';
-    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || demoResource.error || deploymentResource.error;
+    const error = gatewayResource.error || plansResource.error || paystackResource.error || stripeResource.error || brandingResource.error || currencyResource.error || featuresResource.error || twilioResource.error || smtpResource.error || liveChatResource.error || demoResource.error || deploymentResource.error;
 
     return (
         <div className="space-y-6">
             <PageHeader description="Configure platform-level payment and currency behavior." eyebrow="Platform" title="Settings" />
-            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
+            {error && <ErrorState message={error} onRetry={() => { gatewayResource.reload(); plansResource.reload(); paystackResource.reload(); stripeResource.reload(); brandingResource.reload(); currencyResource.reload(); featuresResource.reload(); twilioResource.reload(); smtpResource.reload(); liveChatResource.reload(); demoResource.reload(); deploymentResource.reload(); }} />}
 
             <div className="grid min-w-0 gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
                 <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
@@ -827,6 +854,72 @@ export default function AdminSettingsPage() {
                             </Field>
                         </div>
                         <div className="flex justify-end"><Button busy={savingTwilio} disabled={testingTwilio} type="submit">Save Twilio settings</Button></div>
+                    </form>
+                )}
+            </Card>
+
+            <Card className={sectionTab === 'communications' ? '' : 'hidden'}>
+                <CardHeader
+                    title="Live chat reply-by-email"
+                    description="Let customers reply to live chat by email. When they reply, the message is added back into the provider's chat automatically."
+                    action={liveChatResource.data?.configured ? <StatusBadge status="email replies on" /> : <StatusBadge status="email replies off" />}
+                />
+                {liveChatResource.loading ? <LoadingBlock rows={4} /> : (
+                    <form className="mt-5 space-y-5" onSubmit={saveLiveChat}>
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                            <input
+                                checked={liveChatResource.data?.inbound_secret_configured}
+                                className="mt-1 h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                                disabled
+                                readOnly
+                                type="checkbox"
+                            />
+                            <span>
+                                <span className="block text-sm font-bold text-slate-900">Capture live chat replies from email</span>
+                                <span className="block text-sm text-slate-500">When a provider sends a chat message, the customer receives an email with a Reply-To address. Replying to that email posts the reply into the provider's live chat.</span>
+                            </span>
+                        </label>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Field hint="Leave blank to keep the saved secret. Used to sign and verify incoming reply emails." label="Inbound secret">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setLiveChatForm((current) => ({ ...current, inbound_secret: event.target.value }))}
+                                    placeholder="A long, random secret code"
+                                    type="password"
+                                    value={liveChatForm.inbound_secret}
+                                />
+                            </Field>
+                            <Field hint="The domain that receives chat reply emails, for example chat.example.com." label="Reply-to domain">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setLiveChatForm((current) => ({ ...current, reply_domain: event.target.value }))}
+                                    placeholder="chat.example.com"
+                                    value={liveChatForm.reply_domain}
+                                />
+                            </Field>
+                            <div className="flex flex-wrap items-end gap-2 lg:col-span-2">
+                                {liveChatResource.data?.inbound_secret_configured && <StatusBadge status={`Inbound secret ends ${liveChatResource.data.inbound_secret_last4}`} />}
+                                {liveChatResource.data?.reply_domain && <StatusBadge status={`Reply domain ${liveChatResource.data.reply_domain}`} />}
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                            <span className="font-bold text-slate-950">Inbound webhook URL:</span>{' '}
+                            <span className="font-mono break-all">{liveChatResource.data?.webhook_url}</span>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm leading-6 text-slate-600">
+                            <h3 className="text-sm font-bold text-slate-950">How to set up email replies</h3>
+                            <ol className="mt-2 list-decimal space-y-1 px-4">
+                                <li>Create a catch-all mailbox (or a forwarding rule) on <span className="font-mono">{liveChatResource.data?.reply_domain ?? 'your reply-to domain'}</span> that accepts incoming mail.</li>
+                                <li>Forward inbound mail to the webhook URL above (as a POST with the email content).</li>
+                                <li>Send the same inbound secret value as the <span className="font-mono">token</span> field on each forwarded request.</li>
+                            </ol>
+                            <p className="mt-2 text-slate-500">Customers can also reply by tapping the "Reply to this chat" link in the notification email, which works without any mailbox setup.</p>
+                        </div>
+
+                        <div className="flex justify-end"><Button busy={savingLiveChat} type="submit">Save live chat settings</Button></div>
                     </form>
                 )}
             </Card>

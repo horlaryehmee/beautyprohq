@@ -302,6 +302,39 @@ class SubscriptionController extends Controller
         return $this->adminTwilioSettings();
     }
 
+    public function adminLiveChatSettings(): JsonResponse
+    {
+        $secret = AppSetting::getValue('live_chat.inbound_secret') ?: config('services.live_chat.inbound_secret');
+        $domain = AppSetting::getValue('live_chat.reply_domain') ?: config('app.mail_reply_domain', config('app.url'));
+
+        return $this->success([
+            'inbound_secret_configured' => filled($secret),
+            'inbound_secret_last4' => filled($secret) ? substr((string) $secret, -4) : null,
+            'reply_domain' => $domain,
+            'webhook_url' => rtrim(config('app.url'), '/').'/api/live-chat/mail/reply',
+            'configured' => filled($secret) && filled($domain),
+            'source' => [
+                'secret' => filled(AppSetting::getValue('live_chat.inbound_secret')) ? 'admin_settings' : (filled(config('services.live_chat.inbound_secret')) ? 'env' : null),
+                'domain' => filled(AppSetting::getValue('live_chat.reply_domain')) ? 'admin_settings' : 'env',
+            ],
+        ]);
+    }
+
+    public function updateAdminLiveChatSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'inbound_secret' => ['nullable', 'string', 'max:255'],
+            'reply_domain' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if (filled($validated['inbound_secret'] ?? null)) {
+            AppSetting::setValue('live_chat.inbound_secret', $validated['inbound_secret'], true);
+        }
+        AppSetting::setValue('live_chat.reply_domain', $validated['reply_domain'] ?? null);
+
+        return $this->adminLiveChatSettings();
+    }
+
     public function testAdminTwilio(Request $request, TwilioWhatsAppService $twilio): JsonResponse
     {
         $validated = $request->validate([

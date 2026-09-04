@@ -29,6 +29,9 @@ const days = [
 ];
 
 const currencies = ['NGN', 'USD', 'EUR', 'GBP'];
+const timezoneOptions = typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : ['Africa/Lagos', 'UTC', 'Europe/London', 'America/New_York'];
 const socialOptions = ['Instagram', 'TikTok', 'Pinterest', 'Website', 'Facebook', 'YouTube', 'LinkedIn', 'WhatsApp'];
 const maxOriginalImageBytes = 12 * 1024 * 1024;
 const maxOptimizedImageDimension = 1600;
@@ -152,6 +155,7 @@ export default function ProviderProfilePage() {
         city: '',
         default_currency: 'NGN',
         base_price: '',
+        timezone: 'Africa/Lagos',
         availability: defaultAvailability,
         portfolio_links: [],
         portfolio_items: [],
@@ -187,6 +191,7 @@ export default function ProviderProfilePage() {
             city: current.city ?? '',
             default_currency: current.default_currency ?? 'NGN',
             base_price: current.base_price ?? '',
+            timezone: current.timezone ?? 'Africa/Lagos',
             availability: current.availability?.length ? current.availability.map((slot) => ({
                 day_of_week: Number(slot.day_of_week),
                 start_time: String(slot.start_time ?? '09:00').slice(0, 5),
@@ -368,6 +373,7 @@ export default function ProviderProfilePage() {
                 city: form.city || null,
                 default_currency: form.default_currency,
                 base_price: form.base_price || null,
+                timezone: form.timezone || 'Africa/Lagos',
                 availability: form.availability,
             };
             const hasImageUpload = form.profile_photo instanceof File || form.cover_image instanceof File;
@@ -602,13 +608,20 @@ export default function ProviderProfilePage() {
 
                     {currentSection === 'Pricing' && (
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label="Currency"><select className={inputClass} onChange={change('default_currency')} required value={form.default_currency}>{currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></Field>
+                            <Field hint="This applies to every service and product. Existing prices are converted using current platform exchange rates." label="Business currency"><select className={inputClass} onChange={change('default_currency')} required value={form.default_currency}>{currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></Field>
                             <Field label="Base price"><input className={inputClass} min="0" onChange={change('base_price')} required type="number" value={form.base_price} /></Field>
                         </div>
                     )}
 
                     {currentSection === 'Work hours' && (
                         <div className="space-y-3">
+                            <div className="mb-5 rounded-2xl border border-bphq-chrome/80 bg-bphq-ivory/45 p-4 sm:p-5">
+                                <Field hint="Customers see appointment times converted from this timezone." label="Business timezone">
+                                    <select className={inputClass} onChange={change('timezone')} value={form.timezone}>
+                                        {timezoneOptions.map((timezone) => <option key={timezone} value={timezone}>{timezone}</option>)}
+                                    </select>
+                                </Field>
+                            </div>
                             {days.map(([value, label]) => {
                                 const slot = form.availability.find((item) => Number(item.day_of_week) === Number(value));
                                 return (

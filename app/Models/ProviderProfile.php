@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CurrencyResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,44 @@ class ProviderProfile extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::updated(function (ProviderProfile $provider): void {
+            if (! $provider->wasChanged('default_currency')) {
+                return;
+            }
+
+            $currency = strtoupper((string) $provider->default_currency);
+            $previousCurrency = strtoupper((string) ($provider->getOriginal('default_currency') ?: config('currencies.default', 'NGN')));
+
+            if ($provider->base_price !== null) {
+                $provider->newQuery()->whereKey($provider->id)->update([
+                    'base_price' => CurrencyResolver::convert((float) $provider->base_price, $previousCurrency, $currency),
+                ]);
+            }
+
+            $provider->services()->where(function ($query) use ($currency): void {
+                $query->whereNull('currency')->orWhere('currency', '!=', $currency);
+            })->get()->each(function (Service $service) use ($currency, $previousCurrency): void {
+                $sourceCurrency = strtoupper((string) ($service->currency ?: $previousCurrency));
+                $service->update([
+                    'price' => CurrencyResolver::convert((float) $service->price, $sourceCurrency, $currency),
+                    'currency' => $currency,
+                ]);
+            });
+
+            $provider->digitalProducts()->where(function ($query) use ($currency): void {
+                $query->whereNull('currency')->orWhere('currency', '!=', $currency);
+            })->get()->each(function (DigitalProduct $product) use ($currency, $previousCurrency): void {
+                $sourceCurrency = strtoupper((string) ($product->currency ?: $previousCurrency));
+                $product->update([
+                    ...($product->price !== null ? ['price' => CurrencyResolver::convert((float) $product->price, $sourceCurrency, $currency)] : []),
+                    'currency' => $currency,
+                ]);
+            });
+        });
+    }
 
     protected function casts(): array
     {

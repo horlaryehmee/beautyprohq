@@ -19,11 +19,16 @@ import {
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const defaultSlots = days.map((_, index) => ({ day_of_week: index, enabled: index > 0 && index < 6, start_time: '09:00', end_time: '17:00' }));
 const normalize = (value, key) => Array.isArray(value) ? value : value?.[key] ?? value?.data ?? [];
+const timezoneOptions = typeof Intl.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('timeZone')
+    : ['Africa/Lagos', 'UTC', 'Europe/London', 'America/New_York'];
 
 export default function ProviderCalendarPage() {
     const availabilityResource = useApiResource('/provider/availability', []);
     const blockedResource = useApiResource('/provider/blocked-dates', []);
+    const settingsResource = useApiResource('/provider/settings', {});
     const [slots, setSlots] = useState(defaultSlots);
+    const [timezone, setTimezone] = useState('Africa/Lagos');
     const [blockedDate, setBlockedDate] = useState('');
     const [reason, setReason] = useState('');
     const [saving, setSaving] = useState(false);
@@ -38,6 +43,10 @@ export default function ProviderCalendarPage() {
         }));
     }, [availabilityResource.data]);
 
+    useEffect(() => {
+        if (settingsResource.data?.timezone) setTimezone(settingsResource.data.timezone);
+    }, [settingsResource.data]);
+
     const blockedDates = useMemo(() => normalize(blockedResource.data, 'blocked_dates'), [blockedResource.data]);
 
     const updateSlot = (index, patch) => setSlots((current) => current.map((slot) => slot.day_of_week === index ? { ...slot, ...patch } : slot));
@@ -45,8 +54,11 @@ export default function ProviderCalendarPage() {
     const saveAvailability = async () => {
         setSaving(true);
         try {
-            await apiRequest('put', '/provider/availability', { slots: slots.filter((slot) => slot.enabled).map(({ day_of_week, start_time, end_time }) => ({ day_of_week, start_time: String(start_time).slice(0, 5), end_time: String(end_time).slice(0, 5) })) });
-            notify('Weekly availability updated.');
+            await Promise.all([
+                apiRequest('put', '/provider/availability', { slots: slots.filter((slot) => slot.enabled).map(({ day_of_week, start_time, end_time }) => ({ day_of_week, start_time: String(start_time).slice(0, 5), end_time: String(end_time).slice(0, 5) })) }),
+                apiRequest('put', '/provider/settings', { timezone }),
+            ]);
+            notify('Calendar settings updated.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -83,8 +95,23 @@ export default function ProviderCalendarPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader actions={<Button busy={saving} onClick={saveAvailability} type="button">Save availability</Button>} description="Set recurring hours and block dates when you cannot take appointments." eyebrow="Schedule" title="Availability calendar" />
-            {(availabilityResource.error || blockedResource.error) && <ErrorState message={availabilityResource.error || blockedResource.error} onRetry={() => { availabilityResource.reload(); blockedResource.reload(); }} />}
+            <PageHeader actions={<Button busy={saving} onClick={saveAvailability} type="button">Save calendar</Button>} description="Set your timezone, recurring hours and dates when you cannot take appointments." eyebrow="Schedule" title="Availability calendar" />
+            {(availabilityResource.error || blockedResource.error || settingsResource.error) && <ErrorState message={availabilityResource.error || blockedResource.error || settingsResource.error} onRetry={() => { availabilityResource.reload(); blockedResource.reload(); settingsResource.reload(); }} />}
+
+            <Card className="overflow-hidden" padding={false}>
+                <div className="grid gap-4 bg-gradient-to-br from-bphq-ivory via-white to-fuchsia-50 p-5 sm:grid-cols-[1fr_minmax(260px,0.8fr)] sm:items-center sm:p-6">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-bphq-coffee">Calendar timezone</p>
+                        <h2 className="mt-1 font-display text-2xl font-semibold text-bphq-espresso">Where your working hours are based</h2>
+                        <p className="mt-2 text-sm leading-6 text-bphq-coffee">Customers will see these times converted to their own timezone while booking.</p>
+                    </div>
+                    <Field label="Business timezone">
+                        <select className={inputClass} onChange={(event) => setTimezone(event.target.value)} value={timezone}>
+                            {timezoneOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                        </select>
+                    </Field>
+                </div>
+            </Card>
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
                 <Card>
                     <CardHeader description="Customers can only request times inside these windows." title="Weekly hours" />

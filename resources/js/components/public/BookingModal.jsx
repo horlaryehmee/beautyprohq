@@ -409,7 +409,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     }, [provider?.loyalty_points_required, provider?.loyalty_reward_value_amount, selectedService?.price]);
     const paymentMethods = useMemo(() => {
         const methods = Array.isArray(provider?.payment_methods) ? provider.payment_methods : [];
-        return methods.length ? methods : (provider?.default_payment_gateway ? [{ gateway: provider.default_payment_gateway, label: provider.default_payment_gateway }] : []);
+        return methods;
     }, [provider]);
     const selectedPaymentMethod = paymentMethods.find((method) => method.gateway === paymentMethod) ?? paymentMethods[0];
 
@@ -424,7 +424,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
         setRedeemLoyalty(false);
         setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '', password_confirmation: '' });
-        setPaymentMethod(provider?.default_payment_gateway || paymentMethods[0]?.gateway || '');
+        setPaymentMethod(paymentMethods[0]?.gateway || '');
         setManualBooking(null);
         setAvailabilityData(null);
         setCheckoutUrl('');
@@ -442,7 +442,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             }
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, initialService, availableServices, onClose, standalone, user, provider?.default_payment_gateway, paymentMethods, referralRewardsAvailable]);
+    }, [open, initialService, availableServices, onClose, standalone, user, paymentMethods, referralRewardsAvailable]);
 
     useEffect(() => {
         if (!open || !date || !pro.slug) return;

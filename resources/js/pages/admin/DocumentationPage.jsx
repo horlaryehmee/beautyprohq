@@ -60,7 +60,7 @@ const sections = [
         'Providers connect their own Paystack, Stripe or PayPal credentials in their dashboard.',
         'A booking payment must always be tied to the booking provider ID, provider payment account ID, amount, currency and gateway reference.',
         'Admin subscription payment credentials are not used for provider booking payouts.',
-        'If checkout fails, review provider gateway credentials, default gateway, account enabled state and payment status.',
+        'If checkout fails, review provider gateway credentials, account enabled state and payment status.',
     ]],
     ['SMTP email setup', [
         'SMTP is connected from Admin Settings.',
