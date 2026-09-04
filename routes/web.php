@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\GoogleCalendarOAuthController;
+use App\Http\Controllers\GoogleWorkspaceOAuthController;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
 use App\Models\AppSetting;
@@ -65,6 +66,12 @@ Route::get('/auth/google/calendar/redirect', [GoogleCalendarOAuthController::cla
 Route::match(['get', 'post'], '/auth/google/calendar/callback', [GoogleCalendarOAuthController::class, 'callback'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.calendar.callback');
+Route::get('/auth/google/mail/redirect', [GoogleWorkspaceOAuthController::class, 'redirect'])
+    ->middleware(['auth', 'active', 'role:admin', 'throttle:sensitive'])
+    ->name('auth.google.mail.redirect');
+Route::match(['get', 'post'], '/auth/google/mail/callback', [GoogleWorkspaceOAuthController::class, 'callback'])
+    ->middleware('throttle:sensitive')
+    ->name('auth.google.mail.callback');
 
 Route::get('/coming-soon/bypass/{token}', function (Request $request, string $token) use ($comingSoonBypassToken) {
     $savedToken = $comingSoonBypassToken();

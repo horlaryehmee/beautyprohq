@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/newsletter/subscribe',
             'auth/google/callback',
             'auth/google/calendar/callback',
+            'auth/google/mail/callback',
         ]);
 
         $middleware->append([

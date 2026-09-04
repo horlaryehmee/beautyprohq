@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Mail\Transport\GoogleWorkspaceTransport;
 use App\Models\AppSetting;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
 use App\Observers\NewsletterSubscriberMailchimpObserver;
 use App\Observers\UserMailchimpObserver;
+use App\Services\GoogleWorkspaceMailService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -45,6 +48,8 @@ class AppServiceProvider extends ServiceProvider
 
         Http::macro('external', fn () => Http::connectTimeout((int) config('services.http.connect_timeout', 5))
             ->timeout((int) config('services.http.timeout', 15)));
+
+        Mail::extend('google_workspace', fn (): GoogleWorkspaceTransport => new GoogleWorkspaceTransport(app(GoogleWorkspaceMailService::class)));
 
         $this->configureRateLimiting();
         $this->configureHealthChecks();
@@ -176,12 +181,16 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $mailConfig = [
-                'mail.default' => $mailer === 'google_workspace' ? 'smtp' : $mailer,
+                'mail.default' => $mailer,
                 'mail.from.address' => $fromAddress,
                 'mail.from.name' => AppSetting::getValue('smtp.from_name') ?: config('app.name'),
             ];
 
-            if (in_array($mailer, ['smtp', 'google_workspace'], true)) {
+            if ($mailer === 'google_workspace') {
+                $mailConfig['mail.mailers.google_workspace'] = ['transport' => 'google_workspace'];
+            }
+
+            if ($mailer === 'smtp') {
                 $host = AppSetting::getValue('smtp.host');
                 $port = AppSetting::getValue('smtp.port');
                 $encryption = AppSetting::getValue('smtp.encryption');

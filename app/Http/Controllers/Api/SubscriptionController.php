@@ -22,6 +22,7 @@ use App\Notifications\NewsletterSubscriptionConfirmation;
 use App\Notifications\OpportunityEnquiryConfirmation;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\TwoFactorCodeNotification;
+use App\Services\GoogleWorkspaceMailService;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
 use App\Support\CurrencyResolver;
@@ -360,6 +361,7 @@ class SubscriptionController extends Controller
 
     public function adminSmtpSettings(): JsonResponse
     {
+        $workspace = app(GoogleWorkspaceMailService::class);
         $mailer = AppSetting::getValue('smtp.mailer', 'smtp');
         $password = AppSetting::getValue('smtp.password');
         $configuredEncryption = config('mail.mailers.smtp.scheme') === 'smtps'
@@ -385,16 +387,15 @@ class SubscriptionController extends Controller
             'sendmail_path' => config('mail.mailers.php_mail.path'),
             'password_configured' => filled($password ?: config('mail.mailers.smtp.password')),
             'password_last4' => filled($password ?: config('mail.mailers.smtp.password')) ? substr((string) ($password ?: config('mail.mailers.smtp.password')), -4) : null,
+            'google_workspace' => $workspace->payload(),
             'configured' => $enabled
                 && filled($fromAddress)
-                && ($mailer === 'php_mail' || (
-                    filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
-                    && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
-                    && ($mailer !== 'google_workspace' || (
-                        filled(AppSetting::getValue('smtp.username'))
-                        && filled($password ?: config('mail.mailers.smtp.password'))
-                    ))
-                )),
+                && ($mailer === 'php_mail'
+                    || ($mailer === 'google_workspace' && $workspace->connected())
+                    || ($mailer === 'smtp' && (
+                        filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
+                        && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
+                    ))),
         ]);
     }
 
@@ -414,12 +415,10 @@ class SubscriptionController extends Controller
 
         $mailer = $validated['mailer'] ?? 'smtp';
         $previousMailer = AppSetting::getValue('smtp.mailer', 'smtp');
-        $host = $mailer === 'google_workspace' ? 'smtp.gmail.com' : ($validated['host'] ?? null);
-        $port = $mailer === 'google_workspace' ? 587 : ($validated['port'] ?? null);
-        $encryption = $mailer === 'google_workspace' ? 'tls' : ($validated['encryption'] ?? null);
-        $username = $mailer === 'google_workspace'
-            ? ($validated['username'] ?? $validated['from_address'] ?? null)
-            : ($validated['username'] ?? null);
+        $host = $validated['host'] ?? null;
+        $port = $validated['port'] ?? null;
+        $encryption = $validated['encryption'] ?? null;
+        $username = $validated['username'] ?? null;
 
         AppSetting::setValue('smtp.enabled', $validated['enabled'] ? '1' : '0');
         AppSetting::setValue('smtp.mailer', $mailer);
@@ -429,12 +428,23 @@ class SubscriptionController extends Controller
         AppSetting::setValue('smtp.encryption', $encryption);
         AppSetting::setValue('smtp.from_address', $validated['from_address'] ?? null);
         AppSetting::setValue('smtp.from_name', $validated['from_name'] ?? null);
-        if (filled($validated['password'] ?? null)) {
+        if ($mailer !== 'google_workspace' && filled($validated['password'] ?? null)) {
             AppSetting::setValue('smtp.password', $validated['password'], true);
         } elseif ($previousMailer !== $mailer && $mailer !== 'php_mail') {
             AppSetting::setValue('smtp.password', null, true);
         }
 
+        app('mail.manager')->forgetMailers();
+
+        return $this->adminSmtpSettings();
+    }
+
+    public function disconnectAdminGoogleWorkspace(): JsonResponse
+    {
+        app(GoogleWorkspaceMailService::class)->disconnect();
+        if (AppSetting::getValue('smtp.mailer') === 'google_workspace') {
+            AppSetting::setValue('smtp.enabled', '0');
+        }
         app('mail.manager')->forgetMailers();
 
         return $this->adminSmtpSettings();
@@ -456,7 +466,7 @@ class SubscriptionController extends Controller
             report($exception);
 
             return response()->json([
-                'message' => 'SMTP test failed. Check the saved settings and server logs.',
+                'message' => 'Email test failed. Check the saved provider connection and server logs.',
             ], 422);
         }
 
@@ -1481,7 +1491,11 @@ class SubscriptionController extends Controller
         abort_unless(AppSetting::getValue('smtp.enabled', '0') === '1', 422, 'Email sending is not enabled.');
         abort_if(blank(AppSetting::getValue('smtp.from_address')), 422, 'From address is not configured.');
 
-        if (in_array(AppSetting::getValue('smtp.mailer', 'smtp'), ['smtp', 'google_workspace'], true)) {
+        if (AppSetting::getValue('smtp.mailer', 'smtp') === 'google_workspace') {
+            abort_unless(app(GoogleWorkspaceMailService::class)->connected(), 422, 'Connect a Google Workspace account first.');
+        }
+
+        if (AppSetting::getValue('smtp.mailer', 'smtp') === 'smtp') {
             abort_if(blank(AppSetting::getValue('smtp.host')), 422, 'SMTP host is not configured.');
             abort_if(blank(AppSetting::getValue('smtp.port')), 422, 'SMTP port is not configured.');
         }

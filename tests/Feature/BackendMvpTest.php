@@ -2395,29 +2395,56 @@ class BackendMvpTest extends TestCase
     public function test_admin_can_connect_google_workspace_for_platform_email(): void
     {
         $this->withoutMiddleware(EnsureRecentAdminAuthentication::class);
-        Sanctum::actingAs(User::factory()->admin()->create());
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin);
+        AppSetting::setValue('google.client_id', 'google-client-id');
+        AppSetting::setValue('google.client_secret', 'google-client-secret', true);
 
         $this->putJson('/api/admin/settings/smtp', [
             'enabled' => true,
             'mailer' => 'google_workspace',
-            'username' => 'hello@beautyprohq.com',
-            'password' => 'workspace-app-password',
             'from_address' => 'hello@beautyprohq.com',
             'from_name' => 'BeautyPro HQ',
         ])->assertOk()
             ->assertJsonPath('data.enabled', true)
             ->assertJsonPath('data.mailer', 'google_workspace')
             ->assertJsonPath('data.provider_label', 'Google Workspace')
-            ->assertJsonPath('data.host', 'smtp.gmail.com')
-            ->assertJsonPath('data.port', '587')
-            ->assertJsonPath('data.encryption', 'tls')
-            ->assertJsonPath('data.configured', true)
-            ->assertJsonMissing(['password' => 'workspace-app-password']);
+            ->assertJsonPath('data.google_workspace.available', true)
+            ->assertJsonPath('data.google_workspace.connected', false)
+            ->assertJsonPath('data.configured', false);
 
-        $this->assertSame('smtp.gmail.com', AppSetting::getValue('smtp.host'));
-        $this->assertSame('587', AppSetting::getValue('smtp.port'));
-        $this->assertSame('workspace-app-password', AppSetting::getValue('smtp.password'));
-        $this->assertNotSame('workspace-app-password', AppSetting::where('key', 'smtp.password')->value('value'));
+        $redirect = $this->actingAs($admin)->get('/auth/google/mail/redirect')->assertRedirect();
+        parse_str(parse_url($redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+        $this->assertStringContainsString('gmail.send', $query['scope']);
+        $this->assertSame('consent select_account', $query['prompt']);
+        $this->assertSame('offline', $query['access_type']);
+
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response([
+                'access_token' => 'workspace-access-token',
+                'refresh_token' => 'workspace-refresh-token',
+                'expires_in' => 3600,
+            ]),
+            'https://openidconnect.googleapis.com/v1/userinfo' => Http::response(['email' => 'hello@beautyprohq.com']),
+        ]);
+        session()->forget('google_workspace_oauth');
+        $this->post('/auth/google/mail/callback', ['state' => $query['state'], 'code' => 'workspace-code'])
+            ->assertRedirect('/admin/settings?section=email&mail_connected=1');
+
+        $this->assertSame('hello@beautyprohq.com', AppSetting::getValue('google_workspace.email'));
+        $this->assertSame('workspace-refresh-token', AppSetting::getValue('google_workspace.refresh_token'));
+        $this->assertNotSame('workspace-refresh-token', AppSetting::where('key', 'google_workspace.refresh_token')->value('value'));
+        $this->getJson('/api/admin/settings/smtp')
+            ->assertOk()
+            ->assertJsonPath('data.google_workspace.connected', true)
+            ->assertJsonPath('data.configured', true);
+
+        $this->deleteJson('/api/admin/settings/google-workspace')
+            ->assertOk()
+            ->assertJsonPath('data.google_workspace.connected', false)
+            ->assertJsonPath('data.enabled', false)
+            ->assertJsonPath('data.configured', false);
+        $this->assertNull(AppSetting::getValue('google_workspace.refresh_token'));
     }
 
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void

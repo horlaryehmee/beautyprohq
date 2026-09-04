@@ -258,6 +258,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/settings/smtp', [SubscriptionController::class, 'adminSmtpSettings']);
         Route::put('/settings/smtp', [SubscriptionController::class, 'updateAdminSmtpSettings'])->middleware('admin.step-up');
         Route::post('/settings/smtp/test', [SubscriptionController::class, 'testAdminSmtp'])->middleware(['throttle:sensitive', 'admin.step-up']);
+        Route::delete('/settings/google-workspace', [SubscriptionController::class, 'disconnectAdminGoogleWorkspace'])->middleware('admin.step-up');
         Route::post('/settings/email-notifications/test', [SubscriptionController::class, 'testAdminEmailNotification'])->middleware('throttle:sensitive');
         Route::get('/settings/mailchimp', [SubscriptionController::class, 'adminMailchimpSettings']);
         Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings'])->middleware('admin.step-up');

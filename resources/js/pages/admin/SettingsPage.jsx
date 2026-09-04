@@ -45,7 +45,7 @@ export default function AdminSettingsPage() {
     const demoResource = useApiResource('/admin/demo-data', {});
     const deploymentResource = useApiResource('/admin/settings/deployment', {});
     const { notify } = useDashboardToast();
-    const [sectionTab, setSectionTab] = useState('general');
+    const [sectionTab, setSectionTab] = useState(() => new URLSearchParams(window.location.search).get('section') || 'general');
     const [gatewayForm, setGatewayForm] = useState({ subscription_gateway: 'paystack' });
     const [paystackForm, setPaystackForm] = useState({ mode: 'test', test_public_key: '', test_secret_key: '', live_public_key: '', live_secret_key: '' });
     const [stripeForm, setStripeForm] = useState({ mode: 'test', test_publishable_key: '', test_secret_key: '', live_publishable_key: '', live_secret_key: '' });
@@ -74,6 +74,7 @@ export default function AdminSettingsPage() {
     const [savingLiveChat, setSavingLiveChat] = useState(false);
     const [testingTwilio, setTestingTwilio] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
+    const [disconnectingWorkspace, setDisconnectingWorkspace] = useState(false);
     const [testingEmailNotification, setTestingEmailNotification] = useState(false);
     const [populatingDemo, setPopulatingDemo] = useState(false);
     const [clearingDemo, setClearingDemo] = useState(false);
@@ -190,6 +191,15 @@ export default function AdminSettingsPage() {
         });
         setSmtpTestEmail((current) => current || data.from_address || '');
     }, [smtpResource.data]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get('mail_error');
+        const connected = params.get('mail_connected');
+        if (error) notify(error, 'error');
+        if (connected) notify('Google Workspace mailbox connected.');
+        if (error || connected) window.history.replaceState({}, '', '/admin/settings?section=email');
+    }, [notify]);
 
     useEffect(() => {
         apiRequest('get', '/admin/settings/hero-images').then((data) => {
@@ -380,6 +390,17 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const copyGoogleMailRedirectUri = async () => {
+        const uri = googleAuthResource.data?.mail_redirect_uri;
+        if (!uri) return;
+        try {
+            await navigator.clipboard.writeText(uri);
+            notify('Google Workspace mail redirect URI copied.');
+        } catch {
+            notify('Copy failed. Select the URI and copy it manually.', 'error');
+        }
+    };
+
     const copyGoogleJavascriptOrigin = async () => {
         const origin = googleAuthResource.data?.javascript_origin;
         if (!origin) return;
@@ -425,11 +446,30 @@ export default function AdminSettingsPage() {
             const saved = await apiRequest('put', '/admin/settings/smtp', smtpForm);
             smtpResource.setData(saved);
             setSmtpForm((current) => ({ ...current, password: '' }));
-            notify('SMTP settings saved.');
+            if (smtpForm.mailer === 'google_workspace' && !saved.google_workspace?.connected) {
+                window.location.href = saved.google_workspace?.connect_url || '/auth/google/mail/redirect';
+                return;
+            }
+            notify('Email settings saved.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
             setSavingSmtp(false);
+        }
+    };
+
+    const disconnectGoogleWorkspace = async () => {
+        if (!window.confirm('Disconnect the Google Workspace mailbox? Website email will be disabled until another mail provider is connected.')) return;
+        setDisconnectingWorkspace(true);
+        try {
+            const saved = await apiRequest('delete', '/admin/settings/google-workspace');
+            smtpResource.setData(saved);
+            setSmtpForm((current) => ({ ...current, enabled: false }));
+            notify('Google Workspace mailbox disconnected.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setDisconnectingWorkspace(false);
         }
     };
 
@@ -618,9 +658,9 @@ export default function AdminSettingsPage() {
                             <p className="font-bold">Google Cloud setup</p>
                             <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-sky-900">
                                 <li>Create an OAuth client with application type <strong>Web application</strong>.</li>
-                                <li>Configure the OAuth consent screen for sign-in and Google Calendar event access.</li>
-                                <li>Enable the Google Calendar API in the same Google Cloud project.</li>
-                                <li>Add the exact origin and both redirect URIs shown below to their matching Authorized fields.</li>
+                                <li>Configure the OAuth consent screen for sign-in, Calendar event access and Gmail sending.</li>
+                                <li>Enable the Google Calendar API and Gmail API in the same Google Cloud project.</li>
+                                <li>Add the exact origin and all redirect URIs shown below to their matching Authorized fields.</li>
                                 <li>Paste the client ID and secret here, save, then enable Google authentication.</li>
                             </ol>
                         </div>
@@ -683,6 +723,12 @@ export default function AdminSettingsPage() {
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.calendar_redirect_uri ?? ''} />
                                 <Button onClick={copyGoogleCalendarRedirectUri} type="button" variant="secondary">Copy URI</Button>
+                            </div>
+                        </Field>
+                        <Field hint="Add this Authorized redirect URI so an administrator can connect the permanent Google Workspace mailbox." label="Google Workspace mail redirect URI">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.mail_redirect_uri ?? ''} />
+                                <Button onClick={copyGoogleMailRedirectUri} type="button" variant="secondary">Copy URI</Button>
                             </div>
                         </Field>
 
@@ -1105,7 +1151,6 @@ export default function AdminSettingsPage() {
                                         ...current,
                                         mailer,
                                         password: '',
-                                        ...(mailer === 'google_workspace' ? { host: 'smtp.gmail.com', port: 587, encryption: 'tls', username: current.username || current.from_address } : {}),
                                     }));
                                 }} value={smtpForm.mailer}>
                                     <option value="google_workspace">Google Workspace</option>
@@ -1146,32 +1191,38 @@ export default function AdminSettingsPage() {
                                 </>
                             )}
                             {smtpForm.mailer === 'google_workspace' && (
-                                <>
-                                    <Field hint="Usually the same address used in the From email field." label="Google Workspace email">
-                                        <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, username: event.target.value }))} placeholder="hello@yourdomain.com" type="email" value={smtpForm.username} />
-                                    </Field>
-                                    <Field hint="Use a 16-character Google app password, not the normal account password." label="Google app password">
-                                        <input autoComplete="new-password" className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, password: event.target.value }))} placeholder="Enter Google app password" type="password" value={smtpForm.password} />
-                                    </Field>
-                                    <div className="flex items-end">
-                                        {smtpResource.data?.password_configured && <StatusBadge status={`app password ends ${smtpResource.data.password_last4}`} />}
+                                <div className="lg:col-span-2 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="font-bold text-slate-900">Google account connection</p>
+                                                <StatusBadge status={smtpResource.data?.google_workspace?.connected ? 'connected' : 'not connected'} />
+                                            </div>
+                                            <p className="mt-1 text-sm text-slate-600">{smtpResource.data?.google_workspace?.connected ? `Connected as ${smtpResource.data.google_workspace.email}. The connection remains active until you disconnect it.` : 'Connect through Google to select the Workspace account that will send website emails.'}</p>
+                                        </div>
+                                        <div className="flex shrink-0 flex-wrap gap-2">
+                                            {smtpResource.data?.google_workspace?.connected && <Button busy={disconnectingWorkspace} onClick={disconnectGoogleWorkspace} type="button" variant="soft">Disconnect</Button>}
+                                            <Button disabled={!smtpResource.data?.google_workspace?.available || disconnectingWorkspace} onClick={() => { window.location.href = smtpResource.data?.google_workspace?.connect_url || '/auth/google/mail/redirect'; }} type="button" variant="secondary">{smtpResource.data?.google_workspace?.connected ? 'Reconnect account' : 'Select Google account'}</Button>
+                                        </div>
                                     </div>
-                                </>
+                                    {!smtpResource.data?.google_workspace?.available && <p className="mt-3 text-xs font-semibold text-amber-700">Save the Google OAuth client ID and secret under Authentication before connecting mail.</p>}
+                                    <p className="mt-3 break-all font-mono text-[11px] text-slate-500">Callback: {smtpResource.data?.google_workspace?.redirect_uri}</p>
+                                </div>
                             )}
                         </div>
                         <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                             {smtpForm.mailer === 'google_workspace'
-                                ? 'Google Workspace uses smtp.gmail.com with TLS on port 587. Turn on 2-Step Verification for the mailbox, create an app password, then paste that app password above. Your Google Workspace administrator must allow app passwords.'
+                                ? 'Google Workspace uses Google OAuth and the Gmail API. Google always shows the account selector when you connect or reconnect; no mailbox password is stored by BeautyPro HQ.'
                                 : smtpForm.mailer === 'smtp'
                                     ? 'For Bluehost, try mail.yourdomain.com with SSL/465 first. If that fails, try TLS/587. Use the full mailbox address as the username.'
                                     : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
                         </div>
                         <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-                            <Field hint="Save SMTP settings before sending a test email." label="Test recipient email">
+                            <Field hint="Save and connect the selected email provider before sending a test." label="Test recipient email">
                                 <input className={inputClass} onChange={(event) => setSmtpTestEmail(event.target.value)} placeholder="you@example.com" type="email" value={smtpTestEmail} />
                             </Field>
                             <Button busy={testingSmtp} disabled={!smtpTestEmail || savingSmtp} onClick={testSmtp} type="button" variant="secondary">Send test email</Button>
-                            <Button busy={savingSmtp} disabled={testingSmtp} type="submit">Save SMTP settings</Button>
+                            <Button busy={savingSmtp} disabled={testingSmtp} type="submit">{smtpForm.mailer === 'google_workspace' && !smtpResource.data?.google_workspace?.connected ? 'Save & connect Google' : 'Save email settings'}</Button>
                         </div>
                         <div className="rounded-2xl border border-slate-100 bg-white p-4">
                             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
