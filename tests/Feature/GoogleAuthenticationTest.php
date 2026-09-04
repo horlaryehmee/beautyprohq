@@ -21,10 +21,13 @@ class GoogleAuthenticationTest extends TestCase
 
         $response = $this->putJson('/api/admin/settings/google-auth', [
             'enabled' => true,
+            'calendar_enabled' => true,
             'client_id' => 'google-client.apps.googleusercontent.com',
             'client_secret' => 'google-client-secret',
         ])->assertOk()
             ->assertJsonPath('data.enabled', true)
+            ->assertJsonPath('data.calendar_enabled', true)
+            ->assertJsonPath('data.calendar_available', true)
             ->assertJsonPath('data.configured', true)
             ->assertJsonPath('data.client_secret_configured', true)
             ->assertJsonMissing(['client_secret' => 'google-client-secret']);
@@ -36,6 +39,7 @@ class GoogleAuthenticationTest extends TestCase
             $response->json('data.redirect_uri'),
         );
         $this->assertStringEndsWith('/auth/google/callback', $response->json('data.redirect_uri'));
+        $this->assertStringEndsWith('/auth/google/calendar/callback', $response->json('data.calendar_redirect_uri'));
     }
 
     public function test_customer_can_register_with_google_and_is_immediately_verified(): void

@@ -27,6 +27,7 @@ class GoogleCalendarController extends Controller
     public function sync(Request $request, GoogleCalendarService $calendar): JsonResponse
     {
         $provider = $request->user()->providerProfile;
+        abort_unless($calendar->enabled(), 422, 'Google Calendar syncing is currently disabled by the platform administrator.');
         abort_unless($provider->calendarConnection, 422, 'Connect Google Calendar first.');
 
         $result = $calendar->syncUpcoming($provider, 100);

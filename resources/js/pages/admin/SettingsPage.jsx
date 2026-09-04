@@ -22,7 +22,7 @@ const normalizePlans = (value) => Array.isArray(value) ? value : value?.plans ??
 
 const platformSettingTabs = [
     { key: 'general', label: 'General', icon: 'settings', description: 'Launch mode, provider features and demo data.' },
-    { key: 'authentication', label: 'Authentication', icon: 'shield', description: 'Google registration and login.' },
+    { key: 'authentication', label: 'Authentication', icon: 'shield', description: 'Google login and provider calendars.' },
     { key: 'security', label: 'Security', icon: 'shield', description: 'Password, sessions and two-factor authentication.' },
     { key: 'email', label: 'Email', icon: 'mail', description: 'SMTP and active notification tests.' },
     { key: 'communications', label: 'Communications', icon: 'bell', description: 'WhatsApp and non-email messaging channels.' },
@@ -52,7 +52,7 @@ export default function AdminSettingsPage() {
     const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg', desktop_header_height: 112, mobile_header_height: 96 });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
-    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, client_id: '', client_secret: '' });
+    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, calendar_enabled: true, client_id: '', client_secret: '' });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [liveChatForm, setLiveChatForm] = useState({ inbound_secret: '', reply_domain: '' });
@@ -149,6 +149,7 @@ export default function AdminSettingsPage() {
         if (!data || !Object.keys(data).length) return;
         setGoogleAuthForm({
             enabled: Boolean(data.enabled),
+            calendar_enabled: Boolean(data.calendar_enabled),
             client_id: data.client_id ?? '',
             client_secret: '',
         });
@@ -349,7 +350,7 @@ export default function AdminSettingsPage() {
             const saved = await apiRequest('put', '/admin/settings/google-auth', googleAuthForm);
             googleAuthResource.setData(saved);
             setGoogleAuthForm((current) => ({ ...current, enabled: Boolean(saved.enabled), client_secret: '' }));
-            notify('Google registration and login settings saved.');
+            notify('Google authentication and Calendar settings saved.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -607,8 +608,8 @@ export default function AdminSettingsPage() {
             {sectionTab === 'security' && <SecurityPage embedded />}
             <Card className={sectionTab === 'authentication' ? '' : 'hidden'}>
                 <CardHeader
-                    title="Google registration and login"
-                    description="Let customers, providers and existing administrators authenticate with their Google account."
+                    title="Google authentication and Calendar"
+                    description="Manage Google registration, login and provider booking-calendar connections from one place."
                     action={googleAuthResource.data?.enabled ? <StatusBadge status="enabled" /> : googleAuthResource.data?.configured ? <StatusBadge status="configured" /> : <StatusBadge status="not configured" />}
                 />
                 {googleAuthResource.loading ? <LoadingBlock rows={5} /> : (
@@ -628,10 +629,24 @@ export default function AdminSettingsPage() {
                             <input
                                 checked={googleAuthForm.enabled}
                                 className="mt-0.5 size-4 accent-fuchsia-700"
-                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, enabled: event.target.checked }))}
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, enabled: event.target.checked, ...(!event.target.checked ? { calendar_enabled: false } : {}) }))}
                                 type="checkbox"
                             />
                             <span><span className="block text-sm font-bold text-slate-800">Enable Google authentication</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">Shows Google buttons on both registration and login pages.</span></span>
+                        </label>
+
+                        <label className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                            <input
+                                checked={googleAuthForm.calendar_enabled}
+                                className="mt-0.5 size-4 accent-fuchsia-700"
+                                disabled={!googleAuthForm.enabled}
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, calendar_enabled: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span>
+                                <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-800">Enable provider Google Calendar <StatusBadge status={googleAuthResource.data?.calendar_available ? 'enabled' : 'disabled'} /></span>
+                                <span className="mt-0.5 block text-xs leading-5 text-slate-600">Allows providers to connect their Google account and automatically receive booking events and reminders.</span>
+                            </span>
                         </label>
 
                         <Field label="Google OAuth client ID">

@@ -107,8 +107,27 @@ class GoogleCalendarIntegrationTest extends TestCase
         $this->assertNotSame('fresh-refresh-token', DB::table('provider_calendar_connections')->where('id', $connection->id)->value('refresh_token'));
     }
 
+    public function test_admin_calendar_switch_stops_automatic_syncing(): void
+    {
+        [$booking] = $this->calendarBooking();
+        AppSetting::setValue('google.client_id', 'client-id');
+        AppSetting::setValue('google.client_secret', 'client-secret', true);
+        AppSetting::setValue('google.enabled', '1');
+        AppSetting::setValue('google.calendar_enabled', '0');
+        Http::fake();
+
+        $this->assertFalse(app(GoogleCalendarService::class)->syncBookingSafely($booking));
+        Http::assertNothingSent();
+        $this->assertNull($booking->fresh()->google_calendar_event_id);
+    }
+
     private function calendarBooking(): array
     {
+        AppSetting::setValue('google.client_id', 'client-id');
+        AppSetting::setValue('google.client_secret', 'client-secret', true);
+        AppSetting::setValue('google.enabled', '1');
+        AppSetting::setValue('google.calendar_enabled', '1');
+
         $providerUser = User::factory()->create(['role' => 'provider']);
         $customer = User::factory()->create(['role' => 'customer', 'name' => 'Ada Customer', 'phone' => '08012345678']);
         $provider = ProviderProfile::create([

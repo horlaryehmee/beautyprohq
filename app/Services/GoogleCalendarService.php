@@ -25,7 +25,7 @@ class GoogleCalendarService
 
     public function enabled(): bool
     {
-        return $this->oauth->enabled();
+        return $this->oauth->enabled() && $this->oauth->calendarEnabled();
     }
 
     public function redirectUri(): string
@@ -114,6 +114,10 @@ class GoogleCalendarService
 
     private function syncBooking(Booking $booking): bool
     {
+        if (! $this->enabled()) {
+            return false;
+        }
+
         $booking->loadMissing(['provider.user', 'customer', 'service']);
         $connection = $booking->provider?->calendarConnection;
         if (! $connection) {

@@ -19,6 +19,7 @@ class GoogleAuthSettingsController extends Controller
     {
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
+            'calendar_enabled' => ['sometimes', 'boolean'],
             'client_id' => ['nullable', 'string', 'max:500'],
             'client_secret' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -39,6 +40,9 @@ class GoogleAuthSettingsController extends Controller
             AppSetting::setValue('google.client_secret', trim($validated['client_secret']), true);
         }
         AppSetting::setValue('google.enabled', $validated['enabled'] ? '1' : '0');
+        if (array_key_exists('calendar_enabled', $validated)) {
+            AppSetting::setValue('google.calendar_enabled', $validated['calendar_enabled'] ? '1' : '0');
+        }
 
         return $this->success($this->payload($google), 'Google authentication settings saved.');
     }
@@ -47,6 +51,8 @@ class GoogleAuthSettingsController extends Controller
     {
         return [
             'enabled' => $google->enabled(),
+            'calendar_enabled' => $google->calendarEnabled(),
+            'calendar_available' => $google->enabled() && $google->calendarEnabled(),
             'configured' => $google->configured(),
             'client_id' => $google->clientId(),
             'client_secret_configured' => filled($google->clientSecret()),
