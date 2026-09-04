@@ -255,7 +255,7 @@ export default function AdminOpportunityEditorPage() {
                                 </select>
                             </Field>
                             {!isNew && editing?.published_at && <p className="text-xs font-semibold text-slate-400">Current publish date: {formatDate(editing.published_at)}</p>}
-                            <label className={`flex items-start gap-3 rounded-2xl border p-4 ${editing?.newsletter_notified_at ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                            <label className={`flex items-start gap-3 rounded-2xl border p-4 ${editing?.newsletter_notified_at ? 'border-amber-100 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
                                 <input
                                     checked={Boolean(form.notify_subscribers)}
                                     className="mt-1 size-4 rounded border-slate-300 text-fuchsia-700 focus:ring-fuchsia-500"
@@ -265,8 +265,8 @@ export default function AdminOpportunityEditorPage() {
                                 />
                                 <span>
                                     <span className="block text-sm font-bold text-slate-900">Email subscribers when published</span>
-                                    <span className="mt-1 block text-xs leading-5 text-slate-500">Sends one concise email to active newsletter subscribers only. It will not resend after this opportunity has been emailed.</span>
-                                    {editing?.newsletter_notified_at && <span className="mt-2 block text-xs font-bold text-emerald-700">Sent to {Number(editing.newsletter_notified_count ?? 0).toLocaleString()} subscribers on {formatDate(editing.newsletter_notified_at)}.</span>}
+                                    <span className="mt-1 block text-xs leading-5 text-slate-500">Queues one concise email for each active newsletter subscriber. It will not queue the opportunity twice.</span>
+                                    {editing?.newsletter_notified_at && <span className="mt-2 block text-xs font-bold text-amber-700">Queued for {Number(editing.newsletter_notified_count ?? 0).toLocaleString()} subscribers on {formatDate(editing.newsletter_notified_at)}. Delivery requires the queue worker and email provider.</span>}
                                     {!editing?.newsletter_notified_at && editing?.newsletter_notify_requested_at && <span className="mt-2 block text-xs font-bold text-amber-700">Email is queued to send when the opportunity is published.</span>}
                                 </span>
                             </label>
