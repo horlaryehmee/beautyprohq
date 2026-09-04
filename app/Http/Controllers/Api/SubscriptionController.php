@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\SmtpConnectionTestMail;
-use App\Models\ContactEnquiry;
 use App\Models\AppSetting;
+use App\Models\ContactEnquiry;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\Opportunity;
 use App\Models\OpportunityEnquiry;
+use App\Models\Subscription;
+use App\Models\SubscriptionPayment;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Notifications\BeautyProResetPasswordNotification;
 use App\Notifications\BeautyProVerifyEmailNotification;
@@ -19,13 +22,11 @@ use App\Notifications\NewsletterSubscriptionConfirmation;
 use App\Notifications\OpportunityEnquiryConfirmation;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\TwoFactorCodeNotification;
-use App\Models\Subscription;
-use App\Models\SubscriptionPayment;
-use App\Models\SubscriptionPlan;
-use App\Support\CurrencyResolver;
-use App\Support\HomepageShell;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
+use App\Support\CurrencyResolver;
+use App\Support\HomepageShell;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -370,6 +371,11 @@ class SubscriptionController extends Controller
         return $this->success([
             'enabled' => $enabled,
             'mailer' => $mailer,
+            'provider_label' => match ($mailer) {
+                'google_workspace' => 'Google Workspace',
+                'php_mail' => 'cPanel / PHP mail',
+                default => 'Custom SMTP',
+            },
             'host' => AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'),
             'port' => AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port', 587),
             'username' => AppSetting::getValue('smtp.username') ?: config('mail.mailers.smtp.username'),
@@ -384,6 +390,10 @@ class SubscriptionController extends Controller
                 && ($mailer === 'php_mail' || (
                     filled(AppSetting::getValue('smtp.host') ?: config('mail.mailers.smtp.host'))
                     && filled(AppSetting::getValue('smtp.port') ?: config('mail.mailers.smtp.port'))
+                    && ($mailer !== 'google_workspace' || (
+                        filled(AppSetting::getValue('smtp.username'))
+                        && filled($password ?: config('mail.mailers.smtp.password'))
+                    ))
                 )),
         ]);
     }
@@ -392,7 +402,7 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
-            'mailer' => ['nullable', Rule::in(['smtp', 'php_mail'])],
+            'mailer' => ['nullable', Rule::in(['smtp', 'google_workspace', 'php_mail'])],
             'host' => ['nullable', 'string', 'max:255'],
             'port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'username' => ['nullable', 'string', 'max:255'],
@@ -402,16 +412,27 @@ class SubscriptionController extends Controller
             'from_name' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $mailer = $validated['mailer'] ?? 'smtp';
+        $previousMailer = AppSetting::getValue('smtp.mailer', 'smtp');
+        $host = $mailer === 'google_workspace' ? 'smtp.gmail.com' : ($validated['host'] ?? null);
+        $port = $mailer === 'google_workspace' ? 587 : ($validated['port'] ?? null);
+        $encryption = $mailer === 'google_workspace' ? 'tls' : ($validated['encryption'] ?? null);
+        $username = $mailer === 'google_workspace'
+            ? ($validated['username'] ?? $validated['from_address'] ?? null)
+            : ($validated['username'] ?? null);
+
         AppSetting::setValue('smtp.enabled', $validated['enabled'] ? '1' : '0');
-        AppSetting::setValue('smtp.mailer', $validated['mailer'] ?? 'smtp');
-        AppSetting::setValue('smtp.host', $validated['host'] ?? null);
-        AppSetting::setValue('smtp.port', $validated['port'] ?? null);
-        AppSetting::setValue('smtp.username', $validated['username'] ?? null);
-        AppSetting::setValue('smtp.encryption', $validated['encryption'] ?? null);
+        AppSetting::setValue('smtp.mailer', $mailer);
+        AppSetting::setValue('smtp.host', $host);
+        AppSetting::setValue('smtp.port', $port);
+        AppSetting::setValue('smtp.username', $username);
+        AppSetting::setValue('smtp.encryption', $encryption);
         AppSetting::setValue('smtp.from_address', $validated['from_address'] ?? null);
         AppSetting::setValue('smtp.from_name', $validated['from_name'] ?? null);
         if (filled($validated['password'] ?? null)) {
             AppSetting::setValue('smtp.password', $validated['password'], true);
+        } elseif ($previousMailer !== $mailer && $mailer !== 'php_mail') {
+            AppSetting::setValue('smtp.password', null, true);
         }
 
         app('mail.manager')->forgetMailers();
@@ -543,6 +564,7 @@ class SubscriptionController extends Controller
             foreach ($notifications as $payload) {
                 if ($payload['notifiable'] instanceof User) {
                     $payload['notifiable']->notify($payload['notification']);
+
                     continue;
                 }
 
@@ -684,8 +706,8 @@ class SubscriptionController extends Controller
         $stored = $uploads->store($validated['image']);
         $url = $stored['url'] ?? '';
         // Ensure the URL is absolute for the browser to load it
-        if ($url && !preg_match('#^(https?:)?//#', $url)) {
-            $url = rtrim(config('app.url'), '/') . '/' . ltrim($url, '/');
+        if ($url && ! preg_match('#^(https?:)?//#', $url)) {
+            $url = rtrim(config('app.url'), '/').'/'.ltrim($url, '/');
         }
 
         return $this->success([
@@ -770,6 +792,7 @@ class SubscriptionController extends Controller
 
         if (! $response->successful() || ! $response->json('status')) {
             $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+
             return response()->json(['message' => $response->json('message') ?? 'Paystack could not initialize this subscription payment.'], 422);
         }
 
@@ -823,6 +846,7 @@ class SubscriptionController extends Controller
                 'status' => 'failed',
                 'raw_response' => $response->json(),
             ]);
+
             return response()->json(['message' => $response->json('message') ?? 'Payment has not been confirmed by Paystack.'], 422);
         }
 
@@ -993,7 +1017,7 @@ class SubscriptionController extends Controller
         };
     }
 
-    private function nextRenewalDate(?SubscriptionPlan $plan): \Carbon\Carbon
+    private function nextRenewalDate(?SubscriptionPlan $plan): Carbon
     {
         return match ($plan?->billing_period) {
             'daily' => now()->addDay(),
@@ -1100,7 +1124,7 @@ class SubscriptionController extends Controller
         $metadata['paystack_email_token'] = $token;
 
         $subscription->update([
-            'renews_at' => data_get($data, 'next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'next_payment_date')) : $subscription->renews_at,
+            'renews_at' => data_get($data, 'next_payment_date') ? Carbon::parse(data_get($data, 'next_payment_date')) : $subscription->renews_at,
             'metadata' => $metadata,
         ]);
     }
@@ -1153,7 +1177,7 @@ class SubscriptionController extends Controller
             'amount' => $payment->amount,
             'currency' => $payment->currency,
             'starts_at' => now(),
-            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $this->nextRenewalDate($subscription->planDefinition),
+            'renews_at' => data_get($data, 'subscription.next_payment_date') ? Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $this->nextRenewalDate($subscription->planDefinition),
             'ends_at' => null,
             'cancelled_at' => null,
             'metadata' => array_merge($subscription->metadata ?? [], [
@@ -1207,7 +1231,7 @@ class SubscriptionController extends Controller
         }
 
         $subscription->update([
-            'renews_at' => data_get($data, 'subscription.next_payment_date') ? \Carbon\Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $subscription->renews_at,
+            'renews_at' => data_get($data, 'subscription.next_payment_date') ? Carbon::parse(data_get($data, 'subscription.next_payment_date')) : $subscription->renews_at,
             'metadata' => $metadata,
         ]);
     }
@@ -1286,6 +1310,7 @@ class SubscriptionController extends Controller
 
         if (! $response->successful() || blank($response->json('url'))) {
             $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+
             return response()->json(['message' => $response->json('error.message') ?? 'Stripe could not initialize this subscription payment.'], 422);
         }
 
@@ -1316,11 +1341,13 @@ class SubscriptionController extends Controller
 
         if (! $response->successful() || $response->json('payment_status') !== 'paid') {
             $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+
             return response()->json(['message' => $response->json('error.message') ?? 'Stripe payment has not been confirmed.'], 422);
         }
 
         if (! $this->stripeResponseMatchesPayment($response->json(), $payment)) {
             $payment->update(['status' => 'failed', 'raw_response' => $response->json()]);
+
             return response()->json(['message' => 'Stripe verification failed because the session does not match this user, plan, amount, currency, and reference.'], 422);
         }
 
@@ -1454,7 +1481,7 @@ class SubscriptionController extends Controller
         abort_unless(AppSetting::getValue('smtp.enabled', '0') === '1', 422, 'Email sending is not enabled.');
         abort_if(blank(AppSetting::getValue('smtp.from_address')), 422, 'From address is not configured.');
 
-        if (AppSetting::getValue('smtp.mailer', 'smtp') === 'smtp') {
+        if (in_array(AppSetting::getValue('smtp.mailer', 'smtp'), ['smtp', 'google_workspace'], true)) {
             abort_if(blank(AppSetting::getValue('smtp.host')), 422, 'SMTP host is not configured.');
             abort_if(blank(AppSetting::getValue('smtp.port')), 422, 'SMTP port is not configured.');
         }
@@ -1495,11 +1522,11 @@ class SubscriptionController extends Controller
         ]);
 
         $samples = [
-            'newsletter_subscription' => ['notifiable' => null, 'notification' => new NewsletterSubscriptionConfirmation()],
+            'newsletter_subscription' => ['notifiable' => null, 'notification' => new NewsletterSubscriptionConfirmation],
             'event_registration' => ['notifiable' => null, 'notification' => new EventRegistrationConfirmation($event, $registration)],
             'opportunity_enquiry' => ['notifiable' => null, 'notification' => new OpportunityEnquiryConfirmation($opportunity, $opportunityEnquiry)],
             'contact_enquiry' => ['notifiable' => null, 'notification' => new ContactEnquiryConfirmation($contactEnquiry)],
-            'email_verification' => ['notifiable' => $recipient, 'notification' => new BeautyProVerifyEmailNotification()],
+            'email_verification' => ['notifiable' => $recipient, 'notification' => new BeautyProVerifyEmailNotification],
             'password_reset' => ['notifiable' => $recipient, 'notification' => new BeautyProResetPasswordNotification('TEST-PASSWORD-RESET-TOKEN')],
             'two_factor_code' => ['notifiable' => $recipient, 'notification' => new TwoFactorCodeNotification('123456', 'login')],
             'customer_booking_update' => ['notifiable' => $recipient, 'notification' => new PlatformUpdateNotification('Customer booking update', 'This is a sample customer booking notification.', 'Open bookings', rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings')],

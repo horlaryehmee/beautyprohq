@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Availability;
+use App\Http\Middleware\EnsureRecentAdminAuthentication;
 use App\Models\AppSetting;
+use App\Models\Availability;
 use App\Models\Booking;
 use App\Models\CommunityPost;
 use App\Models\ContactEnquiry;
@@ -12,21 +13,22 @@ use App\Models\NewsletterSubscriber;
 use App\Models\NewsletterUnsubscribe;
 use App\Models\Opportunity;
 use App\Models\Payment;
+use App\Models\ProfileView;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
-use App\Models\ProfileView;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
-use App\Models\User;
 use App\Models\UploadedMedia;
+use App\Models\User;
 use App\Models\VerificationRequest;
-use App\Notifications\BookingStatusNotification;
+use App\Notifications\AnnouncementNotification;
 use App\Notifications\BeautyProVerifyEmailNotification;
+use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
-use App\Services\UploadService;
 use App\Services\ContentNewsletterService;
+use App\Services\UploadService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,8 +37,10 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -417,7 +421,7 @@ class BackendMvpTest extends TestCase
             'api/provider/subscription/downgrade',
             'api/paystack/webhook',
         ] as $uri) {
-            $route = collect(\Illuminate\Support\Facades\Route::getRoutes())
+            $route = collect(Route::getRoutes())
                 ->first(fn ($route): bool => $route->uri() === $uri);
 
             $this->assertNotNull($route, "Route [{$uri}] was not registered.");
@@ -471,8 +475,7 @@ class BackendMvpTest extends TestCase
         $this->assertSame('paid', $payment->status);
         $this->assertNotNull($payment->paid_at);
 
-        Notification::assertSentTo($user, PlatformUpdateNotification::class, fn (PlatformUpdateNotification $notification): bool =>
-            $notification->title === 'Subscription payment receipt'
+        Notification::assertSentTo($user, PlatformUpdateNotification::class, fn (PlatformUpdateNotification $notification): bool => $notification->title === 'Subscription payment receipt'
             && ($notification->data['subscription_payment_id'] ?? null) === $payment->id
         );
     }
@@ -2160,7 +2163,7 @@ class BackendMvpTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.audience', 'subscribers');
 
-        Notification::assertSentTo($active, \App\Notifications\AnnouncementNotification::class);
+        Notification::assertSentTo($active, AnnouncementNotification::class);
         Notification::assertCount(1);
     }
 
@@ -2371,7 +2374,7 @@ class BackendMvpTest extends TestCase
 
     public function test_admin_can_use_cpanel_php_mail_for_platform_email(): void
     {
-        $this->withoutMiddleware(\App\Http\Middleware\EnsureRecentAdminAuthentication::class);
+        $this->withoutMiddleware(EnsureRecentAdminAuthentication::class);
         $admin = User::factory()->admin()->create();
         Sanctum::actingAs($admin);
 
@@ -2387,6 +2390,34 @@ class BackendMvpTest extends TestCase
 
         $this->assertSame('1', AppSetting::getValue('smtp.enabled'));
         $this->assertSame('php_mail', AppSetting::getValue('smtp.mailer'));
+    }
+
+    public function test_admin_can_connect_google_workspace_for_platform_email(): void
+    {
+        $this->withoutMiddleware(EnsureRecentAdminAuthentication::class);
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $this->putJson('/api/admin/settings/smtp', [
+            'enabled' => true,
+            'mailer' => 'google_workspace',
+            'username' => 'hello@beautyprohq.com',
+            'password' => 'workspace-app-password',
+            'from_address' => 'hello@beautyprohq.com',
+            'from_name' => 'BeautyPro HQ',
+        ])->assertOk()
+            ->assertJsonPath('data.enabled', true)
+            ->assertJsonPath('data.mailer', 'google_workspace')
+            ->assertJsonPath('data.provider_label', 'Google Workspace')
+            ->assertJsonPath('data.host', 'smtp.gmail.com')
+            ->assertJsonPath('data.port', '587')
+            ->assertJsonPath('data.encryption', 'tls')
+            ->assertJsonPath('data.configured', true)
+            ->assertJsonMissing(['password' => 'workspace-app-password']);
+
+        $this->assertSame('smtp.gmail.com', AppSetting::getValue('smtp.host'));
+        $this->assertSame('587', AppSetting::getValue('smtp.port'));
+        $this->assertSame('workspace-app-password', AppSetting::getValue('smtp.password'));
+        $this->assertNotSame('workspace-app-password', AppSetting::where('key', 'smtp.password')->value('value'));
     }
 
     public function test_requested_subscriber_email_is_sent_when_scheduled_content_becomes_due(): void
@@ -2460,7 +2491,7 @@ class BackendMvpTest extends TestCase
         return new UploadedFile($path, $name, 'image/png', null, true);
     }
 
-    private function postPaystackWebhook(array $payload): \Illuminate\Testing\TestResponse
+    private function postPaystackWebhook(array $payload): TestResponse
     {
         $content = json_encode($payload);
 

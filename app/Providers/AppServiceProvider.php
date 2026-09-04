@@ -171,17 +171,17 @@ class AppServiceProvider extends ServiceProvider
             $mailer = AppSetting::getValue('smtp.mailer', 'smtp');
             $fromAddress = AppSetting::getValue('smtp.from_address');
 
-            if (! in_array($mailer, ['smtp', 'php_mail'], true) || blank($fromAddress)) {
+            if (! in_array($mailer, ['smtp', 'google_workspace', 'php_mail'], true) || blank($fromAddress)) {
                 return;
             }
 
             $mailConfig = [
-                'mail.default' => $mailer,
+                'mail.default' => $mailer === 'google_workspace' ? 'smtp' : $mailer,
                 'mail.from.address' => $fromAddress,
                 'mail.from.name' => AppSetting::getValue('smtp.from_name') ?: config('app.name'),
             ];
 
-            if ($mailer === 'smtp') {
+            if (in_array($mailer, ['smtp', 'google_workspace'], true)) {
                 $host = AppSetting::getValue('smtp.host');
                 $port = AppSetting::getValue('smtp.port');
                 $encryption = AppSetting::getValue('smtp.encryption');

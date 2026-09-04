@@ -1079,8 +1079,8 @@ export default function AdminSettingsPage() {
             <Card className={sectionTab === 'email' ? '' : 'hidden'}>
                 <CardHeader
                     title="Email connection"
-                    description="Connect Bluehost SMTP or use cPanel/PHP mail for platform email notifications."
-                    action={smtpResource.data?.configured ? <StatusBadge status={smtpForm.mailer === 'php_mail' ? 'PHP mail enabled' : 'SMTP connected'} /> : <StatusBadge status="Email not connected" />}
+                    description="Connect Google Workspace, a custom SMTP server, or cPanel/PHP mail for platform notifications."
+                    action={smtpResource.data?.configured ? <StatusBadge status={`${smtpResource.data?.provider_label || 'Email'} connected`} /> : <StatusBadge status="Email not connected" />}
                 />
                 {smtpResource.loading ? <LoadingBlock rows={5} /> : (
                     <form className="mt-5 space-y-5" onSubmit={saveSmtp}>
@@ -1099,8 +1099,17 @@ export default function AdminSettingsPage() {
 
                         <div className="grid gap-4 lg:grid-cols-2">
                             <Field label="Delivery method">
-                                <select className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, mailer: event.target.value }))} value={smtpForm.mailer}>
-                                    <option value="smtp">SMTP server</option>
+                                <select className={inputClass} onChange={(event) => {
+                                    const mailer = event.target.value;
+                                    setSmtpForm((current) => ({
+                                        ...current,
+                                        mailer,
+                                        password: '',
+                                        ...(mailer === 'google_workspace' ? { host: 'smtp.gmail.com', port: 587, encryption: 'tls', username: current.username || current.from_address } : {}),
+                                    }));
+                                }} value={smtpForm.mailer}>
+                                    <option value="google_workspace">Google Workspace</option>
+                                    <option value="smtp">Custom SMTP server</option>
                                     <option value="php_mail">cPanel / PHP mail</option>
                                 </select>
                             </Field>
@@ -1136,11 +1145,26 @@ export default function AdminSettingsPage() {
                                     </div>
                                 </>
                             )}
+                            {smtpForm.mailer === 'google_workspace' && (
+                                <>
+                                    <Field hint="Usually the same address used in the From email field." label="Google Workspace email">
+                                        <input className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, username: event.target.value }))} placeholder="hello@yourdomain.com" type="email" value={smtpForm.username} />
+                                    </Field>
+                                    <Field hint="Use a 16-character Google app password, not the normal account password." label="Google app password">
+                                        <input autoComplete="new-password" className={inputClass} onChange={(event) => setSmtpForm((current) => ({ ...current, password: event.target.value }))} placeholder="Enter Google app password" type="password" value={smtpForm.password} />
+                                    </Field>
+                                    <div className="flex items-end">
+                                        {smtpResource.data?.password_configured && <StatusBadge status={`app password ends ${smtpResource.data.password_last4}`} />}
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                            {smtpForm.mailer === 'smtp'
-                                ? 'For Bluehost, try mail.yourdomain.com with SSL/465 first. If that fails, try TLS/587. Use the full mailbox address as the username.'
-                                : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
+                            {smtpForm.mailer === 'google_workspace'
+                                ? 'Google Workspace uses smtp.gmail.com with TLS on port 587. Turn on 2-Step Verification for the mailbox, create an app password, then paste that app password above. Your Google Workspace administrator must allow app passwords.'
+                                : smtpForm.mailer === 'smtp'
+                                    ? 'For Bluehost, try mail.yourdomain.com with SSL/465 first. If that fails, try TLS/587. Use the full mailbox address as the username.'
+                                    : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
                         </div>
                         <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
                             <Field hint="Save SMTP settings before sending a test email." label="Test recipient email">
