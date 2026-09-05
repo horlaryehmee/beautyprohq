@@ -270,15 +270,17 @@ class SubscriptionController extends Controller
     public function adminTwilioSettings(): JsonResponse
     {
         $authToken = AppSetting::getValue('twilio.auth_token') ?: config('services.twilio.auth_token');
+        $twilio = app(TwilioWhatsAppService::class);
 
         return $this->success([
             'account_sid' => AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid'),
             'whatsapp_from' => AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from'),
+            'content_sid' => AppSetting::getValue('twilio.content_sid') ?: config('services.twilio.content_sid'),
+            'content_variables' => AppSetting::getValue('twilio.content_variables') ?: config('services.twilio.content_variables'),
             'auth_token_configured' => filled($authToken),
             'auth_token_last4' => filled($authToken) ? substr($authToken, -4) : null,
-            'configured' => filled(AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid'))
-                && filled($authToken)
-                && filled(AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from')),
+            'configured' => $twilio->configured(),
+            'console_url' => 'https://console.twilio.com/',
             'source' => [
                 'account_sid' => filled(AppSetting::getValue('twilio.account_sid')) ? 'admin_settings' : (filled(config('services.twilio.account_sid')) ? 'env' : null),
                 'auth_token' => filled(AppSetting::getValue('twilio.auth_token')) ? 'admin_settings' : (filled(config('services.twilio.auth_token')) ? 'env' : null),
@@ -293,10 +295,14 @@ class SubscriptionController extends Controller
             'account_sid' => ['nullable', 'string', 'max:255'],
             'auth_token' => ['nullable', 'string', 'max:255'],
             'whatsapp_from' => ['nullable', 'string', 'max:40'],
+            'content_sid' => ['nullable', 'string', 'max:255', 'regex:/^HX[a-fA-F0-9]{32}$/'],
+            'content_variables' => ['nullable', 'json', 'max:2000'],
         ]);
 
         AppSetting::setValue('twilio.account_sid', $validated['account_sid'] ?? null);
         AppSetting::setValue('twilio.whatsapp_from', $validated['whatsapp_from'] ?? null);
+        AppSetting::setValue('twilio.content_sid', $validated['content_sid'] ?? null);
+        AppSetting::setValue('twilio.content_variables', $validated['content_variables'] ?? null);
         if (filled($validated['auth_token'] ?? null)) {
             AppSetting::setValue('twilio.auth_token', $validated['auth_token'], true);
         }
@@ -341,21 +347,38 @@ class SubscriptionController extends Controller
     {
         $validated = $request->validate([
             'phone' => ['required', 'string', 'max:40'],
-            'message' => ['required', 'string', 'min:2', 'max:1500'],
         ]);
 
         abort_unless($twilio->configured(), 422, 'Twilio WhatsApp is not configured.');
 
+        $message = implode("\n", [
+            'New booking on BeautyPro HQ',
+            '',
+            'Customer: Amara Johnson',
+            'Email: amara@example.com',
+            'Phone: +234 801 234 5678',
+            'Service: Bridal makeup consultation',
+            'Date: Sep 10, 2026',
+            'Time: 10:00',
+            'Amount: NGN 25,000.00',
+            'Status: Confirmed',
+            'Notes: Please confirm the appointment details in your dashboard.',
+            '',
+            'Open dashboard: '.rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/bookings',
+            '',
+            'This is an automated booking notification. No reply is required.',
+        ]);
+
         $sent = $twilio->send(
             $validated['phone'],
-            $validated['message']
+            $message
         );
 
-        abort_unless($sent, 422, 'Twilio WhatsApp test failed. Check the recipient number, sandbox opt-in, sender number and Twilio logs.');
+        abort_unless($sent, 422, $twilio->lastError() ?: 'Twilio WhatsApp test failed. Check the recipient, sender and Twilio logs.');
 
         return $this->success([
             'phone' => $validated['phone'],
-            'message' => $validated['message'],
+            'message' => $message,
         ], 'WhatsApp test message sent.');
     }
 

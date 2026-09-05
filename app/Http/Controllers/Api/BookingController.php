@@ -453,6 +453,8 @@ class BookingController extends Controller
             $customAnswers ? "\nExtra answers:\n{$customAnswers}" : null,
             '',
             'Open dashboard: '.rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/bookings',
+            '',
+            'This is an automated booking notification. No reply is required.',
         ], fn ($line) => $line !== null));
 
         app(TwilioWhatsAppService::class)->send($provider->whatsapp_number, $body);
