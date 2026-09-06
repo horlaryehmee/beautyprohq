@@ -16,7 +16,10 @@ return new class extends Migration
             $table->text('access_token')->nullable();
             $table->text('refresh_token');
             $table->timestamp('access_token_expires_at')->nullable();
-            $table->timestamp('connected_at');
+            // DATETIME avoids MySQL's legacy implicit TIMESTAMP default rules,
+            // which reject a required timestamp without a default on some
+            // shared-hosting configurations.
+            $table->dateTime('connected_at');
             $table->timestamp('last_synced_at')->nullable();
             $table->text('last_error')->nullable();
             $table->timestamps();
