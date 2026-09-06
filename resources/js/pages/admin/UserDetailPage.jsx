@@ -84,6 +84,21 @@ function ExternalLink({ children, href }) {
     return <a className="break-all text-sm font-semibold text-fuchsia-700 hover:underline" href={mediaUrl(href)} rel="noreferrer" target="_blank">{children || href}</a>;
 }
 
+function OnboardingReviewAccordion({ badge, children, defaultOpen = false, title }) {
+    return (
+        <details className="group rounded-2xl border border-slate-200 bg-white px-4 py-3" open={defaultOpen}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-slate-950">
+                <span>{title}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                    {badge && <StatusBadge status={badge} />}
+                    <span aria-hidden="true" className="grid size-8 place-items-center rounded-full bg-slate-100 text-lg text-slate-500 transition group-open:rotate-45">+</span>
+                </span>
+            </summary>
+            <div className="mt-3 min-w-0 border-t border-slate-100 pt-4">{children}</div>
+        </details>
+    );
+}
+
 function OnboardingChecklist({ form, profile, hasProviderControls }) {
     if (!hasProviderControls) return null;
 
@@ -592,124 +607,127 @@ export default function AdminUserDetailPage() {
                                 </div>
                             </div>
 
-                            <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 md:grid-cols-2 xl:grid-cols-3">
-                                <section className="space-y-3">
-                                    <h3 className="font-bold text-slate-950">Business details</h3>
-                                    <ReviewField label="Business name" value={user?.name} />
-                                    <ReviewField label="Category" value={submittedProfile.category?.name} />
-                                    <ReviewField label="Professional title" value={submittedProfile.profession} />
-                                </section>
-                                <section className="space-y-3">
-                                    <h3 className="font-bold text-slate-950">Contact and location</h3>
-                                    <ReviewField label="Email" value={submittedProfile.contact_email} />
-                                    <ReviewField label="Phone" value={submittedProfile.contact_phone} />
-                                    <ReviewField label="Location" value={[submittedProfile.location, submittedProfile.city, submittedProfile.country].filter(Boolean).join(', ')} />
-                                    {submittedProfile.website && <ExternalLink href={submittedProfile.website}>Website</ExternalLink>}
-                                </section>
-                                <section className="space-y-3">
-                                    <h3 className="font-bold text-slate-950">Pricing and completion</h3>
-                                    <ReviewField label="Base price" value={submittedProfile.base_price ? money(submittedProfile.base_price, submittedProfile.default_currency) : ''} />
-                                    <ReviewField label="Onboarding submitted" value={formatDate(submittedProfile.onboarding_completed_at)} />
-                                    <ReviewField label="Terms accepted" value={submittedProfile.terms_accepted_at ? formatDate(submittedProfile.terms_accepted_at) : 'Not accepted'} />
-                                </section>
-                            </div>
-
-                            <section className="mt-5 border-t border-slate-100 pt-5">
-                                <h3 className="font-bold text-slate-950">About the provider</h3>
-                                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{submittedProfile.bio || 'Not provided'}</p>
-                            </section>
-
-                            <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 md:grid-cols-2">
-                                <section>
-                                    <h3 className="font-bold text-slate-950">Social links</h3>
-                                    {submittedSocials.length ? <div className="mt-3 grid gap-2">{submittedSocials.map(([platform, url]) => <ExternalLink href={url} key={platform}>{platform}</ExternalLink>)}</div> : <p className="mt-2 text-sm text-slate-500">No social links submitted.</p>}
-                                </section>
-                                <section>
-                                    <h3 className="font-bold text-slate-950">Portfolio</h3>
-                                    {submittedPortfolio.length ? (
-                                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                            {submittedPortfolio.map((item, index) => (
-                                                <a className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50" href={item.url} key={item.path} rel="noreferrer" target="_blank">
-                                                    <div className="aspect-square overflow-hidden">
-                                                        <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={item.url} />
-                                                    </div>
-                                                    <p className="truncate px-3 py-2 text-xs font-bold text-slate-600">View image {index + 1}</p>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    ) : <p className="mt-2 text-sm text-slate-500">No portfolio images submitted.</p>}
-                                </section>
-                            </div>
-
-                            <section className="mt-5 border-t border-slate-100 pt-5">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <h3 className="font-bold text-slate-950">Verification submission</h3>
-                                    <StatusBadge status={latest?.status ?? 'not submitted'} />
-                                </div>
-                                {latest ? (
-                                    <div className="mt-3 space-y-3">
-                                        <p className="whitespace-pre-line rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">{latest.professional_info || 'No written verification details provided.'}</p>
-                                        <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-600">
-                                            <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.portfolio_links ?? []).length} portfolio images</span>
-                                            <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.certification_files ?? []).length} certificates</span>
-                                            <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.license_files ?? []).length} licenses</span>
-                                            <span className="rounded-full bg-slate-100 px-3 py-1.5">Submitted {formatDate(latest.created_at)}</span>
-                                        </div>
+                            <div className="mt-5 min-w-0 space-y-3">
+                                <OnboardingReviewAccordion defaultOpen title="Business details">
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        <ReviewField label="Business name" value={user?.name} />
+                                        <ReviewField label="Category" value={submittedProfile.category?.name} />
+                                        <ReviewField label="Professional title" value={submittedProfile.profession} />
                                     </div>
-                                ) : <p className="mt-2 text-sm text-slate-500">No verification request was submitted.</p>}
-                            </section>
+                                </OnboardingReviewAccordion>
 
-                            <section className="mt-5 border-t border-slate-100 pt-5">
-                                <h3 className="font-bold text-slate-950">Work hours</h3>
-                                {(submittedProfile.availability ?? []).length ? (
-                                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                        {(submittedProfile.availability ?? []).map((slot) => (
-                                            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm" key={slot.id ?? `${slot.day_of_week}-${slot.start_time}`}>
-                                                <span className="font-semibold text-slate-700">{days.find(([value]) => Number(value) === Number(slot.day_of_week))?.[1] ?? 'Day'}</span>
-                                                <span className="text-slate-500">{String(slot.start_time).slice(0, 5)} - {String(slot.end_time).slice(0, 5)}</span>
-                                            </div>
-                                        ))}
+                                <OnboardingReviewAccordion title="Contact and location">
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        <ReviewField label="Email" value={submittedProfile.contact_email} />
+                                        <ReviewField label="Phone" value={submittedProfile.contact_phone} />
+                                        <ReviewField label="Location" value={[submittedProfile.location, submittedProfile.city, submittedProfile.country].filter(Boolean).join(', ')} />
+                                        {submittedProfile.website && <ExternalLink href={submittedProfile.website}>Website</ExternalLink>}
                                     </div>
-                                ) : <p className="mt-2 text-sm text-slate-500">No work hours submitted.</p>}
-                            </section>
+                                </OnboardingReviewAccordion>
 
-                            <section className="mt-5 border-t border-slate-100 pt-5">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-slate-950">Uploaded media and documents</h3>
-                                        <p className="mt-1 text-sm text-slate-500">Profile, cover, portfolio, certificate, license, PDF, and other onboarding uploads.</p>
+                                <OnboardingReviewAccordion title="Pricing and completion">
+                                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        <ReviewField label="Base price" value={submittedProfile.base_price ? money(submittedProfile.base_price, submittedProfile.default_currency) : ''} />
+                                        <ReviewField label="Onboarding submitted" value={formatDate(submittedProfile.onboarding_completed_at)} />
+                                        <ReviewField label="Terms accepted" value={submittedProfile.terms_accepted_at ? formatDate(submittedProfile.terms_accepted_at) : 'Not accepted'} />
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <StatusBadge status={`${providerMediaMeta.total ?? 0} files`} />
-                                        <Link className="text-sm font-bold text-fuchsia-700 hover:underline" to="/admin/media">Media library</Link>
-                                    </div>
-                                </div>
-                                {providerMediaLoading ? <div className="mt-4"><LoadingBlock rows={4} /></div> : providerMediaError ? (
-                                    <div className="mt-4"><ErrorState message={providerMediaError} onRetry={() => loadProviderMedia(providerMediaMeta.current_page ?? 1)} /></div>
-                                ) : providerMedia.length === 0 ? (
-                                    <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">This provider has not uploaded any media yet.</p>
-                                ) : (
-                                    <>
-                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                            {providerMedia.map((item) => {
-                                                const url = mediaUrl(item.url);
-                                                const image = String(item.mime_type ?? '').startsWith('image/');
-                                                return (
-                                                    <a className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-fuchsia-300 hover:shadow-sm" href={url} key={item.id ?? item.path} rel="noreferrer" target="_blank">
-                                                        <div className="aspect-[4/3] bg-slate-100">{image ? <img alt="" className="size-full object-cover" src={url} /> : <span className="grid size-full place-items-center text-sm font-bold text-slate-500">{mediaLabel(item)}</span>}</div>
-                                                        <div className="min-w-0 p-3">
-                                                            <p className="truncate text-sm font-bold text-slate-900">{item.name ?? item.filename}</p>
-                                                            <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.collection?.replaceAll('_', ' ') ?? 'Upload'}</p>
-                                                            <p className="mt-2 text-xs text-slate-400">{formatMediaSize(item.size)} | {formatDate(item.created_at)}</p>
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion title="About the provider">
+                                    <p className="whitespace-pre-line text-sm leading-6 text-slate-700">{submittedProfile.bio || 'Not provided'}</p>
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion badge={`${submittedSocials.length} links`} title="Social links">
+                                    {submittedSocials.length ? <div className="grid gap-2 sm:grid-cols-2">{submittedSocials.map(([platform, url]) => <ExternalLink href={url} key={platform}>{platform}</ExternalLink>)}</div> : <p className="text-sm text-slate-500">No social links submitted.</p>}
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion badge={`${submittedPortfolio.length} items`} title="Portfolio">
+                                    <section>
+                                        {submittedPortfolio.length ? (
+                                            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                                                {submittedPortfolio.map((item, index) => (
+                                                    <a className="group min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" href={item.url} key={item.path} rel="noreferrer" target="_blank">
+                                                        <div className="aspect-square overflow-hidden">
+                                                            <img alt={`Portfolio image ${index + 1}`} className="size-full object-cover transition group-hover:scale-[1.03]" src={item.url} />
                                                         </div>
+                                                        <p className="truncate px-3 py-2 text-xs font-bold text-slate-600">View image {index + 1}</p>
                                                     </a>
-                                                );
-                                            })}
+                                                ))}
+                                            </div>
+                                        ) : <p className="mt-2 text-sm text-slate-500">No portfolio images submitted.</p>}
+                                    </section>
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion badge={latest?.status ?? 'not submitted'} title="Verification submission">
+                                    <section>
+                                        {latest ? (
+                                            <div className="mt-3 space-y-3">
+                                                <p className="whitespace-pre-line rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">{latest.professional_info || 'No written verification details provided.'}</p>
+                                                <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-600">
+                                                    <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.portfolio_links ?? []).length} portfolio images</span>
+                                                    <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.certification_files ?? []).length} certificates</span>
+                                                    <span className="rounded-full bg-slate-100 px-3 py-1.5">{(latest.license_files ?? []).length} licenses</span>
+                                                    <span className="rounded-full bg-slate-100 px-3 py-1.5">Submitted {formatDate(latest.created_at)}</span>
+                                                </div>
+                                            </div>
+                                        ) : <p className="mt-2 text-sm text-slate-500">No verification request was submitted.</p>}
+                                    </section>
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion badge={`${(submittedProfile.availability ?? []).length} days`} title="Work hours">
+                                    <section>
+                                        {(submittedProfile.availability ?? []).length ? (
+                                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                {(submittedProfile.availability ?? []).map((slot) => (
+                                                    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={slot.id ?? `${slot.day_of_week}-${slot.start_time}`}>
+                                                        <span className="font-semibold text-slate-700">{days.find(([value]) => Number(value) === Number(slot.day_of_week))?.[1] ?? 'Day'}</span>
+                                                        <span className="whitespace-nowrap text-slate-500">{String(slot.start_time).slice(0, 5)} - {String(slot.end_time).slice(0, 5)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : <p className="mt-2 text-sm text-slate-500">No work hours submitted.</p>}
+                                    </section>
+                                </OnboardingReviewAccordion>
+
+                                <OnboardingReviewAccordion badge={`${providerMediaMeta.total ?? 0} files`} title="Uploaded media and documents">
+                                    <section>
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <h3 className="font-bold text-slate-950">Uploaded media and documents</h3>
+                                                <p className="mt-1 text-sm text-slate-500">Profile, cover, portfolio, certificate, license, PDF, and other onboarding uploads.</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Link className="text-sm font-bold text-fuchsia-700 hover:underline" to="/admin/media">Media library</Link>
+                                            </div>
                                         </div>
-                                        <Pagination page={providerMediaMeta.current_page ?? 1} pageCount={providerMediaMeta.last_page ?? 1} onPageChange={loadProviderMedia} />
-                                    </>
-                                )}
-                            </section>
+                                        {providerMediaLoading ? <div className="mt-4"><LoadingBlock rows={4} /></div> : providerMediaError ? (
+                                            <div className="mt-4"><ErrorState message={providerMediaError} onRetry={() => loadProviderMedia(providerMediaMeta.current_page ?? 1)} /></div>
+                                        ) : providerMedia.length === 0 ? (
+                                            <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">This provider has not uploaded any media yet.</p>
+                                        ) : (
+                                            <>
+                                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                                    {providerMedia.map((item) => {
+                                                        const url = mediaUrl(item.url);
+                                                        const image = String(item.mime_type ?? '').startsWith('image/');
+                                                        return (
+                                                            <a className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:border-fuchsia-300 hover:shadow-sm" href={url} key={item.id ?? item.path} rel="noreferrer" target="_blank">
+                                                                <div className="aspect-[4/3] bg-slate-100">{image ? <img alt="" className="size-full object-cover" src={url} /> : <span className="grid size-full place-items-center text-sm font-bold text-slate-500">{mediaLabel(item)}</span>}</div>
+                                                                <div className="min-w-0 p-3">
+                                                                    <p className="truncate text-sm font-bold text-slate-900">{item.name ?? item.filename}</p>
+                                                                    <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.collection?.replaceAll('_', ' ') ?? 'Upload'}</p>
+                                                                    <p className="mt-2 text-xs text-slate-400">{formatMediaSize(item.size)} | {formatDate(item.created_at)}</p>
+                                                                </div>
+                                                            </a>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <Pagination page={providerMediaMeta.current_page ?? 1} pageCount={providerMediaMeta.last_page ?? 1} onPageChange={loadProviderMedia} />
+                                            </>
+                                        )}
+                                    </section>
+                                </OnboardingReviewAccordion>
+                            </div>
                         </Card>
                     )}
 
