@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\ProviderCategory;
 use App\Models\ProviderProfile;
 use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\User;
@@ -21,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -660,6 +662,86 @@ class DashboardController extends Controller
                     ->values(),
             ],
         ]);
+    }
+
+    public function assignSubscription(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'subscription_plan_id' => ['required', 'integer', Rule::exists('subscription_plans', 'id')->where('is_active', true)],
+            'starts_at' => ['required', 'date_format:Y-m-d'],
+            'period_type' => ['required', Rule::in(['duration', 'custom'])],
+            'ends_at' => ['required_if:period_type,custom', 'nullable', 'date_format:Y-m-d', 'after_or_equal:starts_at'],
+            'duration_count' => ['required_if:period_type,duration', 'nullable', 'integer', 'between:1,3650'],
+            'duration_unit' => ['required_if:period_type,duration', 'nullable', Rule::in(['days', 'months', 'years'])],
+        ]);
+
+        $user = User::findOrFail($validated['user_id']);
+        if ($user->isAdmin()) {
+            return response()->json(['message' => 'Plans can only be assigned to provider or customer accounts.'], 422);
+        }
+
+        $plan = SubscriptionPlan::findOrFail($validated['subscription_plan_id']);
+        $startsAt = Carbon::createFromFormat('Y-m-d', $validated['starts_at'])->startOfDay();
+        $endsAt = $validated['period_type'] === 'custom'
+            ? Carbon::createFromFormat('Y-m-d', $validated['ends_at'])->endOfDay()
+            : match ($validated['duration_unit']) {
+                'days' => $startsAt->copy()->addDays($validated['duration_count']),
+                'months' => $startsAt->copy()->addMonthsNoOverflow($validated['duration_count']),
+                'years' => $startsAt->copy()->addYearsNoOverflow($validated['duration_count']),
+            };
+
+        $subscription = DB::transaction(function () use ($request, $user, $plan, $startsAt, $endsAt): Subscription {
+            $overlapping = $user->subscriptions()
+                ->where('status', 'active')
+                ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $startsAt))
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($overlapping as $existing) {
+                if ($startsAt->isFuture() && $existing->starts_at?->lt($startsAt)) {
+                    $existing->update([
+                        'ends_at' => $startsAt,
+                        'renews_at' => null,
+                        'metadata' => array_merge($existing->metadata ?? [], [
+                            'replaced_by_admin_at' => $startsAt->toIso8601String(),
+                        ]),
+                    ]);
+                } else {
+                    $existing->update([
+                        'status' => 'cancelled',
+                        'ends_at' => now(),
+                        'renews_at' => null,
+                        'cancelled_at' => now(),
+                        'metadata' => array_merge($existing->metadata ?? [], [
+                            'cancelled_by_admin_assignment_at' => now()->toIso8601String(),
+                        ]),
+                    ]);
+                }
+            }
+
+            return $user->subscriptions()->create([
+                'subscription_plan_id' => $plan->id,
+                'plan' => $plan->key,
+                'status' => 'active',
+                'amount' => 0,
+                'currency' => $plan->currency,
+                'starts_at' => $startsAt,
+                'renews_at' => null,
+                'ends_at' => $endsAt,
+                'metadata' => [
+                    'source' => 'admin_manual_assignment',
+                    'assigned_by_admin_id' => $request->user()->id,
+                    'assigned_at' => now()->toIso8601String(),
+                ],
+            ]);
+        });
+
+        return $this->success(
+            $subscription->load(['user:id,name,email,role', 'planDefinition']),
+            $startsAt->isFuture() ? 'Plan scheduled successfully.' : 'Plan assigned successfully.',
+            201,
+        );
     }
 
     private function activityFeed(int $limit = 50, string $type = 'all'): array

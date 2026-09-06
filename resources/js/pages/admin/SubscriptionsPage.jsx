@@ -115,7 +115,7 @@ export default function AdminSubscriptionsPage() {
         <div className="space-y-6">
             <PageHeader
                 actions={<Button disabled={!subscriptions.length} onClick={exportCsv} type="button" variant="secondary">Export CSV</Button>}
-                description="Set provider plan pricing, manage plan features, and track subscription payments."
+                description="Set provider plan pricing, manage plan features, and track subscription periods."
                 eyebrow="Plans"
                 title="Subscriptions"
             />
@@ -170,15 +170,15 @@ export default function AdminSubscriptionsPage() {
                     <div>
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[760px] text-left text-sm">
-                                <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3 font-bold">Member</th><th className="pb-3 font-bold">Plan</th><th className="pb-3 font-bold">Amount</th><th className="pb-3 font-bold">Started</th><th className="pb-3 font-bold">Renews</th><th className="pb-3 text-right font-bold">Status</th></tr></thead>
+                                <thead><tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400"><th className="pb-3 font-bold">Member</th><th className="pb-3 font-bold">Plan</th><th className="pb-3 font-bold">Amount</th><th className="pb-3 font-bold">Started</th><th className="pb-3 font-bold">Ends / renews</th><th className="pb-3 text-right font-bold">Status</th></tr></thead>
                                 <tbody>{visible.map((item) => (
                                     <tr className="border-b border-slate-50 last:border-0" key={item.id}>
                                         <td className="py-3"><div className="flex items-center gap-3"><Avatar name={item.user?.name} size="sm" /><div><p className="font-bold text-slate-900">{item.user?.name ?? 'Member'}</p><p className="text-xs text-slate-400">{item.user?.email ?? item.email}</p></div></div></td>
                                         <td className="py-3 font-semibold capitalize text-slate-700">{item.plan ?? 'free'}</td>
                                         <td className="py-3 font-bold text-slate-900"><Currency currency={item.currency} value={item.amount} /></td>
                                         <td className="py-3 text-slate-500">{formatDate(item.starts_at ?? item.created_at)}</td>
-                                        <td className="py-3 text-slate-500">{formatDate(item.renews_at ?? item.current_period_end)}</td>
-                                        <td className="py-3 text-right"><StatusBadge status={item.status ?? 'active'} /></td>
+                                        <td className="py-3 text-slate-500">{formatDate(item.ends_at ?? item.renews_at ?? item.current_period_end)}</td>
+                                        <td className="py-3 text-right"><StatusBadge status={item.status === 'active' && new Date(item.starts_at) > new Date() ? 'scheduled' : (item.status ?? 'active')} /></td>
                                     </tr>
                                 ))}</tbody>
                             </table>
@@ -203,6 +203,7 @@ export default function AdminSubscriptionsPage() {
                     </Card>
                 </div>
             )}
+
         </div>
     );
 }

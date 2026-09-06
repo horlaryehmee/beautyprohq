@@ -18,6 +18,20 @@ const days = [
     [0, 'Sunday'],
 ];
 
+const localDate = (date = new Date()) => {
+    const offset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+};
+
+const emptyPlanAssignment = () => ({
+    subscription_plan_id: '',
+    starts_at: localDate(),
+    period_type: 'duration',
+    duration_count: 30,
+    duration_unit: 'days',
+    ends_at: '',
+});
+
 function verifiedState(user) {
     const profile = user?.provider_profile ?? user?.providerProfile;
     if (profile?.verified) return 'approved';
@@ -150,6 +164,10 @@ export default function AdminUserDetailPage() {
     const [user, setUser] = useState(null);
     const [form, setForm] = useState(null);
     const [categories, setCategories] = useState([]);
+    const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+    const [showPlanAssignment, setShowPlanAssignment] = useState(false);
+    const [planAssignment, setPlanAssignment] = useState(emptyPlanAssignment);
+    const [assigningPlan, setAssigningPlan] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -181,14 +199,16 @@ export default function AdminUserDetailPage() {
         setLoading(true);
         setError('');
         try {
-            const [data, categoryData] = await Promise.all([
+            const [data, categoryData, planData] = await Promise.all([
                 apiRequest('get', `/admin/users/${id}`),
                 apiRequest('get', '/admin/provider-categories'),
+                apiRequest('get', '/admin/subscription-plans'),
             ]);
             const profile = data.provider_profile ?? data.providerProfile ?? {};
             const verification = latestVerification(data);
             setUser(data);
             setCategories(Array.isArray(categoryData) ? categoryData : categoryData?.data ?? []);
+            setSubscriptionPlans((Array.isArray(planData) ? planData : planData?.data ?? []).filter((plan) => plan.is_active !== false));
             setForm({
                 name: data.name ?? '',
                 email: data.email ?? '',
@@ -373,6 +393,41 @@ export default function AdminUserDetailPage() {
         }
     };
 
+    const openPlanAssignment = () => {
+        setPlanAssignment(emptyPlanAssignment());
+        setShowPlanAssignment(true);
+    };
+
+    const assignPlan = async () => {
+        if (!planAssignment.subscription_plan_id || !planAssignment.starts_at) {
+            notify('Choose a plan and start date.', 'error');
+            return;
+        }
+        if (planAssignment.period_type === 'custom' && !planAssignment.ends_at) {
+            notify('Choose an end date.', 'error');
+            return;
+        }
+
+        setAssigningPlan(true);
+        try {
+            await apiRequest('post', '/admin/subscriptions/assign', {
+                ...planAssignment,
+                user_id: Number(id),
+                subscription_plan_id: Number(planAssignment.subscription_plan_id),
+                duration_count: planAssignment.period_type === 'duration' ? Number(planAssignment.duration_count) : null,
+                duration_unit: planAssignment.period_type === 'duration' ? planAssignment.duration_unit : null,
+                ends_at: planAssignment.period_type === 'custom' ? planAssignment.ends_at : null,
+            });
+            setShowPlanAssignment(false);
+            notify('Subscription assigned successfully.');
+            await load();
+        } catch (requestError) {
+            notify(apiErrorMessage(requestError), 'error');
+        } finally {
+            setAssigningPlan(false);
+        }
+    };
+
     const setVerification = (status) => {
         update({
             verification_status: status,
@@ -401,6 +456,7 @@ export default function AdminUserDetailPage() {
     if (error || !form) return <ErrorState message={error || 'User not found.'} onRetry={load} />;
 
     return (
+        <>
         <form className="space-y-6" onSubmit={save}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -420,6 +476,7 @@ export default function AdminUserDetailPage() {
                     <StatusBadge status={form.is_active ? 'active' : 'suspended'} />
                     <StatusBadge status={form.email_verified ? 'confirmed' : 'pending'} />
                     {hasProviderControls && <StatusBadge status={profile.verified ? 'verified' : 'unverified'} />}
+                    {hasProviderControls && <Button onClick={openPlanAssignment} type="button" variant="secondary">Give subscription</Button>}
                     {!isOwnAccount && (
                         form.is_active
                             ? <Button busy={suspending} onClick={toggleAccountStatus} type="button" variant="danger">Suspend user</Button>
@@ -976,5 +1033,53 @@ export default function AdminUserDetailPage() {
                 </div>
             </div>
         </form>
+
+        {showPlanAssignment && hasProviderControls && (
+            <div className="fixed inset-0 z-[70] grid place-items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" onMouseDown={() => setShowPlanAssignment(false)}>
+                <Card className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-b-none sm:rounded-3xl" onMouseDown={(event) => event.stopPropagation()}>
+                    <h2 className="text-lg font-semibold text-slate-950">Give {form.name} a subscription</h2>
+                    <p className="mt-1 text-sm text-slate-500">Optional manual access for this provider. Set exactly when it starts and ends.</p>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                        <Field className="sm:col-span-2" label="Provider">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700"><span className="font-bold">{form.name}</span> · {form.email}</div>
+                        </Field>
+                        <Field label="Plan" required>
+                            <select className={inputClass} onChange={(event) => setPlanAssignment((current) => ({ ...current, subscription_plan_id: event.target.value }))} required value={planAssignment.subscription_plan_id}>
+                                <option value="">Select a plan</option>
+                                {subscriptionPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Start date" required>
+                            <input className={inputClass} onChange={(event) => setPlanAssignment((current) => ({ ...current, starts_at: event.target.value }))} required type="date" value={planAssignment.starts_at} />
+                        </Field>
+                        <Field className="sm:col-span-2" label="Access period">
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button onClick={() => setPlanAssignment((current) => ({ ...current, period_type: 'duration' }))} type="button" variant={planAssignment.period_type === 'duration' ? 'primary' : 'secondary'}>Set a duration</Button>
+                                <Button onClick={() => setPlanAssignment((current) => ({ ...current, period_type: 'custom' }))} type="button" variant={planAssignment.period_type === 'custom' ? 'primary' : 'secondary'}>Custom end date</Button>
+                            </div>
+                        </Field>
+                        {planAssignment.period_type === 'duration' ? (
+                            <>
+                                <Field label="Duration" required><input className={inputClass} min="1" max="3650" onChange={(event) => setPlanAssignment((current) => ({ ...current, duration_count: event.target.value }))} required type="number" value={planAssignment.duration_count} /></Field>
+                                <Field label="Unit" required><select className={inputClass} onChange={(event) => setPlanAssignment((current) => ({ ...current, duration_unit: event.target.value }))} value={planAssignment.duration_unit}><option value="days">Days</option><option value="months">Months</option><option value="years">Years</option></select></Field>
+                                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                                    <Button onClick={() => setPlanAssignment((current) => ({ ...current, duration_count: 30, duration_unit: 'days' }))} type="button" variant="soft">30 days</Button>
+                                    <Button onClick={() => setPlanAssignment((current) => ({ ...current, duration_count: 3, duration_unit: 'months' }))} type="button" variant="soft">3 months</Button>
+                                    <Button onClick={() => setPlanAssignment((current) => ({ ...current, duration_count: 6, duration_unit: 'months' }))} type="button" variant="soft">6 months</Button>
+                                    <Button onClick={() => setPlanAssignment((current) => ({ ...current, duration_count: 1, duration_unit: 'years' }))} type="button" variant="soft">1 year</Button>
+                                </div>
+                            </>
+                        ) : (
+                            <Field className="sm:col-span-2" label="End date" required><input className={inputClass} min={planAssignment.starts_at} onChange={(event) => setPlanAssignment((current) => ({ ...current, ends_at: event.target.value }))} required type="date" value={planAssignment.ends_at} /></Field>
+                        )}
+                        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 sm:col-span-2">
+                            <Button onClick={() => setShowPlanAssignment(false)} type="button" variant="secondary">Cancel</Button>
+                            <Button busy={assigningPlan} disabled={!planAssignment.subscription_plan_id || !planAssignment.starts_at || (planAssignment.period_type === 'custom' && !planAssignment.ends_at)} onClick={assignPlan} type="button">Give subscription</Button>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        )}
+        </>
     );
 }

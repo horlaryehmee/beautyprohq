@@ -227,6 +227,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::get('/verifications', [AdminVerificationController::class, 'index']);
         Route::patch('/verifications/{verification}', [AdminVerificationController::class, 'update']);
         Route::get('/subscriptions', [AdminDashboardController::class, 'subscriptions']);
+        Route::post('/subscriptions/assign', [AdminDashboardController::class, 'assignSubscription']);
         Route::get('/support', [AdminSupportController::class, 'index']);
         Route::get('/support/{ticket}', [AdminSupportController::class, 'show']);
         Route::post('/support/{ticket}/messages', [AdminSupportController::class, 'reply'])->middleware('throttle:chat');

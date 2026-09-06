@@ -77,6 +77,10 @@ class Subscription extends Model
             return false;
         }
 
+        if ($this->starts_at?->isFuture()) {
+            return false;
+        }
+
         $periodEndsAt = $this->ends_at ?: $this->renews_at;
         if (in_array($this->plan, self::PAID_PLANS, true) && ! $periodEndsAt) {
             return false;
