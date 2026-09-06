@@ -77,6 +77,13 @@ const sections = [
     ['Analytics', [
         'Analytics shows profile views, bookings, revenue and customer activity.',
         'Use custom start and end dates to report on any period, or compare it with another date range.',
+        'Selected period means the main date range you chose. Comparison period means the optional second date range used as the benchmark.',
+        'Change shows how the selected period performed against the comparison period. Counts use percentage change, while conversion and retention rates use percentage-point (pts) change. New means the comparison period was zero and the selected period is above zero; No change means both are zero.',
+        'Profile views is the total number of recorded visits to your public provider profile during the selected period.',
+        'Booking requests is the total number of booking requests created during the selected period, including requests in any booking status.',
+        'Conversion rate is booking requests divided by profile views, multiplied by 100. For example, 1 booking request from 4 profile views is a 25% conversion rate.',
+        'Unique customers is the number of different customers with at least one pending, confirmed or completed booking created during the selected period. Cancelled and rejected requests are not included.',
+        'Retention rate is the percentage of those unique customers who had booked with you before the selected period or made more than one pending, confirmed or completed booking during it.',
         'Use analytics to decide which services, profile updates and promotions are working.',
         'If analytics data is empty, confirm that bookings/views exist and that the selected date range includes activity.',
     ]],

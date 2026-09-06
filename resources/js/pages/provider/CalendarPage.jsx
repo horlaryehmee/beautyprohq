@@ -148,7 +148,6 @@ export default function ProviderCalendarPage() {
                             {calendarResource.data?.connected ? (
                                 <>
                                     <p className="mt-1 break-words text-sm text-bphq-coffee">Connected as <strong>{calendarResource.data.google_email || 'your Google account'}</strong></p>
-                                    <p className="mt-2 text-xs leading-5 text-slate-500">New bookings are added automatically to your dedicated BeautyPro HQ Bookings calendar. BeautyPro HQ cannot access your other calendars.</p>
                                     {calendarResource.data.last_error && <p className="mt-2 text-xs font-semibold text-rose-600">Last sync needs attention: {calendarResource.data.last_error}</p>}
                                 </>
                             ) : (
