@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api, { apiError, ensureCsrfCookie, unwrap } from '../../lib/api';
 import { currency, providerIdentity, stripHtml } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -366,6 +366,7 @@ export default function BookingModal({ open, onClose, provider, services = [], i
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [monthOffset, setMonthOffset] = useState(0);
     const [selectedTimezone, setSelectedTimezone] = useState(detectedBrowserTimezone);
+    const restoredTimeRef = useRef('');
 
     const availableServices = useMemo(() => initialService ? [initialService] : services, [initialService, services]);
     const selectedService = useMemo(() => availableServices.find((item) => String(item.id) === String(serviceId)), [availableServices, serviceId]);
@@ -413,24 +414,38 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         return methods;
     }, [provider]);
     const selectedPaymentMethod = paymentMethods.find((method) => method.gateway === paymentMethod) ?? paymentMethods[0];
+    const googleBookingHref = `/auth/google/redirect?${new URLSearchParams({ intent: 'register', role: 'customer', plan: 'free', redirect: `${window.location.pathname}${window.location.search}` })}`;
+    const googleDraftKey = `beautypro-google-booking-${providerId}`;
 
     useEffect(() => {
         if (!open) return undefined;
-        setStep(1);
-        setServiceId(String(initialService?.id ?? availableServices[0]?.id ?? ''));
-        setDate('');
-        setTime('');
-        setNotes('');
-        setCustomAnswers({});
-        setReferralCode(referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : '');
+        let draft = null;
+        if (user?.role === 'customer') {
+            try {
+                const saved = window.sessionStorage.getItem(googleDraftKey);
+                window.sessionStorage.removeItem(googleDraftKey);
+                const parsed = saved ? JSON.parse(saved) : null;
+                if (parsed && Date.now() - Number(parsed.savedAt ?? 0) <= 15 * 60 * 1000) draft = parsed;
+            } catch {
+                draft = null;
+            }
+        }
+        restoredTimeRef.current = draft?.time ?? '';
+        setStep(draft ? 3 : 1);
+        setServiceId(String(draft?.serviceId ?? initialService?.id ?? availableServices[0]?.id ?? ''));
+        setDate(draft?.date ?? '');
+        setTime(draft?.time ?? '');
+        setNotes(draft?.notes ?? '');
+        setCustomAnswers(draft?.customAnswers ?? {});
+        setReferralCode(draft?.referralCode ?? (referralRewardsAvailable ? (new URLSearchParams(window.location.search).get('ref') ?? '') : ''));
         setRedeemLoyalty(false);
-        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: user?.phone ?? '', create_account: false, password: '', password_confirmation: '' });
-        setPaymentMethod(paymentMethods[0]?.gateway || '');
+        setCustomer({ name: user?.role === 'customer' ? user.name ?? '' : '', email: user?.role === 'customer' ? user.email ?? '' : '', phone: draft?.phone ?? user?.phone ?? '', create_account: false, password: '', password_confirmation: '' });
+        setPaymentMethod(draft?.paymentMethod ?? paymentMethods[0]?.gateway ?? '');
         setManualBooking(null);
         setAvailabilityData(null);
         setCheckoutUrl('');
         setMonthOffset(0);
-        setSelectedTimezone(detectedBrowserTimezone());
+        setSelectedTimezone(draft?.selectedTimezone ?? detectedBrowserTimezone());
         setError('');
         if (!standalone) {
             document.body.style.overflow = 'hidden';
@@ -443,18 +458,27 @@ export default function BookingModal({ open, onClose, provider, services = [], i
             }
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, initialService, availableServices, onClose, standalone, user, paymentMethods, referralRewardsAvailable]);
+    }, [open, initialService, availableServices, onClose, standalone, user, paymentMethods, referralRewardsAvailable, googleDraftKey]);
 
     useEffect(() => {
         if (!open || !date || !pro.slug) return;
         let active = true;
+        const restoredTime = restoredTimeRef.current;
         setLoadingSlots(true);
-        setTime('');
+        setTime(restoredTime || '');
         setError('');
         api.get(`/providers/${pro.slug}/availability`, { params: { date, timezone: selectedTimezone } })
-            .then((response) => active && setAvailabilityData(unwrap(response)))
+            .then((response) => {
+                if (!active) return;
+                setAvailabilityData(unwrap(response));
+                if (restoredTime) setTime(restoredTime);
+            })
             .catch((requestError) => active && setError(apiError(requestError, 'We could not load availability for this date.').message))
-            .finally(() => active && setLoadingSlots(false));
+            .finally(() => {
+                if (!active) return;
+                restoredTimeRef.current = '';
+                setLoadingSlots(false);
+            });
         return () => { active = false; };
     }, [open, date, pro.slug, selectedTimezone]);
 
@@ -466,7 +490,9 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         }
     }, [calendarDays, date, open, standalone]);
 
-    useEffect(() => { setTime(''); }, [serviceId]);
+    useEffect(() => {
+        if (!restoredTimeRef.current) setTime('');
+    }, [serviceId]);
 
     if (!open) return null;
 
@@ -509,6 +535,25 @@ export default function BookingModal({ open, onClose, provider, services = [], i
         setTime(value);
         if (standalone) {
             setStep(3);
+        }
+    }
+
+    function preserveBookingForGoogle() {
+        try {
+            window.sessionStorage.setItem(googleDraftKey, JSON.stringify({
+                savedAt: Date.now(),
+                serviceId,
+                date,
+                time,
+                notes,
+                customAnswers,
+                referralCode,
+                selectedTimezone,
+                paymentMethod,
+                phone: customer.phone,
+            }));
+        } catch {
+            // The booking page still returns correctly if private storage is unavailable.
         }
     }
 
@@ -735,9 +780,10 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                 <p className="mb-3 text-sm font-semibold text-[#2A1D14]">Create or access your customer account before booking.</p>
                                                 <GoogleAuthButton
                                                     dividerLabel={null}
-                                                    href={`/auth/google/redirect?${new URLSearchParams({ intent: 'register', role: 'customer', plan: 'free', redirect: `${window.location.pathname}${window.location.search}` })}`}
+                                                    href={googleBookingHref}
                                                     label="Continue as a customer with Google"
                                                     note="You will return here after Google authentication."
+                                                    onClick={preserveBookingForGoogle}
                                                 />
                                             </div>
                                         )}
@@ -934,6 +980,16 @@ export default function BookingModal({ open, onClose, provider, services = [], i
                                                     </div>
                                                     {user?.role !== 'customer' && (
                                                         <div className="sm:col-span-2">
+                                                            <div className="mb-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4">
+                                                                <p className="mb-3 text-sm font-semibold text-[#2A1D14]">Create your customer account and return to this booking with your selected time saved.</p>
+                                                                <GoogleAuthButton
+                                                                    dividerLabel="or create an account with a password"
+                                                                    href={googleBookingHref}
+                                                                    label="Create customer account with Google"
+                                                                    note="Google provides your verified name and email."
+                                                                    onClick={preserveBookingForGoogle}
+                                                                />
+                                                            </div>
                                                             <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-[#F7F3ED] p-4 text-sm font-semibold text-[#2A1D14]">
                                                                 <input
                                                                     checked={customer.create_account}

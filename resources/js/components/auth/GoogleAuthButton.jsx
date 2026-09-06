@@ -12,7 +12,7 @@ function GoogleMark() {
     );
 }
 
-export default function GoogleAuthButton({ href, label = 'Continue with Google', note, dividerLabel = 'or use email' }) {
+export default function GoogleAuthButton({ href, label = 'Continue with Google', note, dividerLabel = 'or use email', onClick }) {
     const [enabled, setEnabled] = useState(false);
 
     useEffect(() => {
@@ -28,7 +28,7 @@ export default function GoogleAuthButton({ href, label = 'Continue with Google',
 
     return (
         <>
-            <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-semibold text-plum-950 shadow-sm transition hover:border-stone-400 hover:bg-stone-50" href={href}>
+            <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-semibold text-plum-950 shadow-sm transition hover:border-stone-400 hover:bg-stone-50" href={href} onClick={onClick}>
                 <GoogleMark />
                 {label}
             </a>
