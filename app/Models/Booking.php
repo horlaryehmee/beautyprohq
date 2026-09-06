@@ -19,7 +19,6 @@ class Booking extends Model
         return [
             'date' => 'date:Y-m-d',
             'cancelled_at' => 'datetime',
-            'google_calendar_synced_at' => 'datetime',
             'custom_fields' => 'array',
             'is_demo' => 'boolean',
         ];

@@ -16,7 +16,6 @@ use App\Models\Service;
 use App\Models\User;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
-use App\Services\GoogleCalendarService;
 use App\Services\TwilioWhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -295,7 +294,6 @@ class BookingController extends Controller
         if ($booking->payment?->status === 'paid') {
             $this->safeNotifyBookingPaymentPaid($booking->payment);
         } else {
-            app(GoogleCalendarService::class)->syncBookingSafely($booking);
             $this->safeNotify($booking->customer, new BookingStatusNotification(
                 $booking,
                 "Your booking request with {$provider->user->name} has been created. You will receive updates by email."
@@ -921,12 +919,9 @@ class BookingController extends Controller
             'Notes' => $booking->notes ?: 'None',
         ];
 
-        $this->safeNotify($booking->customer, new PlatformUpdateNotification(
-            'Booking confirmed',
-            "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed.",
-            'View bookings',
-            rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
-            ['booking_id' => $booking->id, 'payment_id' => $payment->id, 'details' => $details],
+        $this->safeNotify($booking->customer, new BookingStatusNotification(
+            $booking,
+            "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed."
         ));
 
         $this->safeNotify($payment->provider?->user, new BookingStatusNotification(
@@ -956,10 +951,6 @@ class BookingController extends Controller
 
     private function safeNotifyBookingPaymentPaid(Payment $payment): void
     {
-        if ($payment->booking) {
-            app(GoogleCalendarService::class)->syncBookingSafely($payment->booking);
-        }
-
         try {
             $this->notifyBookingPaymentPaid($payment);
         } catch (\Throwable $exception) {
@@ -1058,7 +1049,6 @@ class BookingController extends Controller
 
         $booking->update(['status' => 'cancelled', 'cancelled_at' => now()]);
         $booking->load(['provider.user', 'customer', 'service']);
-        app(GoogleCalendarService::class)->syncBookingSafely($booking);
         $booking->provider->user->notify(new BookingStatusNotification($booking, "{$booking->customer->name} cancelled a booking."));
 
         return $this->success($booking, 'Booking cancelled.');

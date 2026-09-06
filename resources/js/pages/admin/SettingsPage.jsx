@@ -51,7 +51,7 @@ export default function AdminSettingsPage() {
     const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg', desktop_header_height: 112, mobile_header_height: 96 });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
-    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, calendar_enabled: true, client_id: '', client_secret: '' });
+    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, client_id: '', client_secret: '' });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '', content_sid: '', content_variables: '' });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
@@ -146,7 +146,6 @@ export default function AdminSettingsPage() {
         if (!data || !Object.keys(data).length) return;
         setGoogleAuthForm({
             enabled: Boolean(data.enabled),
-            calendar_enabled: Boolean(data.calendar_enabled),
             client_id: data.client_id ?? '',
             client_secret: '',
         });
@@ -349,7 +348,7 @@ export default function AdminSettingsPage() {
             const saved = await apiRequest('put', '/admin/settings/google-auth', googleAuthForm);
             googleAuthResource.setData(saved);
             setGoogleAuthForm((current) => ({ ...current, enabled: Boolean(saved.enabled), client_secret: '' }));
-            notify('Google authentication and Calendar settings saved.');
+            notify('Google authentication settings saved.');
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
@@ -365,17 +364,6 @@ export default function AdminSettingsPage() {
             notify('Google redirect URI copied.');
         } catch {
             window.prompt('Copy Google redirect URI', uri);
-        }
-    };
-
-    const copyGoogleCalendarRedirectUri = async () => {
-        const uri = googleAuthResource.data?.calendar_redirect_uri;
-        if (!uri) return;
-        try {
-            await navigator.clipboard.writeText(uri);
-            notify('Google Calendar redirect URI copied.');
-        } catch {
-            notify('Copy failed. Select the URI and copy it manually.', 'error');
         }
     };
 
@@ -622,8 +610,8 @@ export default function AdminSettingsPage() {
             {sectionTab === 'security' && <SecurityPage embedded />}
             <Card className={sectionTab === 'authentication' ? '' : 'hidden'}>
                 <CardHeader
-                    title="Google authentication and Calendar"
-                    description="Manage Google registration, login and provider booking-calendar connections from one place."
+                    title="Google authentication"
+                    description="Manage Google registration and login. Booking calendar links do not require OAuth."
                     action={googleAuthResource.data?.enabled ? <StatusBadge status="enabled" /> : googleAuthResource.data?.configured ? <StatusBadge status="configured" /> : <StatusBadge status="not configured" />}
                 />
                 {googleAuthResource.loading ? <LoadingBlock rows={5} /> : (
@@ -632,8 +620,8 @@ export default function AdminSettingsPage() {
                             <p className="font-bold">Google Cloud setup</p>
                             <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-sky-900">
                                 <li>Create an OAuth client with application type <strong>Web application</strong>.</li>
-                                <li>Configure the OAuth consent screen for sign-in, Calendar event access and Gmail sending.</li>
-                                <li>Enable the Google Calendar API and Gmail API in the same Google Cloud project.</li>
+                                <li>Configure the OAuth consent screen for sign-in and Gmail sending, if Gmail is used.</li>
+                                <li>Enable the Gmail API only if Google Workspace is used to send platform email.</li>
                                 <li>Add the exact origin and all redirect URIs shown below to their matching Authorized fields.</li>
                                 <li>Paste the client ID and secret here, save, then enable Google authentication.</li>
                             </ol>
@@ -643,24 +631,10 @@ export default function AdminSettingsPage() {
                             <input
                                 checked={googleAuthForm.enabled}
                                 className="mt-0.5 size-4 accent-fuchsia-700"
-                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, enabled: event.target.checked, ...(!event.target.checked ? { calendar_enabled: false } : {}) }))}
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, enabled: event.target.checked }))}
                                 type="checkbox"
                             />
                             <span><span className="block text-sm font-bold text-slate-800">Enable Google authentication</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">Shows Google buttons on both registration and login pages.</span></span>
-                        </label>
-
-                        <label className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                            <input
-                                checked={googleAuthForm.calendar_enabled}
-                                className="mt-0.5 size-4 accent-fuchsia-700"
-                                disabled={!googleAuthForm.enabled}
-                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, calendar_enabled: event.target.checked }))}
-                                type="checkbox"
-                            />
-                            <span>
-                                <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-800">Enable provider Google Calendar <StatusBadge status={googleAuthResource.data?.calendar_available ? 'enabled' : 'disabled'} /></span>
-                                <span className="mt-0.5 block text-xs leading-5 text-slate-600">Allows providers to connect their Google account and automatically receive booking events and reminders.</span>
-                            </span>
                         </label>
 
                         <Field label="Google OAuth client ID">
@@ -691,12 +665,6 @@ export default function AdminSettingsPage() {
                             <div className="flex flex-col gap-2 sm:flex-row">
                                 <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.redirect_uri ?? ''} />
                                 <Button onClick={copyGoogleRedirectUri} type="button" variant="secondary">Copy URI</Button>
-                            </div>
-                        </Field>
-                        <Field hint="Add this as a second Authorized redirect URI so providers can connect their own calendars." label="Google Calendar redirect URI">
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                                <input className={`${inputClass} font-mono text-xs`} readOnly value={googleAuthResource.data?.calendar_redirect_uri ?? ''} />
-                                <Button onClick={copyGoogleCalendarRedirectUri} type="button" variant="secondary">Copy URI</Button>
                             </div>
                         </Field>
                         <Field hint="Add this Authorized redirect URI so an administrator can connect the permanent Google Workspace mailbox." label="Google Workspace mail redirect URI">

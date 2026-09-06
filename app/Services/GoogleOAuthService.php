@@ -25,11 +25,6 @@ class GoogleOAuthService
         return filled($this->clientId()) && filled($this->clientSecret());
     }
 
-    public function calendarEnabled(): bool
-    {
-        return $this->setting('google.calendar_enabled', '1') === '1';
-    }
-
     public function clientId(): ?string
     {
         return $this->setting('google.client_id') ?: config('services.google.client_id');
@@ -43,11 +38,6 @@ class GoogleOAuthService
     public function redirectUri(): string
     {
         return route('auth.google.callback');
-    }
-
-    public function calendarRedirectUri(): string
-    {
-        return route('auth.google.calendar.callback');
     }
 
     public function mailRedirectUri(): string

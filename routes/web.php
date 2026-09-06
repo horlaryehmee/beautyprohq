@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\GoogleCalendarOAuthController;
+use App\Http\Controllers\BookingCalendarController;
 use App\Http\Controllers\GoogleWorkspaceOAuthController;
 use App\Http\Controllers\ProviderSeoController;
 use App\Http\Controllers\SeoController;
@@ -60,12 +60,6 @@ Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
 Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.callback');
-Route::get('/auth/google/calendar/redirect', [GoogleCalendarOAuthController::class, 'redirect'])
-    ->middleware(['auth', 'active', 'throttle:sensitive'])
-    ->name('auth.google.calendar.redirect');
-Route::match(['get', 'post'], '/auth/google/calendar/callback', [GoogleCalendarOAuthController::class, 'callback'])
-    ->middleware('throttle:sensitive')
-    ->name('auth.google.calendar.callback');
 Route::get('/auth/google/mail/redirect', [GoogleWorkspaceOAuthController::class, 'redirect'])
     ->middleware(['auth', 'active', 'role:admin', 'throttle:sensitive'])
     ->name('auth.google.mail.redirect');
@@ -173,6 +167,10 @@ Route::get('/community/{communityPost}', [SeoController::class, 'communityPage']
 ]);
 
 Route::get('/build/assets/{asset}', fn () => abort(404))->where('asset', '.*');
+
+Route::get('/bookings/{booking}/calendar.ics', BookingCalendarController::class)
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('bookings.calendar');
 
 Route::get('/newsletter/unsubscribe/{subscriber}', function (NewsletterSubscriber $subscriber) {
     NewsletterUnsubscribe::record($subscriber->email);
