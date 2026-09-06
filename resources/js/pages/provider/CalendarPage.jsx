@@ -8,6 +8,7 @@ import {
     Field,
     LoadingBlock,
     PageHeader,
+    StatusBadge,
     apiErrorMessage,
     apiRequest,
     formatDate,
@@ -27,11 +28,13 @@ export default function ProviderCalendarPage() {
     const availabilityResource = useApiResource('/provider/availability', []);
     const blockedResource = useApiResource('/provider/blocked-dates', []);
     const settingsResource = useApiResource('/provider/settings', {});
+    const calendarResource = useApiResource('/provider/calendar-integration', {});
     const [slots, setSlots] = useState(defaultSlots);
     const [timezone, setTimezone] = useState('Africa/Lagos');
     const [blockedDate, setBlockedDate] = useState('');
     const [reason, setReason] = useState('');
     const [saving, setSaving] = useState(false);
+    const [calendarBusy, setCalendarBusy] = useState(false);
     const { notify } = useDashboardToast();
 
     useEffect(() => {
@@ -46,6 +49,15 @@ export default function ProviderCalendarPage() {
     useEffect(() => {
         if (settingsResource.data?.timezone) setTimezone(settingsResource.data.timezone);
     }, [settingsResource.data]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get('calendar_error');
+        const connected = params.get('calendar_connected');
+        if (error) notify(error, 'error');
+        if (connected) notify(`Google Calendar connected. ${params.get('calendar_synced') || 0} upcoming bookings synced.`);
+        if (error || connected) window.history.replaceState({}, '', window.location.pathname);
+    }, [notify]);
 
     const blockedDates = useMemo(() => normalize(blockedResource.data, 'blocked_dates'), [blockedResource.data]);
 
@@ -93,10 +105,71 @@ export default function ProviderCalendarPage() {
         }
     };
 
+    const syncCalendar = async () => {
+        setCalendarBusy(true);
+        try {
+            const result = await apiRequest('post', '/provider/calendar-integration/sync');
+            await calendarResource.reload();
+            notify(result?.failed ? `${result.synced} bookings synced; ${result.failed} need attention.` : `${result?.synced || 0} upcoming bookings synced.`);
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setCalendarBusy(false);
+        }
+    };
+
+    const disconnectCalendar = async () => {
+        if (!window.confirm('Disconnect Google Calendar? Events already added to Google will remain there.')) return;
+        setCalendarBusy(true);
+        try {
+            await apiRequest('delete', '/provider/calendar-integration');
+            await calendarResource.reload();
+            notify('Google Calendar disconnected.');
+        } catch (error) {
+            notify(apiErrorMessage(error), 'error');
+        } finally {
+            setCalendarBusy(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader actions={<Button busy={saving} onClick={saveAvailability} type="button">Save calendar</Button>} description="Set your timezone, recurring hours and dates when you cannot take appointments." eyebrow="Schedule" title="Availability calendar" />
-            {(availabilityResource.error || blockedResource.error || settingsResource.error) && <ErrorState message={availabilityResource.error || blockedResource.error || settingsResource.error} onRetry={() => { availabilityResource.reload(); blockedResource.reload(); settingsResource.reload(); }} />}
+            {(availabilityResource.error || blockedResource.error || settingsResource.error || calendarResource.error) && <ErrorState message={availabilityResource.error || blockedResource.error || settingsResource.error || calendarResource.error} onRetry={() => { availabilityResource.reload(); blockedResource.reload(); settingsResource.reload(); calendarResource.reload(); }} />}
+
+            <Card className="overflow-hidden" padding={false}>
+                {calendarResource.loading ? <div className="p-6"><LoadingBlock rows={2} /></div> : (
+                    <div className="grid gap-5 bg-gradient-to-br from-white via-sky-50/60 to-fuchsia-50/60 p-5 md:grid-cols-[1fr_auto] md:items-center sm:p-6">
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="font-display text-2xl font-semibold text-bphq-espresso">Google Calendar booking sync</h2>
+                                <StatusBadge status={calendarResource.data?.connected ? 'connected' : 'not connected'} />
+                            </div>
+                            {calendarResource.data?.connected ? (
+                                <>
+                                    <p className="mt-1 break-words text-sm text-bphq-coffee">Connected as <strong>{calendarResource.data.google_email || 'your Google account'}</strong></p>
+                                    <p className="mt-2 text-xs leading-5 text-slate-500">New bookings are added automatically to your dedicated BeautyPro HQ Bookings calendar. BeautyPro HQ cannot access your other calendars.</p>
+                                    {calendarResource.data.last_error && <p className="mt-2 text-xs font-semibold text-rose-600">Last sync needs attention: {calendarResource.data.last_error}</p>}
+                                </>
+                            ) : (
+                                <p className="mt-2 max-w-2xl text-sm leading-6 text-bphq-coffee">Connect Google to create a dedicated BeautyPro HQ Bookings calendar and automatically add new bookings. Access is limited to this app-created calendar.</p>
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
+                            {calendarResource.data?.connected ? (
+                                <>
+                                    <Button busy={calendarBusy} onClick={syncCalendar} type="button" variant="secondary">Sync upcoming</Button>
+                                    <Button disabled={calendarBusy} onClick={disconnectCalendar} type="button" variant="soft">Disconnect</Button>
+                                </>
+                            ) : calendarResource.data?.available ? (
+                                <Button onClick={() => { window.location.href = calendarResource.data.connect_url; }} type="button">Connect Google Calendar</Button>
+                            ) : (
+                                <p className="max-w-xs rounded-xl bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">Google authentication must be configured by the platform administrator.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Card>
 
             <Card className="overflow-hidden" padding={false}>
                 <div className="grid gap-4 bg-gradient-to-br from-bphq-ivory via-white to-fuchsia-50 p-5 sm:grid-cols-[1fr_minmax(260px,0.8fr)] sm:items-center sm:p-6">

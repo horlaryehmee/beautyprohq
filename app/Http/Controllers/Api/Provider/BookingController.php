@@ -10,6 +10,7 @@ use App\Models\Loyalty;
 use App\Models\LoyaltyTransaction;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
+use App\Services\GoogleCalendarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +111,7 @@ class BookingController extends Controller
         });
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
+        app(GoogleCalendarService::class)->syncBookingSafely($booking);
         $booking->customer->notify(new BookingStatusNotification($booking, $validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual'
             ? "Your manual payment has been confirmed and your booking was accepted by {$booking->provider->user->name}."
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));

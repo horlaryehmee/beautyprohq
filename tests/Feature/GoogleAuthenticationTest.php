@@ -36,6 +36,7 @@ class GoogleAuthenticationTest extends TestCase
             $response->json('data.redirect_uri'),
         );
         $this->assertStringEndsWith('/auth/google/callback', $response->json('data.redirect_uri'));
+        $this->assertStringEndsWith('/auth/google/calendar/callback', $response->json('data.calendar_redirect_uri'));
         $this->assertStringEndsWith('/auth/google/mail/callback', $response->json('data.mail_redirect_uri'));
     }
 
