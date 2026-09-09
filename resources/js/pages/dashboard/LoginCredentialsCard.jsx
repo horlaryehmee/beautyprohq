@@ -4,6 +4,7 @@ import {
     Card,
     CardHeader,
     Field,
+    PasswordInput,
     apiErrorMessage,
     apiRequest,
     inputClass,
@@ -67,7 +68,7 @@ export default function LoginCredentialsCard() {
                         <input autoComplete="email" className={inputClass} onChange={(event) => setEmailForm((current) => ({ ...current, email: event.target.value }))} required type="email" value={emailForm.email} />
                     </Field>
                     <Field label="Current password">
-                        <input autoComplete="current-password" className={inputClass} onChange={(event) => setEmailForm((current) => ({ ...current, current_password: event.target.value }))} required type="password" value={emailForm.current_password} />
+                        <PasswordInput autoComplete="current-password" onChange={(event) => setEmailForm((current) => ({ ...current, current_password: event.target.value }))} required value={emailForm.current_password} />
                     </Field>
                     <Button busy={busy === 'email'} disabled={busy === 'password'} type="submit">Verify new email</Button>
                 </form>
@@ -88,13 +89,13 @@ export default function LoginCredentialsCard() {
                 />
                 <form className="space-y-4" onSubmit={updatePassword}>
                     <Field label="Current password">
-                        <input autoComplete="current-password" className={inputClass} onChange={(event) => setPasswordForm((current) => ({ ...current, current_password: event.target.value }))} required type="password" value={passwordForm.current_password} />
+                        <PasswordInput autoComplete="current-password" onChange={(event) => setPasswordForm((current) => ({ ...current, current_password: event.target.value }))} required value={passwordForm.current_password} />
                     </Field>
                     <Field label="New password">
-                        <input autoComplete="new-password" className={inputClass} minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, password: event.target.value }))} required type="password" value={passwordForm.password} />
+                        <PasswordInput autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, password: event.target.value }))} required value={passwordForm.password} />
                     </Field>
                     <Field label="Confirm new password">
-                        <input autoComplete="new-password" className={inputClass} minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, password_confirmation: event.target.value }))} required type="password" value={passwordForm.password_confirmation} />
+                        <PasswordInput autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, password_confirmation: event.target.value }))} required value={passwordForm.password_confirmation} />
                     </Field>
                     <Button busy={busy === 'password'} disabled={busy === 'email'} type="submit">Update password</Button>
                 </form>

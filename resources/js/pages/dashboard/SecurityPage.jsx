@@ -9,6 +9,7 @@ import {
     Field,
     LoadingBlock,
     PageHeader,
+    PasswordInput,
     StatusBadge,
     apiErrorMessage,
     apiRequest,
@@ -208,7 +209,7 @@ export default function SecurityPage({ embedded = false }) {
                             2FA is active. You have {resource.data?.recovery_codes_count ?? 0} backup codes available.
                         </p>
                         <Field label="Current password">
-                            <input autoComplete="current-password" className={inputClass} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
+                            <PasswordInput autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} required value={password} />
                         </Field>
                         <div className="flex flex-wrap gap-2">
                             <Button busy={busy === 'recovery'} disabled={!password || busy === 'disable'} onClick={regenerateRecoveryCodes} type="button" variant="secondary">Generate new backup codes</Button>

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { apiErrorMessage, apiRequest, ensureSanctumCookie, registerAdminStepUpHandler } from './api';
 import Icon from './Icon';
 import { DashboardToastProvider, useDashboardToast } from './ToastProvider';
-import { Avatar, Button, cx } from './ui';
+import { Avatar, Button, PasswordInput, cx } from './ui';
 import { useApiResource } from './useDashboard';
 import Logo from '../layout/Logo';
 import { hasPaidSubscription } from '../../lib/utils';
@@ -418,7 +418,7 @@ function ShellContent({ role, navigation, user: suppliedUser, onLogout }) {
                                 <p className="text-sm leading-6 text-slate-600">Re-enter your current password{stepUp.details?.data?.two_factor_enabled ? ' and your two-factor code' : ''}. Confirmation lasts for a short, session-bound window.</p>
                                 <label className="block">
                                     <span className="mb-1.5 block text-sm font-bold text-slate-700">Current password</span>
-                                    <input autoComplete="current-password" className="w-full rounded-xl border border-bphq-chrome px-3.5 py-2.5 text-sm outline-none focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60" onChange={(event) => setStepUpPassword(event.target.value)} required type="password" value={stepUpPassword} />
+                                    <PasswordInput autoComplete="current-password" onChange={(event) => setStepUpPassword(event.target.value)} required value={stepUpPassword} />
                                 </label>
                                 {stepUp.details?.data?.two_factor_enabled && (
                                     <label className="block">

@@ -5,6 +5,7 @@ import {
     Card,
     CardHeader,
     Field,
+    PasswordInput,
     apiErrorMessage,
     apiRequest,
     inputClass,
@@ -52,12 +53,10 @@ export default function AccountDeletionCard() {
                 </div>
                 {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{error}</p>}
                 <Field label="Current password">
-                    <input
+                    <PasswordInput
                         autoComplete="current-password"
-                        className={inputClass}
                         onChange={(event) => setPassword(event.target.value)}
                         required
-                        type="password"
                         value={password}
                     />
                 </Field>

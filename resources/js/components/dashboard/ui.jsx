@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from './Icon';
 
 const statusStyles = {
@@ -129,6 +129,37 @@ export function Field({ label, error, hint, required = false, className = '', ch
 }
 
 export const inputClass = 'w-full rounded-xl border border-bphq-chrome bg-white px-3.5 py-2.5 text-sm text-bphq-espresso outline-none transition placeholder:text-bphq-chrome focus:border-bphq-coffee focus:ring-4 focus:ring-bphq-beige/60';
+
+export function PasswordInput({ className = '', value, ...props }) {
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        if (!value) setVisible(false);
+    }, [value]);
+
+    return (
+        <div className="relative">
+            <input
+                {...props}
+                className={cx(inputClass, 'pr-12', className)}
+                type={visible ? 'text' : 'password'}
+                value={value}
+            />
+            {value && (
+                <button
+                    aria-label={visible ? 'Hide password' : 'Show password'}
+                    aria-pressed={visible}
+                    className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-slate-400 transition hover:bg-bphq-ivory hover:text-bphq-espresso focus:outline-none focus:ring-2 focus:ring-bphq-beige"
+                    onClick={() => setVisible((current) => !current)}
+                    title={visible ? 'Hide password' : 'Show password'}
+                    type="button"
+                >
+                    <Icon name={visible ? 'eyeOff' : 'eye'} />
+                </button>
+            )}
+        </div>
+    );
+}
 
 export function SearchInput({ value, onChange, placeholder = 'Search…', className = '' }) {
     return (

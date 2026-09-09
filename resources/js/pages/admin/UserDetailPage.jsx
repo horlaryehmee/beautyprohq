@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, SearchInput, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, useDebouncedValue, usePagination } from '../../components/dashboard';
+import { Avatar, Button, Card, ErrorState, Field, LoadingBlock, Pagination, PasswordInput, SearchInput, StatusBadge, apiErrorMessage, apiRequest, formatDate, inputClass, useDashboardToast, useDebouncedValue, usePagination } from '../../components/dashboard';
 import { dashboardApi, unwrap } from '../../components/dashboard/api';
 import VerifiedBadge from '../../components/ui/VerifiedBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -570,11 +570,9 @@ export default function AdminUserDetailPage() {
                                                 />
                                             </Field>
                                             <Field hint="Confirms that you authorized this sensitive change." label="Your administrator password">
-                                                <input
+                                                <PasswordInput
                                                     autoComplete="current-password"
-                                                    className={inputClass}
                                                     onChange={(event) => setEmailChange((current) => ({ ...current, current_password: event.target.value }))}
-                                                    type="password"
                                                     value={emailChange.current_password}
                                                 />
                                             </Field>
