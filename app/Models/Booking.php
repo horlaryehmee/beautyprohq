@@ -20,6 +20,9 @@ class Booking extends Model
             'date' => 'date:Y-m-d',
             'cancelled_at' => 'datetime',
             'google_calendar_synced_at' => 'datetime',
+            'provider_whatsapp_notified_at' => 'datetime',
+            'customer_whatsapp_confirmed_at' => 'datetime',
+            'customer_whatsapp_reminded_at' => 'datetime',
             'custom_fields' => 'array',
             'is_demo' => 'boolean',
         ];

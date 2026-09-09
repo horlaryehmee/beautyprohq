@@ -52,7 +52,7 @@ export default function AdminSettingsPage() {
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
     const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, client_id: '', client_secret: '' });
-    const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '', content_sid: '', content_variables: '' });
+    const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '', provider_booking_content_sid: '', client_confirmation_content_sid: '', client_reminder_content_sid: '', reminder_hours_before: 24 });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
     const [twilioTestPhone, setTwilioTestPhone] = useState('');
@@ -68,7 +68,7 @@ export default function AdminSettingsPage() {
     const [savingGoogleAuth, setSavingGoogleAuth] = useState(false);
     const [savingTwilio, setSavingTwilio] = useState(false);
     const [savingSmtp, setSavingSmtp] = useState(false);
-    const [testingTwilio, setTestingTwilio] = useState(false);
+    const [testingTwilio, setTestingTwilio] = useState('');
     const [testingSmtp, setTestingSmtp] = useState(false);
     const [disconnectingWorkspace, setDisconnectingWorkspace] = useState(false);
     const [testingEmailNotification, setTestingEmailNotification] = useState(false);
@@ -158,8 +158,10 @@ export default function AdminSettingsPage() {
             account_sid: data.account_sid ?? '',
             auth_token: '',
             whatsapp_from: data.whatsapp_from ?? '',
-            content_sid: data.content_sid ?? '',
-            content_variables: data.content_variables ?? '',
+            provider_booking_content_sid: data.provider_booking_content_sid ?? '',
+            client_confirmation_content_sid: data.client_confirmation_content_sid ?? '',
+            client_reminder_content_sid: data.client_reminder_content_sid ?? '',
+            reminder_hours_before: Number(data.reminder_hours_before ?? 24),
         });
     }, [twilioResource.data]);
 
@@ -461,15 +463,15 @@ export default function AdminSettingsPage() {
         }
     };
 
-    const testTwilio = async () => {
-        setTestingTwilio(true);
+    const testTwilio = async (type) => {
+        setTestingTwilio(type);
         try {
-            await apiRequest('post', '/admin/settings/twilio/test', { phone: twilioTestPhone });
+            await apiRequest('post', '/admin/settings/twilio/test', { phone: twilioTestPhone, type });
             notify(`WhatsApp test sent to ${twilioTestPhone}.`);
         } catch (error) {
             notify(apiErrorMessage(error), 'error');
         } finally {
-            setTestingTwilio(false);
+            setTestingTwilio('');
         }
     };
 
@@ -992,28 +994,46 @@ export default function AdminSettingsPage() {
                                     value={twilioForm.whatsapp_from}
                                 />
                             </Field>
-                            <Field hint="Required by the current Twilio trial. Copy the HX... value from the API request shown in Try out WhatsApp. Leave blank for free-form live messaging." label="Trial template Content SID">
+                            <Field hint="Variables {{1}}–{{6}}: provider name, client name, service, date, time and the full provider bookings URL." label="New booking → provider Content SID">
                                 <input
                                     className={inputClass}
-                                    onChange={(event) => setTwilioForm((current) => ({ ...current, content_sid: event.target.value }))}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, provider_booking_content_sid: event.target.value }))}
                                     placeholder="HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                    value={twilioForm.content_sid}
+                                    value={twilioForm.provider_booking_content_sid}
                                 />
                             </Field>
-                            <Field hint={'Copy the ContentVariables JSON from Twilio, for example {"1":"5 September 2026","2":"3:00pm"}.'} label="Template variables (JSON)">
+                            <Field hint="Variables {{1}}–{{6}}: client name, provider name, service, date, time and the full client bookings URL." label="Booking confirmation → client Content SID">
                                 <input
                                     className={inputClass}
-                                    onChange={(event) => setTwilioForm((current) => ({ ...current, content_variables: event.target.value }))}
-                                    placeholder={'{"1":"5 September 2026","2":"3:00pm"}'}
-                                    value={twilioForm.content_variables}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, client_confirmation_content_sid: event.target.value }))}
+                                    placeholder="HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    value={twilioForm.client_confirmation_content_sid}
+                                />
+                            </Field>
+                            <Field hint="Variables {{1}}–{{6}}: client name, provider name, date, time, service and the full client bookings URL." label="Booking reminder → client Content SID">
+                                <input
+                                    className={inputClass}
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, client_reminder_content_sid: event.target.value }))}
+                                    placeholder="HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    value={twilioForm.client_reminder_content_sid}
+                                />
+                            </Field>
+                            <Field hint="Confirmed bookings are reminded once when they enter this window before the appointment." label="Reminder lead time (hours)">
+                                <input
+                                    className={inputClass}
+                                    max="168"
+                                    min="1"
+                                    onChange={(event) => setTwilioForm((current) => ({ ...current, reminder_hours_before: Number(event.target.value) }))}
+                                    type="number"
+                                    value={twilioForm.reminder_hours_before}
                                 />
                             </Field>
                             <div className="flex items-end lg:col-span-2">
                                 {twilioResource.data?.auth_token_configured && <StatusBadge status={`auth token ends ${twilioResource.data.auth_token_last4}`} />}
                             </div>
                         </div>
-                        <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 lg:grid-cols-[1fr_auto] lg:items-start">
-                            <Field hint="Enter a provider's WhatsApp number in international format. The test sends a sample new-booking notification." label="Test provider WhatsApp number">
+                        <div className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4">
+                            <Field hint="Use international format. Select a button below to test that exact approved template." label="Test WhatsApp number">
                                 <input
                                     className={inputClass}
                                     onChange={(event) => setTwilioTestPhone(event.target.value)}
@@ -1021,9 +1041,13 @@ export default function AdminSettingsPage() {
                                     value={twilioTestPhone}
                                 />
                             </Field>
-                            <Button busy={testingTwilio} className="lg:mt-[1.625rem]" disabled={!twilioTestPhone || savingTwilio} onClick={testTwilio} type="button" variant="secondary">Send provider booking test</Button>
+                            <div className="flex flex-wrap gap-2">
+                                <Button busy={testingTwilio === 'provider_booking'} disabled={!twilioTestPhone || savingTwilio || Boolean(testingTwilio)} onClick={() => testTwilio('provider_booking')} type="button" variant="secondary">Test provider booking</Button>
+                                <Button busy={testingTwilio === 'client_confirmation'} disabled={!twilioTestPhone || savingTwilio || Boolean(testingTwilio)} onClick={() => testTwilio('client_confirmation')} type="button" variant="secondary">Test client confirmation</Button>
+                                <Button busy={testingTwilio === 'client_reminder'} disabled={!twilioTestPhone || savingTwilio || Boolean(testingTwilio)} onClick={() => testTwilio('client_reminder')} type="button" variant="secondary">Test client reminder</Button>
+                            </div>
                         </div>
-                        <div className="flex justify-end"><Button busy={savingTwilio} disabled={testingTwilio} type="submit">Save and connect Twilio</Button></div>
+                        <div className="flex justify-end"><Button busy={savingTwilio} disabled={Boolean(testingTwilio)} type="submit">Save Twilio and templates</Button></div>
                     </form>
                 )}
             </Card>

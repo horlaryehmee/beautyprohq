@@ -11,10 +11,13 @@ use App\Services\ContentNewsletterService;
 use App\Services\AnnouncementDeliveryService;
 use App\Notifications\AnnouncementNotification;
 use App\Models\Announcement;
+use App\Models\Booking;
 use App\Models\Subscription;
 use App\Models\UploadedMedia;
 use App\Models\VerificationRequest;
 use App\Models\User;
+use App\Jobs\SendBookingWhatsAppNotification;
+use App\Services\BookingWhatsAppNotificationService;
 use Symfony\Component\Process\Process;
 
 Artisan::command('inspire', function () {
@@ -502,6 +505,39 @@ Artisan::command('notifications:prune {--days=30}', function (): int {
 })->purpose('Remove database notifications beyond the retention period');
 
 Schedule::command('notifications:prune --days=30')->dailyAt('02:32')->withoutOverlapping(10);
+
+Artisan::command('whatsapp:send-booking-reminders', function (BookingWhatsAppNotificationService $notifications): int {
+    if (! $notifications->templateSid(BookingWhatsAppNotificationService::CLIENT_REMINDER)) {
+        $this->info('Client reminder template is not configured.');
+
+        return 0;
+    }
+
+    $queued = 0;
+    Booking::query()
+        ->where('status', 'confirmed')
+        ->whereNull('customer_whatsapp_reminded_at')
+        ->whereBetween('date', [today()->subDay(), today()->addDays(8)])
+        ->whereHas('customer', fn ($query) => $query->whereNotNull('phone')->where('phone', '!=', ''))
+        ->with(['provider.user', 'customer', 'service', 'payment'])
+        ->chunkById(100, function ($bookings) use ($notifications, &$queued): void {
+            foreach ($bookings as $booking) {
+                if (! $notifications->reminderIsDue($booking)) {
+                    continue;
+                }
+
+                SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::CLIENT_REMINDER);
+                $queued++;
+            }
+        });
+
+    $this->info("Booking reminders queued: {$queued}");
+
+    return 0;
+})->purpose('Queue due WhatsApp reminders for confirmed bookings');
+
+Schedule::command('whatsapp:send-booking-reminders')->everyFiveMinutes()->withoutOverlapping(10);
+
 Artisan::command('announcements:send-due', function (AnnouncementDeliveryService $delivery): int {
     $sent = $delivery->sendDue();
     $this->info("Due announcements sent: {$sent}");

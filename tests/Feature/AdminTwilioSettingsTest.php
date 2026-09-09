@@ -23,6 +23,7 @@ class AdminTwilioSettingsTest extends TestCase
         AppSetting::setValue('twilio.account_sid', 'AC123456789');
         AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
+        AppSetting::setValue('twilio.provider_booking_content_sid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
 
         $admin = User::factory()->admin()->create();
         Sanctum::actingAs($admin);
@@ -31,15 +32,14 @@ class AdminTwilioSettingsTest extends TestCase
             'phone' => '+2348012345678',
         ])->assertOk()
             ->assertJsonPath('data.phone', '+2348012345678')
-            ->assertJsonPath('data.message', fn ($message) => str_contains($message, 'New booking on BeautyPro HQ')
-                && str_contains($message, 'Service: Bridal makeup consultation')
-                && str_contains($message, 'This is an automated booking notification. No reply is required.'));
+            ->assertJsonPath('data.type', 'provider_booking');
 
         Http::assertSent(fn ($request) => $request->url() === 'https://api.twilio.com/2010-04-01/Accounts/AC123456789/Messages.json'
             && $request['From'] === 'whatsapp:+14155238886'
             && $request['To'] === 'whatsapp:+2348012345678'
-            && str_contains($request['Body'], 'New booking on BeautyPro HQ')
-            && str_contains($request['Body'], 'This is an automated booking notification. No reply is required.'));
+            && $request['ContentSid'] === 'HXb5b62575e6e4ff6129ad7c8efe1f983e'
+            && json_decode($request['ContentVariables'], true)['3'] === 'Bridal makeup consultation'
+            && ! isset($request['Body']));
     }
 
     public function test_admin_can_save_encrypted_twilio_auth_token(): void
@@ -54,6 +54,10 @@ class AdminTwilioSettingsTest extends TestCase
             'account_sid' => 'AC123456789',
             'auth_token' => 'saved-auth-token',
             'whatsapp_from' => 'whatsapp:+14155238886',
+            'provider_booking_content_sid' => 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+            'client_confirmation_content_sid' => 'HXc5b62575e6e4ff6129ad7c8efe1f983e',
+            'client_reminder_content_sid' => 'HXd5b62575e6e4ff6129ad7c8efe1f983e',
+            'reminder_hours_before' => 24,
         ])->assertOk()
             ->assertJsonPath('data.account_sid', 'AC123456789')
             ->assertJsonPath('data.auth_token_configured', true)
@@ -69,10 +73,10 @@ class AdminTwilioSettingsTest extends TestCase
 
         Http::assertSent(fn ($request) => $request->url() === 'https://api.twilio.com/2010-04-01/Accounts/AC123456789/Messages.json'
             && $request->hasHeader('Authorization', 'Basic '.base64_encode('AC123456789:saved-auth-token'))
-            && str_contains($request['Body'], 'New booking on BeautyPro HQ'));
+            && $request['ContentSid'] === 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
     }
 
-    public function test_trial_content_template_is_sent_instead_of_custom_body(): void
+    public function test_selected_client_template_is_sent_with_event_variables(): void
     {
         $this->withoutMiddleware(EnsureRecentAdminAuthentication::class);
         Http::fake([
@@ -81,19 +85,26 @@ class AdminTwilioSettingsTest extends TestCase
         AppSetting::setValue('twilio.account_sid', 'AC123456789');
         AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+17372508034');
-        AppSetting::setValue('twilio.content_sid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
-        AppSetting::setValue('twilio.content_variables', '{"1":"5 September 2026","2":"3:00pm"}');
+        AppSetting::setValue('twilio.client_confirmation_content_sid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
 
         Sanctum::actingAs(User::factory()->admin()->create());
 
         $this->postJson('/api/admin/settings/twilio/test', [
             'phone' => '+2348012345678',
+            'type' => 'client_confirmation',
         ])->assertOk();
 
         Http::assertSent(fn ($request) => $request['From'] === 'whatsapp:+17372508034'
             && $request['To'] === 'whatsapp:+2348012345678'
             && $request['ContentSid'] === 'HXb5b62575e6e4ff6129ad7c8efe1f983e'
-            && $request['ContentVariables'] === '{"1":"5 September 2026","2":"3:00pm"}'
+            && json_decode($request['ContentVariables'], true) === [
+                '1' => 'Amara Johnson',
+                '2' => 'Ada Beauty Studio',
+                '3' => 'Bridal makeup consultation',
+                '4' => '10 September 2026',
+                '5' => '10:00 AM',
+                '6' => rtrim(config('app.frontend_url', config('app.url')), '/').'/customer/bookings',
+            ]
             && ! isset($request['Body']));
     }
 
@@ -109,6 +120,7 @@ class AdminTwilioSettingsTest extends TestCase
         AppSetting::setValue('twilio.account_sid', 'AC123456789');
         AppSetting::setValue('twilio.auth_token', 'secret-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+17372508034');
+        AppSetting::setValue('twilio.provider_booking_content_sid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
 
         Sanctum::actingAs(User::factory()->admin()->create());
 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AppSetting;
+use App\Jobs\SendBookingWhatsAppNotification;
 use App\Models\Booking;
 use App\Models\LiveChatConversation;
 use App\Models\Loyalty;
@@ -17,7 +17,7 @@ use App\Models\User;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Services\GoogleCalendarService;
-use App\Services\TwilioWhatsAppService;
+use App\Services\BookingWhatsAppNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -289,6 +289,7 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
+        SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::PROVIDER_BOOKING);
         if ($booking->payment?->gateway === 'manual') {
             $booking->setAttribute('manual_payment', $this->manualPaymentDetails($provider));
         }
@@ -409,55 +410,6 @@ class BookingController extends Controller
             'account_reference' => $account->account_reference,
             'instructions' => $account->payment_instructions ?? $account->settings['instructions'] ?? null,
         ];
-    }
-
-    private function notifyProviderOnWhatsApp(Booking $booking): void
-    {
-        $booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
-        $provider = $booking->provider;
-
-        if (AppSetting::getValue('features.provider_whatsapp_notifications', '0') !== '1'
-            || ! $provider?->whatsapp_notifications_enabled
-            || blank($provider->whatsapp_number)) {
-            return;
-        }
-
-        $amount = $booking->payment
-            ? $booking->payment->currency.' '.number_format((float) $booking->payment->amount, 2)
-            : 'Not available';
-        $notes = filled($booking->notes) ? $booking->notes : 'None';
-        $customAnswers = collect($booking->custom_fields ?? [])
-            ->filter(fn ($field) => filled($field['label'] ?? null))
-            ->map(function ($field): string {
-                $answer = $field['answer'] ?? 'No answer';
-                if (($field['type'] ?? null) === 'checkbox') {
-                    $answer = $answer ? 'Yes' : 'No';
-                }
-
-                return "- {$field['label']}: {$answer}";
-            })
-            ->implode("\n");
-
-        $body = implode("\n", array_filter([
-            'New booking on BeautyPro HQ',
-            '',
-            'Customer: '.$booking->customer?->name,
-            'Email: '.$booking->customer?->email,
-            'Phone: '.($booking->customer?->phone ?: 'Not provided'),
-            'Service: '.$booking->service?->name,
-            'Date: '.optional($booking->date)->format('M j, Y'),
-            'Time: '.substr((string) $booking->time, 0, 5),
-            'Amount: '.$amount,
-            'Status: '.ucfirst((string) $booking->status),
-            'Notes: '.$notes,
-            $customAnswers ? "\nExtra answers:\n{$customAnswers}" : null,
-            '',
-            'Open dashboard: '.rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/bookings',
-            '',
-            'This is an automated booking notification. No reply is required.',
-        ], fn ($line) => $line !== null));
-
-        app(TwilioWhatsAppService::class)->send($provider->whatsapp_number, $body);
     }
 
     private function validatedCustomBookingFields(ProviderProfile $provider, array $answers): array
@@ -941,7 +893,7 @@ class BookingController extends Controller
             ));
         });
 
-        $this->notifyProviderOnWhatsApp($booking);
+        SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
 
         $payment->forceFill([
             'metadata' => [

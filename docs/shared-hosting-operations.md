@@ -75,7 +75,7 @@ Add these cPanel cron entries. Replace the path and PHP binary with the values s
 * * * * * cd /home/bakhtech/beautyprohq.bakhtech.com.ng && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
-The scheduler runs a short, overlap-protected queue drain every minute, prunes expired password-reset and Sanctum records, removes old failed jobs, and clears expired database sessions/cache records. This avoids requiring Supervisor, which most shared hosts do not provide. Database jobs use `after_commit` so workers do not observe uncommitted records.
+The scheduler runs a short, overlap-protected queue drain every minute, queues due WhatsApp booking reminders every five minutes, prunes expired password-reset and Sanctum records, removes old failed jobs, and clears expired database sessions/cache records. This avoids requiring Supervisor, which most shared hosts do not provide. Database jobs use `after_commit` so workers do not observe uncommitted records. The WhatsApp reminder process depends on this cron entry; without it, reminder templates will not be sent.
 
 ## 5. Error Tracking and Logging
 

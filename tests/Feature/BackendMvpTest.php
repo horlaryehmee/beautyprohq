@@ -1251,6 +1251,8 @@ class BackendMvpTest extends TestCase
         [$provider, $providerUser] = $this->provider('Booked Beauty', true);
         $provider->update([
             'loyalty_enabled' => true,
+            'whatsapp_number' => '+2348099999999',
+            'whatsapp_notifications_enabled' => true,
             'booking_form_fields' => [
                 ['label' => 'Do you have allergies?', 'type' => 'textarea', 'required' => true],
                 ['label' => 'Preferred finish', 'type' => 'checkbox', 'options' => ['Natural', 'Glam'], 'required' => false],
@@ -1262,7 +1264,14 @@ class BackendMvpTest extends TestCase
             $date->addDay();
         }
         Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
-        $customer = User::factory()->create();
+        $customer = User::factory()->create(['phone' => '+2348012345678']);
+        AppSetting::setValue('features.provider_whatsapp_notifications', '1');
+        AppSetting::setValue('twilio.account_sid', 'AC123456789');
+        AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
+        AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
+        AppSetting::setValue('twilio.provider_booking_content_sid', 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
+        AppSetting::setValue('twilio.client_confirmation_content_sid', 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_BOOKING_LIFECYCLE'], 201)]);
 
         Sanctum::actingAs($customer);
         $bookingId = $this->postJson('/api/bookings', [
@@ -1277,6 +1286,10 @@ class BackendMvpTest extends TestCase
         $this->assertDatabaseHas('payments', ['booking_id' => $bookingId, 'amount' => 20000]);
         $this->assertSame('No known allergies', Booking::find($bookingId)->custom_fields[0]['answer']);
         $this->assertSame(['Natural', 'Glam'], Booking::find($bookingId)->custom_fields[1]['answer']);
+        $this->assertNotNull(Booking::findOrFail($bookingId)->provider_whatsapp_notified_at);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'api.twilio.com')
+            && $request['To'] === 'whatsapp:+2348099999999'
+            && $request['ContentSid'] === 'HXb5b62575e6e4ff6129ad7c8efe1f983e');
         Notification::assertSentTo(
             $providerUser,
             BookingStatusNotification::class,
@@ -1286,6 +1299,10 @@ class BackendMvpTest extends TestCase
         Sanctum::actingAs($providerUser);
         $this->getJson('/api/provider/bookings')->assertOk()->assertJsonPath('data.0.custom_fields.0.label', 'Do you have allergies?')->assertJsonPath('data.0.custom_fields.0.answer', 'No known allergies');
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'confirmed'])->assertOk();
+        $this->assertNotNull(Booking::findOrFail($bookingId)->customer_whatsapp_confirmed_at);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'api.twilio.com')
+            && $request['To'] === 'whatsapp:+2348012345678'
+            && $request['ContentSid'] === 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
         $this->patchJson("/api/provider/bookings/{$bookingId}/status", ['status' => 'completed'])->assertOk();
         $this->assertDatabaseHas('loyalties', ['provider_id' => $provider->id, 'customer_id' => $customer->id, 'points' => 10]);
         $this->assertDatabaseHas('crm_customers', ['provider_id' => $provider->id, 'customer_id' => $customer->id]);
@@ -1345,7 +1362,11 @@ class BackendMvpTest extends TestCase
         $service = $provider->services()->create(['name' => 'Makeup', 'category' => 'Makeup', 'service_type' => 'in_person', 'price' => 25000, 'duration_minutes' => 60]);
         $date = Carbon::tomorrow();
         Availability::create(['provider_id' => $provider->id, 'day_of_week' => $date->dayOfWeek, 'start_time' => '09:00', 'end_time' => '17:00']);
-        $customer = User::factory()->create();
+        $customer = User::factory()->create(['phone' => '+2348012345678']);
+        AppSetting::setValue('twilio.account_sid', 'AC123456789');
+        AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
+        AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
+        AppSetting::setValue('twilio.client_confirmation_content_sid', 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
 
         Sanctum::actingAs($customer);
         $bookingId = $this->postJson('/api/bookings', [
@@ -1380,10 +1401,13 @@ class BackendMvpTest extends TestCase
             'metadata' => [...$gatewayMetadata, 'payment_token' => $token],
         ]);
 
-        Http::fake(['api.paystack.co/transaction/verify/*' => Http::response([
-            'status' => true,
-            'data' => ['status' => 'success', 'amount' => 2500000, 'currency' => 'NGN', 'metadata' => $gatewayMetadata],
-        ])]);
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => ['status' => 'success', 'amount' => 2500000, 'currency' => 'NGN', 'metadata' => $gatewayMetadata],
+            ]),
+            'api.twilio.com/*' => Http::response(['sid' => 'SM_AUTO_CONFIRMATION'], 201),
+        ]);
 
         $this->postJson('/api/booking-payments/verify', ['reference' => $reference, 'payment_token' => $token])
             ->assertOk()
@@ -1392,6 +1416,10 @@ class BackendMvpTest extends TestCase
             ->assertJsonMissingPath('data.metadata');
         $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'paid']);
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'status' => 'confirmed']);
+        $this->assertNotNull(Booking::findOrFail($bookingId)->customer_whatsapp_confirmed_at);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'api.twilio.com')
+            && $request['To'] === 'whatsapp:+2348012345678'
+            && $request['ContentSid'] === 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
     }
 
     public function test_provider_paystack_checkout_accepts_usd_booking_payments(): void

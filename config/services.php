@@ -41,8 +41,10 @@ return [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'auth_token' => env('TWILIO_AUTH_TOKEN'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),
-        'content_sid' => env('TWILIO_WHATSAPP_CONTENT_SID'),
-        'content_variables' => env('TWILIO_WHATSAPP_CONTENT_VARIABLES'),
+        'provider_booking_content_sid' => env('TWILIO_PROVIDER_BOOKING_CONTENT_SID', env('TWILIO_WHATSAPP_CONTENT_SID')),
+        'client_confirmation_content_sid' => env('TWILIO_CLIENT_CONFIRMATION_CONTENT_SID'),
+        'client_reminder_content_sid' => env('TWILIO_CLIENT_REMINDER_CONTENT_SID'),
+        'reminder_hours_before' => (int) env('TWILIO_BOOKING_REMINDER_HOURS', 24),
     ],
 
     'ses' => [

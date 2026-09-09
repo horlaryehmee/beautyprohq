@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendBookingWhatsAppNotification;
 use App\Models\Booking;
 use App\Models\CrmCustomer;
 use App\Models\LiveChatConversation;
@@ -11,6 +12,7 @@ use App\Models\LoyaltyTransaction;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Services\GoogleCalendarService;
+use App\Services\BookingWhatsAppNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +117,10 @@ class BookingController extends Controller
         $booking->customer->notify(new BookingStatusNotification($booking, $validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual'
             ? "Your manual payment has been confirmed and your booking was accepted by {$booking->provider->user->name}."
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
+
+        if ($validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual') {
+            SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
+        }
 
         return $this->success($booking, 'Booking status updated.');
     }

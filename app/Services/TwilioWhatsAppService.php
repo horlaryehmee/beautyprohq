@@ -19,6 +19,31 @@ class TwilioWhatsAppService
 
     public function send(string $to, string $body): bool
     {
+        return $this->sendPayload($to, ['Body' => mb_substr($body, 0, 1500)]);
+    }
+
+    public function sendTemplate(string $to, string $contentSid, array $variables): bool
+    {
+        if (! preg_match('/^HX[a-fA-F0-9]{32}$/', trim($contentSid))) {
+            $this->lastError = 'The WhatsApp template Content SID is invalid.';
+
+            return false;
+        }
+
+        $cleanVariables = collect($variables)
+            ->mapWithKeys(fn (mixed $value, int|string $key): array => [
+                (string) $key => mb_substr(preg_replace('/\s+/', ' ', trim((string) $value)) ?? '', 0, 1500),
+            ])
+            ->all();
+
+        return $this->sendPayload($to, [
+            'ContentSid' => trim($contentSid),
+            'ContentVariables' => json_encode($cleanVariables, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ]);
+    }
+
+    private function sendPayload(string $to, array $messagePayload): bool
+    {
         $this->lastError = null;
 
         if (! $this->configured() || blank($to)) {
@@ -41,17 +66,8 @@ class TwilioWhatsAppService
             $payload = [
                 'From' => $from,
                 'To' => $recipient,
+                ...$messagePayload,
             ];
-            $contentSid = $this->contentSid();
-
-            if (filled($contentSid)) {
-                $payload['ContentSid'] = $contentSid;
-                if (filled($this->contentVariables())) {
-                    $payload['ContentVariables'] = $this->contentVariables();
-                }
-            } else {
-                $payload['Body'] = mb_substr($body, 0, 1500);
-            }
 
             $response = Http::external()
                 ->withBasicAuth($accountSid, (string) $this->authToken())
@@ -129,15 +145,5 @@ class TwilioWhatsAppService
     private function whatsappFrom(): ?string
     {
         return AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from');
-    }
-
-    private function contentSid(): ?string
-    {
-        return AppSetting::getValue('twilio.content_sid') ?: config('services.twilio.content_sid');
-    }
-
-    private function contentVariables(): ?string
-    {
-        return AppSetting::getValue('twilio.content_variables') ?: config('services.twilio.content_variables');
     }
 }

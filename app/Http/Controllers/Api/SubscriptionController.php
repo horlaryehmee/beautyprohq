@@ -22,6 +22,7 @@ use App\Notifications\NewsletterSubscriptionConfirmation;
 use App\Notifications\OpportunityEnquiryConfirmation;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\TwoFactorCodeNotification;
+use App\Services\BookingWhatsAppNotificationService;
 use App\Services\GoogleWorkspaceMailService;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
@@ -271,12 +272,15 @@ class SubscriptionController extends Controller
     {
         $authToken = AppSetting::getValue('twilio.auth_token') ?: config('services.twilio.auth_token');
         $twilio = app(TwilioWhatsAppService::class);
+        $bookingWhatsApp = app(BookingWhatsAppNotificationService::class);
 
         return $this->success([
             'account_sid' => AppSetting::getValue('twilio.account_sid') ?: config('services.twilio.account_sid'),
             'whatsapp_from' => AppSetting::getValue('twilio.whatsapp_from') ?: config('services.twilio.whatsapp_from'),
-            'content_sid' => AppSetting::getValue('twilio.content_sid') ?: config('services.twilio.content_sid'),
-            'content_variables' => AppSetting::getValue('twilio.content_variables') ?: config('services.twilio.content_variables'),
+            'provider_booking_content_sid' => $bookingWhatsApp->templateSid(BookingWhatsAppNotificationService::PROVIDER_BOOKING),
+            'client_confirmation_content_sid' => $bookingWhatsApp->templateSid(BookingWhatsAppNotificationService::CLIENT_CONFIRMATION),
+            'client_reminder_content_sid' => $bookingWhatsApp->templateSid(BookingWhatsAppNotificationService::CLIENT_REMINDER),
+            'reminder_hours_before' => $bookingWhatsApp->reminderHoursBefore(),
             'auth_token_configured' => filled($authToken),
             'auth_token_last4' => filled($authToken) ? substr($authToken, -4) : null,
             'configured' => $twilio->configured(),
@@ -295,14 +299,18 @@ class SubscriptionController extends Controller
             'account_sid' => ['nullable', 'string', 'max:255'],
             'auth_token' => ['nullable', 'string', 'max:255'],
             'whatsapp_from' => ['nullable', 'string', 'max:40'],
-            'content_sid' => ['nullable', 'string', 'max:255', 'regex:/^HX[a-fA-F0-9]{32}$/'],
-            'content_variables' => ['nullable', 'json', 'max:2000'],
+            'provider_booking_content_sid' => ['nullable', 'string', 'max:255', 'regex:/^HX[a-fA-F0-9]{32}$/'],
+            'client_confirmation_content_sid' => ['nullable', 'string', 'max:255', 'regex:/^HX[a-fA-F0-9]{32}$/'],
+            'client_reminder_content_sid' => ['nullable', 'string', 'max:255', 'regex:/^HX[a-fA-F0-9]{32}$/'],
+            'reminder_hours_before' => ['required', 'integer', 'min:1', 'max:168'],
         ]);
 
         AppSetting::setValue('twilio.account_sid', $validated['account_sid'] ?? null);
         AppSetting::setValue('twilio.whatsapp_from', $validated['whatsapp_from'] ?? null);
-        AppSetting::setValue('twilio.content_sid', $validated['content_sid'] ?? null);
-        AppSetting::setValue('twilio.content_variables', $validated['content_variables'] ?? null);
+        AppSetting::setValue('twilio.provider_booking_content_sid', $validated['provider_booking_content_sid'] ?? null);
+        AppSetting::setValue('twilio.client_confirmation_content_sid', $validated['client_confirmation_content_sid'] ?? null);
+        AppSetting::setValue('twilio.client_reminder_content_sid', $validated['client_reminder_content_sid'] ?? null);
+        AppSetting::setValue('twilio.reminder_hours_before', $validated['reminder_hours_before']);
         if (filled($validated['auth_token'] ?? null)) {
             AppSetting::setValue('twilio.auth_token', $validated['auth_token'], true);
         }
@@ -343,42 +351,30 @@ class SubscriptionController extends Controller
         return $this->adminLiveChatSettings();
     }
 
-    public function testAdminTwilio(Request $request, TwilioWhatsAppService $twilio): JsonResponse
+    public function testAdminTwilio(Request $request, BookingWhatsAppNotificationService $bookingWhatsApp): JsonResponse
     {
         $validated = $request->validate([
             'phone' => ['required', 'string', 'max:40'],
+            'type' => ['nullable', Rule::in([
+                BookingWhatsAppNotificationService::PROVIDER_BOOKING,
+                BookingWhatsAppNotificationService::CLIENT_CONFIRMATION,
+                BookingWhatsAppNotificationService::CLIENT_REMINDER,
+            ])],
         ]);
 
+        $twilio = app(TwilioWhatsAppService::class);
         abort_unless($twilio->configured(), 422, 'Twilio WhatsApp is not configured.');
-
-        $message = implode("\n", [
-            'New booking on BeautyPro HQ',
-            '',
-            'Customer: Amara Johnson',
-            'Email: amara@example.com',
-            'Phone: +234 801 234 5678',
-            'Service: Bridal makeup consultation',
-            'Date: Sep 10, 2026',
-            'Time: 10:00',
-            'Amount: NGN 25,000.00',
-            'Status: Confirmed',
-            'Notes: Please confirm the appointment details in your dashboard.',
-            '',
-            'Open dashboard: '.rtrim(config('app.frontend_url', config('app.url')), '/').'/provider/bookings',
-            '',
-            'This is an automated booking notification. No reply is required.',
-        ]);
-
-        $sent = $twilio->send(
-            $validated['phone'],
-            $message
+        $type = $validated['type'] ?? BookingWhatsAppNotificationService::PROVIDER_BOOKING;
+        abort_unless($bookingWhatsApp->templateSid($type), 422, 'Add the selected WhatsApp template Content SID before testing it.');
+        abort_unless(
+            $bookingWhatsApp->sendTest($validated['phone'], $type),
+            422,
+            $bookingWhatsApp->lastError() ?: 'Twilio WhatsApp test failed. Check the recipient, template and Twilio logs.'
         );
-
-        abort_unless($sent, 422, $twilio->lastError() ?: 'Twilio WhatsApp test failed. Check the recipient, sender and Twilio logs.');
 
         return $this->success([
             'phone' => $validated['phone'],
-            'message' => $message,
+            'type' => $type,
         ], 'WhatsApp test message sent.');
     }
 
