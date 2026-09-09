@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
         $this->call(SubscriptionPlanSeeder::class);
 
         $admin = User::updateOrCreate([
-            'email' => 'admin@beautyprohq.test',
+            'email' => 'info@beautyprohq.com',
         ], [
             'name' => 'BeautyPro HQ Admin',
             'password' => 'password',

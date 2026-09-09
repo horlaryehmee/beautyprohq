@@ -49,7 +49,7 @@ All seeded accounts use the password `password`.
 
 | Role | Email | Notes |
 | --- | --- | --- |
-| Admin | `admin@beautyprohq.test` | Full administration console |
+| Admin | `info@beautyprohq.com` | Full administration console |
 | Provider | `amara@beautyprohq.test` | Verified; CRM and loyalty enabled |
 | Provider | `ifeoma@beautyprohq.test` | Pending verification request |
 | Customer | `ada@beautyprohq.test` | Bookings, rewards, and saved providers |
