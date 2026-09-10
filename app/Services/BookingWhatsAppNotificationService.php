@@ -21,12 +21,26 @@ class BookingWhatsAppNotificationService
     {
         $booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
 
+        if (! $this->automatedNotificationsEnabled()) {
+            Log::notice('Booking WhatsApp notification was skipped because automated notifications are paused.', [
+                'booking_id' => $booking->id,
+                'notification_type' => $type,
+            ]);
+
+            return false;
+        }
+
         return match ($type) {
             self::PROVIDER_BOOKING => $this->sendProviderBooking($booking),
             self::CLIENT_CONFIRMATION => $this->sendClientConfirmation($booking),
             self::CLIENT_REMINDER => $this->sendClientReminder($booking),
             default => false,
         };
+    }
+
+    public function automatedNotificationsEnabled(): bool
+    {
+        return AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1';
     }
 
     public function sendTest(string $phone, string $type): bool
@@ -88,13 +102,11 @@ class BookingWhatsAppNotificationService
     private function sendProviderBooking(Booking $booking): bool
     {
         $provider = $booking->provider;
-        if (AppSetting::getValue('features.provider_whatsapp_notifications', '0') !== '1'
-            || ! $provider?->whatsapp_notifications_enabled
+        if (! $provider?->whatsapp_notifications_enabled
             || blank($provider->whatsapp_number)) {
             Log::warning('Provider booking WhatsApp notification was skipped because delivery is not enabled for the recipient.', [
                 'booking_id' => $booking->id,
                 'provider_id' => $provider?->id,
-                'feature_enabled' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
                 'provider_enabled' => (bool) $provider?->whatsapp_notifications_enabled,
                 'recipient_configured' => filled($provider?->whatsapp_number),
             ]);

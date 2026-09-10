@@ -50,6 +50,38 @@ class BookingWhatsAppLifecycleTest extends TestCase
         $this->assertNotNull($booking->fresh()->provider_whatsapp_notified_at);
     }
 
+    public function test_admin_switch_pauses_every_automated_booking_message_but_not_manual_tests(): void
+    {
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
+        AppSetting::setValue('features.provider_whatsapp_notifications', '0');
+        [$booking] = $this->booking('confirmed', 'paystack', 'paid');
+        $service = app(BookingWhatsAppNotificationService::class);
+
+        $this->assertFalse($service->send($booking, BookingWhatsAppNotificationService::PROVIDER_BOOKING));
+        $this->assertFalse($service->send($booking, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION));
+        $this->assertFalse($service->send($booking, BookingWhatsAppNotificationService::CLIENT_REMINDER));
+        Http::assertSentCount(0);
+
+        $this->assertTrue($service->sendTest('+2348012345678', BookingWhatsAppNotificationService::CLIENT_CONFIRMATION));
+        Http::assertSentCount(1);
+        $this->assertNull($booking->fresh()->provider_whatsapp_notified_at);
+        $this->assertNull($booking->fresh()->customer_whatsapp_confirmed_at);
+        $this->assertNull($booking->fresh()->customer_whatsapp_reminded_at);
+    }
+
+    public function test_reminder_command_does_not_queue_messages_while_admin_switch_is_off(): void
+    {
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
+        AppSetting::setValue('features.provider_whatsapp_notifications', '0');
+        [$booking] = $this->booking('confirmed', 'paystack', 'paid', now()->addHours(12)->toDateString());
+
+        Artisan::call('whatsapp:send-booking-reminders');
+
+        $this->assertStringContainsString('paused', Artisan::output());
+        Http::assertSentCount(0);
+        $this->assertNull($booking->fresh()->customer_whatsapp_reminded_at);
+    }
+
     public function test_failed_provider_delivery_is_not_retried_when_twilio_may_have_accepted_it(): void
     {
         Http::fake(['api.twilio.com/*' => Http::response(['message' => 'Upstream acknowledgement failed'], 500)]);

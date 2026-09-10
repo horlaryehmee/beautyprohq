@@ -1367,6 +1367,7 @@ class BackendMvpTest extends TestCase
         AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
         AppSetting::setValue('twilio.client_confirmation_content_sid', 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
+        AppSetting::setValue('features.provider_whatsapp_notifications', '1');
 
         Sanctum::actingAs($customer);
         $bookingId = $this->postJson('/api/bookings', [

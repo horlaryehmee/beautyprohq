@@ -507,6 +507,12 @@ Artisan::command('notifications:prune {--days=30}', function (): int {
 Schedule::command('notifications:prune --days=30')->dailyAt('02:32')->withoutOverlapping(10);
 
 Artisan::command('whatsapp:send-booking-reminders', function (BookingWhatsAppNotificationService $notifications): int {
+    if (! $notifications->automatedNotificationsEnabled()) {
+        $this->info('WhatsApp booking notifications are paused.');
+
+        return 0;
+    }
+
     if (! $notifications->templateSid(BookingWhatsAppNotificationService::CLIENT_REMINDER)) {
         $this->info('Client reminder template is not configured.');
 

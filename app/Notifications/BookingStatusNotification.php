@@ -55,6 +55,10 @@ class BookingStatusNotification extends Notification
             ->line('Reference: '.($payment?->reference ?: 'Not available'))
             ->line('Notes: '.($this->booking->notes ?: 'None'));
 
+        if (filled(config('mail.booking_mailer'))) {
+            $mail->mailer(config('mail.booking_mailer'));
+        }
+
         try {
             $calendarLinks = $calendar->links($this->booking);
             $mail->line(new HtmlString(

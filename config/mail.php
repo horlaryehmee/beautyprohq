@@ -16,6 +16,10 @@ return [
 
     'default' => env('MAIL_MAILER', 'log'),
 
+    // Booking notifications bypass Google Workspace in production so they are
+    // handed to the hosting server immediately during the booking request.
+    'booking_mailer' => env('BOOKING_MAILER', env('APP_ENV') === 'production' ? 'php_mail' : null),
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations
