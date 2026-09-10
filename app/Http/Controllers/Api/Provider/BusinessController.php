@@ -233,13 +233,17 @@ class BusinessController extends Controller
         $validated = $request->validate([
             'default_currency' => ['sometimes', Rule::in(array_keys(config('currencies.supported', [])))],
             'timezone' => ['nullable', 'timezone'],
-            'whatsapp_number' => ['nullable', 'string', 'max:40'],
+            'whatsapp_number' => ['nullable', 'required_if:whatsapp_notifications_enabled,true', 'string', 'max:40'],
             'whatsapp_notifications_enabled' => ['sometimes', 'boolean'],
         ]);
 
         $provider = $request->user()->providerProfile;
         if (! $this->providerWhatsappFeatureEnabled()) {
             unset($validated['whatsapp_number'], $validated['whatsapp_notifications_enabled']);
+        }
+
+        if (($validated['whatsapp_notifications_enabled'] ?? false) && blank($validated['whatsapp_number'] ?? $provider->whatsapp_number)) {
+            return response()->json(['message' => 'Add a WhatsApp contact number before enabling booking notifications.'], 422);
         }
 
         $provider->update($validated);

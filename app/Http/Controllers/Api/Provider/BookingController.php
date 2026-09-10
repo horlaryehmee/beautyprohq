@@ -119,7 +119,7 @@ class BookingController extends Controller
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
 
         if ($validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual') {
-            SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
+            SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
         }
 
         return $this->success($booking, 'Booking status updated.');

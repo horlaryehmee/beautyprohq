@@ -289,7 +289,7 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
-        SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::PROVIDER_BOOKING);
+        SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::PROVIDER_BOOKING);
         if ($booking->payment?->gateway === 'manual') {
             $booking->setAttribute('manual_payment', $this->manualPaymentDetails($provider));
         }
@@ -893,7 +893,7 @@ class BookingController extends Controller
             ));
         });
 
-        SendBookingWhatsAppNotification::dispatch($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
+        SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
 
         $payment->forceFill([
             'metadata' => [

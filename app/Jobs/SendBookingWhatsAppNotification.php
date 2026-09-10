@@ -6,6 +6,8 @@ use App\Models\Booking;
 use App\Services\BookingWhatsAppNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SendBookingWhatsAppNotification implements ShouldQueue
 {
@@ -26,5 +28,14 @@ class SendBookingWhatsAppNotification implements ShouldQueue
                 throw new \RuntimeException($notifications->lastError());
             }
         }
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('Booking WhatsApp notification job failed.', [
+            'booking_id' => $this->bookingId,
+            'notification_type' => $this->type,
+            'exception' => $exception?->getMessage(),
+        ]);
     }
 }
