@@ -51,10 +51,6 @@ class BookingStatusNotification extends Notification
             ->line('Reference: '.($payment?->reference ?: 'Not available'))
             ->line('Notes: '.($this->booking->notes ?: 'None'));
 
-        if (filled(config('mail.booking_mailer'))) {
-            $mail->mailer(config('mail.booking_mailer'));
-        }
-
         if ($isCustomerMessage) {
             $mail->line($notifiable->is_guest
                 ? 'Create a customer account with this same email to track this booking, payments and future updates.'

@@ -30,15 +30,16 @@ class BookingCalendarTest extends TestCase
         }
     }
 
-    public function test_booking_email_can_use_the_immediate_php_mail_transport(): void
+    public function test_booking_email_uses_the_active_platform_mail_transport(): void
     {
-        config(['mail.booking_mailer' => 'php_mail']);
+        config(['mail.default' => 'array']);
         $booking = $this->booking();
 
         $mail = (new BookingStatusNotification($booking, 'Your booking is confirmed.'))
             ->toMail($booking->customer);
 
-        $this->assertSame('php_mail', $mail->mailer);
+        $this->assertNull($mail->mailer);
+        $this->assertSame('array', config('mail.default'));
     }
 
     public function test_signed_calendar_download_contains_the_booking_without_private_contact_details(): void
