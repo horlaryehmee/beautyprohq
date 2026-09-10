@@ -50,6 +50,21 @@ class BookingCalendarTest extends TestCase
         $response->assertDontSee('Private booking note', false);
     }
 
+    public function test_booking_email_is_still_built_when_calendar_data_is_invalid(): void
+    {
+        $booking = $this->booking();
+        $booking->setAttribute('time', 'invalid');
+        $notification = new BookingStatusNotification($booking, 'Your booking is confirmed.');
+
+        $mail = $notification->toMail($booking->customer);
+        $rendered = $mail->render();
+
+        $this->assertStringContainsString('Your booking is confirmed.', $rendered);
+        $this->assertStringContainsString('Soft Glam Makeup', $rendered);
+        $this->assertStringNotContainsString('Google Calendar', $rendered);
+        $this->assertCount(0, $mail->rawAttachments);
+    }
+
     public function test_calendar_download_rejects_an_unsigned_link(): void
     {
         $booking = $this->booking();
