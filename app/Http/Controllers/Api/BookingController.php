@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendBookingWhatsAppNotification;
 use App\Models\Booking;
 use App\Models\LiveChatConversation;
 use App\Models\Loyalty;
@@ -289,7 +288,7 @@ class BookingController extends Controller
         }
 
         $booking->load(['provider.user', 'customer', 'service', 'payment']);
-        SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::PROVIDER_BOOKING);
+        app(BookingWhatsAppNotificationService::class)->send($booking, BookingWhatsAppNotificationService::PROVIDER_BOOKING);
         if ($booking->payment?->gateway === 'manual') {
             $booking->setAttribute('manual_payment', $this->manualPaymentDetails($provider));
         }
@@ -893,7 +892,7 @@ class BookingController extends Controller
             ));
         });
 
-        SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
+        app(BookingWhatsAppNotificationService::class)->send($booking, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
 
         $payment->forceFill([
             'metadata' => [

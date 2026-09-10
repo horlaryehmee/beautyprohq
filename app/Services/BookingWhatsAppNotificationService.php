@@ -91,6 +91,14 @@ class BookingWhatsAppNotificationService
         if (AppSetting::getValue('features.provider_whatsapp_notifications', '0') !== '1'
             || ! $provider?->whatsapp_notifications_enabled
             || blank($provider->whatsapp_number)) {
+            Log::warning('Provider booking WhatsApp notification was skipped because delivery is not enabled for the recipient.', [
+                'booking_id' => $booking->id,
+                'provider_id' => $provider?->id,
+                'feature_enabled' => AppSetting::getValue('features.provider_whatsapp_notifications', '0') === '1',
+                'provider_enabled' => (bool) $provider?->whatsapp_notifications_enabled,
+                'recipient_configured' => filled($provider?->whatsapp_number),
+            ]);
+
             return false;
         }
 

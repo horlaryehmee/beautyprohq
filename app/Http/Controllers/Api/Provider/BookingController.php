@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendBookingWhatsAppNotification;
 use App\Models\Booking;
 use App\Models\CrmCustomer;
 use App\Models\LiveChatConversation;
@@ -119,7 +118,7 @@ class BookingController extends Controller
             : "Your booking was {$booking->status} by {$booking->provider->user->name}."));
 
         if ($validated['status'] === 'confirmed' && $booking->payment?->gateway === 'manual') {
-            SendBookingWhatsAppNotification::dispatchAfterResponse($booking->id, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
+            app(BookingWhatsAppNotificationService::class)->send($booking, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
         }
 
         return $this->success($booking, 'Booking status updated.');
