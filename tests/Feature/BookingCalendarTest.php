@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Notifications\BookingStatusNotification;
 use App\Support\BookingCalendar;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class BookingCalendarTest extends TestCase
@@ -43,6 +45,25 @@ class BookingCalendarTest extends TestCase
 
         $this->assertNull($mail->mailer);
         $this->assertSame('array', config('mail.default'));
+    }
+
+    public function test_booking_email_with_calendar_attachment_can_be_serialized_and_sent(): void
+    {
+        config(['mail.default' => 'array']);
+        app('mail.manager')->forgetMailers();
+        $booking = $this->booking();
+
+        Notification::sendNow(
+            $booking->customer,
+            new BookingStatusNotification($booking, 'Your booking is confirmed.'),
+            ['mail'],
+        );
+
+        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $this->assertCount(1, $messages);
+        $mime = $messages->first()->getOriginalMessage()->toString();
+        $this->assertStringContainsString('Content-Type: text/calendar;', $mime);
+        $this->assertStringContainsString('beautypro-booking-'.$booking->id.'.ics', $mime);
     }
 
     public function test_signed_calendar_download_contains_the_booking_without_private_contact_details(): void
