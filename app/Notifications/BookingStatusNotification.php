@@ -3,9 +3,12 @@
 namespace App\Notifications;
 
 use App\Models\Booking;
+use App\Support\BookingCalendar;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\HtmlString;
 
 class BookingStatusNotification extends Notification
 {
@@ -23,6 +26,7 @@ class BookingStatusNotification extends Notification
         $path = $notifiable->role === 'provider' ? '/provider/bookings' : '/customer/bookings';
         $this->booking->loadMissing(['provider.user', 'customer', 'service', 'payment']);
         $payment = $this->booking->payment;
+        $calendar = app(BookingCalendar::class);
         $frontendUrl = rtrim(config('app.frontend_url', config('app.url')), '/');
         $isCustomerMessage = $notifiable->role === 'customer' && (int) $notifiable->id === (int) $this->booking->customer_id;
         $actionLabel = 'View your bookings';
@@ -50,6 +54,25 @@ class BookingStatusNotification extends Notification
             ->line('Payment: '.($payment ? strtoupper((string) $payment->currency).' '.number_format((float) $payment->amount, 2).' via '.ucfirst((string) ($payment->gateway ?? 'gateway')).' - '.ucfirst((string) $payment->status) : 'Not available'))
             ->line('Reference: '.($payment?->reference ?: 'Not available'))
             ->line('Notes: '.($this->booking->notes ?: 'None'));
+
+        try {
+            $calendarLinks = $calendar->links($this->booking);
+            $mail->line(new HtmlString(
+                '<strong>Add this booking to your calendar:</strong> '
+                .'<a href="'.e($calendarLinks['google']).'">Google Calendar</a>'
+                .' &nbsp;|&nbsp; '
+                .'<a href="'.e($calendarLinks['download']).'">Apple Calendar, Outlook or another app (.ics)</a>'
+            ))
+            ->attachData($calendar->contents($this->booking), $calendar->filename($this->booking), [
+                'mime' => 'text/calendar; charset=UTF-8',
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Booking calendar attachment could not be generated; sending the email without it.', [
+                'booking_id' => $this->booking->id,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
 
         if ($isCustomerMessage) {
             $mail->line($notifiable->is_guest
