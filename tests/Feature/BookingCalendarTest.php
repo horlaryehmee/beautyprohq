@@ -15,7 +15,7 @@ class BookingCalendarTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_booking_email_has_google_and_download_calendar_options_for_customer_and_provider(): void
+    public function test_booking_email_has_no_calendar_links_or_attachments_for_customer_and_provider(): void
     {
         $booking = $this->booking();
         $notification = new BookingStatusNotification($booking, 'Your booking is confirmed.');
@@ -24,12 +24,9 @@ class BookingCalendarTest extends TestCase
             $mail = $notification->toMail($recipient);
             $rendered = $mail->render();
 
-            $this->assertStringContainsString('Google Calendar', $rendered);
-            $this->assertStringContainsString('Apple Calendar, Outlook or another app', $rendered);
-            $this->assertStringContainsString('calendar.google.com/calendar/render', $rendered);
-            $this->assertStringContainsString('calendar.ics', $rendered);
-            $this->assertCount(1, $mail->rawAttachments);
-            $this->assertSame('beautypro-booking-'.$booking->id.'.ics', $mail->rawAttachments[0]['name']);
+            $this->assertStringNotContainsString('Google Calendar', $rendered);
+            $this->assertStringNotContainsString('calendar.ics', $rendered);
+            $this->assertCount(0, $mail->rawAttachments);
         }
     }
 
