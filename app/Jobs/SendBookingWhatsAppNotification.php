@@ -13,9 +13,7 @@ class SendBookingWhatsAppNotification implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 3;
-
-    public array $backoff = [60, 300];
+    public int $tries = 1;
 
     public function __construct(public readonly int $bookingId, public readonly string $type) {}
 
@@ -23,10 +21,7 @@ class SendBookingWhatsAppNotification implements ShouldQueue
     {
         $booking = Booking::find($this->bookingId);
         if ($booking) {
-            $sent = $notifications->send($booking, $this->type);
-            if (! $sent && $notifications->lastError()) {
-                throw new \RuntimeException($notifications->lastError());
-            }
+            $notifications->send($booking, $this->type);
         }
     }
 

@@ -24,7 +24,6 @@ class BookingWhatsAppLifecycleTest extends TestCase
     {
         parent::setUp();
 
-        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
         AppSetting::setValue('twilio.account_sid', 'AC123456789');
         AppSetting::setValue('twilio.auth_token', 'test-auth-token', true);
         AppSetting::setValue('twilio.whatsapp_from', 'whatsapp:+14155238886');
@@ -37,6 +36,7 @@ class BookingWhatsAppLifecycleTest extends TestCase
 
     public function test_provider_new_booking_template_is_sent_once(): void
     {
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
         [$booking] = $this->booking('pending', 'manual', 'pending');
         $service = app(BookingWhatsAppNotificationService::class);
 
@@ -50,8 +50,22 @@ class BookingWhatsAppLifecycleTest extends TestCase
         $this->assertNotNull($booking->fresh()->provider_whatsapp_notified_at);
     }
 
+    public function test_failed_provider_delivery_is_not_retried_when_twilio_may_have_accepted_it(): void
+    {
+        Http::fake(['api.twilio.com/*' => Http::response(['message' => 'Upstream acknowledgement failed'], 500)]);
+        [$booking] = $this->booking('pending', 'manual', 'pending');
+        $service = app(BookingWhatsAppNotificationService::class);
+
+        $this->assertFalse($service->send($booking, BookingWhatsAppNotificationService::PROVIDER_BOOKING));
+        $this->assertFalse($service->send($booking->fresh(), BookingWhatsAppNotificationService::PROVIDER_BOOKING));
+
+        Http::assertSentCount(1);
+        $this->assertNotNull($booking->fresh()->provider_whatsapp_notified_at);
+    }
+
     public function test_manual_booking_confirmation_is_sent_only_when_provider_accepts(): void
     {
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
         $this->withoutMiddleware(EnsurePaidProvider::class);
         [$booking, $providerUser] = $this->booking('pending', 'manual', 'pending');
         $this->assertNull($booking->customer_whatsapp_confirmed_at);
@@ -63,12 +77,14 @@ class BookingWhatsAppLifecycleTest extends TestCase
         $this->assertSame('confirmed', $booking->status);
         $this->assertSame('paid', $booking->payment->status);
         $this->assertNotNull($booking->customer_whatsapp_confirmed_at);
+        Http::assertSentCount(1);
         Http::assertSent(fn ($request) => $request['To'] === 'whatsapp:+2348012345678'
             && $request['ContentSid'] === 'HX22222222222222222222222222222222');
     }
 
     public function test_reminder_waits_for_the_lead_time_and_is_then_sent_once(): void
     {
+        Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM_TEST'], 201)]);
         Carbon::setTestNow(Carbon::parse('2026-09-09 10:00:00', 'Africa/Lagos'));
         [$booking] = $this->booking('confirmed', 'paystack', 'paid', '2026-09-10', '12:00:00');
 

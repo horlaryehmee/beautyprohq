@@ -169,8 +169,7 @@ class BookingWhatsAppNotificationService
 
         $sent = $this->twilio->sendTemplate($phone, $sid, $variables);
         if (! $sent) {
-            Booking::whereKey($booking->id)->where($marker, $claimedAt)->update([$marker => null]);
-            Log::warning('Booking WhatsApp template could not be queued by Twilio.', [
+            Log::warning('Booking WhatsApp template delivery attempt failed; automatic retries were suppressed to prevent duplicate messages.', [
                 'booking_id' => $booking->id,
                 'notification_type' => $type,
                 'error' => $this->twilio->lastError(),
