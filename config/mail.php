@@ -76,6 +76,15 @@ return [
             'path' => env('MAIL_PHP_MAIL_PATH', '/usr/sbin/sendmail -t -i'),
         ],
 
+        'google_workspace_failover' => [
+            'transport' => 'failover',
+            'mailers' => [
+                'google_workspace',
+                'php_mail',
+            ],
+            'retry_after' => 60,
+        ],
+
         'log' => [
             'transport' => 'log',
             'channel' => env('MAIL_LOG_CHANNEL'),

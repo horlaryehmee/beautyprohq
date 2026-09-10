@@ -407,6 +407,7 @@ class SubscriptionController extends Controller
             'password_configured' => filled($password ?: config('mail.mailers.smtp.password')),
             'password_last4' => filled($password ?: config('mail.mailers.smtp.password')) ? substr((string) ($password ?: config('mail.mailers.smtp.password')), -4) : null,
             'google_workspace' => $workspace->payload(),
+            'fallback_enabled' => $mailer === 'google_workspace',
             'configured' => $enabled
                 && filled($fromAddress)
                 && ($mailer === 'php_mail'

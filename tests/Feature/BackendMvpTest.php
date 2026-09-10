@@ -2590,6 +2590,7 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/admin/settings/smtp')
             ->assertOk()
             ->assertJsonPath('data.google_workspace.connected', true)
+            ->assertJsonPath('data.fallback_enabled', true)
             ->assertJsonPath('data.configured', true);
 
         $this->deleteJson('/api/admin/settings/google-workspace')

@@ -107,4 +107,23 @@ class GoogleWorkspaceMailTest extends TestCase
                 && str_contains($mime, 'Workspace delivery test');
         });
     }
+
+    public function test_google_workspace_configuration_uses_php_mail_failover(): void
+    {
+        config([
+            'mail.default' => 'google_workspace_failover',
+            'mail.mailers.google_workspace' => ['transport' => 'google_workspace'],
+            'mail.mailers.google_workspace_failover' => [
+                'transport' => 'failover',
+                'mailers' => ['google_workspace', 'php_mail'],
+                'retry_after' => 60,
+            ],
+        ]);
+
+        $this->assertSame('google_workspace_failover', config('mail.default'));
+        $this->assertSame(
+            ['google_workspace', 'php_mail'],
+            config('mail.mailers.google_workspace_failover.mailers'),
+        );
+    }
 }

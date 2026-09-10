@@ -181,13 +181,18 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $mailConfig = [
-                'mail.default' => $mailer,
+                'mail.default' => $mailer === 'google_workspace' ? 'google_workspace_failover' : $mailer,
                 'mail.from.address' => $fromAddress,
                 'mail.from.name' => AppSetting::getValue('smtp.from_name') ?: config('app.name'),
             ];
 
             if ($mailer === 'google_workspace') {
                 $mailConfig['mail.mailers.google_workspace'] = ['transport' => 'google_workspace'];
+                $mailConfig['mail.mailers.google_workspace_failover'] = [
+                    'transport' => 'failover',
+                    'mailers' => ['google_workspace', 'php_mail'],
+                    'retry_after' => 60,
+                ];
             }
 
             if ($mailer === 'smtp') {

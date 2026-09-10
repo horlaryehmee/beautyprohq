@@ -1148,7 +1148,7 @@ export default function AdminSettingsPage() {
                         </div>
                         <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                             {smtpForm.mailer === 'google_workspace'
-                                ? 'Google Workspace uses Google OAuth and the Gmail API. Google always shows the account selector when you connect or reconnect; no mailbox password is stored by BeautyPro HQ.'
+                                ? 'Google Workspace uses Google OAuth and the Gmail API. If Google cannot send a message, BeautyPro HQ automatically retries it once through cPanel/PHP mail. No mailbox password is stored by BeautyPro HQ.'
                                 : smtpForm.mailer === 'smtp'
                                     ? 'For Bluehost, try mail.yourdomain.com with SSL/465 first. If that fails, try TLS/587. Use the full mailbox address as the username.'
                                     : `cPanel/PHP mail uses the server sendmail path${smtpResource.data?.sendmail_path ? ` (${smtpResource.data.sendmail_path})` : ''}. This is useful when outbound SMTP ports are blocked by hosting.`}
