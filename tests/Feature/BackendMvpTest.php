@@ -1420,6 +1420,27 @@ class BackendMvpTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), 'api.twilio.com')
             && $request['To'] === 'whatsapp:+2348012345678'
             && $request['ContentSid'] === 'HXc5b62575e6e4ff6129ad7c8efe1f983e');
+
+        $payment->refresh();
+        $metadataWithoutDelivery = $payment->metadata;
+        unset(
+            $metadataWithoutDelivery['customer_booking_email_sent_at'],
+            $metadataWithoutDelivery['provider_booking_email_sent_at'],
+            $metadataWithoutDelivery['booking_notifications_sent_at'],
+        );
+        $payment->update(['metadata' => $metadataWithoutDelivery]);
+        Notification::fake();
+
+        $this->postJson('/api/booking-payments/verify', ['reference' => $reference, 'payment_token' => $token])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid');
+
+        Notification::assertSentTo($customer, BookingStatusNotification::class);
+        Notification::assertSentTo($provider->user, BookingStatusNotification::class);
+        $retriedMetadata = $payment->fresh()->metadata;
+        $this->assertNotEmpty($retriedMetadata['customer_booking_email_sent_at'] ?? null);
+        $this->assertNotEmpty($retriedMetadata['provider_booking_email_sent_at'] ?? null);
+        $this->assertNotEmpty($retriedMetadata['booking_notifications_sent_at'] ?? null);
     }
 
     public function test_provider_paystack_checkout_accepts_usd_booking_payments(): void

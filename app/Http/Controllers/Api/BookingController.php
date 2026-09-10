@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -309,21 +310,34 @@ class BookingController extends Controller
         return $this->success($booking, 'Booking request created.', 201);
     }
 
-    private function safeNotify(?User $user, object $notification): void
+    private function safeNotify(?User $user, object $notification): bool
     {
         if (! $user) {
-            return;
+            return false;
         }
 
-        try {
-            $user->notify($notification);
-        } catch (\Throwable $exception) {
-            Log::warning('Booking notification failed without blocking booking flow.', [
-                'user_id' => $user->id,
-                'notification' => $notification::class,
-                'message' => $exception->getMessage(),
-            ]);
+        $channels = $notification->via($user);
+        $mailSent = ! in_array('mail', $channels, true);
+
+        foreach (array_values(array_unique($channels)) as $channel) {
+            try {
+                NotificationFacade::sendNow($user, $notification, [$channel]);
+                if ($channel === 'mail') {
+                    $mailSent = true;
+                }
+            } catch (\Throwable $exception) {
+                Log::warning('Booking notification channel failed without blocking booking flow.', [
+                    'booking_id' => $notification instanceof BookingStatusNotification ? $notification->booking->id : null,
+                    'user_id' => $user->id,
+                    'recipient_domain' => str_contains((string) $user->email, '@') ? Str::after((string) $user->email, '@') : null,
+                    'notification' => $notification::class,
+                    'channel' => $channel,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
         }
+
+        return $mailSent;
     }
 
     private function selectedPaymentMethod(ProviderProfile $provider, ?string $requested): string
@@ -538,6 +552,9 @@ class BookingController extends Controller
         abort_unless((int) $payment->provider_id === (int) $payment->booking->provider_id, 422, 'Payment provider mismatch.');
 
         if ($payment->status === 'paid') {
+            $this->safeNotifyBookingPaymentPaid($payment);
+            $payment->refresh();
+
             return $this->success($this->paymentConfirmationData($payment), 'Payment already verified.');
         }
 
@@ -872,15 +889,28 @@ class BookingController extends Controller
             'Notes' => $booking->notes ?: 'None',
         ];
 
-        $this->safeNotify($booking->customer, new BookingStatusNotification(
-            $booking,
-            "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed."
-        ));
+        $metadata = $payment->metadata ?? [];
+        $customerMailSent = filled($metadata['customer_booking_email_sent_at'] ?? null);
+        if (! $customerMailSent) {
+            $customerMailSent = $this->safeNotify($booking->customer, new BookingStatusNotification(
+                $booking,
+                "Your {$amount} payment for {$serviceName} with {$providerName} has been confirmed."
+            ));
+            if ($customerMailSent) {
+                $metadata['customer_booking_email_sent_at'] = now()->toIso8601String();
+            }
+        }
 
-        $this->safeNotify($payment->provider?->user, new BookingStatusNotification(
-            $booking,
-            "{$customerName} paid {$amount} and requested a new booking."
-        ));
+        $providerMailSent = filled($metadata['provider_booking_email_sent_at'] ?? null);
+        if (! $providerMailSent) {
+            $providerMailSent = $this->safeNotify($payment->provider?->user, new BookingStatusNotification(
+                $booking,
+                "{$customerName} paid {$amount} and requested a new booking."
+            ));
+            if ($providerMailSent) {
+                $metadata['provider_booking_email_sent_at'] = now()->toIso8601String();
+            }
+        }
 
         User::where('role', 'admin')->where('is_active', true)->get()->each(function (User $admin) use ($booking, $customerName, $providerName, $serviceName, $payment, $amount): void {
             $this->safeNotify($admin, new PlatformUpdateNotification(
@@ -894,12 +924,11 @@ class BookingController extends Controller
 
         app(BookingWhatsAppNotificationService::class)->send($booking, BookingWhatsAppNotificationService::CLIENT_CONFIRMATION);
 
-        $payment->forceFill([
-            'metadata' => [
-                ...($payment->metadata ?? []),
-                'booking_notifications_sent_at' => now()->toIso8601String(),
-            ],
-        ])->save();
+        if ($customerMailSent && $providerMailSent) {
+            $metadata['booking_notifications_sent_at'] = now()->toIso8601String();
+        }
+
+        $payment->forceFill(['metadata' => $metadata])->save();
     }
 
     private function safeNotifyBookingPaymentPaid(Payment $payment): void
