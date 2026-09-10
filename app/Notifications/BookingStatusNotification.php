@@ -62,10 +62,7 @@ class BookingStatusNotification extends Notification
                 .'<a href="'.e($calendarLinks['google']).'">Google Calendar</a>'
                 .' &nbsp;|&nbsp; '
                 .'<a href="'.e($calendarLinks['download']).'">Apple Calendar, Outlook or another app (.ics)</a>'
-            ))
-            ->attachData($calendar->contents($this->booking), $calendar->filename($this->booking), [
-                'mime' => 'text/calendar',
-            ]);
+            ));
         } catch (\Throwable $exception) {
             Log::warning('Booking calendar attachment could not be generated; sending the email without it.', [
                 'booking_id' => $this->booking->id,

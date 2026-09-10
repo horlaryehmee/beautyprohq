@@ -17,7 +17,7 @@ class BookingCalendarTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_booking_email_has_google_and_download_calendar_options_for_customer_and_provider(): void
+    public function test_booking_email_has_calendar_links_without_an_ics_attachment(): void
     {
         $booking = $this->booking();
         $notification = new BookingStatusNotification($booking, 'Your booking is confirmed.');
@@ -30,8 +30,7 @@ class BookingCalendarTest extends TestCase
             $this->assertStringContainsString('Apple Calendar, Outlook or another app', $rendered);
             $this->assertStringContainsString('calendar.google.com/calendar/render', $rendered);
             $this->assertStringContainsString('calendar.ics', $rendered);
-            $this->assertCount(1, $mail->rawAttachments);
-            $this->assertSame('beautypro-booking-'.$booking->id.'.ics', $mail->rawAttachments[0]['name']);
+            $this->assertCount(0, $mail->rawAttachments);
         }
     }
 
@@ -47,7 +46,7 @@ class BookingCalendarTest extends TestCase
         $this->assertSame('array', config('mail.default'));
     }
 
-    public function test_booking_email_with_calendar_attachment_can_be_serialized_and_sent(): void
+    public function test_booking_email_with_calendar_links_can_be_serialized_and_sent(): void
     {
         config(['mail.default' => 'array']);
         app('mail.manager')->forgetMailers();
@@ -62,8 +61,8 @@ class BookingCalendarTest extends TestCase
         $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
         $this->assertCount(1, $messages);
         $mime = $messages->first()->getOriginalMessage()->toString();
-        $this->assertStringContainsString('Content-Type: text/calendar;', $mime);
-        $this->assertStringContainsString('beautypro-booking-'.$booking->id.'.ics', $mime);
+        $this->assertStringContainsString('calendar.google.com', $mime);
+        $this->assertStringNotContainsString('Content-Disposition: attachment', $mime);
     }
 
     public function test_signed_calendar_download_contains_the_booking_without_private_contact_details(): void
