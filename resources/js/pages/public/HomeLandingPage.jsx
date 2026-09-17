@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import Seo from '../../components/Seo';
+import NewsletterPopup from '../../components/public/NewsletterPopup';
 
 const loadHomeContent = () => import('./HomePage');
 const HomeContent = lazy(loadHomeContent);
@@ -53,6 +54,7 @@ export default function HomeLandingPage() {
                 description="Discover trusted beauty professionals, stay updated on industry news and events, and connect with opportunities across the beauty industry."
             />
             <ShuffleHero providers={heroProviders} animateCopy={!suppressInitialHeroAnimation} />
+            <NewsletterPopup />
             <div ref={contentBoundaryRef} aria-hidden={!showContent || undefined}>
                 {showContent ? (
                     <Suspense fallback={<div className="min-h-[900px] bg-white" aria-hidden="true" />}>

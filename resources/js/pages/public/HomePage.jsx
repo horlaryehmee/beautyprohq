@@ -401,6 +401,8 @@ export default function HomePage({ onVerifiedProviders }) {
             const { default: api, ensureCsrfCookie } = await import('../../lib/api');
             await ensureCsrfCookie();
             const response = await api.post('/newsletter/subscribe', { name: newsletterName, email });
+            const { rememberNewsletterSubscription } = await import('../../lib/newsletter');
+            rememberNewsletterSubscription();
             toast.success(response?.data?.message || 'You are on the BeautyPro HQ list.');
             setNewsletterName('');
             setEmail('');
