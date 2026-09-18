@@ -9,6 +9,7 @@ import { InlineAlert } from '../ui/Feedback';
 import { stripHtml } from '../../lib/utils';
 
 const reasons = [
+    'Opportunity',
     'Work With Us',
     'Join BeautyProHQ',
     'Need Support',
@@ -17,6 +18,12 @@ const reasons = [
 ];
 
 const dynamicOptions = {
+    Opportunity: {
+        label: 'What kind of opportunity is it?',
+        field: 'detail_type',
+        messageLabel: 'Tell us about the opportunity',
+        options: ['Brand collaboration', 'Speaking', 'Media feature', 'Partnership', 'Job', 'Other'],
+    },
     'Work With Us': {
         label: 'What best describes you?',
         field: 'detail_type',
@@ -66,13 +73,13 @@ function OptionButton({ active, children, onClick }) {
     );
 }
 
-export default function OpportunityEnquiryModal({ opportunity, onClose }) {
+export default function OpportunityEnquiryModal({ opportunity, initialReason = '', onClose }) {
     const isOpportunityApplication = Boolean(opportunity);
     const { user } = useAuth();
     const toast = useToast();
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({
-        reason: opportunity ? 'Partnership / Brand Collaboration' : '',
+        reason: opportunity ? 'Partnership / Brand Collaboration' : initialReason,
         name: user?.name ?? '',
         email: user?.email ?? '',
         phone: '',

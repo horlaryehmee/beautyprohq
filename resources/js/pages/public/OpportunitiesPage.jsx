@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
 import Icon from '../../components/ui/Icon';
 import Seo from '../../components/Seo';
+import OpportunityEnquiryModal from '../../components/public/OpportunityEnquiryModal';
 import { shortDate } from '../../lib/utils';
 
 const typeLabels = {
@@ -94,6 +95,7 @@ export default function OpportunitiesPage() {
     const [activeType, setActiveType] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [contactOpen, setContactOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -198,12 +200,13 @@ export default function OpportunitiesPage() {
                             <h2 className="mt-3 font-display text-4xl font-normal leading-tight">Have an opportunity for beauty professionals?</h2>
                             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">Brand collaborations, speaking slots, media features, and partnership requests can be reviewed and surfaced through BPHQ.</p>
                         </div>
-                        <Link to="/opportunities#opportunity-list" className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] lg:mt-0">
-                            Browse open calls <Icon name="briefcase" size={16} />
-                        </Link>
+                        <button type="button" onClick={() => setContactOpen(true)} className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-xs font-semibold uppercase tracking-wide text-[#2A1D14] lg:mt-0">
+                            Submit an opportunity <Icon name="arrow" size={16} />
+                        </button>
                     </div>
                 </div>
             </section>
+            {contactOpen && <OpportunityEnquiryModal initialReason="Opportunity" onClose={() => setContactOpen(false)} />}
         </>
     );
 }
