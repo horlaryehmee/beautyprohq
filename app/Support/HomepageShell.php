@@ -15,6 +15,12 @@ class HomepageShell
             return null;
         }
 
+        $host = parse_url($value, PHP_URL_HOST);
+        $path = parse_url($value, PHP_URL_PATH);
+        if ($host && in_array($host, [parse_url(config('app.url'), PHP_URL_HOST), 'localhost', '127.0.0.1'], true) && str_starts_with($path ?? '', '/storage/')) {
+            return $path;
+        }
+
         if (preg_match('/^(https?:)?\/\//i', $value) || str_starts_with($value, '/')) {
             return $value;
         }
@@ -57,7 +63,7 @@ class HomepageShell
         $raw = AppSetting::getValue('homepage.hero_images', '[]');
         $images = json_decode($raw, true);
 
-        return is_array($images) ? array_values(array_filter($images, 'is_string')) : [];
+        return is_array($images) ? array_values(array_filter(array_map([self::class, 'mediaUrl'], array_filter($images, 'is_string')))) : [];
     }
 
     public static function setAdminHeroImages(array $urls): void
@@ -78,8 +84,8 @@ class HomepageShell
 
         // Admin-controlled images take priority
         $admin = self::adminHeroImages();
-        if (count($admin) >= 2) {
-            return array_slice($admin, 0, 8);
+        if (count($admin) >= 1) {
+            return array_slice($admin, 0, 20);
         }
 
         $photos = [];

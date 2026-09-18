@@ -35,7 +35,8 @@ function providerSquares(providers = []) {
         ? globalThis.__BPHQ_HERO_IMAGES__.map((src, index) => ({ id: `preloaded-provider-${index}`, src: mediaUrl(src) })).filter((item) => item.src)
         : [];
 
-    return [...photos, ...seededPhotos, ...fallbackSquares].slice(0, 16);
+    const chosen = photos.length ? photos : seededPhotos.length ? seededPhotos : fallbackSquares;
+    return Array.from({ length: Math.max(16, Math.ceil(chosen.length / 2) * 2) }, (_, index) => ({ ...chosen[index % chosen.length], id: `${chosen[index % chosen.length].id}-${index}` }));
 }
 
 function CountUp({ end, suffix = '+' }) {

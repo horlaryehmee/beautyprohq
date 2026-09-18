@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ShuffleHero } from '../../components/ui/shuffle-grid';
 import Seo from '../../components/Seo';
 import NewsletterPopup from '../../components/public/NewsletterPopup';
@@ -17,8 +17,14 @@ export default function HomeLandingPage() {
             : []
     ));
     const contentBoundaryRef = useRef(null);
-    const updateHeroProviders = useCallback((providers) => {
-        if (Array.isArray(providers) && providers.length) setHeroProviders(providers);
+    useEffect(() => {
+        const controller = new AbortController();
+        fetch('/api/home/hero-images', { cache: 'no-store', signal: controller.signal })
+            .then((response) => { if (!response.ok) throw new Error('Could not load hero images.'); return response.json(); })
+            .then(({ data }) => {
+                if (data?.images?.length) setHeroProviders(data.images.map((profile_photo, index) => ({ id: `hero-${index}`, profile_photo })));
+            }).catch(() => {});
+        return () => controller.abort();
     }, []);
 
     useEffect(() => {
@@ -58,7 +64,7 @@ export default function HomeLandingPage() {
             <div ref={contentBoundaryRef} aria-hidden={!showContent || undefined}>
                 {showContent ? (
                     <Suspense fallback={<div className="min-h-[900px] bg-white" aria-hidden="true" />}>
-                        <HomeContent onVerifiedProviders={updateHeroProviders} />
+                        <HomeContent />
                     </Suspense>
                 ) : (
                     <div className="min-h-[900px] bg-white" aria-hidden="true" />

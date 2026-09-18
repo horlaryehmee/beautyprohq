@@ -26,6 +26,7 @@ use App\Services\BookingWhatsAppNotificationService;
 use App\Services\GoogleWorkspaceMailService;
 use App\Services\MailchimpService;
 use App\Services\TwilioWhatsAppService;
+use App\Services\UploadService;
 use App\Support\CurrencyResolver;
 use App\Support\HomepageShell;
 use Carbon\Carbon;
@@ -745,15 +746,11 @@ class SubscriptionController extends Controller
     public function uploadAdminHeroImage(Request $request, UploadService $uploads): JsonResponse
     {
         $validated = $request->validate([
-            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:12288'],
         ]);
 
-        $stored = $uploads->store($validated['image']);
-        $url = $stored['url'] ?? '';
-        // Ensure the URL is absolute for the browser to load it
-        if ($url && ! preg_match('#^(https?:)?//#', $url)) {
-            $url = rtrim(config('app.url'), '/').'/'.ltrim($url, '/');
-        }
+        $stored = $uploads->store($validated['image'], $request->user(), 'homepage_hero');
+        $url = HomepageShell::mediaUrl($stored['url'] ?? '');
 
         return $this->success([
             'url' => $url,
@@ -765,7 +762,7 @@ class SubscriptionController extends Controller
     public function updateAdminHeroImages(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'images' => ['required', 'array', 'max:8'],
+            'images' => ['present', 'array', 'max:20'],
             'images.*' => ['required', 'string', 'max:1000'],
         ]);
 

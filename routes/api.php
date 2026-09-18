@@ -56,6 +56,7 @@ Route::get('/auth/email-change/{user}/{token}', [AuthController::class, 'verifyE
     ->middleware(['signed', 'throttle:sensitive'])->name('email-change.verify');
 
 Route::get('/home', HomeController::class);
+Route::get('/home/hero-images', fn () => response()->json(['data' => ['images' => \App\Support\HomepageShell::heroImages()]]));
 Route::get('/currencies', [CurrencyController::class, 'index']);
 Route::get('/subscription-plans', [SubscriptionController::class, 'plans']);
 Route::get('/provider-categories', [ProviderDirectoryController::class, 'categories']);

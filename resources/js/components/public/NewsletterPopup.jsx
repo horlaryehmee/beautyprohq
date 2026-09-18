@@ -54,9 +54,9 @@ export default function NewsletterPopup() {
                 const bounds = event.currentTarget.getBoundingClientRect();
                 if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) event.currentTarget.close();
             }}>
-            <div className="relative grid grid-cols-1 sm:grid-cols-[38%_1fr]">
-                <div className="relative h-28 overflow-hidden bg-[#DCCCB8] sm:h-auto sm:min-h-full">
-                    <img src="/brand/newsletter-beauty.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-[center_43%] sm:object-[48%_center]" />
+            <div className="relative grid grid-cols-1">
+                <div className="relative h-44 overflow-hidden bg-[#DCCCB8] sm:h-60">
+                    <img src="/brand/newsletter-community.png" alt="" className="absolute inset-0 h-full w-full object-cover object-[center_35%]" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#2A1D14]/80 via-transparent to-[#2A1D14]/10" />
                     <div className="absolute inset-x-0 bottom-0 px-5 py-4 text-white sm:p-5">
                         <span className="mb-3 hidden h-px w-7 sm:block bg-white/60" />

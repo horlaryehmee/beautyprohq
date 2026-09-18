@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Card, CardHeader, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import Icon from '../../components/ui/Icon';
 import BeautypreneurhubImportCard from '../../components/dashboard/BeautypreneurhubImportCard';
+import FileUploadCard from '../../components/dashboard/FileUploadCard';
+import { optimizeHeroImage } from '../../lib/heroImageUpload';
 import SecurityPage from '../dashboard/SecurityPage';
 
 const emailNotifications = [
@@ -80,6 +82,10 @@ export default function AdminSettingsPage() {
     const [heroImages, setHeroImages] = useState([]);
     const [savingHero, setSavingHero] = useState(false);
     const [uploadingHero, setUploadingHero] = useState(false);
+    const heroUploadLock = useRef(false);
+    const heroDragIndex = useRef(null);
+    const [heroUploadProgress, setHeroUploadProgress] = useState('');
+    const [heroPreviews, setHeroPreviews] = useState([]);
 
     useEffect(() => {
         const data = gatewayResource.data;
@@ -207,22 +213,50 @@ export default function AdminSettingsPage() {
     const updateHeroImage = (index, value) => setHeroImages((current) => current.map((url, i) => i === index ? value : url));
     const removeHeroImage = (index) => setHeroImages((current) => current.filter((_, i) => i !== index));
     const addHeroImage = () => setHeroImages((current) => [...current, '']);
-    const uploadHeroImage = async (event) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-        if (!file) return;
+    const moveHeroImage = (from, to) => {
+        if (uploadingHero || savingHero || to < 0 || to >= heroImages.length) return;
+        setHeroImages((current) => {
+            const next = [...current];
+            const [image] = next.splice(from, 1);
+            next.splice(to, 0, image);
+            return next;
+        });
+    };
+    const uploadHeroImages = async (files) => {
+        if (heroUploadLock.current || savingHero) return;
+        const available = 20 - heroImages.length;
+        if (files.length > available) {
+            notify(`You can add ${available} more image${available === 1 ? '' : 's'} (20 maximum).`, 'error');
+            return;
+        }
+        const previews = files.map((file) => ({ name: file.name, url: URL.createObjectURL(file) }));
+        setHeroPreviews(previews);
+        heroUploadLock.current = true;
         setUploadingHero(true);
+        let uploaded = 0;
         try {
-            const payload = new FormData();
-            payload.append('image', file);
-            const stored = await apiRequest('post', '/admin/settings/hero-images/upload', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
-            const url = stored?.url ?? stored?.path ?? '';
-            setHeroImages((current) => [...current, url].slice(0, 8));
-            notify('Hero image uploaded.');
-        } catch (error) {
-            notify(apiErrorMessage(error), 'error');
+            for (const [index, file] of files.entries()) {
+                setHeroUploadProgress(`Optimizing and uploading ${index + 1} of ${files.length}: ${file.name}`);
+                try {
+                    const optimized = await optimizeHeroImage(file);
+                    const payload = new FormData();
+                    payload.append('image', optimized);
+                    const stored = await apiRequest('post', '/admin/settings/hero-images/upload', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    const url = stored?.url ?? stored?.path;
+                    if (!url) throw new Error('The server did not return an image URL.');
+                    setHeroImages((current) => [...current, url]);
+                    uploaded++;
+                } catch (error) {
+                    notify(`${file.name}: ${apiErrorMessage(error)}`, 'error');
+                }
+            }
+            if (uploaded) notify(`${uploaded} image${uploaded === 1 ? '' : 's'} uploaded. Save homepage images to publish your changes.`);
         } finally {
+            previews.forEach(({ url }) => URL.revokeObjectURL(url));
+            setHeroPreviews([]);
+            heroUploadLock.current = false;
             setUploadingHero(false);
+            setHeroUploadProgress('');
         }
     };
     const saveHeroImages = async () => {
@@ -902,15 +936,37 @@ export default function AdminSettingsPage() {
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Homepage hero images"
-                    description="Upload hero images for the homepage marquee. When 2+ are saved, they replace provider photos. Drag to reorder."
-                    action={<StatusBadge status={`${heroImages.length} images`} />}
+                    description="Upload hero images for the homepage marquee. Saved images replace the moving hero photos. Drag to reorder."
+                    action={<StatusBadge status={`${heroImages.length} / 20 images`} />}
                 />
                 <div className="mt-5 space-y-5">
+                    <FileUploadCard
+                        title="Upload hero images"
+                        description="Images upload to media as soon as you choose them. Save below to update the homepage."
+                        helper="JPG, PNG or WEBP up to 12 MB each. Images are resized and compressed automatically. 12 to 20 images recommended; maximum 20."
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        browseLabel="Browse images"
+                        disabled={uploadingHero || savingHero || heroImages.length >= 20}
+                        onFilesSelected={uploadHeroImages}
+                    />
+                    {heroPreviews.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{heroPreviews.map((preview) => <figure key={preview.url} className="overflow-hidden rounded-xl border border-stone-200"><img src={preview.url} alt={preview.name} className="aspect-square w-full object-cover" /><figcaption className="truncate p-2 text-xs">{preview.name}</figcaption></figure>)}</div>}
+                    {heroUploadProgress && <p role="status" aria-live="polite" className="text-sm text-bphq-coffee">{heroUploadProgress}</p>}
+                    <fieldset disabled={uploadingHero || savingHero} className="space-y-5">
                     {heroImages.length > 0 && (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                             {heroImages.map((url, index) => (
-                                <div className="group relative overflow-hidden rounded-2xl border border-slate-200" key={index}>
-                                    <img src={url} alt="" className="aspect-square w-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f1f5f9%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2212%22 font-family=%22sans-serif%22>No preview</text></svg>'; }} />
+                                <div className="group relative overflow-hidden rounded-2xl border border-slate-200" key={index}
+                                    draggable={!uploadingHero && !savingHero}
+                                    onDragStart={() => { heroDragIndex.current = index; }}
+                                    onDragEnd={() => { heroDragIndex.current = null; }}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={(event) => { event.preventDefault(); if (heroDragIndex.current !== null) moveHeroImage(heroDragIndex.current, index); heroDragIndex.current = null; }}>
+                                    <div className="absolute right-2 top-2 z-10 flex gap-1">
+                                        <button type="button" aria-label={`Move image ${index + 1} earlier`} disabled={index === 0} onClick={() => moveHeroImage(index, index - 1)} className="rounded-lg bg-white p-2 text-xs disabled:opacity-40">&#8592;</button>
+                                        <button type="button" aria-label={`Move image ${index + 1} later`} disabled={index === heroImages.length - 1} onClick={() => moveHeroImage(index, index + 1)} className="rounded-lg bg-white p-2 text-xs disabled:opacity-40">&#8594;</button>
+                                    </div>
+                                    <img draggable={false} src={url} alt="" className="aspect-square w-full object-cover" onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><rect fill=%22%23f1f5f9%22 width=%22200%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2212%22 font-family=%22sans-serif%22>No preview</text></svg>'; }} />
                                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-white/90 px-3 py-2 text-xs backdrop-blur-sm">
                                         <span className="truncate font-bold text-slate-700">{index + 1}</span>
                                         <button className="font-black text-rose-600" onClick={() => removeHeroImage(index)} type="button">Remove</button>
@@ -933,22 +989,18 @@ export default function AdminSettingsPage() {
                             </div>
                         ))}
                         <div className="flex gap-3">
-                            {heroImages.length < 8 && (
+                            {heroImages.length < 20 && (
                                 <button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 text-sm font-semibold text-slate-500 hover:bg-slate-50" onClick={addHeroImage} type="button">
                                     + Paste URL
                                 </button>
                             )}
-                            {heroImages.length < 8 && (
-                                <label className={`inline-flex min-h-10 items-center justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 ${uploadingHero ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                                    {uploadingHero ? 'Uploading...' : 'Upload image'}
-                                    <input accept="image/*" className="sr-only" disabled={uploadingHero} onChange={uploadHeroImage} type="file" />
-                                </label>
-                            )}
+
                         </div>
                     </div>
+                    </fieldset>
                 </div>
                 <div className="mt-5 flex justify-end">
-                    <Button busy={savingHero} onClick={saveHeroImages} type="button">Save homepage images</Button>
+                    <Button disabled={uploadingHero} busy={savingHero} onClick={saveHeroImages} type="button">Save homepage images</Button>
                 </div>
             </Card>
 
