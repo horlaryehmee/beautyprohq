@@ -1118,15 +1118,19 @@ class BackendMvpTest extends TestCase
     public function test_directory_filters_and_profile_slug_are_public(): void
     {
         [$provider] = $this->provider('Maya Beauty', true, 'Lagos');
+        $provider->update(['contact_email' => 'private-studio@example.test', 'contact_phone' => '+2348012345678']);
         $provider->services()->create(['name' => 'Soft Glam', 'category' => 'Makeup', 'service_type' => 'in_person', 'price' => 25000, 'duration_minutes' => 60]);
 
         $this->getJson('/api/providers?search=Soft&verified=1&location=Lagos')
-            ->assertOk()->assertJsonPath('data.0.slug', $provider->slug)->assertJsonPath('meta.total', 1);
+            ->assertOk()->assertJsonPath('data.0.slug', $provider->slug)->assertJsonPath('meta.total', 1)
+            ->assertJsonMissingPath('data.0.contact_email')->assertJsonMissingPath('data.0.contact_phone');
         $this->getJson('/api/providers/'.$provider->slug)
             ->assertOk()
             ->assertJsonPath('data.user.name', 'Maya Beauty')
             ->assertJsonPath('data.referral_rewards_available', false)
             ->assertJsonCount(1, 'data.services')
+            ->assertJsonMissingPath('data.contact_email')
+            ->assertJsonMissingPath('data.contact_phone')
             ->assertJsonMissingPath('data.payment_methods.0.account_reference')
             ->assertJsonMissingPath('data.payment_methods.0.instructions');
 
@@ -1193,14 +1197,14 @@ class BackendMvpTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.user.name', 'Hidden Pending Artist')
             ->assertJsonPath('data.profession', 'Beauty Professional')
-            ->assertJsonPath('data.profile_photo_url', $mediaBaseUrl.'pending-profile.webp')
-            ->assertJsonPath('data.cover_image_url', $mediaBaseUrl.'pending-cover.webp')
+            ->assertJsonPath('data.profile_photo_url', '/storage/uploads/pending-profile.webp')
+            ->assertJsonPath('data.cover_image_url', '/storage/uploads/pending-cover.webp')
             ->assertJsonPath('data.portfolio_items.0.url', $mediaBaseUrl.'pending-portfolio.webp')
             ->assertJsonPath('data.is_admin_preview', true);
 
         $this->getJson('/api/admin/users/'.$user->id)
             ->assertOk()
-            ->assertJsonPath('data.provider_profile.cover_image_url', $mediaBaseUrl.'pending-cover.webp')
+            ->assertJsonPath('data.provider_profile.cover_image_url', '/storage/uploads/pending-cover.webp')
             ->assertJsonPath('data.provider_profile.portfolio_items.0.url', $mediaBaseUrl.'pending-portfolio.webp');
     }
 

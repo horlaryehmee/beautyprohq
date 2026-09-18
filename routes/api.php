@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Provider\ScheduleController as ProviderScheduleCont
 use App\Http\Controllers\Api\Provider\ServiceController as ProviderServiceController;
 use App\Http\Controllers\Api\Provider\SupportController as ProviderSupportController;
 use App\Http\Controllers\Api\ProviderDirectoryController;
+use App\Http\Controllers\Api\ProviderClaimController;
 use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -38,6 +39,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/status', StatusController::class);
 
 Route::prefix('auth')->group(function (): void {
+    Route::post('/claim/request', [ProviderClaimController::class, 'request'])->middleware('throttle:password-reset');
+    Route::post('/claim/complete', [ProviderClaimController::class, 'complete'])->middleware('throttle:sensitive');
     Route::get('/google/status', [AuthController::class, 'googleStatus']);
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');

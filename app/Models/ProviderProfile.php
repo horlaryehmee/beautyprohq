@@ -18,6 +18,8 @@ class ProviderProfile extends Model
 
     protected $guarded = [];
 
+    protected $hidden = ['wordpress_source_data', 'imported_email', 'claim_token_hash', 'claim_expires_at'];
+
     protected static function booted(): void
     {
         static::updated(function (ProviderProfile $provider): void {
@@ -65,6 +67,10 @@ class ProviderProfile extends Model
             'is_pro_of_week' => 'boolean',
             'rating' => 'decimal:2',
             'social_links' => 'array',
+            'listing_categories' => 'array',
+            'preferred_payment_methods' => 'array',
+            'work_hours' => 'array',
+            'wordpress_source_data' => 'array',
             'portfolio_links' => 'array',
             'digital_product_links' => 'array',
             'booking_form_fields' => 'array',
@@ -77,6 +83,8 @@ class ProviderProfile extends Model
             'onboarding_completed_at' => 'datetime',
             'account_approved_at' => 'datetime',
             'account_declined_at' => 'datetime',
+            'claim_expires_at' => 'datetime',
+            'claimed_at' => 'datetime',
         ];
     }
 
@@ -105,6 +113,14 @@ class ProviderProfile extends Model
         $url = str_starts_with($value, '/')
             ? rtrim((string) config('app.url'), '/').$value
             : Storage::disk(config('filesystems.upload_disk', 'public'))->url($value);
+
+        // Files served by this application should use the page's own origin.
+        // This also works when local development runs over HTTP or behind a proxy.
+        if (parse_url($url, PHP_URL_HOST) === parse_url((string) config('app.url'), PHP_URL_HOST)) {
+            $path = parse_url($url, PHP_URL_PATH);
+
+            return is_string($path) ? $path : null;
+        }
 
         return preg_replace('/^http:\/\//i', 'https://', $url);
     }

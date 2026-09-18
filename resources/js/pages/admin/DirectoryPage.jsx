@@ -265,7 +265,8 @@ export default function AdminDirectoryPage() {
                                                                 <p className="truncate font-bold text-slate-950">{user.name}</p>
                                                                 <VerifiedBadge show={Boolean(provider.verified)} size="sm" />
                                                             </div>
-                                                            <p className="truncate text-xs text-slate-400">{user.email}</p>
+                                                            <p className="truncate text-xs text-slate-400">{provider.imported_email ?? provider.contact_email ?? user.email}</p>
+                                                            {provider.imported_email && user.email !== provider.imported_email && <p className="truncate text-[11px] text-slate-400">Login: {user.email}</p>}
                                                             <p className="truncate text-xs font-semibold text-slate-500">{provider.profession}</p>
                                                         </div>
                                                     </div>
@@ -563,7 +564,8 @@ export default function AdminDirectoryPage() {
                                                                 <p className="truncate font-bold text-slate-950">{user.name}</p>
                                                                 <VerifiedBadge show={Boolean(provider.verified)} size="sm" />
                                                             </div>
-                                                            <p className="truncate text-xs text-slate-400">{user.email}</p>
+                                                            <p className="truncate text-xs text-slate-400">{provider.imported_email ?? provider.contact_email ?? user.email}</p>
+                                                            {provider.imported_email && user.email !== provider.imported_email && <p className="truncate text-[11px] text-slate-400">Login: {user.email}</p>}
                                                             <p className="truncate text-xs font-semibold text-slate-500">{provider.profession}</p>
                                                         </div>
                                                     </div>

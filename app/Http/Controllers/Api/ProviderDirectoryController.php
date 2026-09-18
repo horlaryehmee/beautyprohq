@@ -75,6 +75,7 @@ class ProviderDirectoryController extends Controller
         }
 
         $providers = $query->paginate($validated['per_page'] ?? 12);
+        collect($providers->items())->each(fn (ProviderProfile $provider) => $provider->makeHidden(['contact_email', 'contact_phone']));
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'filters' => $this->directoryFilters(),
@@ -127,6 +128,7 @@ class ProviderDirectoryController extends Controller
         $data->setAttribute('can_book_directly', $hasPaidPlan);
         $data->setAttribute('can_show_digital_products', $hasPaidPlan);
         $data->setAttribute('is_admin_preview', $adminPreview);
+        $data->setAttribute('can_claim', $data->wordpress_listing_id !== null && $data->claimed_at === null);
         $data->setAttribute('referral_rewards_available', (bool) (
             $data->loyalty_enabled
             && $data->referral_rewards_enabled
@@ -143,6 +145,9 @@ class ProviderDirectoryController extends Controller
             },
         ])->values() : []);
         $data->makeHidden('paymentAccounts');
+        if (! $adminPreview) {
+            $data->makeHidden(['contact_email', 'contact_phone']);
+        }
 
         return $data;
     }

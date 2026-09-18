@@ -12,6 +12,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import ClaimAccountPage from './pages/auth/ClaimAccountPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminContentEditorPage from './pages/admin/ContentEditorPage';
@@ -163,6 +164,7 @@ export default function App() {
                     <Route path="register" element={<RegisterPage />} />
                     <Route path="forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="reset-password" element={<ResetPasswordPage />} />
+                    <Route path="claim-account" element={<ClaimAccountPage />} />
                     <Route path="verify-email" element={<VerifyEmailPage />} />
                     <Route path="verify-email/:id/:hash" element={<VerifyEmailPage />} />
 

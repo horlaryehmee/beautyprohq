@@ -379,18 +379,28 @@ export default function ProviderProfilePage({ adminPreview = false }) {
     const defaultCurrency = pro.profile.default_currency ?? provider?.default_currency ?? 'NGN';
     const profileCategory = pro.profile.category?.name ?? provider?.category?.name ?? '';
     const cityCountry = [pro.profile.city ?? provider?.city, pro.profile.country ?? provider?.country].filter(Boolean).join(', ');
-    const contactPhone = pro.profile.contact_phone ?? provider?.contact_phone ?? provider?.user?.phone ?? '';
-    const contactEmail = pro.profile.contact_email ?? provider?.contact_email ?? '';
     const categorySummary = useMemo(() => {
         const serviceCategories = Array.from(new Set(services.map((service) => service.category).filter(Boolean)));
-
-        return [profileCategory, ...serviceCategories.filter((category) => category !== profileCategory)].filter(Boolean).join(', ');
-    }, [profileCategory, services]);
+        const listingCategories = Array.isArray(pro.profile.listing_categories) ? pro.profile.listing_categories : [];
+        return Array.from(new Set([profileCategory, ...listingCategories, ...serviceCategories].filter(Boolean))).join(', ');
+    }, [profileCategory, pro.profile.listing_categories, services]);
     const paymentMethodLabel = useMemo(() => {
+        const imported = pro.profile.preferred_payment_methods;
+        if (Array.isArray(imported) && imported.length) return imported.join(', ');
         const methods = Array.isArray(provider?.payment_methods) ? provider.payment_methods : [];
 
         return methods.length ? methods.map((method) => method.label ?? method.gateway).filter(Boolean).join(', ') : 'Not listed';
-    }, [provider?.payment_methods]);
+    }, [pro.profile.preferred_payment_methods, provider?.payment_methods]);
+    const importedWorkHours = pro.profile.work_hours && typeof pro.profile.work_hours === 'object' ? pro.profile.work_hours : null;
+    const importedHourLabel = (day) => {
+        const entry = importedWorkHours?.[day];
+        if (!entry) return 'Not specified';
+        if (entry.status === 'closed-all-day') return 'Closed';
+        if (entry.status === 'by-appointment-only') return 'By appointment only';
+        if (entry.status === 'open-all-day') return 'Open all day';
+        const periods = Object.values(entry).filter((item) => item && typeof item === 'object' && item.from && item.to);
+        return periods.length ? periods.map((item) => `${displayTime(item.from)} - ${displayTime(item.to)}`).join(', ') : 'Hours not specified';
+    };
     const categories = useMemo(() => ['All', ...Array.from(new Set(services.map((service) => service.category).filter(Boolean)))], [services]);
     const filteredServices = useMemo(() => selectedCategory === 'All' ? services : services.filter((service) => service.category === selectedCategory), [selectedCategory, services]);
     const ratingBreakdown = useMemo(() => [5, 4, 3, 2, 1].map((rating) => ({ rating, count: reviews.filter((review) => Number(review.rating) === rating).length })), [reviews]);
@@ -605,6 +615,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                 {profileCtaLabel || 'Website'} <Icon name="external" size={15} />
                             </a>
                         )}
+                        {provider?.can_claim && <Link to="/claim-account" className="inline-flex min-h-11 w-fit items-center justify-center rounded-xl border border-[#2A1D14] bg-white px-5 text-xs font-semibold text-[#2A1D14] sm:min-h-12 sm:text-sm">Claim this listing</Link>}
                     </div>
                 </div>
             </section>
@@ -823,8 +834,8 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                         <div className="grid gap-3 sm:grid-cols-2">
                                             {socialLinks.map((item) => (
                                                 <a key={`${item.label}-${item.url}`} href={safeUrl(item.url)} target="_blank" rel="noreferrer" className="group flex min-h-14 items-center gap-3 rounded-2xl border border-stone-200 bg-white px-3 transition hover:border-[#3A2A1F]/30 hover:bg-[#F7F3ED]">
-                                                    <span className="grid size-9 place-items-center rounded-full bg-[#F7F3ED] text-[#3A2A1F]"><SocialIcon label={item.label} /></span>
-                                                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-[#2A1D14]">{item.label}</span>
+                                                    <span className="grid size-9 place-items-center rounded-full bg-[#F7F3ED] text-[#3A2A1F]"><SocialIcon label={item.platform ?? item.label} /></span>
+                                                    <span className="min-w-0 truncate text-sm font-semibold capitalize text-[#2A1D14]">{item.platform ?? item.label}</span>
                                                 </a>
                                             ))}
                                         </div>
@@ -840,6 +851,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                     <InfoRow label="Country" value={pro.profile.country ?? provider?.country ?? 'Not listed'} />
                                     <InfoRow label="City" value={pro.profile.city ?? provider?.city ?? 'Not listed'} />
                                     <InfoRow label="Address / Location" value={pro.location} />
+                                    {pro.profile.service_zones && <InfoRow label="Service zones" value={pro.profile.service_zones} />}
                                 </InfoPanel>
 
                                 <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white shadow-sm sm:rounded-[1.6rem]">
@@ -886,14 +898,14 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                 </InfoPanel>
 
                                 <InfoPanel
-                                    title={availability.length ? 'Opening hours' : 'By appointment only'}
+                                    title={availability.length || importedWorkHours ? 'Opening hours' : 'By appointment only'}
                                     icon="clock"
                                     action={availability.length ? <span className="text-xs font-semibold text-stone-500">Open hours today vary</span> : <span className="text-xs font-semibold text-stone-500">Contact provider</span>}
                                 >
                                     <div className="divide-y divide-stone-100">
                                         {dayNames.map((day, index) => {
                                             const rows = availability.filter((item) => String(item.day_of_week).toLowerCase() === day.toLowerCase() || Number(item.day_of_week) === index);
-                                            return <InfoRow key={day} label={day} value={rows.length ? rows.map((row) => `${displayTime(row.start_time)} - ${displayTime(row.end_time)}`).join(', ') : (availability.length ? 'Closed' : 'By appointment only')} />;
+                                            return <InfoRow key={day} label={day} value={importedWorkHours ? importedHourLabel(day) : rows.length ? rows.map((row) => `${displayTime(row.start_time)} - ${displayTime(row.end_time)}`).join(', ') : (availability.length ? 'Closed' : 'By appointment only')} />;
                                         })}
                                     </div>
                                 </InfoPanel>

@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+    apiRequest,
+    apiErrorMessage,
+    useDashboardToast,
     Avatar,
     Button,
     Card,
     EmptyState,
+    Field,
     ErrorState,
     IconButton,
     LoadingBlock,
@@ -30,6 +34,14 @@ const SORT_FIELDS = [
 const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 export default function AdminUsersPage() {
+    const notify = useDashboardToast();
+    const grantDialog = useRef(null);
+    const [selected, setSelected] = useState([]);
+    const [selecting, setSelecting] = useState(false);
+    const [assigning, setAssigning] = useState(false);
+    const [showGrant, setShowGrant] = useState(false);
+    const [plans, setPlans] = useState([]);
+    const [grant, setGrant] = useState({ subscription_plan_id: '', starts_at: '', period_type: 'duration', duration_count: 30, duration_unit: 'days', ends_at: '' });
     const [query, setQuery] = useState('');
     const [role, setRole] = useState('all');
     const [state, setState] = useState('all');
@@ -90,6 +102,62 @@ export default function AdminUsersPage() {
     const total = Number(meta.total ?? 0);
 
     const users = useMemo(() => normalize(resource.data), [resource.data]);
+
+    const providerIds = users.filter((user) => user.role === 'provider').map((user) => user.id);
+    const pageSelected = providerIds.length > 0 && providerIds.every((id) => selected.includes(id));
+    const toggleProvider = (id) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+    const selectAllProviders = async () => {
+        setSelecting(true);
+        try {
+            const ids = await apiRequest('get', '/admin/users', undefined, { params: {
+                selection_ids: 1, role: 'provider', search: search || undefined,
+                is_active: state === 'all' ? undefined : state === 'active' ? 1 : 0,
+                verification: verification === 'all' ? undefined : verification,
+                date_from: dateFrom || undefined, date_to: dateTo || undefined,
+            } });
+            setSelected(ids);
+        } catch (error) { notify(apiErrorMessage(error), 'error'); }
+        finally { setSelecting(false); }
+    };
+    const openGrant = async () => {
+        try {
+            const data = await apiRequest('get', '/admin/subscription-plans');
+            setPlans((Array.isArray(data) ? data : data?.data ?? []).filter((plan) => plan.is_active));
+            const today = new Date();
+            setGrant({ subscription_plan_id: '', starts_at: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, period_type: 'duration', duration_count: 30, duration_unit: 'days', ends_at: '' });
+            setShowGrant(true);
+        } catch (error) { notify(apiErrorMessage(error), 'error'); }
+    };
+    const giveSubscriptions = async (event) => {
+        event.preventDefault();
+        setAssigning(true);
+        try {
+            const result = await apiRequest('post', '/admin/subscriptions/assign', {
+                ...grant, user_ids: selected,
+                ends_at: grant.period_type === 'custom' ? grant.ends_at : null,
+                duration_count: grant.period_type === 'duration' ? Number(grant.duration_count) : null,
+                duration_unit: grant.period_type === 'duration' ? grant.duration_unit : null,
+            });
+            notify(`Subscription given to ${result.assigned_count} providers.`);
+            setShowGrant(false);
+            setSelected([]);
+            reload();
+        } catch (error) { notify(apiErrorMessage(error), 'error'); }
+        finally { setAssigning(false); }
+    };
+    useEffect(() => { setSelected([]); }, [search, role, state, verification, dateFrom, dateTo]);
+
+    useEffect(() => {
+        if (showGrant) grantDialog.current?.showModal();
+        else grantDialog.current?.close();
+    }, [showGrant]);
+
+    useEffect(() => {
+        if (!showGrant) return;
+        const previous = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = previous; };
+    }, [showGrant]);
 
     const resetFilters = () => {
         setQuery('');
@@ -210,7 +278,7 @@ export default function AdminUsersPage() {
     );
 
     return (
-        <div className="space-y-6">
+        <div className={`space-y-6 ${selected.length ? 'pb-32 lg:pb-0' : ''}`}>
             <PageHeader
                 actions={(
                     <Button className="md:hidden" onClick={() => setMobileFiltersOpen(true)} type="button" variant="secondary">
@@ -244,6 +312,56 @@ export default function AdminUsersPage() {
                 </div>
             )}
 
+            <dialog ref={grantDialog} aria-labelledby="bulk-grant-title" aria-describedby="bulk-grant-description"
+                className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border-0 bg-white p-0 text-bphq-espresso shadow-2xl backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm"
+                onCancel={(event) => { event.preventDefault(); if (!assigning) setShowGrant(false); }}
+                onClick={(event) => { if (event.target === event.currentTarget && !assigning) setShowGrant(false); }}>
+                <form onSubmit={giveSubscriptions} className="p-5 sm:p-7">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 id="bulk-grant-title" className="text-xl font-semibold">Give subscription</h2>
+                            <p id="bulk-grant-description" className="mt-1 text-sm text-slate-500">Set access for {selected.length} selected provider{selected.length === 1 ? '' : 's'}.</p>
+                        </div>
+                        <IconButton icon="close" label="Close subscription form" disabled={assigning} onClick={() => setShowGrant(false)} />
+                    </div>
+                    <fieldset disabled={assigning} className="mt-6 grid gap-4 sm:grid-cols-2">
+                        <Field label="Plan" required>
+                            <select className={inputClass} onChange={(event) => setGrant((current) => ({ ...current, subscription_plan_id: event.target.value }))} required value={grant.subscription_plan_id}>
+                                <option value="">Select a plan</option>
+                                {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="Start date" required>
+                            <input className={inputClass} onChange={(event) => setGrant((current) => ({ ...current, starts_at: event.target.value }))} required type="date" value={grant.starts_at} />
+                        </Field>
+                        <Field className="sm:col-span-2" label="Access period">
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button onClick={() => setGrant((current) => ({ ...current, period_type: 'duration' }))} type="button" aria-pressed={grant.period_type === 'duration'} variant={grant.period_type === 'duration' ? 'primary' : 'secondary'}>Set a duration</Button>
+                                <Button onClick={() => setGrant((current) => ({ ...current, period_type: 'custom' }))} type="button" aria-pressed={grant.period_type === 'custom'} variant={grant.period_type === 'custom' ? 'primary' : 'secondary'}>Custom end date</Button>
+                            </div>
+                        </Field>
+                        {grant.period_type === 'duration' ? (
+                            <>
+                                <Field label="Duration" required><input className={inputClass} min="1" max="3650" onChange={(event) => setGrant((current) => ({ ...current, duration_count: event.target.value }))} required type="number" value={grant.duration_count} /></Field>
+                                <Field label="Unit" required><select className={inputClass} onChange={(event) => setGrant((current) => ({ ...current, duration_unit: event.target.value }))} value={grant.duration_unit}><option value="days">Days</option><option value="months">Months</option><option value="years">Years</option></select></Field>
+                                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                                    <Button onClick={() => setGrant((current) => ({ ...current, duration_count: 30, duration_unit: 'days' }))} type="button" variant="soft">30 days</Button>
+                                    <Button onClick={() => setGrant((current) => ({ ...current, duration_count: 3, duration_unit: 'months' }))} type="button" variant="soft">3 months</Button>
+                                    <Button onClick={() => setGrant((current) => ({ ...current, duration_count: 6, duration_unit: 'months' }))} type="button" variant="soft">6 months</Button>
+                                    <Button onClick={() => setGrant((current) => ({ ...current, duration_count: 1, duration_unit: 'years' }))} type="button" variant="soft">1 year</Button>
+                                </div>
+                            </>
+                        ) : (
+                            <Field className="sm:col-span-2" label="End date" required><input className={inputClass} min={grant.starts_at} onChange={(event) => setGrant((current) => ({ ...current, ends_at: event.target.value }))} required type="date" value={grant.ends_at} /></Field>
+                        )}
+                    </fieldset>
+                    <p className="mt-4 text-xs leading-5 text-slate-500">Replaces overlapping access. Access expires at the end of this period; providers can then subscribe themselves.</p>
+                    <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                        <Button type="button" variant="secondary" disabled={assigning} onClick={() => setShowGrant(false)}>Cancel</Button>
+                        <Button type="submit" busy={assigning} disabled={!selected.length || !grant.subscription_plan_id || !grant.starts_at || (grant.period_type === 'custom' ? !grant.ends_at : !grant.duration_count)}>Give subscription</Button>
+                    </div>
+                </form>
+            </dialog>
             <Card>
                 <div className="hidden md:block">
                     <div className="mb-5">{filterFields}</div>
@@ -252,10 +370,16 @@ export default function AdminUsersPage() {
                             {total} user{total === 1 ? '' : 's'}
                             {hasFilters ? ' matching filters' : ''}
                         </p>
-                        <Button onClick={resetFilters} type="button" variant="ghost">Clear filters</Button>
+                        {hasFilters && <Button onClick={resetFilters} type="button" variant="ghost">Clear filters</Button>}
                     </div>
                 </div>
 
+                {(role === 'all' || role === 'provider') && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                        <span>Select providers using the checkboxes to give a subscription.</span>
+                        <button type="button" className="min-h-9 font-semibold text-bphq-coffee underline-offset-4 hover:underline disabled:opacity-50" disabled={selecting || resource.loading || !users.length} onClick={selectAllProviders}>{selecting ? 'Selecting providers?' : 'Select all matching providers'}</button>
+                    </div>
+                )}
                 {resource.loading ? (
                     <div className="mt-5"><LoadingBlock rows={6} /></div>
                 ) : users.length ? (
@@ -263,6 +387,7 @@ export default function AdminUsersPage() {
                         <table className="w-full min-w-[860px] text-left text-sm">
                             <thead>
                                 <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                                    <th className="pb-3 pr-3"><input type="checkbox" className="size-4 cursor-pointer rounded border-slate-300 accent-bphq-espresso" ref={(element) => { if (element) element.indeterminate = !pageSelected && providerIds.some((id) => selected.includes(id)); }} aria-label="Select providers on this page" checked={pageSelected} disabled={showGrant || selecting || !providerIds.length} onChange={() => setSelected((current) => pageSelected ? current.filter((id) => !providerIds.includes(id)) : [...new Set([...current, ...providerIds])])} /></th>
                                     <th className="pb-3 font-bold">User</th>
                                     <th className="pb-3 font-bold">Role</th>
                                     <th className="pb-3 font-bold">Provider verification</th>
@@ -275,7 +400,8 @@ export default function AdminUsersPage() {
                                 {users.map((user) => {
                                     const profile = user.provider_profile ?? user.providerProfile;
                                     return (
-                                        <tr className="border-b border-slate-50 last:border-0" key={user.id}>
+                                        <tr className={`border-b border-slate-50 transition-colors last:border-0 ${selected.includes(user.id) ? 'bg-bphq-beige/30' : 'hover:bg-slate-50/60'}`} key={user.id}>
+                                            <td className="py-3 pr-3">{user.role === 'provider' && <input type="checkbox" className="size-4 cursor-pointer rounded border-slate-300 accent-bphq-espresso" aria-label={`Select ${user.name}`} checked={selected.includes(user.id)} disabled={showGrant || selecting} onChange={() => toggleProvider(user.id)} />}</td>
                                             <td className="py-3">
                                                 <div className="flex items-center gap-3">
                                                     <Avatar name={user.name} size="sm" src={profile?.profile_photo ?? user.profile_photo} />
@@ -311,6 +437,16 @@ export default function AdminUsersPage() {
                     <EmptyState description={hasFilters ? 'No users match these filters yet.' : 'Try changing your search or filters.'} icon="users" title="No users found" />
                 )}
             </Card>
+            {selected.length > 0 && (
+                <div className="fixed inset-x-4 bottom-[calc(max(.75rem,env(safe-area-inset-bottom))+5rem)] z-30 mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-bphq-chrome bg-white/95 px-4 py-3 shadow-xl backdrop-blur lg:sticky lg:inset-x-auto lg:bottom-4 lg:w-full lg:gap-3 lg:px-5">
+                    <div className="flex items-center gap-3">
+                        <span className="grid size-9 place-items-center rounded-xl bg-bphq-beige text-sm font-bold text-bphq-espresso">{selected.length}</span>
+                        <span aria-live="polite" className="text-sm font-semibold text-bphq-espresso">Provider{selected.length === 1 ? '' : 's'} selected</span>
+                        <button type="button" className="min-h-9 text-xs font-semibold text-slate-500 hover:text-slate-900" disabled={selecting || assigning} onClick={() => setSelected([])}>Clear</button>
+                    </div>
+                    <Button type="button" className="w-full lg:w-auto" disabled={selecting || assigning} onClick={openGrant}>Give subscription</Button>
+                </div>
+            )}
         </div>
     );
 }

@@ -79,7 +79,7 @@ export default function LoginPage() {
         <AuthShell
             title="Welcome back"
             description="Log in to manage your bookings, profile, and BeautyPro HQ activity."
-            footer={<>New to BeautyPro HQ? <Link to="/register" className="font-semibold text-rose-700 hover:text-rose-900">Create an account</Link></>}
+            footer={<>New to BeautyPro HQ? <Link to="/register" className="font-semibold text-rose-700 hover:text-rose-900">Create an account</Link><span className="mx-2">·</span><Link to="/claim-account" className="font-semibold text-rose-700 hover:text-rose-900">Claim a listing</Link></>}
         >
             <form onSubmit={submit} className="space-y-5">
                 {location.state?.message && <InlineAlert tone="success">{location.state.message}</InlineAlert>}

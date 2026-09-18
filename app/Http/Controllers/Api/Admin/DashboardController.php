@@ -237,8 +237,13 @@ class DashboardController extends Controller
             ->when($validated['date_from'] ?? null, fn ($q, $date) => $q->where('users.created_at', '>=', $date.' 00:00:00'))
             ->when($validated['date_to'] ?? null, fn ($q, $date) => $q->where('users.created_at', '<=', $date.' 23:59:59'))
             ->orderBy($validated['sort'] ?? 'created_at', $validated['direction'] ?? 'desc')
-            ->orderBy('id', $validated['direction'] ?? 'desc')
-            ->paginate($this->perPage($request, 20, 100));
+            ->orderBy('id', $validated['direction'] ?? 'desc');
+
+        if ($request->boolean('selection_ids')) {
+            return $this->success((clone $users)->where('role', 'provider')->pluck('id'));
+        }
+
+        $users = $users->paginate($this->perPage($request, 20, 100));
 
         return $this->success($users->items(), meta: $this->paginationMeta($users));
     }
@@ -263,6 +268,8 @@ class DashboardController extends Controller
             'subscriptions' => fn ($query) => $query->latest()->limit(5),
             'subscriptionPayments' => fn ($query) => $query->latest()->limit(10),
         ]);
+
+        $user->providerProfile?->makeVisible('imported_email');
 
         return $this->success($user->setAttribute('platform_usage', $this->userUsage($user)));
     }
@@ -479,6 +486,8 @@ class DashboardController extends Controller
             ->when($validated['search'] ?? null, fn ($q, $search) => $q->where(fn ($x) => $x
                 ->where('profession', 'like', "%{$search}%")
                 ->orWhere('location', 'like', "%{$search}%")
+                ->orWhere('imported_email', 'like', "%{$search}%")
+                ->orWhere('contact_email', 'like', "%{$search}%")
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
             ))
             ->when($validated['date_from'] ?? null, fn ($q, $date) => $q->where('created_at', '>=', $date.' 00:00:00'))
@@ -486,6 +495,8 @@ class DashboardController extends Controller
             ->orderBy($validated['sort'] ?? 'created_at', $validated['direction'] ?? 'desc')
             ->orderBy('id', $validated['direction'] ?? 'desc')
             ->paginate($this->perPage($request, 20, 100));
+
+        $providers->getCollection()->each(fn (ProviderProfile $provider) => $provider->makeVisible('imported_email'));
 
         return $this->success($providers->items(), meta: $this->paginationMeta($providers) + [
             'categories' => $this->categoryTotals(),
@@ -667,7 +678,9 @@ class DashboardController extends Controller
     public function assignSubscription(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'user_id' => ['required_without:user_ids', 'prohibits:user_ids', 'integer', 'exists:users,id'],
+            'user_ids' => ['required_without:user_id', 'array', 'min:1'],
+            'user_ids.*' => ['required', 'integer', 'distinct', Rule::exists('users', 'id')->where('role', 'provider')],
             'subscription_plan_id' => ['required', 'integer', Rule::exists('subscription_plans', 'id')->where('is_active', true)],
             'starts_at' => ['required', 'date_format:Y-m-d'],
             'period_type' => ['required', Rule::in(['duration', 'custom'])],
@@ -676,8 +689,8 @@ class DashboardController extends Controller
             'duration_unit' => ['required_if:period_type,duration', 'nullable', Rule::in(['days', 'months', 'years'])],
         ]);
 
-        $user = User::findOrFail($validated['user_id']);
-        if ($user->isAdmin()) {
+        $users = User::whereIn('id', $validated['user_ids'] ?? [$validated['user_id']])->orderBy('id')->get();
+        if ($users->contains(fn ($user) => $user->isAdmin())) {
             return response()->json(['message' => 'Plans can only be assigned to provider or customer accounts.'], 422);
         }
 
@@ -691,54 +704,59 @@ class DashboardController extends Controller
                 'years' => $startsAt->copy()->addYearsNoOverflow($validated['duration_count']),
             };
 
-        $subscription = DB::transaction(function () use ($request, $user, $plan, $startsAt, $endsAt): Subscription {
-            $overlapping = $user->subscriptions()
-                ->where('status', 'active')
-                ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $startsAt))
-                ->lockForUpdate()
-                ->get();
+        $subscriptions = DB::transaction(function () use ($request, $users, $plan, $startsAt, $endsAt) {
+            return $users->map(function ($user) use ($request, $plan, $startsAt, $endsAt): Subscription {
+                User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+                $overlapping = $user->subscriptions()
+                    ->where('status', 'active')
+                    ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $startsAt))
+                    ->lockForUpdate()
+                    ->get();
 
-            foreach ($overlapping as $existing) {
-                if ($startsAt->isFuture() && $existing->starts_at?->lt($startsAt)) {
-                    $existing->update([
-                        'ends_at' => $startsAt,
-                        'renews_at' => null,
-                        'metadata' => array_merge($existing->metadata ?? [], [
-                            'replaced_by_admin_at' => $startsAt->toIso8601String(),
-                        ]),
-                    ]);
-                } else {
-                    $existing->update([
-                        'status' => 'cancelled',
-                        'ends_at' => now(),
-                        'renews_at' => null,
-                        'cancelled_at' => now(),
-                        'metadata' => array_merge($existing->metadata ?? [], [
-                            'cancelled_by_admin_assignment_at' => now()->toIso8601String(),
-                        ]),
-                    ]);
+                foreach ($overlapping as $existing) {
+                    if ($startsAt->isFuture() && $existing->starts_at?->lt($startsAt)) {
+                        $existing->update([
+                            'ends_at' => $startsAt,
+                            'renews_at' => null,
+                            'metadata' => array_merge($existing->metadata ?? [], [
+                                'replaced_by_admin_at' => $startsAt->toIso8601String(),
+                            ]),
+                        ]);
+                    } else {
+                        $existing->update([
+                            'status' => 'cancelled',
+                            'ends_at' => now(),
+                            'renews_at' => null,
+                            'cancelled_at' => now(),
+                            'metadata' => array_merge($existing->metadata ?? [], [
+                                'cancelled_by_admin_assignment_at' => now()->toIso8601String(),
+                            ]),
+                        ]);
+                    }
                 }
-            }
 
-            return $user->subscriptions()->create([
-                'subscription_plan_id' => $plan->id,
-                'plan' => $plan->key,
-                'status' => 'active',
-                'amount' => 0,
-                'currency' => $plan->currency,
-                'starts_at' => $startsAt,
-                'renews_at' => null,
-                'ends_at' => $endsAt,
-                'metadata' => [
-                    'source' => 'admin_manual_assignment',
-                    'assigned_by_admin_id' => $request->user()->id,
-                    'assigned_at' => now()->toIso8601String(),
-                ],
-            ]);
+                return $user->subscriptions()->create([
+                    'subscription_plan_id' => $plan->id,
+                    'plan' => $plan->key,
+                    'status' => 'active',
+                    'amount' => 0,
+                    'currency' => $plan->currency,
+                    'starts_at' => $startsAt,
+                    'renews_at' => null,
+                    'ends_at' => $endsAt,
+                    'metadata' => [
+                        'source' => 'admin_manual_assignment',
+                        'assigned_by_admin_id' => $request->user()->id,
+                        'assigned_at' => now()->toIso8601String(),
+                    ],
+                ]);
+            });
         });
 
         return $this->success(
-            $subscription->load(['user:id,name,email,role', 'planDefinition']),
+            isset($validated['user_ids'])
+                ? ['assigned_count' => $subscriptions->count()]
+                : $subscriptions->first()->load(['user:id,name,email,role', 'planDefinition']),
             $startsAt->isFuture() ? 'Plan scheduled successfully.' : 'Plan assigned successfully.',
             201,
         );
