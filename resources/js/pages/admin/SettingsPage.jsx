@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Card, CardHeader, ErrorState, Field, LoadingBlock, PageHeader, StatusBadge, apiErrorMessage, apiRequest, inputClass, useApiResource, useDashboardToast } from '../../components/dashboard';
 import Icon from '../../components/ui/Icon';
+import BeautypreneurhubImportCard from '../../components/dashboard/BeautypreneurhubImportCard';
 import SecurityPage from '../dashboard/SecurityPage';
 
 const emailNotifications = [
@@ -703,6 +704,7 @@ export default function AdminSettingsPage() {
                     </form>
                 )}
             </Card>
+            {sectionTab === 'general' && <BeautypreneurhubImportCard />}
             <Card className={sectionTab === 'general' ? '' : 'hidden'}>
                 <CardHeader
                     title="Branding"

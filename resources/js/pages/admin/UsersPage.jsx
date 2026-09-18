@@ -34,7 +34,7 @@ const SORT_FIELDS = [
 const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 export default function AdminUsersPage() {
-    const notify = useDashboardToast();
+    const { notify } = useDashboardToast();
     const grantDialog = useRef(null);
     const [selected, setSelected] = useState([]);
     const [selecting, setSelecting] = useState(false);

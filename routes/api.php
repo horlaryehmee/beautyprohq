@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\BeautypreneurhubImportController;
 use App\Http\Controllers\Api\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\DemoDataController as AdminDemoDataController;
@@ -269,6 +270,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/settings/mailchimp', [SubscriptionController::class, 'updateAdminMailchimpSettings'])->middleware('admin.step-up');
         Route::post('/settings/mailchimp/test', [SubscriptionController::class, 'testAdminMailchimp'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::post('/settings/mailchimp/sync', [SubscriptionController::class, 'syncAdminMailchimp'])->middleware(['throttle:sensitive', 'admin.step-up']);
+        Route::get('/settings/beautypreneurhub-import', [BeautypreneurhubImportController::class, 'show']);
+        Route::post('/settings/beautypreneurhub-import', [BeautypreneurhubImportController::class, 'store'])->middleware(['admin.step-up', 'throttle:sensitive']);
         Route::get('/settings/deployment', [AdminDeploymentController::class, 'status']);
         Route::post('/settings/deployment/run', [AdminDeploymentController::class, 'run'])->middleware(['throttle:sensitive', 'admin.step-up']);
         Route::post('/settings/cache/clear', [AdminDeploymentController::class, 'clearCache'])->middleware(['throttle:sensitive', 'admin.step-up']);
