@@ -22,7 +22,7 @@ live Laravel installation. It does not run the demo seeder or replace the live d
 Open **Admin → Settings → General → Beautypreneurhub migration**, select the ZIP,
 and click **Import Beautypreneurhub data**. The existing admin identity confirmation
 applies to this operation. The result shows created and preserved listing counts.
-The import button disappears after the transaction completes and stays hidden
+The entire migration section disappears after the transaction completes and stays hidden
 after refreshing or signing in again. A second request is rejected by the server.
 
 Source listing IDs identify duplicates across environments. Existing listings,
