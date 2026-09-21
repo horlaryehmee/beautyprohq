@@ -148,10 +148,10 @@ function ReviewModal({ open, onClose, providerName, onSubmit, submitting }) {
 function ServiceCard({ service, onBook, canBook = true }) {
     const originalCurrency = service.currency ?? 'NGN';
     return (
-        <article className="group grid grid-cols-[1fr_auto] items-center gap-3 border-b border-stone-100 bg-white px-1 py-4 transition last:border-b-0 hover:bg-[#FFFFFFaf1] sm:gap-4 sm:py-5">
+        <article className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-stone-100 bg-white px-1 py-4 transition last:border-b-0 hover:bg-[#FFFFFFaf1] sm:gap-4 sm:py-5">
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold text-[#2A1D14] sm:text-base">{service.name}</h3>
+                    <h3 className="min-w-0 text-sm font-semibold text-[#2A1D14] [overflow-wrap:anywhere] sm:text-base">{service.name}</h3>
                     {service.service_type && <Badge tone="neutral">{String(service.service_type).replaceAll('_', ' ')}</Badge>}
                 </div>
                 {service.description && <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500 sm:text-sm sm:leading-6">{stripHtml(service.description)}</p>}
@@ -635,13 +635,13 @@ export default function ProviderProfilePage({ adminPreview = false }) {
             <section className="bg-[#F7F3ED] py-4 [overflow-wrap:anywhere] sm:py-12">
                 <div className="page-container">
                     {activeTab === 'booking' && (
-                        <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-start">
-                            <div>
-                                <div className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white px-4 shadow-sm sm:rounded-[1.8rem] sm:px-5">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-start">
+                            <div className="min-w-0">
+                                <div className="min-w-0 overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white px-4 shadow-sm sm:rounded-[1.8rem] sm:px-5">
                                     {categories.length > 1 && (
-                                        <div className="flex gap-2 overflow-x-auto border-b border-stone-100 py-3 sm:py-4">
+                                        <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto border-b border-stone-100 py-3 sm:py-4">
                                             {categories.map((category) => (
-                                                <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`shrink-0 rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition sm:px-5 sm:text-xs ${selectedCategory === category ? 'border-[#3A2A1F] bg-[#3A2A1F] text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-[#3A2A1F]/40'}`}>
+                                                <button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide transition sm:px-5 sm:text-xs ${selectedCategory === category ? 'border-[#3A2A1F] bg-[#3A2A1F] text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-[#3A2A1F]/40'}`}>
                                                     {category}
                                                 </button>
                                             ))}
@@ -652,7 +652,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                 {!canBookDirectly && <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-semibold text-amber-800">This provider is currently listed for discovery and reviews. Direct booking is available when they activate a paid provider plan.</p>}
                             </div>
 
-                            <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+                            <aside className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
                                 <div className="rounded-[1.35rem] border border-stone-200 bg-white p-4 sm:rounded-[1.8rem] sm:p-5">
                                     <h3 className="font-display text-lg font-semibold text-[#2A1D14]">Weekly availability</h3>
                                     {availability.length ? (
