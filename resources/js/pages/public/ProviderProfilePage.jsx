@@ -182,10 +182,10 @@ function SocialIcon({ label }) {
 
 function InfoPanel({ title, icon = 'content', action, children }) {
     return (
-        <section className="rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm sm:rounded-[1.6rem] sm:p-6">
+        <section className="min-w-0 rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm [overflow-wrap:anywhere] sm:rounded-[1.6rem] sm:p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-[#2A1D14]">
-                    <Icon name={icon} size={16} className="text-stone-400" /> {title}
+                <h3 className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#2A1D14]">
+                    <Icon name={icon} size={16} className="shrink-0 text-stone-400" /> <span className="min-w-0">{title}</span>
                 </h3>
                 {action}
             </div>
@@ -198,14 +198,14 @@ function InfoRow({ label, value, children }) {
     return (
         <div className="flex items-start justify-between gap-4 border-b border-stone-100 py-3 text-sm last:border-b-0">
             <span className="text-stone-500">{label}</span>
-            <span className="max-w-[62%] text-right font-semibold text-[#2A1D14]">{children ?? value}</span>
+            <span className="min-w-0 max-w-[62%] text-right font-semibold text-[#2A1D14] [overflow-wrap:anywhere]">{children ?? value}</span>
         </div>
     );
 }
 
 function ContactForm({ providerName, form, errors, submitting, onChange, onSubmit }) {
     return (
-        <form onSubmit={onSubmit} className="rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm sm:rounded-[1.6rem] sm:p-6">
+        <form onSubmit={onSubmit} className="min-w-0 rounded-[1.35rem] border border-stone-200 bg-white p-5 shadow-sm [overflow-wrap:anywhere] sm:rounded-[1.6rem] sm:p-6">
             <div className="mb-5 flex items-center gap-2 text-sm font-bold text-[#2A1D14]">
                 <Icon name="mail" size={16} className="text-stone-400" /> Contact {providerName}
             </div>
@@ -566,7 +566,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                     </div>
                 </div>
             )}
-            <section className="bg-[#F7F3ED]">
+            <section className="bg-[#F7F3ED] [overflow-wrap:anywhere]">
                 <div className="relative">
                     <div className="page-container absolute inset-x-0 top-3 z-20 flex items-center justify-between gap-2 sm:top-5">
                         <Link to={adminPreview ? '/admin/directory' : '/directory'} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/70 bg-white/92 px-3 text-xs font-semibold text-[#2A1D14] shadow-sm backdrop-blur transition hover:bg-white sm:min-h-10 sm:gap-2 sm:px-4 sm:text-sm">
@@ -597,7 +597,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                 </div>
 
                 <div className="page-container">
-                    <div className="relative z-10 -mt-11 grid gap-3 px-3 pb-5 sm:-mt-20 sm:gap-5 sm:px-6 sm:pb-8 lg:grid-cols-[auto_1fr_auto] lg:items-end lg:px-8">
+                    <div className="relative z-10 -mt-11 grid grid-cols-1 gap-3 px-3 pb-5 sm:-mt-20 sm:gap-5 sm:px-6 sm:pb-8 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-end lg:px-8">
                         <Avatar src={pro.photo} name={pro.name} className="size-24 border-[3px] border-white bg-white shadow-[0_12px_30px_rgba(52,35,28,.16)] sm:size-40 sm:border-4 lg:size-48" />
                         <div className="min-w-0">
                             <h1 className="font-display text-[2rem] font-normal leading-none tracking-normal text-[#2A1D14] sm:text-3xl sm:leading-tight lg:text-4xl">
@@ -606,12 +606,12 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                             </h1>
                             <p className="mt-1.5 text-sm font-bold text-stone-700 sm:mt-2 sm:text-base">{pro.profession}</p>
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-stone-500 sm:mt-3 sm:gap-x-4 sm:text-sm">
-                                <span className="inline-flex items-center gap-1.5"><Icon name="map" size={14} />{pro.location}</span>
+                                <span className="inline-flex min-w-0 max-w-full items-start gap-1.5"><Icon name="map" size={14} className="mt-0.5 shrink-0" /><span className="min-w-0">{pro.location}</span></span>
                                 {hasRating && <span className="inline-flex items-center gap-1.5"><Icon name="star" size={14} fill="currentColor" strokeWidth={0} className="text-amber-500" />{pro.rating ? pro.rating.toFixed(1) : (reviews.reduce((sum, item) => sum + Number(item.rating), 0) / reviews.length).toFixed(1)} rating</span>}
                             </div>
                         </div>
                         {profileCtaUrl && (
-                            <a href={safeUrl(profileCtaUrl)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[#2A1D14] px-5 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(52,35,28,.16)] transition hover:bg-[#3A2A1F] sm:min-h-12 sm:px-6 sm:text-sm lg:mb-1">
+                            <a href={safeUrl(profileCtaUrl)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 max-w-full w-fit items-center justify-center gap-2 rounded-xl bg-[#2A1D14] px-5 text-xs font-semibold text-white shadow-[0_14px_30px_rgba(52,35,28,.16)] transition hover:bg-[#3A2A1F] sm:min-h-12 sm:px-6 sm:text-sm lg:mb-1">
                                 {profileCtaLabel || 'Website'} <Icon name="external" size={15} />
                             </a>
                         )}
@@ -632,7 +632,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                 </div>
             </nav>
 
-            <section className="bg-[#F7F3ED] py-4 sm:py-12">
+            <section className="bg-[#F7F3ED] py-4 [overflow-wrap:anywhere] sm:py-12">
                 <div className="page-container">
                     {activeTab === 'booking' && (
                         <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-start">
@@ -823,8 +823,8 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                     )}
 
                     {activeTab === 'about' && (
-                        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)]">
-                            <div className="space-y-6">
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)]">
+                            <div className="min-w-0 space-y-6">
                                 <InfoPanel title={`About ${pro.name}`} icon="content">
                                     {pro.bio ? <p className="whitespace-pre-line text-sm leading-7 text-stone-700">{stripHtml(pro.bio)}</p> : <p className="text-sm leading-7 text-stone-500">This professional has not added a description yet.</p>}
                                 </InfoPanel>
@@ -870,7 +870,7 @@ export default function ProviderProfilePage({ adminPreview = false }) {
                                 </section>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="min-w-0 space-y-6">
                                 <section className="overflow-hidden rounded-[1.35rem] border border-stone-200 bg-white p-3 shadow-sm sm:rounded-[1.6rem]">
                                     {portfolio.length > 0 ? (
                                         <div className="grid grid-cols-3 gap-2 sm:gap-3">

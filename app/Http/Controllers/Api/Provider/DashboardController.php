@@ -16,7 +16,6 @@ use App\Services\UploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -205,18 +204,8 @@ class DashboardController extends Controller
                 }
             }
 
-            // Auto-unverify when key profile fields change
-            $verificationFields = ['profession', 'bio', 'location', 'country', 'city', 
-                'contact_email', 'contact_phone', 'website', 'profile_photo', 'cover_image'];
-            $changedVerificationField = collect($verificationFields)
-                ->contains(fn ($field) => array_key_exists($field, $validated));
-            
-            if ($changedVerificationField && $provider->verified) {
-                $provider->update(['verified' => false]);
-                Cache::forget('public.home.payload.v6');
-                Cache::forget('public.home.payload.v5');
-                \Illuminate\Support\Facades\Artisan::call('cache:clear');
-            }
+            // Verification is an admin decision and survives routine profile edits.
+
         });
 
         return $this->success($provider->fresh()->load(['user:id,name,email,phone', 'user.activeSubscription.planDefinition', 'category', 'services', 'portfolioItems', 'digitalProducts', 'availability' => fn ($query) => $query->where('is_active', true)->orderBy('day_of_week')->orderBy('start_time')]), 'Profile updated.');

@@ -33,6 +33,7 @@ class ProviderClaimController extends Controller
         $profiles = ProviderProfile::query()
             ->whereNotNull('wordpress_listing_id')
             ->whereNull('claimed_at')
+            ->whereNull('onboarding_completed_at')
             ->whereRaw('lower(imported_email) = ?', [$email])
             ->whereHas('user', fn ($query) => $query->where('is_active', true)->where('role', 'provider'))
             ->with('user:id,name')
@@ -81,7 +82,7 @@ class ProviderClaimController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (! $provider || $provider->claimed_at || ! $provider->claim_expires_at
+            if (! $provider || $provider->claimed_at || $provider->onboarding_completed_at || ! $provider->claim_expires_at
                 || $provider->claim_expires_at->isPast()
                 || ! $provider->claim_token_hash
                 || ! hash_equals($provider->claim_token_hash, hash('sha256', $validated['token']))) {

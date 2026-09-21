@@ -34,6 +34,24 @@ class ProviderClaimTest extends TestCase
         ]);
     }
 
+    public function test_claim_action_is_hidden_after_claim_or_completed_onboarding(): void
+    {
+        Notification::fake();
+        $profile = $this->importedProfile('owner@example.test', 'owner@example.test', 123);
+        $this->getJson('/api/providers/'.$profile->slug)
+            ->assertOk()->assertJsonPath('data.can_claim', true);
+
+        $profile->update(['claimed_at' => now()]);
+        $this->getJson('/api/providers/'.$profile->slug)
+            ->assertOk()->assertJsonPath('data.can_claim', false);
+
+        $profile->update(['claimed_at' => null, 'onboarding_completed_at' => now()]);
+        $this->getJson('/api/providers/'.$profile->slug)
+            ->assertOk()->assertJsonPath('data.can_claim', false);
+        $this->postJson('/api/auth/claim/request', ['email' => 'owner@example.test'])->assertOk();
+        Notification::assertNothingSent();
+    }
+
     public function test_claim_request_is_private_and_sends_a_link_only_to_the_source_email(): void
     {
         Notification::fake();
@@ -70,6 +88,8 @@ class ProviderClaimTest extends TestCase
 
         $profile->refresh();
         $this->assertNotNull($profile->claimed_at);
+        $this->getJson('/api/providers/'.$profile->slug)
+            ->assertOk()->assertJsonPath('data.can_claim', false);
         $this->assertNotNull($profile->onboarding_completed_at);
         $this->assertNotNull($profile->account_approved_at);
         $this->assertNotNull($profile->user->email_verified_at);

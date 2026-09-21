@@ -660,9 +660,7 @@ Artisan::command('subscriptions:record-periods', function (): int {
                 ]);
             }
 
-            DB::table('provider_profiles')
-                ->where('user_id', $row->user_id)
-                ->update(['verified' => false, 'updated_at' => now()]);
+            // Subscription access and admin verification are independent.
 
             $recorded++;
         });

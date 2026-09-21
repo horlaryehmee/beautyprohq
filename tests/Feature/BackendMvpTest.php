@@ -550,7 +550,7 @@ class BackendMvpTest extends TestCase
         $this->assertFalse($user->fresh()->hasPaidPlan());
         $this->assertSame('cancelled', $subscription->status);
         $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
-        $this->assertFalse($profile->fresh()->verified);
+        $this->assertTrue($profile->fresh()->verified);
         $this->assertDatabaseHas('subscriptions', [
             'user_id' => $user->id,
             'plan' => 'free',
@@ -626,7 +626,7 @@ class BackendMvpTest extends TestCase
         $this->assertSame('expired', $subscription->status);
         $this->assertTrue($subscription->ends_at->equalTo($renewsAt));
         $this->assertFalse($user->fresh()->hasPaidPlan());
-        $this->assertFalse($profile->fresh()->verified);
+        $this->assertTrue($profile->fresh()->verified);
         $this->assertSame(0, Subscription::where('user_id', $user->id)->whereIn('plan', ['paid', 'pro', 'daily_test'])->where('status', 'active')->count());
         $this->assertDatabaseHas('subscriptions', [
             'user_id' => $user->id,
@@ -958,6 +958,18 @@ class BackendMvpTest extends TestCase
             ->assertJsonCount(0, 'data.portfolio_items');
 
         $this->assertDatabaseMissing('portfolio_items', ['id' => $itemId]);
+    }
+
+    public function test_profile_saves_preserve_admin_verification(): void
+    {
+        [$profile, $user] = $this->provider('Verified Studio', true);
+        Sanctum::actingAs($user);
+
+        $this->putJson('/api/provider/profile', ['profession' => $profile->profession])
+            ->assertOk()->assertJsonPath('data.verified', true);
+        $this->putJson('/api/provider/profile', ['bio' => 'Updated provider biography'])
+            ->assertOk()->assertJsonPath('data.verified', true);
+        $this->assertTrue($profile->fresh()->verified);
     }
 
     public function test_free_provider_cannot_manage_custom_booking_questions(): void

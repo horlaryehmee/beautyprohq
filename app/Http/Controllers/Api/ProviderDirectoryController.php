@@ -128,7 +128,7 @@ class ProviderDirectoryController extends Controller
         $data->setAttribute('can_book_directly', $hasPaidPlan);
         $data->setAttribute('can_show_digital_products', $hasPaidPlan);
         $data->setAttribute('is_admin_preview', $adminPreview);
-        $data->setAttribute('can_claim', $data->wordpress_listing_id !== null && $data->claimed_at === null);
+        $data->setAttribute('can_claim', $data->wordpress_listing_id !== null && $data->claimed_at === null && $data->onboarding_completed_at === null);
         $data->setAttribute('referral_rewards_available', (bool) (
             $data->loyalty_enabled
             && $data->referral_rewards_enabled
