@@ -21,15 +21,30 @@ class MediaDownloadController extends Controller
         $disk = Storage::disk($media->disk);
         abort_unless($disk->exists($media->path), 404);
 
-        $filename = preg_replace('/[^A-Za-z0-9._ -]/', '_', $media->original_name ?: $media->filename);
+        $filename = $this->downloadFilename($media);
+        $stream = $disk->readStream($media->path);
+        abort_unless(is_resource($stream), 404);
 
-        return $disk->download($media->path, $filename, [
+        return response()->streamDownload(function () use ($stream): void {
+            try {
+                fpassthru($stream);
+            } finally {
+                fclose($stream);
+            }
+        }, $filename, [
             'Content-Type' => $media->mime_type ?: 'application/octet-stream',
-            'Content-Disposition' => 'attachment',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'no-store, private, max-age=0',
             'Pragma' => 'no-cache',
             'Referrer-Policy' => 'no-referrer',
         ]);
+    }
+
+    private function downloadFilename(UploadedMedia $media): string
+    {
+        $filename = preg_replace('/[^A-Za-z0-9._ -]/', '_', $media->original_name ?: $media->filename);
+        $filename = trim((string) $filename, " .\t\n\r\0\x0B");
+
+        return $filename !== '' ? $filename : 'verification-document';
     }
 }
