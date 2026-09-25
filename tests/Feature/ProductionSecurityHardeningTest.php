@@ -73,6 +73,49 @@ class ProductionSecurityHardeningTest extends TestCase
         $this->assertDatabaseCount('uploaded_media', 0);
     }
 
+    public function test_admin_verification_queue_includes_private_media_payloads(): void
+    {
+        Storage::fake('verification');
+        [$provider, $profile] = $this->provider('Media Review Provider');
+        $certificate = UploadedMedia::create([
+            'user_id' => $provider->id,
+            'disk' => 'verification',
+            'path' => 'uploads/certificate.pdf',
+            'filename' => 'certificate.pdf',
+            'original_name' => 'Certificate Upload.pdf',
+            'mime_type' => 'application/pdf',
+            'size' => 10,
+            'collection' => 'provider_verification_certification',
+        ]);
+        $license = UploadedMedia::create([
+            'user_id' => $provider->id,
+            'disk' => 'verification',
+            'path' => 'uploads/license.png',
+            'filename' => 'license.png',
+            'original_name' => 'License Upload.png',
+            'mime_type' => 'image/png',
+            'size' => 20,
+            'collection' => 'provider_verification_license',
+        ]);
+
+        Storage::disk('verification')->put($certificate->path, 'certificate');
+        Storage::disk('verification')->put($license->path, 'license');
+        $profile->verificationRequests()->create([
+            'professional_info' => 'Submitted verification record.',
+            'certification_files' => ['media:'.$certificate->id],
+            'license_files' => ['media:'.$license->id],
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $this->getJson('/api/admin/verifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.certification_media.0.name', 'Certificate Upload.pdf')
+            ->assertJsonPath('data.0.certification_media.0.url', "/api/media/{$certificate->id}/download")
+            ->assertJsonPath('data.0.license_media.0.mime_type', 'image/png')
+            ->assertJsonPath('data.0.license_media.0.url', "/api/media/{$license->id}/download");
+    }
+
     public function test_unsubmitted_private_documents_are_pruned_after_retention_window(): void
     {
         Storage::fake('verification');

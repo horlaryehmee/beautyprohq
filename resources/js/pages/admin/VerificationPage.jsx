@@ -16,17 +16,23 @@ const filterClass = (status, active) => {
 
 function LinkGroup({ title, items = [], tone = 'fuchsia' }) {
     const color = tone === 'sky' ? 'bg-sky-50 text-sky-700' : tone === 'emerald' ? 'bg-emerald-50 text-emerald-700' : 'bg-fuchsia-50 text-fuchsia-700';
-    const isImage = (url) => /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url);
+    const itemUrl = (item) => mediaUrl(typeof item === 'string' ? item : item?.url ?? item?.path);
+    const itemName = (item, index) => typeof item === 'string' ? `Open link ${index + 1}` : item?.name ?? item?.filename ?? `Open file ${index + 1}`;
+    const isImage = (item) => {
+        if (typeof item !== 'string' && String(item?.mime_type ?? '').startsWith('image/')) return true;
+        const url = typeof item === 'string' ? item : item?.url ?? item?.path ?? item?.name ?? '';
+        return /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(url);
+    };
 
     return (
         <div>
             <p className="text-sm font-bold text-slate-700">{title}</p>
             <div className="mt-2 space-y-2">
-                {items.length ? items.map((url) => (
-                    <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={mediaUrl(url)} key={url} rel="noreferrer" target="_blank">
-                        {isImage(url) ? (
+                {items.length ? items.map((item, index) => (
+                    <a className={`block truncate rounded-xl p-3 text-sm font-semibold ${color}`} href={itemUrl(item)} key={typeof item === 'string' ? item : item?.id ?? item?.path ?? index} rel="noreferrer" target="_blank">
+                        {isImage(item) ? (
                             <>
-                                <img src={mediaUrl(url)} alt="" className="mb-2 h-36 w-full rounded-lg object-cover" />
+                                <img src={itemUrl(item)} alt="" className="mb-2 h-36 w-full rounded-lg object-cover" />
                                 View image ↗
                             </>
                         ) : (
@@ -169,8 +175,8 @@ export default function AdminVerificationPage() {
                         <div className="mt-5 grid gap-5 md:grid-cols-2">
                             <PortfolioGallery items={selected.portfolio_links ?? []} records={selected.provider?.portfolio_items ?? selected.provider?.portfolioItems ?? []} />
                             <LinkGroup title="Social media links" items={Object.values(selected.social_links ?? {}).filter(Boolean)} tone="emerald" />
-                            <LinkGroup title="Certifications" items={selected.certification_files ?? []} tone="sky" />
-                            <LinkGroup title="Licenses" items={selected.license_files ?? []} tone="sky" />
+                            <LinkGroup title="Certifications" items={selected.certification_media?.length ? selected.certification_media : selected.certification_files ?? []} tone="sky" />
+                            <LinkGroup title="Licenses" items={selected.license_media?.length ? selected.license_media : selected.license_files ?? []} tone="sky" />
                         </div>
 
                         <label className="mt-5 block text-sm font-bold text-slate-700">
