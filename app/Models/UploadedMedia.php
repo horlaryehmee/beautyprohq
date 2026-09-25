@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class UploadedMedia extends Model
 {
@@ -29,7 +30,11 @@ class UploadedMedia extends Model
     public function getUrlAttribute(): string
     {
         if ($this->disk === 'verification') {
-            return '/api/media/'.$this->getKey().'/download';
+            return URL::temporarySignedRoute(
+                'media.download',
+                now()->addMinutes(30),
+                ['media' => $this->getKey()],
+            );
         }
 
         $url = Storage::disk($this->disk)->url($this->path);

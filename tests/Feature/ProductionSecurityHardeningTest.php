@@ -38,6 +38,11 @@ class ProductionSecurityHardeningTest extends TestCase
         Storage::disk('verification')->assertExists($media->path);
         Storage::disk('public')->assertMissing($media->path);
 
+        $signedUrl = $media->fresh()->url;
+        $this->assertStringContainsString("/api/media/{$media->id}/download", $signedUrl);
+        $this->assertStringContainsString('signature=', $signedUrl);
+        $this->get($signedUrl)->assertOk();
+
         $this->get("/api/media/{$media->id}/download")
             ->assertOk()
             ->assertHeader('Cache-Control', 'max-age=0, no-store, private');
@@ -111,9 +116,14 @@ class ProductionSecurityHardeningTest extends TestCase
         $this->getJson('/api/admin/verifications')
             ->assertOk()
             ->assertJsonPath('data.0.certification_media.0.name', 'Certificate Upload.pdf')
-            ->assertJsonPath('data.0.certification_media.0.url', "/api/media/{$certificate->id}/download")
             ->assertJsonPath('data.0.license_media.0.mime_type', 'image/png')
-            ->assertJsonPath('data.0.license_media.0.url', "/api/media/{$license->id}/download");
+            ->assertJson(fn ($json) => $json
+                ->where('data.0.certification_media.0.path', "media:{$certificate->id}")
+                ->where('data.0.license_media.0.path', "media:{$license->id}")
+                ->where('data.0.certification_media.0.url', fn (string $url) => str_contains($url, "/api/media/{$certificate->id}/download") && str_contains($url, 'signature='))
+                ->where('data.0.license_media.0.url', fn (string $url) => str_contains($url, "/api/media/{$license->id}/download") && str_contains($url, 'signature='))
+                ->etc()
+            );
     }
 
     public function test_unsubmitted_private_documents_are_pruned_after_retention_window(): void

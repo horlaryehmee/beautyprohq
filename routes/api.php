@@ -29,12 +29,13 @@ use App\Http\Controllers\Api\Provider\LiveChatController as ProviderLiveChatCont
 use App\Http\Controllers\Api\Provider\ScheduleController as ProviderScheduleController;
 use App\Http\Controllers\Api\Provider\ServiceController as ProviderServiceController;
 use App\Http\Controllers\Api\Provider\SupportController as ProviderSupportController;
-use App\Http\Controllers\Api\ProviderDirectoryController;
 use App\Http\Controllers\Api\ProviderClaimController;
+use App\Http\Controllers\Api\ProviderDirectoryController;
 use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UploadController;
+use App\Support\HomepageShell;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/status', StatusController::class);
@@ -56,7 +57,7 @@ Route::get('/auth/email-change/{user}/{token}', [AuthController::class, 'verifyE
     ->middleware(['signed', 'throttle:sensitive'])->name('email-change.verify');
 
 Route::get('/home', HomeController::class);
-Route::get('/home/hero-images', fn () => response()->json(['data' => ['images' => \App\Support\HomepageShell::heroImages()]]));
+Route::get('/home/hero-images', fn () => response()->json(['data' => ['images' => HomepageShell::heroImages()]]));
 Route::get('/currencies', [CurrencyController::class, 'index']);
 Route::get('/subscription-plans', [SubscriptionController::class, 'plans']);
 Route::get('/provider-categories', [ProviderDirectoryController::class, 'categories']);
@@ -90,9 +91,11 @@ Route::post('/providers/{provider}/chat/conversations', [LiveChatController::cla
 Route::get('/live-chat/conversations/{conversation}', [LiveChatController::class, 'show'])->middleware('throttle:chat');
 Route::post('/live-chat/conversations/{conversation}/messages', [LiveChatController::class, 'reply'])->middleware('throttle:chat');
 Route::post('/live-chat/mail/reply', LiveChatInboundMailController::class)->middleware('throttle:chat');
+Route::get('/media/{media}/download', MediaDownloadController::class)
+    ->middleware('throttle:api')
+    ->name('media.download');
 
 Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
-    Route::get('/media/{media}/download', MediaDownloadController::class)->middleware('throttle:api');
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::put('/auth/password', [AuthController::class, 'updatePassword'])->middleware('throttle:sensitive');

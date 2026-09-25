@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\UploadedMedia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -14,8 +15,11 @@ class MediaDownloadController extends Controller
 {
     public function __invoke(Request $request, UploadedMedia $media): BinaryFileResponse|StreamedResponse
     {
+        $user = Auth::guard('sanctum')->user();
+        $hasValidSignature = $request->hasValidSignature();
+
         abort_unless(
-            $request->user()->isAdmin() || (int) $media->user_id === (int) $request->user()->id,
+            $hasValidSignature || ($user && ($user->isAdmin() || (int) $media->user_id === (int) $user->id)),
             404
         );
         abort_unless($media->disk === 'verification', 404);
