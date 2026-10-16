@@ -73,6 +73,9 @@
         @if($homepageShell ?? false)
             @include('partials.home-shell', ['images' => $heroShellImages ?? []])
         @endif
+        @isset($seoProvider)
+            @include('partials.provider-seo-content')
+        @endisset
     </div>
     @if(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
         <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">

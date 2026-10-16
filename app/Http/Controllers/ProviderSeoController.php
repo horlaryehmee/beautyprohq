@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\ProviderProfile;
 use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class ProviderSeoController extends Controller
 {
-    public function show(ProviderProfile $provider): View
+    public function show(ProviderProfile $provider): View|RedirectResponse
     {
         abort_unless($provider->is_listed && $provider->account_approved_at && $provider->user?->is_active, 404);
 
@@ -18,15 +19,20 @@ class ProviderSeoController extends Controller
             'services' => fn ($query) => $query->where('is_active', true)->orderBy('price')->limit(6),
         ]);
 
+        $canonical = url('/providers/'.$provider->slug);
+        if (url()->current() !== $canonical) {
+            return redirect()->to($canonical, 301);
+        }
+
         $name = $provider->user?->name ?? 'Beauty professional';
         $profession = $provider->profession ?: $provider->category?->name ?: 'Beauty professional';
-        $location = $provider->city ?: $provider->location ?: $provider->country ?: 'Nigeria';
+        $country = $provider->country ?: 'Nigeria';
+        $location = implode(', ', array_unique(array_filter([$provider->city, $country])));
         $serviceNames = $provider->services->pluck('name')->filter()->take(4)->values();
         $serviceSummary = $serviceNames->isNotEmpty() ? ' Services include '.$serviceNames->implode(', ').'.' : '';
         $description = $provider->bio
-            ? Str::limit(trim(strip_tags($provider->bio)), 155, '')
+            ? Str::limit(trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($provider->bio), ENT_QUOTES | ENT_HTML5, 'UTF-8'))), 160, '')
             : Str::limit("Book {$name}, {$profession} in {$location}, on BeautyPro HQ.{$serviceSummary}", 155, '');
-        $canonical = url('/providers/'.$provider->slug);
         $image = $this->absoluteMediaUrl($provider->profile_photo ?: $provider->cover_image);
 
         $structuredData = array_filter([
@@ -60,13 +66,17 @@ class ProviderSeoController extends Controller
         ]);
 
         return view('app', [
-            'pageTitle' => "{$name} - {$profession} in {$location} | BeautyPro HQ",
+            'pageTitle' => "{$name} - {$profession} in {$country} | BeautyPro HQ",
             'pageDescription' => $description,
             'pageCanonical' => $canonical,
             'pageImage' => $image,
             'pageType' => 'profile',
             'pageRobots' => 'index, follow',
             'structuredData' => $structuredData,
+            'seoProvider' => $provider,
+            'seoProviderName' => $name,
+            'seoProviderProfession' => $profession,
+            'seoProviderLocation' => $location,
         ]);
     }
 
