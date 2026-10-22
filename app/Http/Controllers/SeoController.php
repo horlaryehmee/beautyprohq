@@ -403,6 +403,7 @@ class SeoController extends Controller
     {
         return response($markdown, 200)
             ->header('Content-Type', 'text/markdown; charset=UTF-8')
+            ->header('X-Robots-Tag', 'noindex, follow')
             ->header('Cache-Control', 'public, max-age=0, s-maxage=300, must-revalidate');
     }
 

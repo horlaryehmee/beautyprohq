@@ -66,7 +66,7 @@ class ProviderSeoController extends Controller
         ]);
 
         return view('app', [
-            'pageTitle' => "{$name} - {$profession} in {$country} | BeautyPro HQ",
+            'pageTitle' => "{$name} - {$profession} in {$location} | BeautyPro HQ",
             'pageDescription' => $description,
             'pageCanonical' => $canonical,
             'pageImage' => $image,

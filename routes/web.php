@@ -9,7 +9,9 @@ use App\Http\Controllers\SeoController;
 use App\Models\AppSetting;
 use App\Models\NewsletterSubscriber;
 use App\Models\NewsletterUnsubscribe;
+use App\Models\ProviderProfile;
 use App\Support\HomepageShell;
+use App\Support\PublicSeo;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
@@ -192,6 +194,9 @@ Route::get('/newsletter/unsubscribe/{subscriber}', function (NewsletterSubscribe
 
 Route::get('/{path?}', function (Request $request, ?string $path = null) use ($comingSoonEnabled, $requestHasComingSoonBypass, $noStore) {
     $path = trim((string) $path, '/');
+    if ($path === 'resources') {
+        return redirect('/news', 301);
+    }
     $firstSegment = strtok($path, '/') ?: '';
     $comingSoonBypass = in_array($firstSegment, [
         'login',
@@ -211,7 +216,25 @@ Route::get('/{path?}', function (Request $request, ?string $path = null) use ($c
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    $response = response()->view('app');
+    $publicMeta = PublicSeo::PAGES[$path] ?? null;
+    $isPrivate = $comingSoonBypass || preg_match('#^(login|register|forgot-password|reset-password|claim-account|verify-email|booking-confirmation|chat)(/|$)#', $path)
+        || preg_match('#^providers/[^/]+/book(?:/[^/]+)?$#', $path);
+    if (! $publicMeta && ! $isPrivate) {
+        abort(404);
+    }
+
+    $response = response()->view('app', $publicMeta ? [
+        'pageTitle' => $publicMeta['title'],
+        'pageDescription' => $publicMeta['description'],
+        'pageCanonical' => url('/'.$path),
+        'seoDirectoryProviders' => $path === 'directory'
+            ? ProviderProfile::directory()->with(['user:id,name', 'category:id,name'])->orderBy('id')->limit(100)->get()
+            : null,
+    ] : [
+        'pageTitle' => 'BeautyPro HQ',
+        'pageRobots' => 'noindex, nofollow',
+        'pageCanonical' => url('/'.$path),
+    ]);
 
     if ($comingSoonBypass) {
         return $noStore($response);

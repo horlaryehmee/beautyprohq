@@ -76,6 +76,9 @@
         @isset($seoProvider)
             @include('partials.provider-seo-content')
         @endisset
+        @if(isset($seoDirectoryProviders))
+            @include('partials/directory-seo-content')
+        @endif
     </div>
     @if(($homepageShell ?? false) && ($heroPreload['inline'] ?? false))
         <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
