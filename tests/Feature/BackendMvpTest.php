@@ -1181,14 +1181,16 @@ class BackendMvpTest extends TestCase
         $nigeriaAddress->update(['country' => null]);
         [$uk] = $this->provider('British Studio', true, 'London');
         $uk->update(['country' => 'GB']);
+        [$unrelated] = $this->provider('Unrelated Studio', true, 'Long Island');
+        $unrelated->update(['country' => 'United States']);
         [$us] = $this->provider('American Studio', true, 'New York, US');
         $us->update(['country' => null]);
 
         $this->getJson('/api/providers?location=Nigeria')->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/providers?location=NG')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/providers?location=United%20Kingdom')->assertOk()->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.slug', $uk->slug);
-        $this->getJson('/api/providers?location=America')->assertOk()->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.slug', $us->slug);
+        $this->getJson('/api/providers?location=America')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/providers?search=Nigeria')->assertOk()->assertJsonPath('meta.total', 2);
     }
 

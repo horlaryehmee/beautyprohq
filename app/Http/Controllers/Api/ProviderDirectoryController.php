@@ -56,9 +56,12 @@ class ProviderDirectoryController extends Controller
         $query->when($validated['service_type'] ?? null, fn (Builder $q, string $v) => $q->whereHas('services', fn (Builder $s) => $s->where('service_type', $v)->where('is_active', true)));
         $query->when($validated['location'] ?? null, function (Builder $q, string $value): void {
             $q->where(function (Builder $location) use ($value): void {
-                $location->where('location', 'like', "%{$value}%")
-                    ->orWhere('city', 'like', "%{$value}%")
-                    ->orWhere('country', 'like', "%{$value}%");
+                $isCountryCode = strlen(trim($value)) === 2 && CountrySearch::match($value) !== null;
+                if (! $isCountryCode) {
+                    $location->where('location', 'like', "%{$value}%")
+                        ->orWhere('city', 'like', "%{$value}%")
+                        ->orWhere('country', 'like', "%{$value}%");
+                }
                 CountrySearch::addConditions($location, $value);
             });
         });
