@@ -279,9 +279,6 @@ class ProviderDirectoryController extends Controller
                 ->get(['id', 'name', 'slug', 'cover_image'])
                 ->toArray(),
             'service_types' => Service::where('is_active', true)->distinct()->orderBy('service_type')->pluck('service_type')->values()->all(),
-            'locations' => ProviderProfile::directory()->get(['location', 'city', 'country'])
-                ->flatMap(fn (ProviderProfile $provider) => [$provider->location, $provider->city, $provider->country])
-                ->filter()->unique()->sort()->values()->all(),
         ]);
     }
 

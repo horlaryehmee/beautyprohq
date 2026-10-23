@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { defaultCountries } from 'react-international-phone';
 import api, { collectionFrom, metaFrom } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { EmptyState, InlineAlert } from '../../components/ui/Feedback';
@@ -66,7 +67,7 @@ export default function DirectoryPage() {
     const activeCount = useMemo(() => Object.values(form).filter(Boolean).length, [form]);
     const categories = filters.categories?.length ? filters.categories : categoryOptions;
     const serviceTypes = filters.service_types?.length ? filters.service_types : ['in_person', 'mobile', 'virtual'];
-    const locations = filters.locations ?? [];
+    const locations = useMemo(() => [...new Set(defaultCountries.map(([name]) => name))].sort((a, b) => a.localeCompare(b)), []);
     const currentPage = Number(meta.current_page ?? meta.page ?? 1);
     const lastPage = Number(meta.last_page ?? meta.total_pages ?? 1);
     const total = Number(meta.total ?? providers.length);
