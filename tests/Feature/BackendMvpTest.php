@@ -1173,6 +1173,25 @@ class BackendMvpTest extends TestCase
         $this->getJson('/api/providers?search=Lagos')->assertOk()->assertJsonPath('meta.total', 1);
     }
 
+    public function test_directory_country_name_matches_saved_code_and_address(): void
+    {
+        [$nigeria] = $this->provider('Nigerian Studio', true, 'Lekki, Lagos');
+        $nigeria->update(['country' => 'NG']);
+        [$nigeriaAddress] = $this->provider('Nigerian Address Studio', true, 'Abuja, NG');
+        $nigeriaAddress->update(['country' => null]);
+        [$uk] = $this->provider('British Studio', true, 'London');
+        $uk->update(['country' => 'GB']);
+        [$us] = $this->provider('American Studio', true, 'New York, US');
+        $us->update(['country' => null]);
+
+        $this->getJson('/api/providers?location=Nigeria')->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/providers?location=United%20Kingdom')->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.slug', $uk->slug);
+        $this->getJson('/api/providers?location=America')->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.slug', $us->slug);
+        $this->getJson('/api/providers?search=Nigeria')->assertOk()->assertJsonPath('meta.total', 2);
+    }
+
     public function test_unfiltered_directory_is_randomized_but_filtered_results_use_ranked_order(): void
     {
         $this->provider('Random Directory One', true, 'Lagos');

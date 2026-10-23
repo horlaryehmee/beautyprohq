@@ -10,6 +10,7 @@ use App\Models\ProviderProfile;
 use App\Models\Service;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\ProviderContactEnquiryNotification;
+use App\Support\CountrySearch;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +47,7 @@ class ProviderDirectoryController extends Controller
                     ->orWhere('country', 'like', "%{$search}%")
                     ->orWhereHas('user', fn (Builder $u) => $u->where('name', 'like', "%{$search}%"))
                     ->orWhereHas('services', fn (Builder $s) => $s->where('name', 'like', "%{$search}%"));
+                CountrySearch::addConditions($q, $search);
             });
         });
         $query->when($validated['category'] ?? null, function (Builder $q, string $v): void {
@@ -53,16 +55,11 @@ class ProviderDirectoryController extends Controller
         });
         $query->when($validated['service_type'] ?? null, fn (Builder $q, string $v) => $q->whereHas('services', fn (Builder $s) => $s->where('service_type', $v)->where('is_active', true)));
         $query->when($validated['location'] ?? null, function (Builder $q, string $value): void {
-            $countries = in_array(strtolower(trim($value)), ['usa', 'us', 'america', 'united states', 'united states of america'], true)
-                ? ['United States', 'United States of America', 'USA', 'US']
-                : [];
-            $q->where(function (Builder $location) use ($value, $countries): void {
+            $q->where(function (Builder $location) use ($value): void {
                 $location->where('location', 'like', "%{$value}%")
                     ->orWhere('city', 'like', "%{$value}%")
                     ->orWhere('country', 'like', "%{$value}%");
-                if ($countries) {
-                    $location->orWhereIn('country', $countries);
-                }
+                CountrySearch::addConditions($location, $value);
             });
         });
         $query->when(array_key_exists('verified', $validated), fn (Builder $q) => $q->where('verified', $validated['verified']));
