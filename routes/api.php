@@ -37,6 +37,9 @@ use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Support\HomepageShell;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 
 Route::get('/status', StatusController::class);
 
@@ -44,6 +47,13 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/claim/request', [ProviderClaimController::class, 'request'])->middleware('throttle:password-reset');
     Route::post('/claim/complete', [ProviderClaimController::class, 'complete'])->middleware('throttle:sensitive');
     Route::get('/google/status', [AuthController::class, 'googleStatus']);
+    // The API group does not always start a session on shared hosting. These
+    // endpoints need the browser's session and CSRF token for the GIS nonce.
+    Route::middleware([AddQueuedCookiesToResponse::class, StartSession::class, PreventRequestForgery::class, 'throttle:login'])
+        ->group(function (): void {
+            Route::post('/google/popup/start', [AuthController::class, 'startGooglePopup']);
+            Route::post('/google/popup', [AuthController::class, 'handleGooglePopup']);
+        });
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/google/2fa', [AuthController::class, 'completeGoogleTwoFactor'])->middleware('throttle:login');
