@@ -1183,6 +1183,8 @@ class BackendMvpTest extends TestCase
         $uk->update(['country' => 'GB']);
         [$unrelated] = $this->provider('Unrelated Studio', true, 'Long Island');
         $unrelated->update(['country' => 'United States']);
+        [$misleading] = $this->provider('Nigerian Hair Studio', true, 'Berlin');
+        $misleading->update(['country' => 'Germany']);
         [$us] = $this->provider('American Studio', true, 'New York, US');
         $us->update(['country' => null]);
 
@@ -1192,6 +1194,10 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.0.slug', $uk->slug);
         $this->getJson('/api/providers?location=America')->assertOk()->assertJsonPath('meta.total', 2);
         $this->getJson('/api/providers?search=Nigeria')->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/providers?search=NG')->assertOk()->assertJsonPath('meta.total', 2);
+        foreach (['USA', 'United States', 'United State', 'America'] as $term) {
+            $this->getJson('/api/providers?location='.urlencode($term))->assertOk()->assertJsonPath('meta.total', 2);
+        }
     }
 
     public function test_unfiltered_directory_is_randomized_but_filtered_results_use_ranked_order(): void

@@ -41,12 +41,14 @@ class ProviderDirectoryController extends Controller
 
         $query->when($validated['search'] ?? null, function (Builder $query, string $search): void {
             $query->where(function (Builder $q) use ($search): void {
-                $q->where('profession', 'like', "%{$search}%")
-                    ->orWhere('location', 'like', "%{$search}%")
-                    ->orWhere('city', 'like', "%{$search}%")
-                    ->orWhere('country', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn (Builder $u) => $u->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('services', fn (Builder $s) => $s->where('name', 'like', "%{$search}%"));
+                if (CountrySearch::match($search) === null) {
+                    $q->where('profession', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%")
+                        ->orWhere('country', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn (Builder $u) => $u->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('services', fn (Builder $s) => $s->where('name', 'like', "%{$search}%"));
+                }
                 CountrySearch::addConditions($q, $search);
             });
         });
@@ -56,8 +58,7 @@ class ProviderDirectoryController extends Controller
         $query->when($validated['service_type'] ?? null, fn (Builder $q, string $v) => $q->whereHas('services', fn (Builder $s) => $s->where('service_type', $v)->where('is_active', true)));
         $query->when($validated['location'] ?? null, function (Builder $q, string $value): void {
             $q->where(function (Builder $location) use ($value): void {
-                $isCountryCode = strlen(trim($value)) === 2 && CountrySearch::match($value) !== null;
-                if (! $isCountryCode) {
+                if (CountrySearch::match($value) === null) {
                     $location->where('location', 'like', "%{$value}%")
                         ->orWhere('city', 'like', "%{$value}%")
                         ->orWhere('country', 'like', "%{$value}%");

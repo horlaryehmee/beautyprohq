@@ -486,13 +486,15 @@ class DashboardController extends Controller
             ->when($validated['category_id'] ?? null, fn ($q) => $q->where('provider_category_id', $validated['category_id']))
             ->when($validated['search'] ?? null, function ($query, $search): void {
                 $query->where(function ($match) use ($search): void {
-                    $match->where('profession', 'like', "%{$search}%")
-                        ->orWhere('location', 'like', "%{$search}%")
-                        ->orWhere('city', 'like', "%{$search}%")
-                        ->orWhere('country', 'like', "%{$search}%")
-                        ->orWhere('imported_email', 'like', "%{$search}%")
-                        ->orWhere('contact_email', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+                    if (CountrySearch::match($search) === null) {
+                        $match->where('profession', 'like', "%{$search}%")
+                            ->orWhere('location', 'like', "%{$search}%")
+                            ->orWhere('city', 'like', "%{$search}%")
+                            ->orWhere('country', 'like', "%{$search}%")
+                            ->orWhere('imported_email', 'like', "%{$search}%")
+                            ->orWhere('contact_email', 'like', "%{$search}%")
+                            ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+                    }
                     CountrySearch::addConditions($match, $search);
                 });
             })

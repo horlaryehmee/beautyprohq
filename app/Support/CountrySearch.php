@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 class CountrySearch
 {
     private const ALIASES = [
-        'US' => ['USA', 'America', 'United States of America'],
+        'US' => ['USA', 'America', 'United State', 'United States of America'],
         'GB' => ['UK', 'Great Britain', 'Britain'],
         'AE' => ['UAE'],
     ];
