@@ -172,6 +172,7 @@ rsync -a --no-perms \
 
 # Install dependencies and run post-deploy tasks
 composer install --working-dir="$APP_ROOT" --no-dev --no-interaction --prefer-dist --optimize-autoloader
+php -r 'require $argv[1]."/vendor/autoload.php"; if (!class_exists("Firebase\\JWT\\JWT") || !class_exists("Firebase\\JWT\\JWK")) { fwrite(STDERR, "Deployment failed: firebase/php-jwt is missing. Check Composer install and the active document root.\n"); exit(1); }' "$APP_ROOT"
 php "$APP_ROOT/artisan" optimize:clear
 php "$APP_ROOT/artisan" migrate --force
 php "$APP_ROOT/artisan" storage:link || true

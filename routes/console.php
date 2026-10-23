@@ -327,6 +327,8 @@ Artisan::command('ops:check {--production : Enforce production-only safety check
         'Bootstrap cache directory is writable' => is_writable(base_path('bootstrap/cache')),
         'Production asset manifest is valid' => is_file(public_path('build/manifest.json'))
             && is_array(json_decode((string) file_get_contents(public_path('build/manifest.json')), true)),
+        'Google token verifier dependency is installed' => class_exists(\Firebase\JWT\JWT::class)
+            && class_exists(\Firebase\JWT\JWK::class),
         'Configured upload disk exists' => array_key_exists(config('filesystems.upload_disk'), config('filesystems.disks', [])),
         'Configured upload disk is writable' => false,
         'Private verification disk exists' => array_key_exists('verification', config('filesystems.disks', [])),

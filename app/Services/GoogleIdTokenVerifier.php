@@ -36,6 +36,9 @@ class GoogleIdTokenVerifier
     {
         $stage = 'token_header';
         try {
+            if (! class_exists(JWT::class) || ! class_exists(JWK::class)) {
+                throw new \RuntimeException('Google JWT verifier dependency is missing.');
+            }
             $segments = explode('.', $token);
             if (count($segments) !== 3) {
                 throw new \UnexpectedValueException('Malformed token.');
@@ -76,6 +79,7 @@ class GoogleIdTokenVerifier
                     $exception instanceof \Illuminate\Http\Client\RequestException => 'key_response',
                     $exception instanceof \Firebase\JWT\SignatureInvalidException => 'signature',
                     $exception instanceof \Firebase\JWT\ExpiredException => 'expired',
+                    $exception instanceof \RuntimeException && $exception->getMessage() === 'Google JWT verifier dependency is missing.' => 'missing_dependency',
                     $exception instanceof \UnexpectedValueException => 'claims_or_key',
                     default => 'verification',
                 },
