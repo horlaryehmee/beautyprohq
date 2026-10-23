@@ -42,6 +42,8 @@ class ProviderDirectoryController extends Controller
             $query->where(function (Builder $q) use ($search): void {
                 $q->where('profession', 'like', "%{$search}%")
                     ->orWhere('location', 'like', "%{$search}%")
+                    ->orWhere('city', 'like', "%{$search}%")
+                    ->orWhere('country', 'like', "%{$search}%")
                     ->orWhereHas('user', fn (Builder $u) => $u->where('name', 'like', "%{$search}%"))
                     ->orWhereHas('services', fn (Builder $s) => $s->where('name', 'like', "%{$search}%"));
             });
@@ -50,7 +52,19 @@ class ProviderDirectoryController extends Controller
             $q->whereHas('category', fn (Builder $category) => $category->where('slug', $v)->orWhere('name', $v));
         });
         $query->when($validated['service_type'] ?? null, fn (Builder $q, string $v) => $q->whereHas('services', fn (Builder $s) => $s->where('service_type', $v)->where('is_active', true)));
-        $query->when($validated['location'] ?? null, fn (Builder $q, string $v) => $q->where('location', 'like', "%{$v}%"));
+        $query->when($validated['location'] ?? null, function (Builder $q, string $value): void {
+            $countries = in_array(strtolower(trim($value)), ['usa', 'us', 'america', 'united states', 'united states of america'], true)
+                ? ['United States', 'United States of America', 'USA', 'US']
+                : [];
+            $q->where(function (Builder $location) use ($value, $countries): void {
+                $location->where('location', 'like', "%{$value}%")
+                    ->orWhere('city', 'like', "%{$value}%")
+                    ->orWhere('country', 'like', "%{$value}%");
+                if ($countries) {
+                    $location->orWhereIn('country', $countries);
+                }
+            });
+        });
         $query->when(array_key_exists('verified', $validated), fn (Builder $q) => $q->where('verified', $validated['verified']));
         $query->when($validated['rating'] ?? null, fn (Builder $q, $v) => $q->where('rating', '>=', $v));
 
@@ -265,7 +279,9 @@ class ProviderDirectoryController extends Controller
                 ->get(['id', 'name', 'slug', 'cover_image'])
                 ->toArray(),
             'service_types' => Service::where('is_active', true)->distinct()->orderBy('service_type')->pluck('service_type')->values()->all(),
-            'locations' => ProviderProfile::directory()->whereNotNull('location')->distinct()->orderBy('location')->pluck('location')->values()->all(),
+            'locations' => ProviderProfile::directory()->get(['location', 'city', 'country'])
+                ->flatMap(fn (ProviderProfile $provider) => [$provider->location, $provider->city, $provider->country])
+                ->filter()->unique()->sort()->values()->all(),
         ]);
     }
 

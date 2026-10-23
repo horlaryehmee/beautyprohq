@@ -128,7 +128,7 @@ export default function DirectoryPage() {
 
                             <div className="mt-4 grid gap-3">
                                 <FormField label="Name or service" icon="search" placeholder="Search professionals or services" value={form.search} onChange={(event) => update('search', event.target.value)} />
-                                <div><FormField label="Location" icon="map" list="directory-locations" placeholder="City or neighbourhood" value={form.location} onChange={(event) => update('location', event.target.value)} /><datalist id="directory-locations">{locations.map((location) => <option key={location} value={location} />)}</datalist></div>
+                                <div><FormField label="Location" icon="map" list="directory-locations" placeholder="City, area, or country" value={form.location} onChange={(event) => update('location', event.target.value)} /><datalist id="directory-locations">{locations.map((location) => <option key={location} value={location} />)}</datalist></div>
                                 <FormField as="select" label="Category" value={form.category} onChange={(event) => update('category', event.target.value)}>
                                     <option value="">All categories</option>
                                     {categories.map((category) => {
@@ -234,7 +234,7 @@ export default function DirectoryPage() {
 
                             <div className="mt-4 grid gap-3">
                                 <FormField label="Name or service" icon="search" placeholder="Search professionals or services" value={form.search} onChange={(event) => update('search', event.target.value)} />
-                                <div><FormField label="Location" icon="map" list="directory-locations-mobile" placeholder="City or neighbourhood" value={form.location} onChange={(event) => update('location', event.target.value)} /><datalist id="directory-locations-mobile">{locations.map((location) => <option key={location} value={location} />)}</datalist></div>
+                                <div><FormField label="Location" icon="map" list="directory-locations-mobile" placeholder="City, area, or country" value={form.location} onChange={(event) => update('location', event.target.value)} /><datalist id="directory-locations-mobile">{locations.map((location) => <option key={location} value={location} />)}</datalist></div>
                                 <FormField as="select" label="Category" value={form.category} onChange={(event) => update('category', event.target.value)}>
                                     <option value="">All categories</option>
                                     {categories.map((category) => {

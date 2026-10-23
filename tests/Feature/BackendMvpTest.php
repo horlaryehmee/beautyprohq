@@ -1157,6 +1157,22 @@ class BackendMvpTest extends TestCase
             ->assertJsonPath('data.referral_rewards_available', true);
     }
 
+    public function test_directory_location_matches_city_country_and_us_aliases(): void
+    {
+        [$lagos] = $this->provider('Lagos Studio', true, 'Victoria Island');
+        $lagos->update(['city' => 'Lagos', 'country' => 'Nigeria']);
+        [$american] = $this->provider('American Studio', true, 'Manhattan');
+        $american->update(['city' => 'New York', 'country' => 'United States']);
+
+        $this->getJson('/api/providers?location=Lagos')->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.slug', $lagos->slug);
+        foreach (['USA', 'America', 'United States'] as $term) {
+            $this->getJson('/api/providers?location='.urlencode($term))->assertOk()
+                ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.slug', $american->slug);
+        }
+        $this->getJson('/api/providers?search=Lagos')->assertOk()->assertJsonPath('meta.total', 1);
+    }
+
     public function test_unfiltered_directory_is_randomized_but_filtered_results_use_ranked_order(): void
     {
         $this->provider('Random Directory One', true, 'Lagos');
