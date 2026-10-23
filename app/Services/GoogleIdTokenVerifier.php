@@ -34,6 +34,7 @@ class GoogleIdTokenVerifier
 
     public function verify(#[\SensitiveParameter] string $token, string $clientId, string $nonce): array
     {
+        $stage = 'token_header';
         try {
             $segments = explode('.', $token);
             if (count($segments) !== 3) {
@@ -43,6 +44,7 @@ class GoogleIdTokenVerifier
             if (($header['alg'] ?? null) !== 'RS256' || ! is_string($header['kid'] ?? null)) {
                 throw new \UnexpectedValueException('Invalid signing algorithm or key.');
             }
+            $stage = 'signing_keys';
             $keys = $this->signingKeys();
             if (! isset($keys[$header['kid']])) {
                 // Refresh once on rotation, but limit arbitrary key IDs from flooding Google.
@@ -51,7 +53,9 @@ class GoogleIdTokenVerifier
                 }
                 $keys = $this->signingKeys(true);
             }
+            $stage = 'signature';
             $profile = (array) JWT::decode($token, $keys);
+            $stage = 'claims';
             if (! in_array($profile['iss'] ?? null, ['accounts.google.com', 'https://accounts.google.com'], true)
                 || ($profile['aud'] ?? null) !== $clientId
                 || (isset($profile['azp']) && $profile['azp'] !== $clientId)
@@ -76,6 +80,13 @@ class GoogleIdTokenVerifier
                     default => 'verification',
                 },
                 'exception_type' => get_class($exception),
+                'stage' => $stage,
+                'error_detail' => $exception instanceof \Error ? match (true) {
+                    str_contains($exception->getMessage(), 'Class') => 'missing_class',
+                    str_contains($exception->getMessage(), 'undefined function') => 'missing_function',
+                    str_contains($exception->getMessage(), 'undefined method') => 'missing_method',
+                    default => 'runtime_error',
+                } : null,
             ]);
             throw ValidationException::withMessages([
                 'credential' => 'Google sign-in could not be verified. Reload this page and try again, or use email and password.',
