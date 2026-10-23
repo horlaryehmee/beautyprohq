@@ -6,6 +6,7 @@ use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class GoogleIdTokenVerifier
@@ -13,6 +14,23 @@ class GoogleIdTokenVerifier
     private const CERTS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 
     private const CACHE_KEY = 'google_signin_jwks';
+
+    private function signingKeys(bool $refresh = false): array
+    {
+        $cached = Cache::get(self::CACHE_KEY);
+        if (! $refresh && is_array($cached)) {
+            return JWK::parseKeySet($cached, 'RS256');
+        }
+
+        $response = Http::acceptJson()->connectTimeout(5)->timeout(10)->get(self::CERTS_URL)->throw();
+        $jwks = $response->json();
+        $keys = JWK::parseKeySet($jwks, 'RS256');
+        preg_match('/max-age=(\d+)/i', (string) $response->header('Cache-Control'), $matches);
+        $ttl = max(1, min(86400, (int) ($matches[1] ?? 300) - (int) $response->header('Age')));
+        Cache::put(self::CACHE_KEY, $jwks, $ttl);
+
+        return $keys;
+    }
 
     public function verify(#[\SensitiveParameter] string $token, string $clientId, string $nonce): array
     {
@@ -25,19 +43,13 @@ class GoogleIdTokenVerifier
             if (($header['alg'] ?? null) !== 'RS256' || ! is_string($header['kid'] ?? null)) {
                 throw new \UnexpectedValueException('Invalid signing algorithm or key.');
             }
-            $jwks = Cache::get(self::CACHE_KEY);
-            $keys = is_array($jwks) ? JWK::parseKeySet($jwks, 'RS256') : [];
+            $keys = $this->signingKeys();
             if (! isset($keys[$header['kid']])) {
-                // Refresh on rotation, but prevent arbitrary key IDs from flooding Google.
+                // Refresh once on rotation, but limit arbitrary key IDs from flooding Google.
                 if (! Cache::add(self::CACHE_KEY.':refresh', true, 60)) {
                     throw new \UnexpectedValueException('Signing key unavailable.');
                 }
-                $response = Http::acceptJson()->connectTimeout(5)->timeout(10)->get(self::CERTS_URL)->throw();
-                $jwks = $response->json();
-                $keys = JWK::parseKeySet($jwks, 'RS256');
-                preg_match('/max-age=(\d+)/i', $response->header('Cache-Control'), $matches);
-                $ttl = max(1, min(86400, (int) ($matches[1] ?? 300) - (int) $response->header('Age')));
-                Cache::put(self::CACHE_KEY, $jwks, $ttl);
+                $keys = $this->signingKeys(true);
             }
             $profile = (array) JWT::decode($token, $keys);
             if (! in_array($profile['iss'] ?? null, ['accounts.google.com', 'https://accounts.google.com'], true)
@@ -52,8 +64,19 @@ class GoogleIdTokenVerifier
             }
 
             return $profile;
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // Do not include tokens or remote response bodies in logs or validation errors.
+            Log::channel('security')->warning('Google popup token verification failed.', [
+                'reason' => match (true) {
+                    $exception instanceof \Illuminate\Http\Client\ConnectionException => 'key_connection',
+                    $exception instanceof \Illuminate\Http\Client\RequestException => 'key_response',
+                    $exception instanceof \Firebase\JWT\SignatureInvalidException => 'signature',
+                    $exception instanceof \Firebase\JWT\ExpiredException => 'expired',
+                    $exception instanceof \UnexpectedValueException => 'claims_or_key',
+                    default => 'verification',
+                },
+                'exception_type' => get_class($exception),
+            ]);
             throw ValidationException::withMessages([
                 'credential' => 'Google sign-in could not be verified. Reload this page and try again, or use email and password.',
             ]);
