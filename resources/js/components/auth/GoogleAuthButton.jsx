@@ -42,11 +42,24 @@ export default function GoogleAuthButton({ href, label = 'Continue with Google',
         let active = true;
         const owner = {};
         const container = buttonRef.current;
+        let resizeObserver;
+        let mutationObserver;
+        const fitButton = () => {
+            const button = container?.firstElementChild;
+            if (!button) return;
+            const availableWidth = container.clientWidth;
+            const renderedWidth = Math.min(400, availableWidth);
+            button.style.width = `${renderedWidth}px`;
+            button.style.transformOrigin = 'left center';
+            button.style.transform = availableWidth > renderedWidth
+                ? `scaleX(${availableWidth / renderedWidth})`
+                : '';
+        };
         prepareGoogleIdentity().then((identity) => {
             if (!active || !container) return;
             identity.renderButton(container, {
                 type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
-                width: container.clientWidth || 300,
+                width: Math.min(400, container.clientWidth || 300),
                 click_listener: () => {
                     const { href: currentHref, onClick: currentOnClick } = latest.current;
                     currentOnClick?.();
@@ -71,11 +84,18 @@ export default function GoogleAuthButton({ href, label = 'Continue with Google',
                     });
                 },
             });
+            fitButton();
+            resizeObserver = new ResizeObserver(fitButton);
+            resizeObserver.observe(container);
+            mutationObserver = new MutationObserver(fitButton);
+            mutationObserver.observe(container, { childList: true });
             setReady(true);
         }).catch((failure) => active && setError(failure.message));
         return () => {
             active = false;
             clearGoogleAttempt(owner);
+            resizeObserver?.disconnect();
+            mutationObserver?.disconnect();
             container?.replaceChildren();
         };
     }, [enabled, popup]);
@@ -85,7 +105,7 @@ export default function GoogleAuthButton({ href, label = 'Continue with Google',
     return (
         <>
             {popup ? <div className="w-full space-y-2">
-                <div aria-label={label} className={`w-full [&>div]:!w-full [&>div>iframe]:!w-full ${busy ? 'pointer-events-none opacity-60' : ''}`} ref={buttonRef} />
+                <div aria-label={label} className={`w-full ${busy ? 'pointer-events-none opacity-60' : ''}`} ref={buttonRef} />
                 {(!ready || busy) && !error && <p role="status" className="text-center text-xs text-stone-500">{busy ? 'Signing in…' : 'Loading Google sign-in…'}</p>}
                 {error && <div role="alert" className="text-center text-xs text-rose-700">{error} <button className="underline" type="button" onClick={() => window.location.reload()}>Reload to retry</button></div>}
             </div> : <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-semibold text-plum-950 shadow-sm transition hover:border-stone-400 hover:bg-stone-50" href={href} onClick={onClick}>
