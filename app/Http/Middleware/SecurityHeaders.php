@@ -45,15 +45,15 @@ class SecurityHeaders
     private function contentSecurityPolicy(Request $request, Response $response): string
     {
         $nonce = Vite::cspNonce();
-        $scriptSources = ["'self'"];
-        $styleSources = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
+        $scriptSources = ["'self'", 'https://accounts.google.com/gsi/client'];
+        $styleSources = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://accounts.google.com/gsi/style'];
 
         if ($nonce) {
             $scriptSources[] = "'nonce-{$nonce}'";
         }
         $scriptSources = [...$scriptSources, ...$this->inlineScriptHashes($response)];
 
-        $connectSources = ["'self'"];
+        $connectSources = ["'self'", 'https://accounts.google.com/gsi/'];
         if (app()->isLocal()) {
             $viteOrigins = $this->localViteOrigins();
             $scriptSources = [...$scriptSources, "'unsafe-eval'", ...$viteOrigins['http']];
@@ -73,7 +73,7 @@ class SecurityHeaders
             "img-src 'self' https: data: blob:",
             "media-src 'self' https: data: blob:",
             'connect-src '.implode(' ', $connectSources),
-            "frame-src 'self' https://www.google.com https://maps.google.com",
+            "frame-src 'self' https://www.google.com https://maps.google.com https://accounts.google.com/gsi/",
             "worker-src 'self' blob:",
             "manifest-src 'self'",
         ];

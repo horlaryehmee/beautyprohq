@@ -25,6 +25,11 @@ class GoogleOAuthService
         return filled($this->clientId()) && filled($this->clientSecret());
     }
 
+    public function popupEnabled(): bool
+    {
+        return $this->enabled() && $this->setting('google.popup_enabled', '0') === '1';
+    }
+
     public function clientId(): ?string
     {
         return $this->setting('google.client_id') ?: config('services.google.client_id');

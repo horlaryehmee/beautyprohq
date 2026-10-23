@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import api, { unwrap } from '../../lib/api';
+import { useEffect, useRef, useState } from 'react';
+import api, { apiError, unwrap } from '../../lib/api';
+import { clearGoogleAttempt, prepareGoogleIdentity, selectGoogleAttempt } from '../../lib/googleIdentity';
 
 function GoogleMark() {
     return (
@@ -14,24 +15,83 @@ function GoogleMark() {
 
 export default function GoogleAuthButton({ href, label = 'Continue with Google', note, dividerLabel = 'or use email', onClick }) {
     const [enabled, setEnabled] = useState(false);
+    const [popup, setPopup] = useState(false);
+    const [error, setError] = useState('');
+    const [ready, setReady] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const buttonRef = useRef(null);
+    const latest = useRef({ href, onClick });
+    useEffect(() => { latest.current = { href, onClick }; }, [href, onClick]);
 
     useEffect(() => {
         let active = true;
         api.get('/auth/google/status')
-            .then((response) => active && setEnabled(Boolean(unwrap(response)?.enabled)))
+            .then((response) => {
+                if (!active) return;
+                const settings = unwrap(response);
+                setEnabled(Boolean(settings?.enabled));
+                setPopup(Boolean(settings?.popup_enabled));
+            })
             .catch(() => active && setEnabled(false));
 
         return () => { active = false; };
     }, []);
 
+    useEffect(() => {
+        if (!enabled || !popup) return;
+        let active = true;
+        const owner = {};
+        const container = buttonRef.current;
+        prepareGoogleIdentity().then((identity) => {
+            if (!active || !container) return;
+            identity.renderButton(container, {
+                type: 'standard', theme: 'outline', size: 'large', text: 'continue_with',
+                width: Math.min(400, container.clientWidth || 300),
+                click_listener: () => {
+                    const { href: currentHref, onClick: currentOnClick } = latest.current;
+                    currentOnClick?.();
+                    const parameters = new URL(currentHref, window.location.origin).searchParams;
+                    const context = Object.fromEntries(['intent', 'role', 'plan', 'redirect']
+                        .filter((key) => parameters.has(key)).map((key) => [key, parameters.get(key)]));
+                    selectGoogleAttempt(owner, async ({ credential }) => {
+                        if (!active) return;
+                        setBusy(true);
+                        setError('');
+                        try {
+                            const result = unwrap(await api.post('/auth/google/popup', { ...context, intent: context.intent || 'login', credential }));
+                            window.location.assign(result.redirect);
+                        } catch (failure) {
+                            if (active) {
+                                setError(failure.response?.status === 406
+                                    ? 'The hosting firewall blocked Google sign-in. Please use email and password.'
+                                    : apiError(failure).message);
+                                setBusy(false);
+                            }
+                        }
+                    });
+                },
+            });
+            setReady(true);
+        }).catch((failure) => active && setError(failure.message));
+        return () => {
+            active = false;
+            clearGoogleAttempt(owner);
+            container?.replaceChildren();
+        };
+    }, [enabled, popup]);
+
     if (!enabled) return null;
 
     return (
         <>
-            <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-semibold text-plum-950 shadow-sm transition hover:border-stone-400 hover:bg-stone-50" href={href} onClick={onClick}>
+            {popup ? <div className="space-y-2">
+                <div aria-label={label} className={busy ? 'pointer-events-none opacity-60' : ''} ref={buttonRef} />
+                {(!ready || busy) && !error && <p role="status" className="text-center text-xs text-stone-500">{busy ? 'Signing in…' : 'Loading Google sign-in…'}</p>}
+                {error && <div role="alert" className="text-center text-xs text-rose-700">{error} <button className="underline" type="button" onClick={() => window.location.reload()}>Reload to retry</button></div>}
+            </div> : <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-semibold text-plum-950 shadow-sm transition hover:border-stone-400 hover:bg-stone-50" href={href} onClick={onClick}>
                 <GoogleMark />
                 {label}
-            </a>
+            </a>}
             {note && <p className="text-center text-[11px] leading-5 text-stone-500">{note}</p>}
             {dividerLabel && <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-widest text-stone-400"><span className="h-px flex-1 bg-stone-200" />{dividerLabel}<span className="h-px flex-1 bg-stone-200" /></div>}
         </>

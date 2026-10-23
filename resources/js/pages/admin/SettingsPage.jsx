@@ -54,7 +54,7 @@ export default function AdminSettingsPage() {
     const [brandingForm, setBrandingForm] = useState({ site_name: 'BeautyPro HQ', logo_url: '/brand/bphq-logo-transparent.svg', email_logo_url: '/brand/bphq-logo-transparent.svg', favicon_url: '/brand/bphq-logo-transparent.svg', desktop_header_height: 112, mobile_header_height: 96 });
     const [currencyForm, setCurrencyForm] = useState({ default: 'NGN', rates: {} });
     const [featuresForm, setFeaturesForm] = useState({ provider_whatsapp_notifications: false, coming_soon: false });
-    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, client_id: '', client_secret: '' });
+    const [googleAuthForm, setGoogleAuthForm] = useState({ enabled: false, popup_enabled: false, client_id: '', client_secret: '' });
     const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', whatsapp_from: '', provider_booking_content_sid: '', client_confirmation_content_sid: '', client_reminder_content_sid: '', reminder_hours_before: 24 });
     const [smtpForm, setSmtpForm] = useState({ enabled: false, mailer: 'smtp', host: '', port: 587, username: '', password: '', encryption: 'tls', from_address: '', from_name: '' });
     const [smtpTestEmail, setSmtpTestEmail] = useState('');
@@ -153,6 +153,7 @@ export default function AdminSettingsPage() {
         if (!data || !Object.keys(data).length) return;
         setGoogleAuthForm({
             enabled: Boolean(data.enabled),
+            popup_enabled: Boolean(data.popup_enabled),
             client_id: data.client_id ?? '',
             client_secret: '',
         });
@@ -684,6 +685,16 @@ export default function AdminSettingsPage() {
                                 type="checkbox"
                             />
                             <span><span className="block text-sm font-bold text-slate-800">Enable Google authentication</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">Shows Google buttons on both registration and login pages.</span></span>
+                        </label>
+
+                        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <input
+                                checked={googleAuthForm.popup_enabled}
+                                className="mt-0.5 size-4 accent-fuchsia-700"
+                                onChange={(event) => setGoogleAuthForm((current) => ({ ...current, popup_enabled: event.target.checked }))}
+                                type="checkbox"
+                            />
+                            <span><span className="block text-sm font-bold text-slate-800">Use Google popup sign-in</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">Sign in without leaving this page. Add this site's Authorized JavaScript origin in Google Cloud before enabling. Turn off to restore redirect sign-in.</span></span>
                         </label>
 
                         <Field label="Google OAuth client ID">

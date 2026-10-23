@@ -60,6 +60,9 @@ Route::get('/coming-soon', fn () => response()
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.redirect');
+// Same-origin JSON requests retain web session and CSRF protection.
+Route::post('/api/auth/google/popup/start', [AuthController::class, 'startGooglePopup'])->middleware('throttle:login');
+Route::post('/api/auth/google/popup', [AuthController::class, 'handleGooglePopup'])->middleware('throttle:login');
 Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])
     ->middleware('throttle:sensitive')
     ->name('auth.google.callback');

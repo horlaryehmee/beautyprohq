@@ -19,6 +19,7 @@ class GoogleAuthSettingsController extends Controller
     {
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
+            'popup_enabled' => ['sometimes', 'boolean'],
             'client_id' => ['nullable', 'string', 'max:500'],
             'client_secret' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -39,6 +40,9 @@ class GoogleAuthSettingsController extends Controller
             AppSetting::setValue('google.client_secret', trim($validated['client_secret']), true);
         }
         AppSetting::setValue('google.enabled', $validated['enabled'] ? '1' : '0');
+        if (array_key_exists('popup_enabled', $validated)) {
+            AppSetting::setValue('google.popup_enabled', $validated['popup_enabled'] ? '1' : '0');
+        }
 
         return $this->success($this->payload($google), 'Google authentication settings saved.');
     }
@@ -47,6 +51,7 @@ class GoogleAuthSettingsController extends Controller
     {
         return [
             'enabled' => $google->enabled(),
+            'popup_enabled' => $google->popupEnabled(),
             'configured' => $google->configured(),
             'client_id' => $google->clientId(),
             'client_secret_configured' => filled($google->clientSecret()),

@@ -11,6 +11,7 @@ use App\Notifications\EmailChangeVerificationNotification;
 use App\Notifications\PlatformUpdateNotification;
 use App\Notifications\TwoFactorCodeNotification;
 use App\Services\AccountDeletionService;
+use App\Services\GoogleIdTokenVerifier;
 use App\Services\GoogleOAuthService;
 use App\Support\CurrencyResolver;
 use Illuminate\Auth\Events\PasswordReset;
@@ -36,7 +37,53 @@ class AuthController extends Controller
 {
     public function googleStatus(GoogleOAuthService $google): JsonResponse
     {
-        return $this->success(['enabled' => $google->enabled()]);
+        return $this->success([
+            'enabled' => $google->enabled(),
+            'popup_enabled' => $google->popupEnabled(),
+        ])->header('Cache-Control', 'no-store, private');
+    }
+
+    public function startGooglePopup(Request $request, GoogleOAuthService $google): JsonResponse
+    {
+        abort_unless($google->popupEnabled(), 403, 'Google popup sign-in is not enabled.');
+        $nonce = Str::random(64);
+        $request->session()->put('google_popup', ['nonce' => $nonce, 'started_at' => now()->timestamp]);
+
+        return $this->success(['nonce' => $nonce, 'client_id' => $google->clientId()])
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    public function handleGooglePopup(Request $request, GoogleOAuthService $google, GoogleIdTokenVerifier $verifier): JsonResponse
+    {
+        abort_unless($google->popupEnabled(), 403, 'Google popup sign-in is not enabled.');
+        $validated = $request->validate([
+            'credential' => ['required', 'string', 'max:12000'],
+            'intent' => ['required', Rule::in(['login', 'register'])],
+            'role' => ['required_if:intent,register', 'nullable', Rule::in(['provider', 'customer'])],
+            'plan' => ['nullable', Rule::in(['free', 'paid'])],
+            'redirect' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $challenge = $request->session()->get('google_popup');
+        abort_unless(is_array($challenge) && filled($challenge['nonce'] ?? null)
+            && now()->timestamp - (int) ($challenge['started_at'] ?? 0) <= 600,
+            422, 'Google sign-in expired. Reload this page and try again.');
+
+        $profile = $verifier->verify($validated['credential'], (string) $google->clientId(), $challenge['nonce']);
+        // Cache::add is atomic: concurrent callbacks cannot consume the nonce twice.
+        abort_unless(Cache::add('google_popup_used:'.hash('sha256', $challenge['nonce']), true, now()->addMinutes(11)),
+            422, 'This Google sign-in has already been used. Reload this page and try again.');
+        $request->session()->forget('google_popup');
+        $pending = [
+            'intent' => $validated['intent'],
+            'role' => $validated['role'] ?? null,
+            'plan' => $validated['plan'] ?? 'free',
+            'redirect' => $this->safeFrontendRedirect($validated['redirect'] ?? null),
+            'currency' => CurrencyResolver::currencyForRequest($request),
+        ];
+        $result = $this->finishGoogleAuthentication($request, $profile, $pending);
+
+        return $this->success(['redirect' => $result->getTargetUrl()])
+            ->header('Cache-Control', 'no-store, private');
     }
 
     public function redirectToGoogle(Request $request, GoogleOAuthService $google): RedirectResponse
@@ -99,6 +146,20 @@ class AuthController extends Controller
 
         try {
             $googleProfile = $google->userFromCode((string) $request->input('code'), (string) $pending['code_verifier']);
+
+            return $this->finishGoogleAuthentication($request, $googleProfile, $pending);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $this->googleErrorRedirect('Google sign-in could not be completed. Check the configuration and try again.', $errorPath);
+        }
+    }
+
+    private function finishGoogleAuthentication(Request $request, array $googleProfile, array $pending): RedirectResponse
+    {
+        $errorPath = ($pending['intent'] ?? 'login') === 'register' ? '/register' : '/login';
+
+        try {
             $email = Str::lower(trim((string) $googleProfile['email']));
             $googleId = (string) $googleProfile['sub'];
             $userByGoogle = User::where('google_id', $googleId)->first();
