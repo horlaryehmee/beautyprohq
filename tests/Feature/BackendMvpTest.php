@@ -1723,6 +1723,22 @@ class BackendMvpTest extends TestCase
         $this->assertFalse($ids->contains($pendingProvider->id));
     }
 
+    public function test_admin_directory_search_matches_city_and_country_codes(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        [$lagos] = $this->provider('Lagos Admin Studio', true, 'Lekki');
+        $lagos->update(['city' => 'Lagos', 'country' => 'NG']);
+        [$uk] = $this->provider('London Admin Studio', true, 'West End, GB');
+        $uk->update(['city' => 'London', 'country' => null]);
+
+        foreach (['Nigeria', 'Lagos'] as $term) {
+            $this->getJson('/api/admin/directory?search='.urlencode($term))->assertOk()
+                ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $lagos->id);
+        }
+        $this->getJson('/api/admin/directory?search=United%20Kingdom')->assertOk()
+            ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $uk->id);
+    }
+
     public function test_admin_can_decline_provider_account_access_without_changing_blue_tick(): void
     {
         Notification::fake();

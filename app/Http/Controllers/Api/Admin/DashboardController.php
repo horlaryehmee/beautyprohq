@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Notifications\PlatformUpdateNotification;
 use App\Services\AccountDeletionService;
+use App\Support\CountrySearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -483,13 +484,18 @@ class DashboardController extends Controller
             ->when(($validated['account_approval'] ?? null) === 'declined', fn ($q) => $q->whereNotNull('account_declined_at')->whereNull('account_approved_at'))
             ->when(array_key_exists('is_listed', $validated) && $validated['is_listed'] !== null, fn ($q) => $q->where('is_listed', $request->boolean('is_listed')))
             ->when($validated['category_id'] ?? null, fn ($q) => $q->where('provider_category_id', $validated['category_id']))
-            ->when($validated['search'] ?? null, fn ($q, $search) => $q->where(fn ($x) => $x
-                ->where('profession', 'like', "%{$search}%")
-                ->orWhere('location', 'like', "%{$search}%")
-                ->orWhere('imported_email', 'like', "%{$search}%")
-                ->orWhere('contact_email', 'like', "%{$search}%")
-                ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
-            ))
+            ->when($validated['search'] ?? null, function ($query, $search): void {
+                $query->where(function ($match) use ($search): void {
+                    $match->where('profession', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%")
+                        ->orWhere('country', 'like', "%{$search}%")
+                        ->orWhere('imported_email', 'like', "%{$search}%")
+                        ->orWhere('contact_email', 'like', "%{$search}%")
+                        ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+                    CountrySearch::addConditions($match, $search);
+                });
+            })
             ->when($validated['date_from'] ?? null, fn ($q, $date) => $q->where('created_at', '>=', $date.' 00:00:00'))
             ->when($validated['date_to'] ?? null, fn ($q, $date) => $q->where('created_at', '<=', $date.' 23:59:59'))
             ->orderBy($validated['sort'] ?? 'created_at', $validated['direction'] ?? 'desc')

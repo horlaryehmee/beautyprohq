@@ -385,7 +385,7 @@ export default function AdminDirectoryPage() {
                             <SearchInput
                                 className="min-w-0 flex-1"
                                 onChange={(event) => setQuery(event.target.value)}
-                                placeholder="Search provider, profession or location"
+                                placeholder="Search provider, profession, city or country"
                                 value={query}
                             />
                             <Button className="w-full whitespace-nowrap lg:w-auto" onClick={() => setAdvancedOpen((open) => !open)} type="button" variant="ghost">
